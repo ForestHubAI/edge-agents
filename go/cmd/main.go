@@ -1,0 +1,217 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+
+	"fh-backend/pkg/api"
+	"fh-backend/pkg/engine"
+	"fh-backend/pkg/engine/backend"
+	"fh-backend/pkg/engine/build"
+	"fh-backend/pkg/engine/driver"
+	"fh-backend/pkg/engine/logging"
+	"fh-backend/pkg/engine/memory"
+	"fh-backend/pkg/engine/websearch"
+	"fh-backend/pkg/llmproxy"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func main() {
+	cfg, err := LoadConfig()
+	if err != nil {
+		logging.Logger.Fatal().Err(err).Msg("loading configuration")
+	}
+
+	// Create backend client
+	backendClient := backend.NewClient(cfg.BackendURL, cfg.Secret)
+
+	// Create LLM provider registry and client. Locally-configured providers
+	// take precedence; any provider the backend exposes that the engine lacks
+	// a key for is registered as a backend-routed stand-in.
+	loadCtx, cancelLoad := context.WithTimeout(context.Background(), backend.ProviderLoadTimeout)
+	providers := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
+	cancelLoad() // Release loadCtx resources
+	llmClient := llmproxy.NewClient(providers)
+
+	// Only normalise if the operator actually opted into file mode. An empty
+	// path stays empty so the deploy handler can surface a clear "not configured"
+	// error instead of trying to read the process working directory.
+	workflowFile := cfg.WorkflowFile
+	if workflowFile != "" {
+		if abs, err := filepath.Abs(workflowFile); err == nil {
+			workflowFile = abs
+		}
+	}
+
+	// Load device manifest and build driver registry
+	manifest, err := loadManifest(cfg.DeviceManifestFile)
+	if err != nil {
+		logging.Logger.Fatal().Err(err).Msg("loading driver manifest")
+	}
+	drivers, err := driver.NewRegistry(&manifest)
+	if err != nil {
+		logging.Logger.Fatal().Err(err).Msg("initialising driver registry")
+	}
+
+	// Memory subsystem: backed by the configured local dir, syncs through
+	// the same backend client used for RAG/logs/etc. Restore is invoked on
+	// every Build (deploy or initial), so no eager call here.
+	memoryManager := memory.NewManager(cfg.MemoryDir, backendClient)
+
+	// Optional web search provider. Built eagerly so a bad provider name fails
+	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
+	// in a deployed workflow fails the build with a clear message.
+	var webSearchProvider websearch.Provider
+	if cfg.WebSearch.APIKey != "" {
+		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
+		if err != nil {
+			logging.Logger.Fatal().Err(err).Msg("configuring web search provider")
+		}
+		webSearchProvider = p
+		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
+	}
+
+	// Create builder and engine
+	builder := &build.Builder{
+		Drivers:   drivers,
+		Backend:   backendClient,
+		LLM:       llmClient,
+		Memory:    memoryManager,
+		WebSearch: webSearchProvider,
+	}
+	eng := &engine.Engine{
+		Secret:  cfg.Secret,
+		Builder: builder.Build,
+	}
+
+	// Deploy workflow from file if configured
+	if workflowFile != "" {
+		wfData, err := os.ReadFile(workflowFile)
+		if err != nil {
+			logging.Logger.Fatal().Err(err).Msg("reading workflow file")
+		}
+		var wf api.Workflow
+		if err := json.Unmarshal(wfData, &wf); err != nil {
+			logging.Logger.Fatal().Err(err).Msg("parsing workflow file")
+		}
+		nm, err := loadNetworkManifest(cfg.NetworkManifestFile)
+		if err != nil {
+			logging.Logger.Fatal().Err(err).Msg("loading network manifest")
+		}
+		if err := eng.Deploy(&wf, nm); err != nil {
+			logging.Logger.Fatal().Err(err).Msg("deploying workflow from file")
+		}
+	}
+
+	// HTTP surface is the oapi-codegen strict server generated from
+	// openapi.yaml. The bearer-secret check runs as a strict middleware so
+	// it applies uniformly to every operation.
+	r := chi.NewRouter()
+	strictHandler := api.NewStrictHandler(
+		engine.NewStrictServer(eng),
+		[]api.StrictMiddlewareFunc{engine.AuthMiddleware(cfg.Secret)},
+	)
+	api.HandlerFromMux(strictHandler, r)
+
+	server := &http.Server{Addr: cfg.ListenAddr, Handler: r}
+
+	// Boot-time self-registration: BootCallbackWithRetry runs in its own
+	// goroutine so a cold-started backend does not delay the listen-port.
+	// Once the boot callback succeeds, HeartbeatLoop takes over for periodic
+	// liveness. Both share liveCtx, which is canceled on SIGTERM.
+	liveCtx, cancelLive := context.WithCancel(context.Background())
+	defer cancelLive()
+	// PublicAddress is optional. Cloud-mode engines sit behind NAT and leave it
+	// empty; the backend then rejects push deploys for this agent but still
+	// tracks liveness through heartbeats and accepts bundle deploys.
+	if backendClient != nil {
+		go func() {
+			// Manifest loading already succeeded above (otherwise main would
+			// have logged Fatal), so the boot status is unconditionally online.
+			// A future failure path that still wants to come up would call
+			// BootCallbackWithRetry with status="booterror" and an error
+			// description instead.
+			backendClient.BootCallbackWithRetry(liveCtx, cfg.PublicAddress, "online", &manifest, nil)
+			// BootCallbackWithRetry returns either on first success or on
+			// context cancel. If liveCtx is already canceled there is no
+			// point starting the heartbeat loop.
+			if liveCtx.Err() != nil {
+				return
+			}
+			backendClient.HeartbeatLoop(liveCtx, cfg.PublicAddress)
+		}()
+	} else {
+		logging.Logger.Info().Msg("FH_BACKEND_URL or ENGINE_SECRET not set, skipping self-registration")
+	}
+
+	// Graceful shutdown: cancel the boot+heartbeat goroutine, then tear down
+	// engine + drivers + HTTP server. The backend marks the agent offline once
+	// last_seen_at crosses the online threshold; no explicit deactivate call
+	// is needed.
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		logging.Logger.Info().Msg("shutting down")
+		cancelLive()
+		eng.Stop()
+		if err := drivers.CloseAll(); err != nil {
+			logging.Logger.Warn().Err(err).Msg("closing driver registry")
+		}
+		server.Close()
+	}()
+
+	logging.Logger.Info().Str("addr", cfg.ListenAddr).Str("config-file", workflowFile).Msg("engine server starting")
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		logging.Logger.Fatal().Err(err).Msg("server error")
+	}
+}
+
+// loadManifest reads a JSON DriverManifest from the given path. An empty path
+// returns a minimal default suitable for local dev and CI. A missing file at
+// an explicit path is a fatal misconfiguration.
+func loadManifest(path string) (domain.DeviceManifest, error) {
+	if path == "" {
+		return domain.DeviceManifest{
+			GPIOs: map[string]domain.GPIOConfig{
+				"gpiochip0": {Chip: "/dev/gpiochip0"},
+			},
+		}, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return domain.DeviceManifest{}, err
+	}
+	var m domain.DeviceManifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		return domain.DeviceManifest{}, err
+	}
+	return m, nil
+}
+
+// loadNetworkManifest reads a pre-resolved network manifest from path. An
+// empty path is the only "optional" signal — the engine boots without broker
+// connections and waits for the next /deploy push to supply the manifest.
+// A non-empty path that points at a missing or malformed file is a fatal
+// misconfiguration (the compose file mounted nothing where something was
+// expected); matches the strictness of loadManifest above.
+func loadNetworkManifest(path string) (*api.NetworkManifest, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var nm api.NetworkManifest
+	if err := json.Unmarshal(data, &nm); err != nil {
+		return nil, err
+	}
+	return &nm, nil
+}
