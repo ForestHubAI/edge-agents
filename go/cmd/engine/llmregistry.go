@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"fh-backend/pkg/engine/backend"
-	"fh-backend/pkg/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/engine/backend"
+	"github.com/ForestHubAI/fh-core/go/engine/logging"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 

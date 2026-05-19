@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -17,12 +17,12 @@ const serialReceiveOutID = "output"
 // channel, emitting the line (terminator stripped) to its output binding.
 type OnSerialReceive struct {
 	engine.TriggerNode
-	binding  api.OutputBinding
+	binding  workflow.OutputBinding
 	incoming <-chan string
 }
 
 // NewOnSerialReceive creates a new OnSerialReceive trigger.
-func NewOnSerialReceive(id string, uart *channel.UART, binding api.OutputBinding) *OnSerialReceive {
+func NewOnSerialReceive(id string, uart *channel.UART, binding workflow.OutputBinding) *OnSerialReceive {
 	return &OnSerialReceive{
 		TriggerNode: engine.NewTriggerNode(id),
 		binding:     binding,
@@ -30,10 +30,10 @@ func NewOnSerialReceive(id string, uart *channel.UART, binding api.OutputBinding
 	}
 }
 
-func (t *OnSerialReceive) Outputs() map[string]api.DataType {
+func (t *OnSerialReceive) Outputs() map[string]workflow.DataType {
 	return engine.FilterEmitted(
-		map[string]api.DataType{serialReceiveOutID: api.String},
-		map[string]api.OutputBinding{serialReceiveOutID: t.binding},
+		map[string]workflow.DataType{serialReceiveOutID: workflow.String},
+		map[string]workflow.OutputBinding{serialReceiveOutID: t.binding},
 	)
 }
 

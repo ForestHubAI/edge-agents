@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"fh-backend/pkg/api"
-	"fh-backend/pkg/engine"
-	"fh-backend/pkg/engine/backend"
-	"fh-backend/pkg/engine/build"
-	"fh-backend/pkg/engine/driver"
-	"fh-backend/pkg/engine/logging"
-	"fh-backend/pkg/engine/memory"
-	"fh-backend/pkg/engine/websearch"
-	"fh-backend/pkg/llmproxy"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/fh-core/go/engine/backend"
+	"github.com/ForestHubAI/fh-core/go/engine/build"
+	"github.com/ForestHubAI/fh-core/go/engine/driver"
+	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/engine/memory"
+	"github.com/ForestHubAI/fh-core/go/engine/websearch"
+	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -96,7 +96,7 @@ func main() {
 		if err != nil {
 			logging.Logger.Fatal().Err(err).Msg("reading workflow file")
 		}
-		var wf api.Workflow
+		var wf workflow.Workflow
 		if err := json.Unmarshal(wfData, &wf); err != nil {
 			logging.Logger.Fatal().Err(err).Msg("parsing workflow file")
 		}
@@ -113,11 +113,11 @@ func main() {
 	// openapi.yaml. The bearer-secret check runs as a strict middleware so
 	// it applies uniformly to every operation.
 	r := chi.NewRouter()
-	strictHandler := api.NewStrictHandler(
+	strictHandler := engineapi.NewStrictHandler(
 		engine.NewStrictServer(eng),
-		[]api.StrictMiddlewareFunc{engine.AuthMiddleware(cfg.Secret)},
+		[]engineapi.StrictMiddlewareFunc{engine.AuthMiddleware(cfg.Secret)},
 	)
-	api.HandlerFromMux(strictHandler, r)
+	engineapi.HandlerFromMux(strictHandler, r)
 
 	server := &http.Server{Addr: cfg.ListenAddr, Handler: r}
 
@@ -201,7 +201,7 @@ func loadManifest(path string) (domain.DeviceManifest, error) {
 // A non-empty path that points at a missing or malformed file is a fatal
 // misconfiguration (the compose file mounted nothing where something was
 // expected); matches the strictness of loadManifest above.
-func loadNetworkManifest(path string) (*api.NetworkManifest, error) {
+func loadNetworkManifest(path string) (*engineapi.NetworkManifest, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -209,7 +209,7 @@ func loadNetworkManifest(path string) (*api.NetworkManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nm api.NetworkManifest
+	var nm engineapi.NetworkManifest
 	if err := json.Unmarshal(data, &nm); err != nil {
 		return nil, err
 	}

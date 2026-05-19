@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,15 +13,15 @@ func TestTickerInterval(t *testing.T) {
 	tests := []struct {
 		name  string
 		value int
-		unit  api.TickerNodeArgumentsIntervalUnit
+		unit  workflow.TickerNodeArgumentsIntervalUnit
 		want  time.Duration
 	}{
-		{"seconds", 5, api.Seconds, 5 * time.Second},
-		{"minutes", 2, api.Minutes, 2 * time.Minute},
-		{"hours", 1, api.Hours, time.Hour},
-		{"milliseconds (explicit)", 500, api.Milliseconds, 500 * time.Millisecond},
+		{"seconds", 5, workflow.Seconds, 5 * time.Second},
+		{"minutes", 2, workflow.Minutes, 2 * time.Minute},
+		{"hours", 1, workflow.Hours, time.Hour},
+		{"milliseconds (explicit)", 500, workflow.Milliseconds, 500 * time.Millisecond},
 		{"unknown unit defaults to milliseconds", 250, "fortnights", 250 * time.Millisecond},
-		{"zero value", 0, api.Seconds, 0},
+		{"zero value", 0, workflow.Seconds, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -32,14 +32,14 @@ func TestTickerInterval(t *testing.T) {
 
 func TestJSONTypeFor(t *testing.T) {
 	tests := []struct {
-		dt   api.DataType
+		dt   workflow.DataType
 		want string
 	}{
-		{api.Int, "integer"},
-		{api.Float, "number"},
-		{api.Bool, "boolean"},
-		{api.String, "string"},
-		{api.DataType("unknown"), "string"}, // default fallback
+		{workflow.Int, "integer"},
+		{workflow.Float, "number"},
+		{workflow.Bool, "boolean"},
+		{workflow.String, "string"},
+		{workflow.DataType("unknown"), "string"}, // default fallback
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.dt), func(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine/backend"
 
@@ -19,7 +19,7 @@ import (
 )
 
 // snapshot helper: serve a static memory snapshot.
-func snapshotServer(t *testing.T, snapshot []api.MemoryFile) (*httptest.Server, *int32) {
+func snapshotServer(t *testing.T, snapshot []workflow.MemoryFile) (*httptest.Server, *int32) {
 	t.Helper()
 	var puts int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +41,7 @@ func snapshotServer(t *testing.T, snapshot []api.MemoryFile) (*httptest.Server, 
 
 func TestManager_RestoreAndRead(t *testing.T) {
 	max := 2048
-	srv, _ := snapshotServer(t, []api.MemoryFile{
+	srv, _ := snapshotServer(t, []workflow.MemoryFile{
 		{UID: "uid-notes", Name: "notes", Description: "scratch pad", Content: "hello", MaxSizeBytes: &max},
 		{UID: "uid-log", Name: "log", Description: "session log", Content: ""},
 	})
@@ -65,7 +65,7 @@ func TestManager_RestoreAndRead(t *testing.T) {
 }
 
 func TestManager_Append_PushesToBackend(t *testing.T) {
-	srv, puts := snapshotServer(t, []api.MemoryFile{
+	srv, puts := snapshotServer(t, []workflow.MemoryFile{
 		{UID: "uid-log", Name: "log", Description: "log file", Content: "first line\n"},
 	})
 	defer srv.Close()
@@ -81,7 +81,7 @@ func TestManager_Append_PushesToBackend(t *testing.T) {
 }
 
 func TestManager_Edit_FoundAndMissing(t *testing.T) {
-	srv, _ := snapshotServer(t, []api.MemoryFile{
+	srv, _ := snapshotServer(t, []workflow.MemoryFile{
 		{UID: "uid-notes", Name: "notes", Description: "n", Content: "prefers tea"},
 	})
 	defer srv.Close()
@@ -99,7 +99,7 @@ func TestManager_Edit_FoundAndMissing(t *testing.T) {
 
 func TestManager_Append_SizeCap(t *testing.T) {
 	max := 5
-	srv, _ := snapshotServer(t, []api.MemoryFile{
+	srv, _ := snapshotServer(t, []workflow.MemoryFile{
 		{UID: "uid-tiny", Name: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max},
 	})
 	defer srv.Close()
@@ -134,7 +134,7 @@ func TestManager_NoBackend_Restore(t *testing.T) {
 }
 
 func TestManager_BackendDown_AppendFails(t *testing.T) {
-	srv, _ := snapshotServer(t, []api.MemoryFile{
+	srv, _ := snapshotServer(t, []workflow.MemoryFile{
 		{UID: "uid-notes", Name: "notes", Description: "n", Content: "x"},
 	})
 	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))

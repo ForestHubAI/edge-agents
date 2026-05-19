@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/logging"
 )
 
@@ -13,7 +14,7 @@ import (
 // can shrink it without forcing real-time delays.
 var retryInterval = 30 * time.Second
 
-// bootCallbackBody mirrors api.AgentBootCallback. The JSON tags on
+// bootCallbackBody mirrors workflow.AgentBootCallback. The JSON tags on
 // domain.DeviceManifest match the wire shape the backend expects, so we
 // don't need a separate api-typed conversion here. Address is omitempty so
 // Cloud-mode engines behind NAT can omit it; the backend then keeps the
@@ -21,7 +22,7 @@ var retryInterval = 30 * time.Second
 type bootCallbackBody struct {
 	Address              string                 `json:"address,omitempty"`
 	Status               string                 `json:"status"`
-	LoadedDeviceManifest *domain.DeviceManifest `json:"loadedDeviceManifest,omitempty"`
+	LoadedDeviceManifest *engine.DeviceManifest `json:"loadedDeviceManifest,omitempty"`
 	Error                *string                `json:"error,omitempty"`
 }
 
@@ -31,7 +32,7 @@ type bootCallbackBody struct {
 // loadedManifest may be nil when status is "booterror" (e.g. the engine
 // could not parse its manifest at all). errorMsg is populated only on
 // "booterror" with a human-readable failure detail.
-func (c *Client) BootCallback(ctx context.Context, publicAddress, status string, loadedManifest *domain.DeviceManifest, errorMsg *string) error {
+func (c *Client) BootCallback(ctx context.Context, publicAddress, status string, loadedManifest *engine.DeviceManifest, errorMsg *string) error {
 	body := bootCallbackBody{
 		Address:              publicAddress,
 		Status:               status,
@@ -46,7 +47,7 @@ func (c *Client) BootCallback(ctx context.Context, publicAddress, status string,
 // its own BootCallbackTimeout so a wedged attempt cannot stall the loop.
 // Engines that boot before the backend is reachable use this to become
 // self-healing — the registration eventually lands once the backend is up.
-func (c *Client) BootCallbackWithRetry(ctx context.Context, publicAddress, status string, loadedManifest *domain.DeviceManifest, errorMsg *string) {
+func (c *Client) BootCallbackWithRetry(ctx context.Context, publicAddress, status string, loadedManifest *engine.DeviceManifest, errorMsg *string) {
 	attempt := 0
 	for {
 		attempt++

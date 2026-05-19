@@ -12,7 +12,7 @@ import (
 // a var (not const) so tests can shrink it without forcing real-time delays.
 var heartbeatInterval = HeartbeatInterval
 
-// heartbeatBody mirrors api.AgentHeartbeatRequest. Address uses omitempty so
+// heartbeatBody mirrors workflow.AgentHeartbeatRequest. Address uses omitempty so
 // Cloud-mode engines behind NAT can send {} instead of triggering an
 // address-write on the backend.
 type heartbeatBody struct {

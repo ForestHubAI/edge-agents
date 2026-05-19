@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
@@ -17,11 +17,11 @@ var _ engine.Executable = (*If)(nil)
 // port.
 type If struct {
 	engine.LinearNode
-	condition api.Expression
+	condition workflow.Expression
 }
 
 // NewIf builds an If node.
-func NewIf(id string, condition api.Expression) *If {
+func NewIf(id string, condition workflow.Expression) *If {
 	return &If{
 		LinearNode: engine.NewLinearNode(id),
 		condition:  condition,

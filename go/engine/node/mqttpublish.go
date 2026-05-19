@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -22,14 +22,14 @@ type MqttPublish struct {
 	engine.LinearNode
 	channel  *channel.MQTT
 	topic    string
-	dataType api.DataType
-	value    api.Expression
+	dataType workflow.DataType
+	value    workflow.Expression
 	qos      byte
 	retain   bool
 }
 
 // NewMqttPublish builds an MqttPublish bound to the given MQTT channel.
-func NewMqttPublish(id string, ch *channel.MQTT, topic string, dataType api.DataType, value api.Expression, qos byte, retain bool) *MqttPublish {
+func NewMqttPublish(id string, ch *channel.MQTT, topic string, dataType workflow.DataType, value workflow.Expression, qos byte, retain bool) *MqttPublish {
 	return &MqttPublish{
 		LinearNode: engine.NewLinearNode(id),
 		channel:    ch,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"fh-backend/internal/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -33,8 +33,8 @@ type Retriever struct {
 	engine.LinearNode
 	collectionID    string
 	topK            int
-	query           api.Expression
-	binding         api.OutputBinding
+	query           workflow.Expression
+	binding         workflow.OutputBinding
 	toolDescription string
 	backend         *backend.Client
 	logger          zerolog.Logger // child of logging.Logger with stable per-node attrs
@@ -46,8 +46,8 @@ func NewRetriever(
 	id string,
 	collectionID string,
 	topK int,
-	query api.Expression,
-	binding api.OutputBinding,
+	query workflow.Expression,
+	binding workflow.OutputBinding,
 	toolDescription string,
 	backend *backend.Client,
 ) *Retriever {
@@ -67,10 +67,10 @@ func NewRetriever(
 	}
 }
 
-func (r *Retriever) Outputs() map[string]api.DataType {
+func (r *Retriever) Outputs() map[string]workflow.DataType {
 	return engine.FilterEmitted(
-		map[string]api.DataType{retrieverOutID: api.String},
-		map[string]api.OutputBinding{retrieverOutID: r.binding},
+		map[string]workflow.DataType{retrieverOutID: workflow.String},
+		map[string]workflow.OutputBinding{retrieverOutID: r.binding},
 	)
 }
 
@@ -94,7 +94,7 @@ func (r *Retriever) Execute(ctx context.Context, scope *engine.Scope) (string, e
 // Emits an Activity log on success so the backend's agent_activity ledger
 // records the call.
 func (r *Retriever) retrieve(ctx context.Context, query string) (string, error) {
-	results, err := r.backend.QueryRAG(ctx, domain.RAGQueryParams{
+	results, err := r.backend.QueryRAG(ctx, engine.RAGQueryParams{
 		CollectionID: r.collectionID,
 		Query:        query,
 		TopK:         r.topK,

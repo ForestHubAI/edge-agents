@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -14,8 +14,8 @@ import (
 )
 
 // stringExpr is a tiny helper for literal-string expressions with no references.
-func literalString(s string) api.Expression {
-	return api.Expression{Expression: s, DataType: api.String}
+func literalString(s string) workflow.Expression {
+	return workflow.Expression{Expression: s, DataType: workflow.String}
 }
 
 func TestTransition_Apply(t *testing.T) {
@@ -27,7 +27,7 @@ func TestTransition_Apply(t *testing.T) {
 
 		tr := Transition{
 			TargetID: "next",
-			EdgeType: api.AgentTask,
+			EdgeType: workflow.AgentTask,
 			Prompt:   pointer.Ptr(literalString("hello task")),
 		}
 		require.NoError(t, tr.Apply(s))
@@ -40,7 +40,7 @@ func TestTransition_Apply(t *testing.T) {
 	t.Run("AgentTask without prompt errors", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		tr := Transition{TargetID: "next", EdgeType: api.AgentTask, Prompt: nil}
+		tr := Transition{TargetID: "next", EdgeType: workflow.AgentTask, Prompt: nil}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing prompt")
@@ -53,7 +53,7 @@ func TestTransition_Apply(t *testing.T) {
 
 		tr := Transition{
 			TargetID: "next",
-			EdgeType: api.AgentDelegate,
+			EdgeType: workflow.AgentDelegate,
 			Prompt:   pointer.Ptr(literalString("second")),
 		}
 		require.NoError(t, tr.Apply(s))
@@ -69,7 +69,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("keep"))
 
-		tr := Transition{TargetID: "next", EdgeType: api.AgentDelegate, Prompt: nil}
+		tr := Transition{TargetID: "next", EdgeType: workflow.AgentDelegate, Prompt: nil}
 		require.NoError(t, tr.Apply(s))
 
 		conv := s.GetConversation()
@@ -82,7 +82,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("anything"))
 
-		tr := Transition{TargetID: "next", EdgeType: api.AgentChoice}
+		tr := Transition{TargetID: "next", EdgeType: workflow.AgentChoice}
 		require.NoError(t, tr.Apply(s))
 
 		assert.Empty(t, s.GetConversation())
@@ -93,7 +93,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("preserved"))
 
-		tr := Transition{TargetID: "next", EdgeType: api.Control}
+		tr := Transition{TargetID: "next", EdgeType: workflow.Control}
 		require.NoError(t, tr.Apply(s))
 
 		conv := s.GetConversation()
@@ -106,12 +106,12 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 
 		// Expression references a missing variable.
-		bad := api.Expression{
+		bad := workflow.Expression{
 			Expression: "${}",
-			DataType:   api.String,
-			References: []api.Reference{{SrcId: "missing", VarId: "x"}},
+			DataType:   workflow.String,
+			References: []workflow.Reference{{SrcId: "missing", VarId: "x"}},
 		}
-		tr := Transition{TargetID: "next", EdgeType: api.AgentTask, Prompt: &bad}
+		tr := Transition{TargetID: "next", EdgeType: workflow.AgentTask, Prompt: &bad}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "agent task prompt")
@@ -120,12 +120,12 @@ func TestTransition_Apply(t *testing.T) {
 	t.Run("AgentDelegate propagates expression evaluation error", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		bad := api.Expression{
+		bad := workflow.Expression{
 			Expression: "${}",
-			DataType:   api.String,
-			References: []api.Reference{{SrcId: "missing", VarId: "x"}},
+			DataType:   workflow.String,
+			References: []workflow.Reference{{SrcId: "missing", VarId: "x"}},
 		}
-		tr := Transition{TargetID: "next", EdgeType: api.AgentDelegate, Prompt: &bad}
+		tr := Transition{TargetID: "next", EdgeType: workflow.AgentDelegate, Prompt: &bad}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "agent delegate prompt")

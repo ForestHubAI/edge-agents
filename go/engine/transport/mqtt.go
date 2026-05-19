@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/engineapi"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -30,7 +30,7 @@ type pahoTransport struct {
 // OpenMQTT establishes a connection to the broker and returns an
 // MQTTTransport. Connect blocks up to mqttOpTimeout; on failure no resources
 // are leaked.
-func OpenMQTT(brokerURL, clientID, username, password string, will *api.MQTTWill) (MQTTTransport, error) {
+func OpenMQTT(brokerURL, clientID, username, password string, will *engineapi.MQTTWill) (MQTTTransport, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).
 		SetClientID(clientID).
@@ -40,7 +40,7 @@ func OpenMQTT(brokerURL, clientID, username, password string, will *api.MQTTWill
 		SetCleanSession(true).
 		SetConnectTimeout(mqttOpTimeout)
 	if will != nil {
-		opts.SetBinaryWill(will.Topic, []byte(will.Payload), will.Qos, will.Retain)
+		opts.SetBinaryWill(will.Topic, []byte(will.Payload), byte(will.Qos), will.Retain)
 	}
 
 	client := mqtt.NewClient(opts)

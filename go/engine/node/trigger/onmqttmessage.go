@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -22,13 +22,13 @@ const onMqttMessageOutID = "output"
 // dropped so a single bad message can't crash the trigger goroutine.
 type OnMqttMessage struct {
 	engine.TriggerNode
-	dataType api.DataType
-	binding  api.OutputBinding
+	dataType workflow.DataType
+	binding  workflow.OutputBinding
 	incoming <-chan transport.MQTTMessage
 }
 
 // NewOnMqttMessage creates a new OnMqttMessage trigger.
-func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType api.DataType, binding api.OutputBinding, qos byte) (*OnMqttMessage, error) {
+func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType workflow.DataType, binding workflow.OutputBinding, qos byte) (*OnMqttMessage, error) {
 	in, err := ch.Subscribe(topic, qos)
 	if err != nil {
 		return nil, err
@@ -41,10 +41,10 @@ func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType api.Da
 	}, nil
 }
 
-func (t *OnMqttMessage) Outputs() map[string]api.DataType {
+func (t *OnMqttMessage) Outputs() map[string]workflow.DataType {
 	return engine.FilterEmitted(
-		map[string]api.DataType{onMqttMessageOutID: t.dataType},
-		map[string]api.OutputBinding{onMqttMessageOutID: t.binding},
+		map[string]workflow.DataType{onMqttMessageOutID: t.dataType},
+		map[string]workflow.OutputBinding{onMqttMessageOutID: t.binding},
 	)
 }
 
@@ -82,8 +82,8 @@ func (*OnMqttMessage) Close() error { return nil }
 // decodePayload parses bare JSON into a Value of the declared type.
 // String type accepts either a JSON string or a raw byte sequence (for
 // non-JSON payloads); other types require valid JSON of the matching shape.
-func decodePayload(payload []byte, dt api.DataType) (expr.Value, error) {
-	if dt == api.String {
+func decodePayload(payload []byte, dt workflow.DataType) (expr.Value, error) {
+	if dt == workflow.String {
 		// Try JSON-string first; fall back to raw bytes-as-string for
 		// non-JSON payloads (common when peers publish plain text).
 		var s string

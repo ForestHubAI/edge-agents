@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
@@ -17,12 +17,12 @@ var _ engine.Executable = (*SetVariable)(nil)
 // declared variable in the main scope.
 type SetVariable struct {
 	engine.LinearNode
-	variable api.Reference
-	value    api.Expression
+	variable workflow.Reference
+	value    workflow.Expression
 }
 
 // NewSetVariable builds a SetVariable node.
-func NewSetVariable(id string, variable api.Reference, value api.Expression) *SetVariable {
+func NewSetVariable(id string, variable workflow.Reference, value workflow.Expression) *SetVariable {
 	return &SetVariable{
 		LinearNode: engine.NewLinearNode(id),
 		variable:   variable,

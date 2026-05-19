@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
@@ -15,21 +15,21 @@ import (
 
 func TestSetVariable_Execute(t *testing.T) {
 	t.Run("evaluates literal expression and writes to scope", func(t *testing.T) {
-		s, err := engine.NewMainScope([]api.Variable{
-			{Uid: "x", DataType: api.Int},
+		s, err := engine.NewMainScope([]workflow.Variable{
+			{Uid: "x", DataType: workflow.Int},
 		})
 		require.NoError(t, err)
 
 		n := NewSetVariable("set1",
-			api.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
-			api.Expression{Expression: "42", DataType: api.Int},
+			workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			workflow.Expression{Expression: "42", DataType: workflow.Int},
 		)
 
 		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
 		assert.Equal(t, engine.StateIdle, next)
 
-		v, err := s.Resolve(api.Reference{SrcId: engine.SrcDeclared, VarId: "x"})
+		v, err := s.Resolve(workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(42), v)
 	})
@@ -39,11 +39,11 @@ func TestSetVariable_Execute(t *testing.T) {
 		require.NoError(t, err)
 
 		n := NewSetVariable("setBad",
-			api.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
-			api.Expression{
+			workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			workflow.Expression{
 				Expression: "${}",
-				DataType:   api.Int,
-				References: []api.Reference{{SrcId: "missing", VarId: "y"}},
+				DataType:   workflow.Int,
+				References: []workflow.Reference{{SrcId: "missing", VarId: "y"}},
 			},
 		)
 		_, err = n.Execute(context.Background(), s)
@@ -52,14 +52,14 @@ func TestSetVariable_Execute(t *testing.T) {
 	})
 
 	t.Run("transitions to wired target", func(t *testing.T) {
-		s, err := engine.NewMainScope([]api.Variable{
-			{Uid: "x", DataType: api.Int},
+		s, err := engine.NewMainScope([]workflow.Variable{
+			{Uid: "x", DataType: workflow.Int},
 		})
 		require.NoError(t, err)
 
 		n := NewSetVariable("set2",
-			api.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
-			api.Expression{Expression: "1", DataType: api.Int},
+			workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			workflow.Expression{Expression: "1", DataType: workflow.Int},
 		)
 		require.NoError(t, n.AddTransition(engine.PortCtrl, engine.Transition{TargetID: "next"}))
 
@@ -69,24 +69,24 @@ func TestSetVariable_Execute(t *testing.T) {
 	})
 
 	t.Run("expression referencing scope is evaluated", func(t *testing.T) {
-		s, err := engine.NewMainScope([]api.Variable{
-			{Uid: "src", DataType: api.Int, InitialValue: float64(10)},
-			{Uid: "dst", DataType: api.Int},
+		s, err := engine.NewMainScope([]workflow.Variable{
+			{Uid: "src", DataType: workflow.Int, InitialValue: float64(10)},
+			{Uid: "dst", DataType: workflow.Int},
 		})
 		require.NoError(t, err)
 
 		n := NewSetVariable("copy",
-			api.Reference{SrcId: engine.SrcDeclared, VarId: "dst"},
-			api.Expression{
+			workflow.Reference{SrcId: engine.SrcDeclared, VarId: "dst"},
+			workflow.Expression{
 				Expression: "${} + 5",
-				DataType:   api.Int,
-				References: []api.Reference{{SrcId: engine.SrcDeclared, VarId: "src"}},
+				DataType:   workflow.Int,
+				References: []workflow.Reference{{SrcId: engine.SrcDeclared, VarId: "src"}},
 			},
 		)
 		_, err = n.Execute(context.Background(), s)
 		require.NoError(t, err)
 
-		v, err := s.Resolve(api.Reference{SrcId: engine.SrcDeclared, VarId: "dst"})
+		v, err := s.Resolve(workflow.Reference{SrcId: engine.SrcDeclared, VarId: "dst"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(15), v)
 	})

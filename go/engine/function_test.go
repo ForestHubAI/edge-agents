@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
 
@@ -20,12 +20,12 @@ type fakeAction struct {
 	id      string
 	next    string
 	run     func(*Scope) error
-	outputs map[string]api.DataType
+	outputs map[string]workflow.DataType
 }
 
 func (a *fakeAction) ID() string                             { return a.id }
 func (a *fakeAction) AddTransition(string, Transition) error { return nil }
-func (a *fakeAction) Outputs() map[string]api.DataType       { return a.outputs }
+func (a *fakeAction) Outputs() map[string]workflow.DataType       { return a.outputs }
 func (a *fakeAction) Execute(_ context.Context, s *Scope) (string, error) {
 	if a.run != nil {
 		if err := a.run(s); err != nil {
@@ -42,7 +42,7 @@ func TestFunction_Call(t *testing.T) {
 			id:   "double",
 			next: StateIdle,
 			run: func(s *Scope) error {
-				v, err := s.Resolve(api.Reference{SrcId: SrcFnArg, VarId: "a"})
+				v, err := s.Resolve(workflow.Reference{SrcId: SrcFnArg, VarId: "a"})
 				if err != nil {
 					return err
 				}
@@ -51,26 +51,26 @@ func TestFunction_Call(t *testing.T) {
 			},
 		}
 		fn := &Function{
-			Info: api.FunctionInfo{
+			Info: workflow.FunctionInfo{
 				Name: "double",
 				Id:   "fn1",
-				Arguments: []api.Variable{
-					{Uid: "a", DataType: api.Int},
+				Arguments: []workflow.Variable{
+					{Uid: "a", DataType: workflow.Int},
 				},
-				Returns: []api.Variable{
-					{Uid: "ret", Name: "value", DataType: api.Int},
+				Returns: []workflow.Variable{
+					{Uid: "ret", Name: "value", DataType: workflow.Int},
 				},
 			},
-			DeclaredVars: []api.Variable{
-				{Uid: "result", DataType: api.Int},
+			DeclaredVars: []workflow.Variable{
+				{Uid: "result", DataType: workflow.Int},
 			},
 			InitialState: "double",
 			Actions:      map[string]Executable{"double": action},
-			OutputAssignments: map[string]api.Expression{
+			OutputAssignments: map[string]workflow.Expression{
 				"ret": {
 					Expression: "${}",
-					DataType:   api.Int,
-					References: []api.Reference{{SrcId: SrcDeclared, VarId: "result"}},
+					DataType:   workflow.Int,
+					References: []workflow.Reference{{SrcId: SrcDeclared, VarId: "result"}},
 				},
 			},
 		}
@@ -82,13 +82,13 @@ func TestFunction_Call(t *testing.T) {
 
 	t.Run("missing output assignment errors", func(t *testing.T) {
 		fn := &Function{
-			Info: api.FunctionInfo{
+			Info: workflow.FunctionInfo{
 				Name:    "f",
-				Returns: []api.Variable{{Uid: "ret", Name: "value", DataType: api.Int}},
+				Returns: []workflow.Variable{{Uid: "ret", Name: "value", DataType: workflow.Int}},
 			},
 			InitialState:      StateIdle,
 			Actions:           map[string]Executable{},
-			OutputAssignments: map[string]api.Expression{}, // missing
+			OutputAssignments: map[string]workflow.Expression{}, // missing
 		}
 
 		_, err := fn.Call(context.Background(), nil)
@@ -98,10 +98,10 @@ func TestFunction_Call(t *testing.T) {
 
 	t.Run("missing node id during execution errors", func(t *testing.T) {
 		fn := &Function{
-			Info:              api.FunctionInfo{Name: "f"},
+			Info:              workflow.FunctionInfo{Name: "f"},
 			InitialState:      "ghost",
 			Actions:           map[string]Executable{}, // no node "ghost"
-			OutputAssignments: map[string]api.Expression{},
+			OutputAssignments: map[string]workflow.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
 		require.Error(t, err)
@@ -117,10 +117,10 @@ func TestFunction_Call(t *testing.T) {
 			},
 		}
 		fn := &Function{
-			Info:              api.FunctionInfo{Name: "f"},
+			Info:              workflow.FunctionInfo{Name: "f"},
 			InitialState:      "boom",
 			Actions:           map[string]Executable{"boom": action},
-			OutputAssignments: map[string]api.Expression{},
+			OutputAssignments: map[string]workflow.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
 		require.Error(t, err)
@@ -135,9 +135,9 @@ func TestFunction_Call(t *testing.T) {
 		action := &fakeAction{
 			id:      "emit",
 			next:    StateIdle,
-			outputs: map[string]api.DataType{"slot": api.Int},
+			outputs: map[string]workflow.DataType{"slot": workflow.Int},
 			run: func(s *Scope) error {
-				v, err := s.Resolve(api.Reference{SrcId: "emit", VarId: "slot"})
+				v, err := s.Resolve(workflow.Reference{SrcId: "emit", VarId: "slot"})
 				if err != nil {
 					return err
 				}
@@ -148,10 +148,10 @@ func TestFunction_Call(t *testing.T) {
 			},
 		}
 		fn := &Function{
-			Info:              api.FunctionInfo{Name: "f"},
+			Info:              workflow.FunctionInfo{Name: "f"},
 			InitialState:      "emit",
 			Actions:           map[string]Executable{"emit": action},
-			OutputAssignments: map[string]api.Expression{},
+			OutputAssignments: map[string]workflow.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
 		require.NoError(t, err)
@@ -159,9 +159,9 @@ func TestFunction_Call(t *testing.T) {
 
 	t.Run("function scope seeding error propagates", func(t *testing.T) {
 		fn := &Function{
-			Info: api.FunctionInfo{Name: "bad"},
-			DeclaredVars: []api.Variable{
-				{Uid: "x", DataType: api.Int, InitialValue: "not int"},
+			Info: workflow.FunctionInfo{Name: "bad"},
+			DeclaredVars: []workflow.Variable{
+				{Uid: "x", DataType: workflow.Int, InitialValue: "not int"},
 			},
 			InitialState: StateIdle,
 		}

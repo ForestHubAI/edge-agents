@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/engineapi"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -29,7 +30,7 @@ type Builder struct {
 // nm may be nil. Refreshes the memory snapshot before assembling nodes so
 // agent nodes see the latest declared files (including any seeded by the
 // current deploy).
-func (b *Builder) Build(ctx context.Context, wf *api.Workflow, nm *api.NetworkManifest) (*engine.Runner, error) {
+func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, nm *engineapi.NetworkManifest) (*engine.Runner, error) {
 	if b.Memory != nil {
 		if err := b.Memory.Restore(ctx); err != nil {
 			return nil, fmt.Errorf("refreshing memory: %w", err)
@@ -61,7 +62,7 @@ type buildContext struct {
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *api.Workflow, nm *api.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, backend *backend.Client, llm *llmproxy.Client, mem *memory.Manager, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engineapi.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, backend *backend.Client, llm *llmproxy.Client, mem *memory.Manager, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {

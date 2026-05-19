@@ -3,7 +3,7 @@ package node
 import (
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -21,8 +21,8 @@ import (
 // pure helpers (Setup / Outputs / applyStructuredOutputs / next) are exercised.
 func newAgentNode(
 	id string,
-	answer api.OutputBinding,
-	decls []api.OutputDeclaration,
+	answer workflow.OutputBinding,
+	decls []workflow.OutputDeclaration,
 ) *Agent {
 	client := llmproxy.NewClient(nil)
 	return NewAgent(
@@ -108,17 +108,17 @@ func TestBuildBranchingPrompt(t *testing.T) {
 
 func TestAgent_Outputs(t *testing.T) {
 	t.Run("answer slot emitted only in emit mode", func(t *testing.T) {
-		emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
-		assign := api.OutputBinding{
+		emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+		assign := workflow.OutputBinding{
 			Active: true,
-			Mode:   api.OutputBindingModeAssign,
-			Target: &api.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			Mode:   workflow.OutputBindingModeAssign,
+			Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
 		}
 
 		a1 := newAgentNode("a1", emit, nil)
 		out := a1.Outputs()
 		assert.Contains(t, out, "answer")
-		assert.Equal(t, api.String, out["answer"])
+		assert.Equal(t, workflow.String, out["answer"])
 
 		a2 := newAgentNode("a2", assign, nil)
 		out = a2.Outputs()
@@ -126,23 +126,23 @@ func TestAgent_Outputs(t *testing.T) {
 	})
 
 	t.Run("emit-mode declared outputs are included", func(t *testing.T) {
-		emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
-		decls := []api.OutputDeclaration{
-			{Name: "score", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
-			{Name: "tag", DataType: api.String, Mode: api.OutputDeclarationModeAssign,
-				Target: &api.Reference{SrcId: engine.SrcDeclared, VarId: "x"}},
+		emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+		decls := []workflow.OutputDeclaration{
+			{Name: "score", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
+			{Name: "tag", DataType: workflow.String, Mode: workflow.OutputDeclarationModeAssign,
+				Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"}},
 		}
 		a := newAgentNode("a", emit, decls)
 		out := a.Outputs()
 
 		assert.Contains(t, out, "score-uid")
-		assert.Equal(t, api.Int, out["score-uid"])
+		assert.Equal(t, workflow.Int, out["score-uid"])
 		assert.NotContains(t, out, "tag") // assign-mode declarations are not emitter outputs
 	})
 }
 
 func TestAgent_BuildResponseFormat(t *testing.T) {
-	emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
+	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
 
 	t.Run("contains answer property", func(t *testing.T) {
 		a := newAgentNode("a", emit, nil)
@@ -155,9 +155,9 @@ func TestAgent_BuildResponseFormat(t *testing.T) {
 	})
 
 	t.Run("includes declared outputs keyed by name", func(t *testing.T) {
-		a := newAgentNode("a", emit, []api.OutputDeclaration{
-			{Name: "score", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("u1")},
-			{Name: "label", DataType: api.String, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("u2")},
+		a := newAgentNode("a", emit, []workflow.OutputDeclaration{
+			{Name: "score", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("u1")},
+			{Name: "label", DataType: workflow.String, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("u2")},
 		})
 		rf := a.buildResponseFormat()
 		props, ok := rf.Schema["properties"].(map[string]any)
@@ -207,13 +207,13 @@ func TestAgent_BuildResponseFormat(t *testing.T) {
 }
 
 func TestAgent_ApplyStructuredOutputs(t *testing.T) {
-	emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
+	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
 
 	t.Run("writes answer plus emit-declared output", func(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
-		decls := []api.OutputDeclaration{
-			{Name: "score", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
+		decls := []workflow.OutputDeclaration{
+			{Name: "score", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
 		}
 		a := newAgentNode("a", emit, decls)
 
@@ -223,11 +223,11 @@ func TestAgent_ApplyStructuredOutputs(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		ans, err := s.Resolve(api.Reference{SrcId: "a", VarId: agentAnswerOutID})
+		ans, err := s.Resolve(workflow.Reference{SrcId: "a", VarId: agentAnswerOutID})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal("ok"), ans)
 
-		sc, err := s.Resolve(api.Reference{SrcId: "a", VarId: "score-uid"})
+		sc, err := s.Resolve(workflow.Reference{SrcId: "a", VarId: "score-uid"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(7), sc)
 	})
@@ -235,8 +235,8 @@ func TestAgent_ApplyStructuredOutputs(t *testing.T) {
 	t.Run("missing declared output errors", func(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
-		decls := []api.OutputDeclaration{
-			{Name: "score", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
+		decls := []workflow.OutputDeclaration{
+			{Name: "score", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("score-uid")},
 		}
 		a := newAgentNode("a", emit, decls)
 
@@ -248,8 +248,8 @@ func TestAgent_ApplyStructuredOutputs(t *testing.T) {
 	t.Run("type-mismatched declared output errors", func(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
-		decls := []api.OutputDeclaration{
-			{Name: "score", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("u")},
+		decls := []workflow.OutputDeclaration{
+			{Name: "score", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("u")},
 		}
 		a := newAgentNode("a", emit, decls)
 		err = a.applyStructuredOutputs(s, map[string]any{"answer": "ok", "score": "not a number"})
@@ -258,22 +258,22 @@ func TestAgent_ApplyStructuredOutputs(t *testing.T) {
 	})
 
 	t.Run("assign-mode declaration writes to target", func(t *testing.T) {
-		s, err := engine.NewMainScope([]api.Variable{
-			{Uid: "label", DataType: api.String},
+		s, err := engine.NewMainScope([]workflow.Variable{
+			{Uid: "label", DataType: workflow.String},
 		})
 		require.NoError(t, err)
-		decls := []api.OutputDeclaration{
+		decls := []workflow.OutputDeclaration{
 			{
-				Name: "tag", DataType: api.String,
-				Mode:   api.OutputDeclarationModeAssign,
-				Target: &api.Reference{SrcId: engine.SrcDeclared, VarId: "label"},
+				Name: "tag", DataType: workflow.String,
+				Mode:   workflow.OutputDeclarationModeAssign,
+				Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "label"},
 			},
 		}
 		a := newAgentNode("a", emit, decls)
 
 		err = a.applyStructuredOutputs(s, map[string]any{"answer": "x", "tag": "hello"})
 		require.NoError(t, err)
-		v, err := s.Resolve(api.Reference{SrcId: engine.SrcDeclared, VarId: "label"})
+		v, err := s.Resolve(workflow.Reference{SrcId: engine.SrcDeclared, VarId: "label"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal("hello"), v)
 	})
@@ -286,14 +286,14 @@ func TestAgent_ApplyStructuredOutputs(t *testing.T) {
 		// answer is a number — code uses comma-ok cast and ignores type mismatch.
 		err = a.applyStructuredOutputs(s, map[string]any{"answer": 123})
 		require.NoError(t, err)
-		v, err := s.Resolve(api.Reference{SrcId: "a", VarId: agentAnswerOutID})
+		v, err := s.Resolve(workflow.Reference{SrcId: "a", VarId: agentAnswerOutID})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal(""), v)
 	})
 }
 
 func TestAgent_Setup(t *testing.T) {
-	emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
+	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
 
 	t.Run("plain agent: structuredResponse=false, no choice prompt appended", func(t *testing.T) {
 		a := newAgentNode("a", emit, nil)
@@ -304,8 +304,8 @@ func TestAgent_Setup(t *testing.T) {
 	})
 
 	t.Run("declared outputs flip structuredResponse", func(t *testing.T) {
-		decls := []api.OutputDeclaration{
-			{Name: "n", DataType: api.Int, Mode: api.OutputDeclarationModeEmit, Uid: pointer.Ptr("u")},
+		decls := []workflow.OutputDeclaration{
+			{Name: "n", DataType: workflow.Int, Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("u")},
 		}
 		a := newAgentNode("a", emit, decls)
 		require.NoError(t, a.Setup(t.Context()))
@@ -343,7 +343,7 @@ func TestAgent_Setup(t *testing.T) {
 }
 
 func TestAgent_Next(t *testing.T) {
-	emit := api.OutputBinding{Active: true, Mode: api.OutputBindingModeEmit}
+	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
 
 	t.Run("zero branches → idle", func(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
@@ -359,7 +359,7 @@ func TestAgent_Next(t *testing.T) {
 		require.NoError(t, err)
 		a := newAgentNode("a", emit, nil)
 		require.NoError(t, a.AddTransition(engine.PortCtrl, engine.Transition{
-			TargetID: "only", EdgeType: api.AgentChoice,
+			TargetID: "only", EdgeType: workflow.AgentChoice,
 		}))
 		s.SetConversation(llmproxy.InputString("clear me"))
 
@@ -374,10 +374,10 @@ func TestAgent_Next(t *testing.T) {
 		require.NoError(t, err)
 		a := newAgentNode("a", emit, nil)
 		require.NoError(t, a.AddTransition(engine.PortCtrl, engine.Transition{
-			TargetID: "first", EdgeType: api.AgentChoice, Description: pointer.Ptr("d1"),
+			TargetID: "first", EdgeType: workflow.AgentChoice, Description: pointer.Ptr("d1"),
 		}))
 		require.NoError(t, a.AddTransition(engine.PortCtrl, engine.Transition{
-			TargetID: "second", EdgeType: api.AgentChoice, Description: pointer.Ptr("d2"),
+			TargetID: "second", EdgeType: workflow.AgentChoice, Description: pointer.Ptr("d2"),
 		}))
 
 		next, err := a.next(s, "choice_1")
@@ -406,7 +406,7 @@ func TestAgent_Next(t *testing.T) {
 		require.NoError(t, err)
 		a := newAgentNode("a", emit, nil)
 		require.NoError(t, a.AddTransition(engine.PortCtrl, engine.Transition{
-			TargetID: "first", EdgeType: api.AgentTask, Prompt: nil, // bad: AgentTask requires prompt
+			TargetID: "first", EdgeType: workflow.AgentTask, Prompt: nil, // bad: AgentTask requires prompt
 		}))
 
 		_, err = a.next(s, "")

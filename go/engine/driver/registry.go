@@ -2,6 +2,8 @@ package driver
 
 import (
 	"fmt"
+
+	"github.com/ForestHubAI/fh-core/go/engine"
 )
 
 // Registry owns the set of opened drivers for one Engine, keyed by instance
@@ -18,8 +20,8 @@ type Registry struct {
 // NewRegistry opens every driver declared in the manifest. On any failure,
 // drivers opened so far are closed before returning, so callers never see a
 // partially-initialised Registry.
-func NewRegistry(m *domain.DeviceManifest) (*Registry, error) {
-	//TODO read from api.Manifest
+func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
+	//TODO read from workflow.Manifest
 	r := &Registry{
 		gpios:   make(map[string]GPIODriver),
 		adcs:    make(map[string]ADCDriver),

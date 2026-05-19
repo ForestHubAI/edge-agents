@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
@@ -63,13 +63,13 @@ func newWebFetchClient() *http.Client {
 // text to the bound slot. Control-flow only — not exposed as an LLM tool.
 type WebFetch struct {
 	engine.LinearNode
-	url      api.Expression
+	url      workflow.Expression
 	maxChars int
-	binding  api.OutputBinding
+	binding  workflow.OutputBinding
 }
 
 // NewWebFetch builds a WebFetch node. maxChars <= 0 falls back to the default cap.
-func NewWebFetch(id string, urlExpr api.Expression, maxChars int, binding api.OutputBinding) *WebFetch {
+func NewWebFetch(id string, urlExpr workflow.Expression, maxChars int, binding workflow.OutputBinding) *WebFetch {
 	if maxChars <= 0 {
 		maxChars = webFetchDefaultMaxChars
 	}
@@ -81,10 +81,10 @@ func NewWebFetch(id string, urlExpr api.Expression, maxChars int, binding api.Ou
 	}
 }
 
-func (n *WebFetch) Outputs() map[string]api.DataType {
+func (n *WebFetch) Outputs() map[string]workflow.DataType {
 	return engine.FilterEmitted(
-		map[string]api.DataType{webFetchOutID: api.String},
-		map[string]api.OutputBinding{webFetchOutID: n.binding},
+		map[string]workflow.DataType{webFetchOutID: workflow.String},
+		map[string]workflow.OutputBinding{webFetchOutID: n.binding},
 	)
 }
 

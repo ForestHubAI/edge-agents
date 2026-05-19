@@ -3,7 +3,7 @@ package expr
 import (
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +12,7 @@ import (
 // mockResolver is a test double for VarResolver backed by a flat map.
 type mockResolver map[string]Value
 
-func (m mockResolver) Resolve(ref api.Reference) (Value, error) {
+func (m mockResolver) Resolve(ref workflow.Reference) (Value, error) {
 	v, ok := m[ref.SrcId+":"+ref.VarId]
 	if !ok {
 		return Value{}, assert.AnError
@@ -25,10 +25,10 @@ func TestEval_StringInterpolation(t *testing.T) {
 		"node1:out-0": FloatVal(23.5),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "Temperature is ${} degrees",
-		DataType:   api.String,
-		References: []api.Reference{{SrcId: "node1", VarId: "out-0"}},
+		DataType:   workflow.String,
+		References: []workflow.Reference{{SrcId: "node1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.Equal(t, "Temperature is 23.5 degrees", v.AsString())
@@ -39,19 +39,19 @@ func TestEval_StringPassthrough(t *testing.T) {
 		"node1:out-0": StringVal("hello"),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "${}",
-		DataType:   api.String,
-		References: []api.Reference{{SrcId: "node1", VarId: "out-0"}},
+		DataType:   workflow.String,
+		References: []workflow.Reference{{SrcId: "node1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.Equal(t, StringVal("hello"), v)
 }
 
 func TestEval_EmptyString(t *testing.T) {
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "",
-		DataType:   api.String,
+		DataType:   workflow.String,
 		References: nil,
 	}, nil)
 	require.NoError(t, err)
@@ -59,9 +59,9 @@ func TestEval_EmptyString(t *testing.T) {
 }
 
 func TestEval_LiteralString(t *testing.T) {
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "hello world",
-		DataType:   api.String,
+		DataType:   workflow.String,
 		References: nil,
 	}, nil)
 	require.NoError(t, err)
@@ -77,50 +77,50 @@ func TestEval_Arithmetic(t *testing.T) {
 	tests := []struct {
 		name string
 		expr string
-		dt   api.DataType
-		refs []api.Reference
+		dt   workflow.DataType
+		refs []workflow.Reference
 		want Value
 	}{
 		{
 			"addition",
 			"${} + ${}",
-			api.Int,
-			[]api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
+			workflow.Int,
+			[]workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
 			IntVal(13),
 		},
 		{
 			"subtraction",
 			"${} - ${}",
-			api.Int,
-			[]api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
+			workflow.Int,
+			[]workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
 			IntVal(7),
 		},
 		{
 			"multiplication",
 			"${} * ${}",
-			api.Int,
-			[]api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
+			workflow.Int,
+			[]workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
 			IntVal(30),
 		},
 		{
 			"division",
 			"${} / ${}",
-			api.Int,
-			[]api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
+			workflow.Int,
+			[]workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
 			IntVal(3),
 		},
 		{
 			"modulo",
 			"${} % ${}",
-			api.Int,
-			[]api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
+			workflow.Int,
+			[]workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}},
 			IntVal(1),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := Eval(api.Expression{
+			v, err := Eval(workflow.Expression{
 				Expression: tt.expr,
 				DataType:   tt.dt,
 				References: tt.refs,
@@ -136,7 +136,7 @@ func TestEval_Comparison(t *testing.T) {
 		"n1:out-0": IntVal(10),
 		"n2:out-0": IntVal(3),
 	}
-	refs := []api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}}
+	refs := []workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}}
 
 	tests := []struct {
 		name string
@@ -152,9 +152,9 @@ func TestEval_Comparison(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := Eval(api.Expression{
+			v, err := Eval(workflow.Expression{
 				Expression: tt.expr,
-				DataType:   api.Bool,
+				DataType:   workflow.Bool,
 				References: refs,
 			}, resolve)
 			require.NoError(t, err)
@@ -168,19 +168,19 @@ func TestEval_Boolean(t *testing.T) {
 		"n1:out-0": BoolVal(true),
 		"n2:out-0": BoolVal(false),
 	}
-	refs := []api.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}}
+	refs := []workflow.Reference{{SrcId: "n1", VarId: "out-0"}, {SrcId: "n2", VarId: "out-0"}}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "${} && ${}",
-		DataType:   api.Bool,
+		DataType:   workflow.Bool,
 		References: refs,
 	}, resolve)
 	require.NoError(t, err)
 	assert.False(t, v.AsBool())
 
-	v, err = Eval(api.Expression{
+	v, err = Eval(workflow.Expression{
 		Expression: "${} || ${}",
-		DataType:   api.Bool,
+		DataType:   workflow.Bool,
 		References: refs,
 	}, resolve)
 	require.NoError(t, err)
@@ -192,10 +192,10 @@ func TestEval_Negation(t *testing.T) {
 		"n1:out-0": BoolVal(true),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "!${}",
-		DataType:   api.Bool,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.Bool,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.False(t, v.AsBool())
@@ -206,10 +206,10 @@ func TestEval_SingleRefPassthrough(t *testing.T) {
 		"n1:out-0": IntVal(42),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "${}",
-		DataType:   api.Int,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.Int,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.Equal(t, IntVal(42), v)
@@ -220,10 +220,10 @@ func TestEval_CastInString(t *testing.T) {
 		"n1:out-0": StringVal("42"),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "Value is int(${}) ok",
-		DataType:   api.String,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.String,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.Equal(t, "Value is 42 ok", v.AsString())
@@ -234,20 +234,20 @@ func TestEval_CastInCode(t *testing.T) {
 		"n1:out-0": StringVal("42"),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "int(${})",
-		DataType:   api.Int,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.Int,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.Equal(t, IntVal(42), v)
 }
 
 func TestEval_PlaceholderMismatch(t *testing.T) {
-	_, err := Eval(api.Expression{
+	_, err := Eval(workflow.Expression{
 		Expression: "${} + ${}",
-		DataType:   api.Int,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.Int,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "do not match")
@@ -259,10 +259,10 @@ func TestEval_FloatArithmetic(t *testing.T) {
 		"n2:out-0": IntVal(2),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "${} + ${}",
-		DataType:   api.Float,
-		References: []api.Reference{
+		DataType:   workflow.Float,
+		References: []workflow.Reference{
 			{SrcId: "n1", VarId: "out-0"},
 			{SrcId: "n2", VarId: "out-0"},
 		},
@@ -276,10 +276,10 @@ func TestEval_ComparisonWithLiteral(t *testing.T) {
 		"n1:out-0": IntVal(25),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "${} > 10",
-		DataType:   api.Bool,
-		References: []api.Reference{{SrcId: "n1", VarId: "out-0"}},
+		DataType:   workflow.Bool,
+		References: []workflow.Reference{{SrcId: "n1", VarId: "out-0"}},
 	}, resolve)
 	require.NoError(t, err)
 	assert.True(t, v.AsBool())
@@ -291,10 +291,10 @@ func TestEval_MultipleInterpolation(t *testing.T) {
 		"n2:out-0": IntVal(30),
 	}
 
-	v, err := Eval(api.Expression{
+	v, err := Eval(workflow.Expression{
 		Expression: "Name: ${}, Age: ${}",
-		DataType:   api.String,
-		References: []api.Reference{
+		DataType:   workflow.String,
+		References: []workflow.Reference{
 			{SrcId: "n1", VarId: "out-0"},
 			{SrcId: "n2", VarId: "out-0"},
 		},

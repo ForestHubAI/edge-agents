@@ -5,9 +5,142 @@ info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
   description: "Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query."
-paths: {}
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Engine runner state.
+      responses:
+        '200':
+          description: Current runner state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthzResponse"
+  /deploy:
+    post:
+      operationId: deploy
+      summary: Deploy or hot-swap a workflow.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployRequest"
+      responses:
+        '204':
+          description: Workflow deployed.
+        '400':
+          description: Invalid request (e.g. missing workflow).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineError"
+        '422':
+          description: Build failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineError"
+  /stop:
+    post:
+      operationId: stop
+      summary: Stop the running workflow (idempotent when idle).
+      responses:
+        '204':
+          description: Runner stopped.
 components:
   schemas:
+
+    # --- Engine-served surface (GET /healthz, POST /deploy, POST /stop) ---
+
+    State:
+      type: string
+      enum: [idle, running]
+      description: Engine runner state.
+
+    HealthzResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/State"
+
+    EngineError:
+      type: object
+      description: Error body for /deploy 400/422. Distinct from control-plane ErrorResponse.
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    DeployRequest:
+      type: object
+      description: >
+        Engine-served POST /deploy body: a resolved workflow plus the network
+        manifest. Distinct from the backend control-plane DeployRequestBody
+        (DeploymentConfig/RedeployRequest). workflow is intentionally NOT
+        required so it generates as a pointer (the handler nil-checks it).
+      properties:
+        workflow:
+          $ref: "workflow.yaml#/components/schemas/Workflow"
+        networkManifest:
+          $ref: "#/components/schemas/NetworkManifest"
+
+    NetworkManifest:
+      type: object
+      description: Resolved MQTT transports keyed by network ID, handed to the engine on deploy.
+      required: [mqtts]
+      properties:
+        mqtts:
+          type: object
+          x-go-name: MQTTs
+          description: Network ID -> resolved MQTT connection.
+          additionalProperties:
+            $ref: "#/components/schemas/MQTTConnection"
+
+    MQTTConnection:
+      type: object
+      required: [brokerUrl]
+      properties:
+        brokerUrl:
+          type: string
+          x-go-name: BrokerURL
+        clientId:
+          type: string
+          x-go-name: ClientID
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+        publishPrefix:
+          type: string
+          x-go-name: PublishPrefix
+          description: Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/).
+        subscribePrefix:
+          type: string
+          x-go-name: SubscribePrefix
+          description: Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/).
+        will:
+          $ref: "#/components/schemas/MQTTWill"
+
+    MQTTWill:
+      type: object
+      required: [topic, payload, qos, retain]
+      properties:
+        topic:
+          type: string
+        payload:
+          type: string
+        qos:
+          type: integer
+          description: MQTT QoS (0,1,2). Cast to byte at the paho call site.
+        retain:
+          type: boolean
+
+    # --- Control-plane wire types (no engine-served path; consumed by the
+    #     fh-backend client implementation of the capability interfaces) ---
 
     ErrorResponse:
       type: object

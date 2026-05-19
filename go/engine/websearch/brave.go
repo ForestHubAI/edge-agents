@@ -11,10 +11,10 @@ import (
 	"strings"
 )
 
-const braveEndpoint = "https://api.search.brave.com/res/v1/web/search"
+const braveEndpoint = "https://workflow.search.brave.com/res/v1/web/search"
 
 // braveProvider implements Provider against the Brave Search API.
-// https://api.search.brave.com/app/documentation/web-search/get-started
+// https://workflow.search.brave.com/app/documentation/web-search/get-started
 type braveProvider struct {
 	apiKey string
 	client *http.Client

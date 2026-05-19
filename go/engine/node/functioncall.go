@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"fh-backend/pkg/api"
-	"fh-backend/pkg/llmproxy/schemautil"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -25,14 +25,14 @@ var _ engine.ToolProvider = (*FunctionCall)(nil)
 type FunctionCall struct {
 	engine.LinearNode
 	fn              *engine.Function
-	inputBindings   map[string]api.Expression    // arg uid → expression
-	outputBindings  map[string]api.OutputBinding // return uid → binding
+	inputBindings   map[string]workflow.Expression    // arg uid → expression
+	outputBindings  map[string]workflow.OutputBinding // return uid → binding
 	toolDescription string
 }
 
 // NewFunctionCall builds a FunctionCall. Validates that every declared return
 // has a matching output binding.
-func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]api.Expression, outputBindings map[string]api.OutputBinding, toolDescription string) (*FunctionCall, error) {
+func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]workflow.Expression, outputBindings map[string]workflow.OutputBinding, toolDescription string) (*FunctionCall, error) {
 	for _, ret := range fn.Info.Returns {
 		if _, ok := outputBindings[ret.Uid]; !ok {
 			return nil, fmt.Errorf("function_call %s: missing output binding for return %s (uid %s)", id, ret.Name, ret.Uid)
@@ -52,8 +52,8 @@ func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]ap
 	}, nil
 }
 
-func (n *FunctionCall) Outputs() map[string]api.DataType {
-	raw := make(map[string]api.DataType, len(n.fn.Info.Returns))
+func (n *FunctionCall) Outputs() map[string]workflow.DataType {
+	raw := make(map[string]workflow.DataType, len(n.fn.Info.Returns))
 	for _, ret := range n.fn.Info.Returns {
 		raw[ret.Uid] = ret.DataType
 	}
@@ -86,12 +86,12 @@ func (n *FunctionCall) Execute(ctx context.Context, scope *engine.Scope) (string
 // Tools exposes this function as an LLM-callable tool.
 func (n *FunctionCall) Tools() ([]llmproxy.FunctionTool, error) {
 	properties := make(map[string]any, len(n.fn.Info.Arguments))
-	argByName := make(map[string]api.Variable, len(n.fn.Info.Arguments))
+	argByName := make(map[string]workflow.Variable, len(n.fn.Info.Arguments))
 	for _, a := range n.fn.Info.Arguments {
 		properties[a.Name] = map[string]any{"type": engine.JSONTypeFor(a.DataType)}
 		argByName[a.Name] = a
 	}
-	returnByUid := make(map[string]api.Variable, len(n.fn.Info.Returns))
+	returnByUid := make(map[string]workflow.Variable, len(n.fn.Info.Returns))
 	for _, r := range n.fn.Info.Returns {
 		returnByUid[r.Uid] = r
 	}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 )
 
 // Value is the runtime representation of a typed workflow variable.
@@ -18,23 +18,23 @@ import (
 // system lives in the interpreter's data structures rather than in the
 // host language's compiler.
 type Value struct {
-	Type api.DataType
+	Type workflow.DataType
 	Raw  any // int64, float64, bool, or string
 }
 
-func IntVal(v int64) Value     { return Value{Type: api.Int, Raw: v} }
-func FloatVal(v float64) Value { return Value{Type: api.Float, Raw: v} }
-func BoolVal(v bool) Value     { return Value{Type: api.Bool, Raw: v} }
-func StringVal(v string) Value { return Value{Type: api.String, Raw: v} }
+func IntVal(v int64) Value     { return Value{Type: workflow.Int, Raw: v} }
+func FloatVal(v float64) Value { return Value{Type: workflow.Float, Raw: v} }
+func BoolVal(v bool) Value     { return Value{Type: workflow.Bool, Raw: v} }
+func StringVal(v string) Value { return Value{Type: workflow.String, Raw: v} }
 
 // ZeroValue returns the zero value for a given data type.
-func ZeroValue(dt api.DataType) Value {
+func ZeroValue(dt workflow.DataType) Value {
 	switch dt {
-	case api.Int:
+	case workflow.Int:
 		return IntVal(0)
-	case api.Float:
+	case workflow.Float:
 		return FloatVal(0)
-	case api.Bool:
+	case workflow.Bool:
 		return BoolVal(false)
 	default:
 		return StringVal("")
@@ -113,18 +113,18 @@ func (v Value) AsString() string {
 }
 
 // Cast converts a value to the target data type.
-func (v Value) Cast(target api.DataType) Value {
+func (v Value) Cast(target workflow.DataType) Value {
 	if v.Type == target {
 		return v
 	}
 	switch target {
-	case api.Int:
+	case workflow.Int:
 		return IntVal(v.AsInt())
-	case api.Float:
+	case workflow.Float:
 		return FloatVal(v.AsFloat())
-	case api.Bool:
+	case workflow.Bool:
 		return BoolVal(v.AsBool())
-	case api.String:
+	case workflow.String:
 		return StringVal(v.AsString())
 	default:
 		return v
@@ -134,30 +134,30 @@ func (v Value) Cast(target api.DataType) Value {
 // Coerce converts any into a typed Value of the declared data type. Nil is
 // treated as absence and returns the zero value without error; any other
 // concrete type that doesn't match dt returns a non-nil error.
-func Coerce(dt api.DataType, raw any) (Value, error) {
+func Coerce(dt workflow.DataType, raw any) (Value, error) {
 	if raw == nil {
 		return ZeroValue(dt), nil
 	}
 	switch dt {
-	case api.Int:
+	case workflow.Int:
 		switch v := raw.(type) {
 		case float64:
 			return IntVal(int64(v)), nil
 		case int64:
 			return IntVal(v), nil
 		}
-	case api.Float:
+	case workflow.Float:
 		switch v := raw.(type) {
 		case float64:
 			return FloatVal(v), nil
 		case int64:
 			return FloatVal(float64(v)), nil
 		}
-	case api.Bool:
+	case workflow.Bool:
 		if b, ok := raw.(bool); ok {
 			return BoolVal(b), nil
 		}
-	case api.String:
+	case workflow.String:
 		if s, ok := raw.(string); ok {
 			return StringVal(s), nil
 		}

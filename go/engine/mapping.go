@@ -1,17 +1,17 @@
 package engine
 
 import (
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 	"time"
 )
 
-func TickerInterval(value int, unit api.TickerNodeArgumentsIntervalUnit) time.Duration {
+func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) time.Duration {
 	switch unit {
-	case api.Seconds:
+	case workflow.Seconds:
 		return time.Duration(value) * time.Second
-	case api.Minutes:
+	case workflow.Minutes:
 		return time.Duration(value) * time.Minute
-	case api.Hours:
+	case workflow.Hours:
 		return time.Duration(value) * time.Hour
 	default:
 		return time.Duration(value) * time.Millisecond
@@ -21,13 +21,13 @@ func TickerInterval(value int, unit api.TickerNodeArgumentsIntervalUnit) time.Du
 // jsonTypeFor maps an engine data type to its JSON Schema type name.
 // Shared by nodes that build runtime schemas (Agent response format,
 // FunctionCall tool parameters).
-func JSONTypeFor(dt api.DataType) string {
+func JSONTypeFor(dt workflow.DataType) string {
 	switch dt {
-	case api.Int:
+	case workflow.Int:
 		return "integer"
-	case api.Float:
+	case workflow.Float:
 		return "number"
-	case api.Bool:
+	case workflow.Bool:
 		return "boolean"
 	default:
 		return "string"

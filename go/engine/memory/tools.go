@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
@@ -21,7 +21,7 @@ import (
 // resolves the chosen name to its uid before calling the manager.
 //
 // Returns nil when refs is empty.
-func Tools(refs []api.MemoryRef, mgr *Manager) ([]llmproxy.Tool, error) {
+func Tools(refs []workflow.MemoryRef, mgr *Manager) ([]llmproxy.Tool, error) {
 	if len(refs) == 0 {
 		return nil, nil
 	}
@@ -37,7 +37,7 @@ func Tools(refs []api.MemoryRef, mgr *Manager) ([]llmproxy.Tool, error) {
 			return nil, fmt.Errorf("memory ref %q: %w", r.Uid, err)
 		}
 		readByName[card.Name] = r.Uid
-		if r.Mode == api.Rw {
+		if r.Mode == workflow.Rw {
 			writeByName[card.Name] = r.Uid
 		}
 	}
@@ -52,7 +52,7 @@ func Tools(refs []api.MemoryRef, mgr *Manager) ([]llmproxy.Tool, error) {
 // IndexCard renders the auto-injected memory index block prepended to the
 // LLM agent's system prompt. One line per file with name, mode, size, and
 // description so the LLM can decide what to fetch.
-func IndexCard(refs []api.MemoryRef, mgr *Manager) (string, error) {
+func IndexCard(refs []workflow.MemoryRef, mgr *Manager) (string, error) {
 	if len(refs) == 0 {
 		return "", nil
 	}
@@ -61,7 +61,7 @@ func IndexCard(refs []api.MemoryRef, mgr *Manager) (string, error) {
 	}
 
 	cards := make([]Card, 0, len(refs))
-	modes := make(map[string]api.MemoryRefMode, len(refs))
+	modes := make(map[string]workflow.MemoryRefMode, len(refs))
 	for _, r := range refs {
 		c, err := mgr.Card(r.Uid)
 		if err != nil {
@@ -78,7 +78,7 @@ func IndexCard(refs []api.MemoryRef, mgr *Manager) (string, error) {
 	sb.WriteString("Modify writable files via append_memory / edit_memory.\n")
 	for _, c := range cards {
 		mode := "R"
-		if modes[c.UID] == api.Rw {
+		if modes[c.UID] == workflow.Rw {
 			mode = "RW"
 		}
 		fmt.Fprintf(&sb, "- %s (%s, %dB): %s\n", c.Name, mode, c.SizeBytes, c.Description)
@@ -89,7 +89,7 @@ func IndexCard(refs []api.MemoryRef, mgr *Manager) (string, error) {
 // ValidateRefs checks that every ref's uid is present in the manager. Run
 // at Setup() time so a misconfigured workflow fails the build instead of
 // failing at the first LLM tool call.
-func ValidateRefs(refs []api.MemoryRef, mgr *Manager) error {
+func ValidateRefs(refs []workflow.MemoryRef, mgr *Manager) error {
 	if len(refs) == 0 {
 		return nil
 	}

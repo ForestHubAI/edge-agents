@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/util/pointer"
 
@@ -20,23 +20,23 @@ import (
 // only the OutputAssignments — no actions required.
 func passthroughFn() *engine.Function {
 	return &engine.Function{
-		Info: api.FunctionInfo{
+		Info: workflow.FunctionInfo{
 			Id:   "fn1",
 			Name: "passthrough",
-			Arguments: []api.Variable{
-				{Uid: "a", Name: "a", DataType: api.Int},
+			Arguments: []workflow.Variable{
+				{Uid: "a", Name: "a", DataType: workflow.Int},
 			},
-			Returns: []api.Variable{
-				{Uid: "ret", Name: "value", DataType: api.Int},
+			Returns: []workflow.Variable{
+				{Uid: "ret", Name: "value", DataType: workflow.Int},
 			},
 		},
 		InitialState: engine.StateIdle,
 		Actions:      map[string]engine.Executable{},
-		OutputAssignments: map[string]api.Expression{
+		OutputAssignments: map[string]workflow.Expression{
 			"ret": {
 				Expression: "${}",
-				DataType:   api.Int,
-				References: []api.Reference{{SrcId: engine.SrcFnArg, VarId: "a"}},
+				DataType:   workflow.Int,
+				References: []workflow.Reference{{SrcId: engine.SrcFnArg, VarId: "a"}},
 			},
 		},
 	}
@@ -46,9 +46,9 @@ func TestNewFunctionCall(t *testing.T) {
 	t.Run("missing input binding errors", func(t *testing.T) {
 		fn := passthroughFn()
 		_, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{}, // no binding for arg "a"
-			map[string]api.OutputBinding{
-				"ret": {Active: true, Mode: api.OutputBindingModeEmit},
+			map[string]workflow.Expression{}, // no binding for arg "a"
+			map[string]workflow.OutputBinding{
+				"ret": {Active: true, Mode: workflow.OutputBindingModeEmit},
 			},
 			"",
 		)
@@ -59,10 +59,10 @@ func TestNewFunctionCall(t *testing.T) {
 	t.Run("missing output binding errors", func(t *testing.T) {
 		fn := passthroughFn()
 		_, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{
-				"a": {Expression: "1", DataType: api.Int},
+			map[string]workflow.Expression{
+				"a": {Expression: "1", DataType: workflow.Int},
 			},
-			map[string]api.OutputBinding{}, // no binding for return "ret"
+			map[string]workflow.OutputBinding{}, // no binding for return "ret"
 			"",
 		)
 		require.Error(t, err)
@@ -72,11 +72,11 @@ func TestNewFunctionCall(t *testing.T) {
 	t.Run("constructs successfully when all bindings provided", func(t *testing.T) {
 		fn := passthroughFn()
 		_, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{
-				"a": {Expression: "1", DataType: api.Int},
+			map[string]workflow.Expression{
+				"a": {Expression: "1", DataType: workflow.Int},
 			},
-			map[string]api.OutputBinding{
-				"ret": {Active: true, Mode: api.OutputBindingModeEmit},
+			map[string]workflow.OutputBinding{
+				"ret": {Active: true, Mode: workflow.OutputBindingModeEmit},
 			},
 			"",
 		)
@@ -87,25 +87,25 @@ func TestNewFunctionCall(t *testing.T) {
 func TestFunctionCall_Outputs(t *testing.T) {
 	t.Run("emits returns with emit-mode bindings", func(t *testing.T) {
 		fn := &engine.Function{
-			Info: api.FunctionInfo{
+			Info: workflow.FunctionInfo{
 				Id:   "fn2",
 				Name: "two-returns",
-				Returns: []api.Variable{
-					{Uid: "r1", Name: "first", DataType: api.Int},
-					{Uid: "r2", Name: "second", DataType: api.String},
+				Returns: []workflow.Variable{
+					{Uid: "r1", Name: "first", DataType: workflow.Int},
+					{Uid: "r2", Name: "second", DataType: workflow.String},
 				},
 			},
 		}
 		fc := &FunctionCall{}
 		// Construct manually to control bindings.
 		fc, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{},
-			map[string]api.OutputBinding{
-				"r1": {Active: true, Mode: api.OutputBindingModeEmit},
+			map[string]workflow.Expression{},
+			map[string]workflow.OutputBinding{
+				"r1": {Active: true, Mode: workflow.OutputBindingModeEmit},
 				"r2": {
 					Active: true,
-					Mode:   api.OutputBindingModeAssign,
-					Target: &api.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+					Mode:   workflow.OutputBindingModeAssign,
+					Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
 				},
 			},
 			"",
@@ -115,32 +115,32 @@ func TestFunctionCall_Outputs(t *testing.T) {
 		out := fc.Outputs()
 		assert.Contains(t, out, "r1")
 		assert.NotContains(t, out, "r2") // assign mode strips from emitter outputs
-		assert.Equal(t, api.Int, out["r1"])
+		assert.Equal(t, workflow.Int, out["r1"])
 	})
 }
 
 func TestFunctionCall_Execute(t *testing.T) {
 	t.Run("evaluates input bindings, runs fn, applies output bindings", func(t *testing.T) {
-		s, err := engine.NewMainScope([]api.Variable{
-			{Uid: "x", DataType: api.Int, InitialValue: float64(11)},
-			{Uid: "y", DataType: api.Int}, // assign target
+		s, err := engine.NewMainScope([]workflow.Variable{
+			{Uid: "x", DataType: workflow.Int, InitialValue: float64(11)},
+			{Uid: "y", DataType: workflow.Int}, // assign target
 		})
 		require.NoError(t, err)
 
 		fn := passthroughFn()
 		fc, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{
+			map[string]workflow.Expression{
 				"a": {
 					Expression: "${}",
-					DataType:   api.Int,
-					References: []api.Reference{{SrcId: engine.SrcDeclared, VarId: "x"}},
+					DataType:   workflow.Int,
+					References: []workflow.Reference{{SrcId: engine.SrcDeclared, VarId: "x"}},
 				},
 			},
-			map[string]api.OutputBinding{
+			map[string]workflow.OutputBinding{
 				"ret": {
 					Active: true,
-					Mode:   api.OutputBindingModeAssign,
-					Target: &api.Reference{SrcId: engine.SrcDeclared, VarId: "y"},
+					Mode:   workflow.OutputBindingModeAssign,
+					Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "y"},
 				},
 			},
 			"",
@@ -151,7 +151,7 @@ func TestFunctionCall_Execute(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, engine.StateIdle, next)
 
-		v, err := s.Resolve(api.Reference{SrcId: engine.SrcDeclared, VarId: "y"})
+		v, err := s.Resolve(workflow.Reference{SrcId: engine.SrcDeclared, VarId: "y"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(11), v)
 	})
@@ -162,15 +162,15 @@ func TestFunctionCall_Execute(t *testing.T) {
 
 		fn := passthroughFn()
 		fc, err := NewFunctionCall("fc-bad", fn,
-			map[string]api.Expression{
+			map[string]workflow.Expression{
 				"a": {
 					Expression: "${}",
-					DataType:   api.Int,
-					References: []api.Reference{{SrcId: "missing", VarId: "x"}},
+					DataType:   workflow.Int,
+					References: []workflow.Reference{{SrcId: "missing", VarId: "x"}},
 				},
 			},
-			map[string]api.OutputBinding{
-				"ret": {Active: true, Mode: api.OutputBindingModeEmit},
+			map[string]workflow.OutputBinding{
+				"ret": {Active: true, Mode: workflow.OutputBindingModeEmit},
 			},
 			"",
 		)
@@ -189,13 +189,13 @@ func TestFunctionCall_Execute(t *testing.T) {
 
 		fn := passthroughFn()
 		fc, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{
-				"a": {Expression: "3.7", DataType: api.Float},
+			map[string]workflow.Expression{
+				"a": {Expression: "3.7", DataType: workflow.Float},
 			},
-			map[string]api.OutputBinding{
+			map[string]workflow.OutputBinding{
 				"ret": {
 					Active: true,
-					Mode:   api.OutputBindingModeEmit,
+					Mode:   workflow.OutputBindingModeEmit,
 				},
 			},
 			"",
@@ -206,7 +206,7 @@ func TestFunctionCall_Execute(t *testing.T) {
 		require.NoError(t, err)
 
 		// Result was cast to int (truncation).
-		v, err := s.Resolve(api.Reference{SrcId: "fc", VarId: "ret"})
+		v, err := s.Resolve(workflow.Reference{SrcId: "fc", VarId: "ret"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(3), v)
 	})
@@ -216,9 +216,9 @@ func TestFunctionCall_Execute(t *testing.T) {
 		require.NoError(t, err)
 		fn := passthroughFn()
 		fc, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{"a": {Expression: "1", DataType: api.Int}},
-			map[string]api.OutputBinding{
-				"ret": {Active: true, Mode: api.OutputBindingModeEmit},
+			map[string]workflow.Expression{"a": {Expression: "1", DataType: workflow.Int}},
+			map[string]workflow.OutputBinding{
+				"ret": {Active: true, Mode: workflow.OutputBindingModeEmit},
 			},
 			"",
 		)
@@ -235,11 +235,11 @@ func TestFunctionCall_Execute(t *testing.T) {
 		require.NoError(t, err)
 		fn := passthroughFn()
 		fc, err := NewFunctionCall("fc", fn,
-			map[string]api.Expression{"a": {Expression: "5", DataType: api.Int}},
-			map[string]api.OutputBinding{
+			map[string]workflow.Expression{"a": {Expression: "5", DataType: workflow.Int}},
+			map[string]workflow.OutputBinding{
 				"ret": {
 					Active: false,
-					Mode:   api.OutputBindingModeEmit,
+					Mode:   workflow.OutputBindingModeEmit,
 					Name:   pointer.Ptr("ignored"),
 				},
 			},
@@ -251,7 +251,7 @@ func TestFunctionCall_Execute(t *testing.T) {
 		require.NoError(t, err)
 
 		// Nothing written to scope under fc:ret.
-		_, err = s.Resolve(api.Reference{SrcId: "fc", VarId: "ret"})
+		_, err = s.Resolve(workflow.Reference{SrcId: "fc", VarId: "ret"})
 		require.Error(t, err)
 	})
 }

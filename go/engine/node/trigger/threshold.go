@@ -3,7 +3,7 @@ package trigger
 import (
 	"context"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
@@ -23,11 +23,11 @@ const crossingOutID = "output"
 // OnThreshold fires when a watched numeric variable crosses a threshold.
 type OnThreshold struct {
 	engine.TriggerNode
-	variable  api.Reference
+	variable  workflow.Reference
 	threshold float64
 	direction Direction
 	deadband  float64 // Hysteresis, signal must move past threshold±deadband to flip side.
-	binding   *api.OutputBinding
+	binding   *workflow.OutputBinding
 	updates   <-chan expr.Value
 	wasAbove  bool
 	seeded    bool
@@ -35,11 +35,11 @@ type OnThreshold struct {
 
 func NewOnThreshold(
 	id string,
-	variable api.Reference,
+	variable workflow.Reference,
 	threshold float64,
 	direction Direction,
 	deadband float64,
-	output *api.OutputBinding,
+	output *workflow.OutputBinding,
 	scope *engine.Scope,
 ) *OnThreshold {
 	return &OnThreshold{
@@ -55,13 +55,13 @@ func NewOnThreshold(
 
 // Outputs advertises the triggering-value slot only when an emit-mode binding
 // is configured — matches the convention used elsewhere for optional outputs.
-func (t *OnThreshold) Outputs() map[string]api.DataType {
+func (t *OnThreshold) Outputs() map[string]workflow.DataType {
 	if t.binding == nil {
 		return nil
 	}
 	return engine.FilterEmitted(
-		map[string]api.DataType{crossingOutID: api.Float},
-		map[string]api.OutputBinding{crossingOutID: *t.binding},
+		map[string]workflow.DataType{crossingOutID: workflow.Float},
+		map[string]workflow.OutputBinding{crossingOutID: *t.binding},
 	)
 }
 

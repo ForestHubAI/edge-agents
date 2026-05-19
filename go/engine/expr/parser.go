@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 )
 
 // parseAndEval evaluates a simple expression string with literals
 // and operators. Supports: +, -, *, /, %, ==, !=, <, >, <=, >=, &&, ||, !
-func parseAndEval(expr string, targetType api.DataType) (Value, error) {
+func parseAndEval(expr string, targetType workflow.DataType) (Value, error) {
 	p := &parser{input: expr, pos: 0}
 	val, err := p.parseOr()
 	if err != nil {
@@ -166,7 +166,7 @@ func (p *parser) parseAddSub() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if left.Type == api.Float || right.Type == api.Float {
+		if left.Type == workflow.Float || right.Type == workflow.Float {
 			if ch == '+' {
 				left = FloatVal(left.AsFloat() + right.AsFloat())
 			} else {
@@ -198,7 +198,7 @@ func (p *parser) parseMulDiv() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if left.Type == api.Float || right.Type == api.Float {
+		if left.Type == workflow.Float || right.Type == workflow.Float {
 			switch ch {
 			case '*':
 				left = FloatVal(left.AsFloat() * right.AsFloat())
@@ -257,7 +257,7 @@ func (p *parser) parseUnary() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if val.Type == api.Float {
+		if val.Type == workflow.Float {
 			return FloatVal(-val.AsFloat()), nil
 		}
 		return IntVal(-val.AsInt()), nil
@@ -389,7 +389,7 @@ func isIdentChar(ch byte) bool {
 }
 
 func compareValues(a, b Value) int {
-	if a.Type == api.String || b.Type == api.String {
+	if a.Type == workflow.String || b.Type == workflow.String {
 		as, bs := a.AsString(), b.AsString()
 		if as < bs {
 			return -1

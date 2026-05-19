@@ -3,7 +3,8 @@ package build
 import (
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/engineapi"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
 	"github.com/ForestHubAI/fh-core/go/engine/driver"
@@ -11,7 +12,7 @@ import (
 )
 
 // channels is the per-build typed registry of channel instances. One
-// instance per declared api.Channel, keyed by its id. Nodes look up their
+// instance per declared workflow.Channel, keyed by its id. Nodes look up their
 // linked channel here at build time and hold the pointer; the same
 // instance is shared across every node referencing the same id (so
 // subscriber lists and driver handle reservations stay consistent).
@@ -31,7 +32,7 @@ type channels struct {
 // (network ID → MQTT config + open transport from the deploy network
 // manifest). Hard-fails when an MQTT channel references a network the
 // deploy doesn't carry — silent degradation hides config bugs.
-func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports *transport.Registry, nm *api.NetworkManifest) (*channels, error) {
+func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transports *transport.Registry, nm *engineapi.NetworkManifest) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -47,7 +48,7 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 			return nil, fmt.Errorf("channel: %w", err)
 		}
 		switch x := val.(type) {
-		case api.GPIOINChannel:
+		case workflow.GPIOINChannel:
 			d, err := drvs.GPIO(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
@@ -58,7 +59,7 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 				Bias:       driver.Bias(x.Bias),
 				DebounceMs: x.DebounceMs,
 			}
-		case api.GPIOOUTChannel:
+		case workflow.GPIOOUTChannel:
 			d, err := drvs.GPIO(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
@@ -67,7 +68,7 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 				Driver: d,
 				Line:   x.Line,
 			}
-		case api.ADCChannel:
+		case workflow.ADCChannel:
 			d, err := drvs.ADC(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
@@ -76,7 +77,7 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 				Driver:  d,
 				Channel: x.Channel,
 			}
-		case api.DACChannel:
+		case workflow.DACChannel:
 			d, err := drvs.DAC(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
@@ -85,7 +86,7 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 				Driver:  d,
 				Channel: x.Channel,
 			}
-		case api.PWMChannel:
+		case workflow.PWMChannel:
 			d, err := drvs.PWM(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
@@ -95,13 +96,13 @@ func buildChannels(apiChannels []api.Channel, drvs *driver.Registry, transports 
 				Channel:   x.Channel,
 				Frequency: x.Frequency,
 			}
-		case api.UARTChannel:
+		case workflow.UARTChannel:
 			d, err := drvs.Serial(x.DriverID)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
-		case api.MQTTChannel:
+		case workflow.MQTTChannel:
 			if nm == nil {
 				return nil, fmt.Errorf("channel %s: workflow references MQTT but no NetworkManifest provided", x.Id)
 			}

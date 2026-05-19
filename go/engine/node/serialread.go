@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -25,14 +25,14 @@ const serialReadOutID = "output"
 // so any concurrent OnSerialReceive trigger pauses for the duration.
 type SerialRead struct {
 	engine.LinearNode
-	binding api.OutputBinding
+	binding workflow.OutputBinding
 	prompt  string
 	uart    *channel.UART
 }
 
 // NewSerialRead builds a SerialRead bound to the given UART channel.
 // prompt may be empty.
-func NewSerialRead(id string, binding api.OutputBinding, prompt string, uart *channel.UART) *SerialRead {
+func NewSerialRead(id string, binding workflow.OutputBinding, prompt string, uart *channel.UART) *SerialRead {
 	return &SerialRead{
 		LinearNode: engine.NewLinearNode(id),
 		binding:    binding,
@@ -62,9 +62,9 @@ func (r *SerialRead) Execute(ctx context.Context, scope *engine.Scope) (string, 
 
 // Outputs declares the single "output" slot — a string line. Returns it only
 // if the binding is emit-mode (assign/discard don't materialize a variable).
-func (r *SerialRead) Outputs() map[string]api.DataType {
+func (r *SerialRead) Outputs() map[string]workflow.DataType {
 	return engine.FilterEmitted(
-		map[string]api.DataType{serialReadOutID: api.String},
-		map[string]api.OutputBinding{serialReadOutID: r.binding},
+		map[string]workflow.DataType{serialReadOutID: workflow.String},
+		map[string]workflow.OutputBinding{serialReadOutID: r.binding},
 	)
 }

@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 
@@ -17,8 +17,8 @@ const SubBufSize = 64
 // of its possible outgoing transitions to an LLM.
 type Transition struct {
 	TargetID    string
-	EdgeType    api.EdgeType
-	Prompt      *api.Expression
+	EdgeType    workflow.EdgeType
+	Prompt      *workflow.Expression
 	Description *string
 }
 
@@ -26,7 +26,7 @@ type Transition struct {
 // state machine moves on.
 func (tr Transition) Apply(scope *Scope) error {
 	switch tr.EdgeType {
-	case api.AgentTask:
+	case workflow.AgentTask:
 		if tr.Prompt == nil {
 			return fmt.Errorf("agent task edge to %s: missing prompt", tr.TargetID)
 		}
@@ -35,7 +35,7 @@ func (tr Transition) Apply(scope *Scope) error {
 			return fmt.Errorf("agent task prompt: %w", err)
 		}
 		scope.SetConversation(llmproxy.InputString(v.AsString()))
-	case api.AgentDelegate:
+	case workflow.AgentDelegate:
 		if tr.Prompt == nil {
 			return nil // delegate with no prompt: preserve existing conversation as-is
 		}
@@ -45,7 +45,7 @@ func (tr Transition) Apply(scope *Scope) error {
 		}
 		updatedConv := append(scope.GetConversation(), llmproxy.InputString(v.AsString()))
 		scope.SetConversation(updatedConv)
-	case api.AgentChoice:
+	case workflow.AgentChoice:
 		scope.SetConversation(nil)
 	}
 	return nil

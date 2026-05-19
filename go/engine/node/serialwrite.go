@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"fh-backend/pkg/api"
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -19,12 +19,12 @@ var _ engine.Executable = (*SerialWrite)(nil)
 // is responsible for any newline / framing.
 type SerialWrite struct {
 	engine.LinearNode
-	value api.Expression
+	value workflow.Expression
 	uart  *channel.UART
 }
 
 // NewSerialWrite builds a SerialWrite bound to the given UART channel.
-func NewSerialWrite(id string, value api.Expression, uart *channel.UART) *SerialWrite {
+func NewSerialWrite(id string, value workflow.Expression, uart *channel.UART) *SerialWrite {
 	return &SerialWrite{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,

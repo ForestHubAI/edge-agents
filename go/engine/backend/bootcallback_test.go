@@ -9,15 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"fh-backend/pkg/domain"
-
+	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func sampleManifest() *domain.DeviceManifest {
-	return &domain.DeviceManifest{
-		GPIOs: map[string]domain.GPIOConfig{"led": {Chip: "gpiochip0"}},
+func sampleManifest() *engine.DeviceManifest {
+	return &engine.DeviceManifest{
+		GPIOs: map[string]engine.GPIOConfig{"led": {Chip: "gpiochip0"}},
 	}
 }
 
