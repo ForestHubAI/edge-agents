@@ -8,13 +8,13 @@ repo; it is not in here.
 ## Layout
 
 ```
-contract/openapi/workflow.yaml   SOURCE OF TRUTH. Language-neutral schema:
+contract/workflow.yaml   SOURCE OF TRUTH. Language-neutral schema:
                                  workflow graph + engine deploy/debug
                                  protocol + LLM-proxy types. Owned by no
                                  language; both bindings codegen from it.
 
 go/            (go.mod here — NOT repo root, so the module zip excludes
- ├─ contract/   ts/contract/skills)  github.com/ForestHubAI/forge/go
+ ├─ api/          ts/contract/skills)  github.com/ForestHubAI/forge/go
  │              oapi-codegen models from ../contract/openapi/workflow.yaml.
  │              fh-backend imports THIS (x-go-type-import), never regen.
  └─ engine/     workflow runtime. Imports ./../contract + its own

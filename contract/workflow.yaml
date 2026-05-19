@@ -593,8 +593,6 @@ components:
             maxTurns:
               type: integer
               description: Maximum number of agent runner turns
-            options:
-              $ref: "llmproxy.yaml#/components/schemas/LLMOptions"
             answer:
               $ref: "#/components/schemas/OutputBinding"
             outputDeclarations:

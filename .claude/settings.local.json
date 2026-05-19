@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(go version *)",
-      "Bash(go -C go generate ./...)"
+      "Bash(go -C go generate ./...)",
+      "Bash(go -C test/consumer run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.0 -config oapi-codegen.yaml consumer.yaml)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(go -C test/consumer mod tidy)",
+      "Bash(echo \"TIDY_EXIT=$?\")",
+      "Bash(go -C test/consumer build ./...)",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(go -C test/consumer vet ./...)",
+      "Bash(go -C go/api generate .)",
+      "Bash(echo \"GEN_EXIT=$?\")"
     ]
   }
 }

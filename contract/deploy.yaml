@@ -4,7 +4,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query.
+  description: "Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query."
 paths: {}
 components:
   schemas:

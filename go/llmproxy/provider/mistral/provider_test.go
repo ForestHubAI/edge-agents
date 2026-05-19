@@ -1,0 +1,34 @@
+//go:build llmtest
+
+package mistral
+
+import (
+	"os"
+	"testing"
+
+	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/fh-core/go/llmproxy/test"
+)
+
+var (
+	p     = NewProvider(Config{APIKey: os.Getenv("MISTRAL_API_KEY")})
+	model = llmproxy.ModelID("mistral-large-latest")
+)
+
+// TestChat tests basic chat functionality of the provider.
+func TestChat(t *testing.T) {
+	t.Run("text response", func(t *testing.T) {
+		test.Chat(t, p, model)
+	})
+	t.Run("structured response", func(t *testing.T) {
+		test.StructuredResponse(t, p, model)
+	})
+	t.Run("tool use", func(t *testing.T) {
+		test.ChatWithToolUse(t, p, model)
+	})
+}
+
+// TestFileHandling tests file upload and deletion functionality of the provider.
+func TestFileHandling(t *testing.T) {
+	test.FileHandling(t, p)
+}
