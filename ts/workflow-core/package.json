@@ -9,11 +9,19 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./types/node/*": {
+      "types": "./dist/types/node/*.d.ts",
+      "import": "./dist/types/node/*.js"
+    },
+    "./types/*": {
+      "types": "./dist/types/*/index.d.ts",
+      "import": "./dist/types/*/index.js"
     }
   },
   "files": ["dist", "src"],
   "scripts": {
-    "codegen": "openapi-typescript ../../contract/openapi/workflow.yaml -o src/generated/contract.ts",
+    "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts",
     "build": "tsc -b",
     "test": "node --test"
   },

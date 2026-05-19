@@ -7,7 +7,7 @@
     "visual-builder"
   ],
   "scripts": {
-    "codegen": "npm run codegen --workspace @foresthub/workflow-core",
+    "codegen": "npm run generate --workspace @foresthub/workflow-core",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "tsc -b workflow-core visual-builder"
   },

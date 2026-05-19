@@ -1,0 +1,79 @@
+import { NodeBase, OutputBinding, OutputDeclaration } from ".";
+import type { Schemas } from "../../api";
+import { NodeCategory } from "./NodeConstants";
+import { NodeDefinition } from "./NodeDefinition";
+export type MemoryRef = Schemas["MemoryRef"];
+
+export interface AgentNode extends NodeBase {
+  type: "Agent";
+  arguments: {
+    name: string;
+    model: string;
+    instructions: string;
+    maxTurns: number | undefined;
+    outputDeclarations: OutputDeclaration[];
+    /** Optional in-memory; serializer coerces `undefined` to `[]` so the API always sees the required array. */
+    memoryRefs: MemoryRef[] | undefined;
+    answer: OutputBinding;
+    toolDescription?: string;
+  };
+}
+
+export type AgentNodeType = "Agent";
+
+export const AgentNodeDefinition: NodeDefinition = {
+  type: "Agent",
+  label: "LLM Agent",
+  category: NodeCategory.AI,
+  description: "AI-powered agent for intelligent processing",
+  outputs: [
+    { id: "answer", label: "Answer", type: "static", dataType: "string" },
+    { id: "outputDeclarations", label: "Structured Output", type: "list" },
+  ],
+  parameters: [
+    {
+      id: "name",
+      label: "Name",
+      description: "Name of the agent",
+      optional: true,
+      type: "string",
+    },
+    {
+      id: "model",
+      label: "Model",
+      description: "AI model to use for the agent",
+      type: "llm-model",
+      capabilities: ["chat"],
+    },
+    {
+      id: "instructions",
+      label: "Instructions",
+      description: "Instructions for the cloud agent that act as system prompt",
+      type: "string",
+      multiline: true,
+      optional: true,
+    },
+    {
+      id: "maxTurns",
+      label: "Max Turns",
+      description: "Maximum number of agent runner turns",
+      type: "int",
+      optional: true,
+    },
+    {
+      id: "memoryRefs",
+      label: "Memory Files",
+      description: "Project memory files this agent can access, with per-file read or read+write mode",
+      type: "memory-refs",
+      optional: true,
+    },
+    {
+      id: "toolDescription",
+      label: "Tool Description",
+      description: "Description shown to the calling agent when this agent is wired as a tool",
+      type: "string",
+      multiline: true,
+      activationRules: [{ type: "isToolInput" }],
+    },
+  ],
+};

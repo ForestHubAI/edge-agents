@@ -1,0 +1,77 @@
+import { useCallback } from "react";
+import type { FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/types/node";
+import { ensureUid } from "../utils/variables";
+
+/**
+ * Hook for managing function info.
+ */
+export function useFunctionInfo(fn: FunctionInfo, onUpdate: (updates: FunctionInfo) => void) {
+  const addArgument = useCallback(() => {
+    const newParam: Variable = ensureUid({
+      name: `input${fn.arguments.length + 1}`,
+      dataType: "string",
+    });
+    onUpdate({
+      ...fn,
+      arguments: [...fn.arguments, newParam],
+    });
+  }, [fn, onUpdate]);
+
+  const addReturnValue = useCallback(() => {
+    const newParam: Variable = ensureUid({
+      name: `output${fn.returns.length + 1}`,
+      dataType: "string",
+    });
+    onUpdate({
+      ...fn,
+      returns: [...fn.returns, newParam],
+    });
+  }, [fn, onUpdate]);
+
+  const updateArgument = useCallback(
+    (index: number, updates: Partial<NodeOutput>) => {
+      const newArgs = [...fn.arguments];
+      newArgs[index] = { ...newArgs[index], ...updates };
+      onUpdate({ ...fn, arguments: newArgs });
+    },
+    [fn, onUpdate],
+  );
+
+  const updateReturnValue = useCallback(
+    (index: number, updates: Partial<NodeOutput>) => {
+      const newReturnValues = [...fn.returns];
+      newReturnValues[index] = { ...newReturnValues[index], ...updates };
+      onUpdate({ ...fn, returns: newReturnValues });
+    },
+    [fn, onUpdate],
+  );
+
+  const removeArgument = useCallback(
+    (index: number) => {
+      onUpdate({
+        ...fn,
+        arguments: fn.arguments.filter((_, i) => i !== index),
+      });
+    },
+    [fn, onUpdate],
+  );
+
+  const removeReturnValue = useCallback(
+    (index: number) => {
+      onUpdate({
+        ...fn,
+        returns: fn.returns.filter((_, i) => i !== index),
+      });
+    },
+    [fn, onUpdate],
+  );
+
+  return {
+    addArgument,
+    addReturnValue,
+    updateArgument,
+    updateReturnValue,
+    removeArgument,
+    removeReturnValue,
+  };
+}

@@ -5,11 +5,11 @@
 // pull out the expression checker) IN PLACE under existing FE tests,
 // then moved here. It must run headless (Node, no React/DOM).
 //
-// `npm run codegen` regenerates ./generated/contract.ts from the SAME
-// /contract/openapi/workflow.yaml the Go binding uses. Generated code is
+// `npm run codegen` regenerates ./api/generated.ts from the SAME
+// /contract/workflow.yaml the Go binding uses. Generated code is
 // committed; CI regenerates + diffs to prevent cross-language drift.
 
-// export * from "./generated/contract.js"; // uncomment after first codegen
+export type { components, paths, webhooks, Schemas } from "./api/index.js";
 
 export interface Diagnostic {
   severity: "error" | "warning" | "info";

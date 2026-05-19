@@ -32,7 +32,8 @@
       "Bash(echo \"FULL_BUILD=$?\")",
       "Read(//c/Users/Daniel/go/pkg/mod/github.com/anthropics/anthropic-sdk-go@v1.44.0/**)",
       "Bash(go list *)",
-      "Bash(go mod *)"
+      "Bash(go mod *)",
+      "Read(//c/Users/Daniel/ForestHub/**)"
     ]
   }
 }
