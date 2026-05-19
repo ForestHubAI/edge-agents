@@ -3,7 +3,7 @@ package transport
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
+	"github.com/ForestHubAI/fh-core/go/engine"
 )
 
 // Registry holds the per-deploy MQTT transport instances, keyed by network ID.
@@ -16,13 +16,13 @@ type Registry struct {
 
 // NewRegistry opens every transport declared in the manifest. On any failure
 // transports opened so far are closed.
-func NewRegistry(nm *engineapi.NetworkManifest) (*Registry, error) {
+func NewRegistry(nm *engine.NetworkManifest) (*Registry, error) {
 	if nm == nil {
 		return &Registry{mqtts: make(map[string]MQTTTransport)}, nil
 	}
 	r := &Registry{mqtts: make(map[string]MQTTTransport, len(nm.MQTTs))}
 	for networkID, cfg := range nm.MQTTs {
-		t, err := OpenMQTT(cfg.BrokerURL, str(cfg.ClientID), str(cfg.Username), str(cfg.Password), cfg.Will)
+		t, err := OpenMQTT(cfg.BrokerURL, cfg.ClientID, cfg.Username, cfg.Password, cfg.Will)
 		if err != nil {
 			r.CloseAll()
 			return nil, fmt.Errorf("mqtt %q: %w", networkID, err)

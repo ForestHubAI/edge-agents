@@ -1,22 +1,23 @@
-package engine
+package main
 
 import (
 	"context"
 	"net/http"
 
 	"github.com/ForestHubAI/fh-core/go/api/engineapi"
-
+	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/mapping"
 )
 
-// strictServer adapts *Engine to the oapi-codegen-generated
-// engineapi.StrictServerInterface. It is a thin shim: every method delegates to
-// the Engine's lifecycle methods and maps the result onto a typed response.
-type strictServer struct{ engine *Engine }
+// strictServer adapts *engine.Engine to the oapi-codegen-generated SSI.
+type strictServer struct{ engine *engine.Engine }
 
 // NewStrictServer returns the engine's engineapi.StrictServerInterface
 // implementation, ready to hand to engineapi.NewStrictHandler.
-func NewStrictServer(e *Engine) engineapi.StrictServerInterface { return &strictServer{engine: e} }
+func NewStrictServer(e *engine.Engine) engineapi.StrictServerInterface {
+	return &strictServer{engine: e}
+}
 
 // Healthz reports the engine's runtime state.
 func (s *strictServer) Healthz(_ context.Context, _ engineapi.HealthzRequestObject) (engineapi.HealthzResponseObject, error) {
@@ -24,12 +25,12 @@ func (s *strictServer) Healthz(_ context.Context, _ engineapi.HealthzRequestObje
 }
 
 // Deploy deploys (or hot-swaps) a workflow. A nil workflow is a 400; a build
-// failure is a 422 — same semantics the hand-written handler had.
+// failure is a 422.
 func (s *strictServer) Deploy(_ context.Context, request engineapi.DeployRequestObject) (engineapi.DeployResponseObject, error) {
 	if request.Body == nil || request.Body.Workflow == nil {
 		return engineapi.Deploy400JSONResponse{Error: "workflow required"}, nil
 	}
-	if err := s.engine.Deploy(request.Body.Workflow, request.Body.NetworkManifest); err != nil {
+	if err := s.engine.Deploy(request.Body.Workflow, mapping.NetworkManifestToDomain(request.Body.NetworkManifest)); err != nil {
 		return engineapi.Deploy422JSONResponse{Error: "deploy failed: " + err.Error()}, nil
 	}
 	mqttCount := 0
@@ -49,7 +50,7 @@ func (s *strictServer) Stop(_ context.Context, _ engineapi.StopRequestObject) (e
 
 // AuthMiddleware is a strict-handler middleware enforcing the shared agent
 // secret as a bearer token on every operation. An empty configured secret
-// rejects all requests, matching the previous per-handler authorize() check.
+// rejects all requests.
 func AuthMiddleware(secret string) engineapi.StrictMiddlewareFunc {
 	return func(f engineapi.StrictHandlerFunc, _ string) engineapi.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {

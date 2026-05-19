@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/ForestHubAI/fh-core/go/engine/logging"
-	"github.com/ForestHubAI/fh-core/go/engine/transport"
 )
 
 const StateIdle = ""
@@ -20,12 +19,20 @@ const defaultEventBufSize = 64
 // and owns the per-deploy transport connections it was built against.
 // Construct via build/ package.
 // Run releases every owned resource via its defer chain on ctx cancellation
+// TransportRegistry is the per-deploy set of transports the Runner owns and
+// releases on shutdown. *transport.Registry satisfies it; kept as an
+// interface so package engine does not import package transport (which would
+// cycle now that transport depends on engine domain types).
+type TransportRegistry interface {
+	CloseAll() error
+}
+
 type Runner struct {
 	Scope        *Scope
 	Nodes        map[string]Executable
 	Triggers     map[string]Trigger
 	InitialState string
-	Transports   *transport.Registry // Transports are released by Run's defer chain on ctx cancellation
+	Transports   TransportRegistry // released by Run's defer chain on ctx cancellation
 }
 
 // Run starts all trigger goroutines and the state-runner loop. One iteration

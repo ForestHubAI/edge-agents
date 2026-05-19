@@ -1,20 +1,5 @@
 package engine
 
-// RAGQueryParams is a similarity-search request issued through a Retriever.
-type RAGQueryParams struct {
-	CollectionID string
-	Query        string
-	TopK         int
-}
-
-// RAGQueryResult is one ranked chunk returned by a Retriever.
-type RAGQueryResult struct {
-	ChunkID    string
-	DocumentID string
-	Content    string
-	Score      float64
-}
-
 // DeviceManifest is the hardware the engine opens drivers for, keyed by
 // driver instance ID. JSON tags match the fh-backend wire shape.
 type DeviceManifest struct {
@@ -44,4 +29,27 @@ type SerialConfig struct {
 
 type PWMConfig struct {
 	Chip string `json:"chip"`
+}
+
+// NetworkManifest is the resolved MQTT transport set handed to the engine on
+// deploy, keyed by network ID.
+type NetworkManifest struct {
+	MQTTs map[string]MQTTConnection `json:"mqtts"`
+}
+
+type MQTTConnection struct {
+	BrokerURL       string    `json:"brokerUrl"`
+	ClientID        string    `json:"clientId,omitempty"`
+	Username        string    `json:"username,omitempty"`
+	Password        string    `json:"password,omitempty"`
+	PublishPrefix   string    `json:"publishPrefix,omitempty"`
+	SubscribePrefix string    `json:"subscribePrefix,omitempty"`
+	Will            *MQTTWill `json:"will,omitempty"`
+}
+
+type MQTTWill struct {
+	Topic   string `json:"topic"`
+	Payload string `json:"payload"`
+	Qos     int    `json:"qos"`
+	Retain  bool   `json:"retain"`
 }

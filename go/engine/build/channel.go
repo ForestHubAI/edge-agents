@@ -3,7 +3,7 @@ package build
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
+	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
@@ -32,7 +32,7 @@ type channels struct {
 // (network ID → MQTT config + open transport from the deploy network
 // manifest). Hard-fails when an MQTT channel references a network the
 // deploy doesn't carry — silent degradation hides config bugs.
-func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transports *transport.Registry, nm *engineapi.NetworkManifest) (*channels, error) {
+func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transports *transport.Registry, nm *engine.NetworkManifest) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -119,8 +119,8 @@ func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transp
 			}
 			ch.mqtts[x.Id] = &channel.MQTT{
 				Transport:       t,
-				PublishPrefix:   *cfg.PublishPrefix,
-				SubscribePrefix: *cfg.SubscribePrefix,
+				PublishPrefix:   cfg.PublishPrefix,
+				SubscribePrefix: cfg.SubscribePrefix,
 			}
 		default:
 			return nil, fmt.Errorf("channel: unsupported type %T", val)

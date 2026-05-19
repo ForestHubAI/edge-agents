@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/ForestHubAI/fh-core/go/api/engineapi"
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/backend"
@@ -114,8 +115,8 @@ func main() {
 	// it applies uniformly to every operation.
 	r := chi.NewRouter()
 	strictHandler := engineapi.NewStrictHandler(
-		engine.NewStrictServer(eng),
-		[]engineapi.StrictMiddlewareFunc{engine.AuthMiddleware(cfg.Secret)},
+		NewStrictServer(eng),
+		[]engineapi.StrictMiddlewareFunc{AuthMiddleware(cfg.Secret)},
 	)
 	engineapi.HandlerFromMux(strictHandler, r)
 
@@ -201,7 +202,7 @@ func loadManifest(path string) (domain.DeviceManifest, error) {
 // A non-empty path that points at a missing or malformed file is a fatal
 // misconfiguration (the compose file mounted nothing where something was
 // expected); matches the strictness of loadManifest above.
-func loadNetworkManifest(path string) (*engineapi.NetworkManifest, error) {
+func loadNetworkManifest(path string) (*engine.NetworkManifest, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -209,7 +210,7 @@ func loadNetworkManifest(path string) (*engineapi.NetworkManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nm engineapi.NetworkManifest
+	var nm engine.NetworkManifest
 	if err := json.Unmarshal(data, &nm); err != nil {
 		return nil, err
 	}

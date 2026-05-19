@@ -5,14 +5,13 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
 	"github.com/ForestHubAI/fh-core/go/engine/logging"
 )
 
 // BuildFunc builds a Runner from a workflow + the resolved network manifest.
 // Injected at Engine construction to avoid import cycle
-type BuildFunc func(ctx context.Context, wf *workflow.Workflow, nm *engineapi.NetworkManifest) (*Runner, error)
+type BuildFunc func(ctx context.Context, wf *workflow.Workflow, nm *NetworkManifest) (*Runner, error)
 
 // Engine is the long-lived host for one workflow Runner. It owns runner
 // lifecycle (start/stop/swap on /deploy and /stop) and the HTTP surface that
@@ -28,7 +27,7 @@ type Engine struct {
 }
 
 // Deploy stops any running workflow and starts the new one.
-func (e *Engine) Deploy(wf *workflow.Workflow, nm *engineapi.NetworkManifest) error {
+func (e *Engine) Deploy(wf *workflow.Workflow, nm *NetworkManifest) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -76,14 +75,9 @@ func (e *Engine) Stop() {
 	}
 }
 
-// Status reports whether a workflow is currently running. The HTTP surface
-// lives in httpserver.go (the oapi-codegen strict-server adapter); this is
-// the only state it needs from the Engine.
-func (e *Engine) Status() engineapi.State {
+// IsRunning reports whether a workflow is currently running.
+func (e *Engine) IsRunning() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.runner != nil {
-		return engineapi.StateRunning
-	}
-	return engineapi.StateIdle
+	return e.runner != nil
 }

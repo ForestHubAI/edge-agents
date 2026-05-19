@@ -13,6 +13,14 @@ import (
 // SubBufSize is the buffer size used in subscription channels. Events are dropped when this buffer size is exceeded.
 const SubBufSize = 64
 
+// Status is the engine's runner lifecycle state.
+type Status string
+
+const (
+	StatusIdle    Status = "idle"
+	StatusRunning Status = "running"
+)
+
 // Transition carries the metadata needed by a branching node to describe one
 // of its possible outgoing transitions to an LLM.
 type Transition struct {
@@ -55,4 +63,19 @@ func (tr Transition) Apply(scope *Scope) error {
 type Event struct {
 	TargetState string       // Node ID to transition to
 	Apply       func(*Scope) // Optional function to apply event data into the runner's scope
+}
+
+// RAGQueryParams is a similarity-search request issued through a Retriever.
+type RAGQueryParams struct {
+	CollectionID string
+	Query        string
+	TopK         int
+}
+
+// RAGQueryResult is one ranked chunk returned by a Retriever.
+type RAGQueryResult struct {
+	ChunkID    string
+	DocumentID string
+	Content    string
+	Score      float64
 }
