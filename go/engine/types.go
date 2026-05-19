@@ -13,14 +13,6 @@ import (
 // SubBufSize is the buffer size used in subscription channels. Events are dropped when this buffer size is exceeded.
 const SubBufSize = 64
 
-// Status is the engine's runner lifecycle state.
-type Status string
-
-const (
-	StatusIdle    Status = "idle"
-	StatusRunning Status = "running"
-)
-
 // Transition carries the metadata needed by a branching node to describe one
 // of its possible outgoing transitions to an LLM.
 type Transition struct {
