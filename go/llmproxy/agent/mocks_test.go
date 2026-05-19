@@ -8,7 +8,6 @@ import (
 	"context"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
-
 	mock "github.com/stretchr/testify/mock"
 )
 

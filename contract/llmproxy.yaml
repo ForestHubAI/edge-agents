@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: ForestHub LLM-Proxy Contract
+  title: ForestHub -Proxy Contract
   version: 0.1.0
-  description: OpenAPI schema definition for the ForestHub LLM-Proxy API.
+  description: OpenAPI schema definition for the ForestHub -Proxy API.
 
 components:
   schemas:
@@ -58,7 +58,7 @@ components:
           items:
             $ref: "#/components/schemas/ModelInfo"
 
-    LLMOptions:
+    Options:
       type: object
       description: Model generation options.
       properties:
@@ -94,17 +94,17 @@ components:
         description:
           type: string
 
-    LLMTool:
+    Tool:
       oneOf:
-        - $ref: "#/components/schemas/LLMExternalTool"
-        - $ref: "#/components/schemas/LLMWebSearchTool"
+        - $ref: "#/components/schemas/ExternalTool"
+        - $ref: "#/components/schemas/WebSearchTool"
       discriminator:
         propertyName: type
         mapping:
-          external: "#/components/schemas/LLMExternalTool"
-          web_search: "#/components/schemas/LLMWebSearchTool"
+          external: "#/components/schemas/ExternalTool"
+          web_search: "#/components/schemas/WebSearchTool"
 
-    LLMExternalTool:
+    ExternalTool:
       type: object
       description: An external tool that can be called by the model.
       required: [type, name, parameters]
@@ -124,7 +124,7 @@ components:
           description: JSON schema describing the tool's parameters.
           additionalProperties: true
 
-    LLMWebSearchTool:
+    WebSearchTool:
       type: object
       description: A built-in web search tool that allows the model to search the web.
       required: [type]
@@ -186,17 +186,17 @@ components:
           description: Output returned by the external tool.
           additionalProperties: true
 
-    LLMInput:
+    Input:
       oneOf:
-        - $ref: "#/components/schemas/LLMInputString"
+        - $ref: "#/components/schemas/InputString"
         - type: array
           items:
             oneOf:
-              - $ref: "#/components/schemas/LLMInputString"
+              - $ref: "#/components/schemas/InputString"
               - $ref: "#/components/schemas/ToolCallRequest"
               - $ref: "#/components/schemas/ToolResult"
 
-    LLMInputString:
+    InputString:
       type: object
       description: Input string to the model.
       required: [value]
@@ -215,7 +215,7 @@ components:
           description: Model name.
         input:
           description: Runtime input to the model.
-          $ref: "#/components/schemas/LLMInput"
+          $ref: "#/components/schemas/Input"
         systemPrompt:
           x-go-type-skip-optional-pointer: true
           type: string
@@ -230,7 +230,7 @@ components:
           x-go-type-skip-optional-pointer: true
           type: array
           items:
-            $ref: "#/components/schemas/LLMTool"
+            $ref: "#/components/schemas/Tool"
         fileIDs:
           x-go-type-skip-optional-pointer: true
           type: array
@@ -247,7 +247,7 @@ components:
           items:
             type: string
         options:
-          $ref: "#/components/schemas/LLMOptions"
+          $ref: "#/components/schemas/Options"
 
     ChatResponse:
       type: object
@@ -298,4 +298,3 @@ components:
           type: string
         fileName:
           type: string
-

@@ -6,40 +6,6 @@ info:
 
 components:
   schemas:
-    MemoryFile:
-      type: object
-      description: One memory file. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
-      required: [uid, name, description, content]
-      properties:
-        uid:
-          x-go-name: UID
-          type: string
-          description: Stable identifier that survives renames; referenced from MemoryRef.
-        name:
-          type: string
-          description: Display name. Unique per agent (LLM tool enums use it).
-        description:
-          type: string
-        content:
-          type: string
-        maxSizeBytes:
-          type: integer
-          nullable: true
-          description: Byte cap; null means unlimited.
-
-    MemoryRef:
-      type: object
-      description: Reference from an LLM agent node to a declared memory file with an access mode.
-      required: [uid, mode]
-      properties:
-        uid:
-          type: string
-          description: UID of the referenced MemoryFile.
-        mode:
-          type: string
-          enum: [r, rw]
-          description: r = read-only; rw = read + write.
-
     SignalType:
       type: string
       enum: [digital, analog]
@@ -127,6 +93,40 @@ components:
           $ref: "#/components/schemas/DataType"
         initialValue:
           description: Initial value matching the dataType (number, boolean, or string). Only used by declared variables.
+
+    MemoryFile:
+      type: object
+      description: One memory file. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
+      required: [uid, name, description, content]
+      properties:
+        uid:
+          x-go-name: UID
+          type: string
+          description: Stable identifier that survives renames; referenced from MemoryRef.
+        name:
+          type: string
+          description: Display name. Unique per agent (LLM tool enums use it).
+        description:
+          type: string
+        content:
+          type: string
+        maxSizeBytes:
+          type: integer
+          nullable: true
+          description: Byte cap; null means unlimited.
+
+    MemoryRef:
+      type: object
+      description: Reference from an LLM agent node to a declared memory file with an access mode.
+      required: [uid, mode]
+      properties:
+        uid:
+          type: string
+          description: UID of the referenced MemoryFile.
+        mode:
+          type: string
+          enum: [r, rw]
+          description: r = read-only; rw = read + write.
 
     OutputBinding:
       type: object
@@ -243,6 +243,8 @@ components:
           description: Declared memory files; referenced from agent nodes by uid.
           items:
             $ref: "#/components/schemas/MemoryFile"
+
+    # ====== Node definitions ======
 
     Node:
       oneOf:
@@ -731,6 +733,8 @@ components:
               $ref: "#/components/schemas/DataType"
             output:
               $ref: "#/components/schemas/OutputBinding"
+
+    # ====== Channel definitions ======
 
     Channel:
       oneOf:

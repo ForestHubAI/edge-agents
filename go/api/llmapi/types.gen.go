@@ -44,30 +44,15 @@ func (e ContentType) Valid() bool {
 	}
 }
 
-// Defines values for LLMExternalToolType.
+// Defines values for ExternalToolType.
 const (
-	External LLMExternalToolType = "external"
+	External ExternalToolType = "external"
 )
 
-// Valid indicates whether the value is a known member of the LLMExternalToolType enum.
-func (e LLMExternalToolType) Valid() bool {
+// Valid indicates whether the value is a known member of the ExternalToolType enum.
+func (e ExternalToolType) Valid() bool {
 	switch e {
 	case External:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LLMWebSearchToolType.
-const (
-	WebSearch LLMWebSearchToolType = "web_search"
-)
-
-// Valid indicates whether the value is a known member of the LLMWebSearchToolType enum.
-func (e LLMWebSearchToolType) Valid() bool {
-	switch e {
-	case WebSearch:
 		return true
 	default:
 		return false
@@ -110,26 +95,41 @@ func (e ModelCapability) Valid() bool {
 	}
 }
 
+// Defines values for WebSearchToolType.
+const (
+	WebSearch WebSearchToolType = "web_search"
+)
+
+// Valid indicates whether the value is a known member of the WebSearchToolType enum.
+func (e WebSearchToolType) Valid() bool {
+	switch e {
+	case WebSearch:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChatRequest LLM response generation request.
 type ChatRequest struct {
 	FileIDs   []string `json:"fileIDs,omitempty"`
 	ImageIDs  []string `json:"imageIDs,omitempty"`
 	ImageURLs []string `json:"imageURLs,omitempty"`
-	Input     LLMInput `json:"input"`
+	Input     Input    `json:"input"`
 
 	// Model Model name.
 	Model string `json:"model"`
 
 	// Options Model generation options.
-	Options            *LLMOptions `json:"options,omitempty"`
-	PreviousResponseID string      `json:"previousResponseID,omitempty"`
+	Options            *Options `json:"options,omitempty"`
+	PreviousResponseID string   `json:"previousResponseID,omitempty"`
 
 	// ResponseFormat Structured response format for LLM outputs.
 	ResponseFormat *ResponseFormat `json:"responseFormat,omitempty"`
 
 	// SystemPrompt Overrides the model's default system prompt.
-	SystemPrompt string    `json:"systemPrompt,omitempty"`
-	Tools        []LLMTool `json:"tools,omitempty"`
+	SystemPrompt string `json:"systemPrompt,omitempty"`
+	Tools        []Tool `json:"tools,omitempty"`
 }
 
 // ChatResponse LLM response.
@@ -162,6 +162,22 @@ type Citation struct {
 // ContentType MIME type of a file.
 type ContentType string
 
+// ExternalTool An external tool that can be called by the model.
+type ExternalTool struct {
+	// Description Description of the tool and its purpose.
+	Description string `json:"description,omitempty"`
+
+	// Name Name of the tool.
+	Name string `json:"name"`
+
+	// Parameters JSON schema describing the tool's parameters.
+	Parameters map[string]interface{} `json:"parameters"`
+	Type       ExternalToolType       `json:"type"`
+}
+
+// ExternalToolType defines model for ExternalTool.Type.
+type ExternalToolType string
+
 // FileUpload Uploaded file result.
 type FileUpload struct {
 	FileID   string `json:"fileID"`
@@ -179,64 +195,24 @@ type FileUploadRequest struct {
 	Purpose    *string     `json:"purpose,omitempty"`
 }
 
-// LLMExternalTool An external tool that can be called by the model.
-type LLMExternalTool struct {
-	// Description Description of the tool and its purpose.
-	Description string `json:"description,omitempty"`
-
-	// Name Name of the tool.
-	Name string `json:"name"`
-
-	// Parameters JSON schema describing the tool's parameters.
-	Parameters map[string]interface{} `json:"parameters"`
-	Type       LLMExternalToolType    `json:"type"`
-}
-
-// LLMExternalToolType defines model for LLMExternalTool.Type.
-type LLMExternalToolType string
-
-// LLMInput defines model for LLMInput.
-type LLMInput struct {
+// Input defines model for Input.
+type Input struct {
 	union json.RawMessage
 }
 
-// LLMInput1 defines model for .
-type LLMInput1 = []LLMInput_1_Item
+// Input1 defines model for .
+type Input1 = []Input_1_Item
 
-// LLMInput_1_Item defines model for LLMInput.1.Item.
-type LLMInput_1_Item struct {
+// Input_1_Item defines model for Input.1.Item.
+type Input_1_Item struct {
 	union json.RawMessage
 }
 
-// LLMInputString Input string to the model.
-type LLMInputString struct {
+// InputString Input string to the model.
+type InputString struct {
 	// Value The input text.
 	Value string `json:"value"`
 }
-
-// LLMOptions Model generation options.
-type LLMOptions struct {
-	FrequencyPenalty *float32 `json:"frequencyPenalty,omitempty"`
-	MaxTokens        *int     `json:"maxTokens,omitempty"`
-	PresencePenalty  *float32 `json:"presencePenalty,omitempty"`
-	Seed             *int     `json:"seed,omitempty"`
-	Temperature      *float32 `json:"temperature,omitempty"`
-	TopK             *int     `json:"topK,omitempty"`
-	TopP             *float32 `json:"topP,omitempty"`
-}
-
-// LLMTool defines model for LLMTool.
-type LLMTool struct {
-	union json.RawMessage
-}
-
-// LLMWebSearchTool A built-in web search tool that allows the model to search the web.
-type LLMWebSearchTool struct {
-	Type LLMWebSearchToolType `json:"type"`
-}
-
-// LLMWebSearchToolType defines model for LLMWebSearchTool.Type.
-type LLMWebSearchToolType string
 
 // ModelCapability defines model for ModelCapability.
 type ModelCapability string
@@ -265,6 +241,17 @@ type ModelInfo struct {
 	TokenModifier float32 `json:"tokenModifier"`
 }
 
+// Options Model generation options.
+type Options struct {
+	FrequencyPenalty *float32 `json:"frequencyPenalty,omitempty"`
+	MaxTokens        *int     `json:"maxTokens,omitempty"`
+	PresencePenalty  *float32 `json:"presencePenalty,omitempty"`
+	Seed             *int     `json:"seed,omitempty"`
+	Temperature      *float32 `json:"temperature,omitempty"`
+	TopK             *int     `json:"topK,omitempty"`
+	TopP             *float32 `json:"topP,omitempty"`
+}
+
 // ProviderInfo defines model for ProviderInfo.
 type ProviderInfo struct {
 	// Id Provider identifier (e.g. OpenAI, Anthropic, Local).
@@ -279,6 +266,11 @@ type ResponseFormat struct {
 	Description *string                `json:"description,omitempty"`
 	Name        string                 `json:"name"`
 	Schema      map[string]interface{} `json:"schema"`
+}
+
+// Tool defines model for Tool.
+type Tool struct {
+	union json.RawMessage
 }
 
 // ToolCallRequest Request made by the model to call an external tool.
@@ -305,22 +297,30 @@ type ToolResult struct {
 	Output map[string]interface{} `json:"output"`
 }
 
-// AsLLMInputString returns the union data inside the LLMInput as a LLMInputString
-func (t LLMInput) AsLLMInputString() (LLMInputString, error) {
-	var body LLMInputString
+// WebSearchTool A built-in web search tool that allows the model to search the web.
+type WebSearchTool struct {
+	Type WebSearchToolType `json:"type"`
+}
+
+// WebSearchToolType defines model for WebSearchTool.Type.
+type WebSearchToolType string
+
+// AsInputString returns the union data inside the Input as a InputString
+func (t Input) AsInputString() (InputString, error) {
+	var body InputString
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMInputString overwrites any union data inside the LLMInput as the provided LLMInputString
-func (t *LLMInput) FromLLMInputString(v LLMInputString) error {
+// FromInputString overwrites any union data inside the Input as the provided InputString
+func (t *Input) FromInputString(v InputString) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMInputString performs a merge with any union data inside the LLMInput, using the provided LLMInputString
-func (t *LLMInput) MergeLLMInputString(v LLMInputString) error {
+// MergeInputString performs a merge with any union data inside the Input, using the provided InputString
+func (t *Input) MergeInputString(v InputString) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -331,22 +331,22 @@ func (t *LLMInput) MergeLLMInputString(v LLMInputString) error {
 	return err
 }
 
-// AsLLMInput1 returns the union data inside the LLMInput as a LLMInput1
-func (t LLMInput) AsLLMInput1() (LLMInput1, error) {
-	var body LLMInput1
+// AsInput1 returns the union data inside the Input as a Input1
+func (t Input) AsInput1() (Input1, error) {
+	var body Input1
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMInput1 overwrites any union data inside the LLMInput as the provided LLMInput1
-func (t *LLMInput) FromLLMInput1(v LLMInput1) error {
+// FromInput1 overwrites any union data inside the Input as the provided Input1
+func (t *Input) FromInput1(v Input1) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMInput1 performs a merge with any union data inside the LLMInput, using the provided LLMInput1
-func (t *LLMInput) MergeLLMInput1(v LLMInput1) error {
+// MergeInput1 performs a merge with any union data inside the Input, using the provided Input1
+func (t *Input) MergeInput1(v Input1) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -357,32 +357,32 @@ func (t *LLMInput) MergeLLMInput1(v LLMInput1) error {
 	return err
 }
 
-func (t LLMInput) MarshalJSON() ([]byte, error) {
+func (t Input) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *LLMInput) UnmarshalJSON(b []byte) error {
+func (t *Input) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
 
-// AsLLMInputString returns the union data inside the LLMInput_1_Item as a LLMInputString
-func (t LLMInput_1_Item) AsLLMInputString() (LLMInputString, error) {
-	var body LLMInputString
+// AsInputString returns the union data inside the Input_1_Item as a InputString
+func (t Input_1_Item) AsInputString() (InputString, error) {
+	var body InputString
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMInputString overwrites any union data inside the LLMInput_1_Item as the provided LLMInputString
-func (t *LLMInput_1_Item) FromLLMInputString(v LLMInputString) error {
+// FromInputString overwrites any union data inside the Input_1_Item as the provided InputString
+func (t *Input_1_Item) FromInputString(v InputString) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMInputString performs a merge with any union data inside the LLMInput_1_Item, using the provided LLMInputString
-func (t *LLMInput_1_Item) MergeLLMInputString(v LLMInputString) error {
+// MergeInputString performs a merge with any union data inside the Input_1_Item, using the provided InputString
+func (t *Input_1_Item) MergeInputString(v InputString) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -393,22 +393,22 @@ func (t *LLMInput_1_Item) MergeLLMInputString(v LLMInputString) error {
 	return err
 }
 
-// AsToolCallRequest returns the union data inside the LLMInput_1_Item as a ToolCallRequest
-func (t LLMInput_1_Item) AsToolCallRequest() (ToolCallRequest, error) {
+// AsToolCallRequest returns the union data inside the Input_1_Item as a ToolCallRequest
+func (t Input_1_Item) AsToolCallRequest() (ToolCallRequest, error) {
 	var body ToolCallRequest
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromToolCallRequest overwrites any union data inside the LLMInput_1_Item as the provided ToolCallRequest
-func (t *LLMInput_1_Item) FromToolCallRequest(v ToolCallRequest) error {
+// FromToolCallRequest overwrites any union data inside the Input_1_Item as the provided ToolCallRequest
+func (t *Input_1_Item) FromToolCallRequest(v ToolCallRequest) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeToolCallRequest performs a merge with any union data inside the LLMInput_1_Item, using the provided ToolCallRequest
-func (t *LLMInput_1_Item) MergeToolCallRequest(v ToolCallRequest) error {
+// MergeToolCallRequest performs a merge with any union data inside the Input_1_Item, using the provided ToolCallRequest
+func (t *Input_1_Item) MergeToolCallRequest(v ToolCallRequest) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -419,22 +419,22 @@ func (t *LLMInput_1_Item) MergeToolCallRequest(v ToolCallRequest) error {
 	return err
 }
 
-// AsToolResult returns the union data inside the LLMInput_1_Item as a ToolResult
-func (t LLMInput_1_Item) AsToolResult() (ToolResult, error) {
+// AsToolResult returns the union data inside the Input_1_Item as a ToolResult
+func (t Input_1_Item) AsToolResult() (ToolResult, error) {
 	var body ToolResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromToolResult overwrites any union data inside the LLMInput_1_Item as the provided ToolResult
-func (t *LLMInput_1_Item) FromToolResult(v ToolResult) error {
+// FromToolResult overwrites any union data inside the Input_1_Item as the provided ToolResult
+func (t *Input_1_Item) FromToolResult(v ToolResult) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeToolResult performs a merge with any union data inside the LLMInput_1_Item, using the provided ToolResult
-func (t *LLMInput_1_Item) MergeToolResult(v ToolResult) error {
+// MergeToolResult performs a merge with any union data inside the Input_1_Item, using the provided ToolResult
+func (t *Input_1_Item) MergeToolResult(v ToolResult) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -445,33 +445,33 @@ func (t *LLMInput_1_Item) MergeToolResult(v ToolResult) error {
 	return err
 }
 
-func (t LLMInput_1_Item) MarshalJSON() ([]byte, error) {
+func (t Input_1_Item) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *LLMInput_1_Item) UnmarshalJSON(b []byte) error {
+func (t *Input_1_Item) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
 
-// AsLLMExternalTool returns the union data inside the LLMTool as a LLMExternalTool
-func (t LLMTool) AsLLMExternalTool() (LLMExternalTool, error) {
-	var body LLMExternalTool
+// AsExternalTool returns the union data inside the Tool as a ExternalTool
+func (t Tool) AsExternalTool() (ExternalTool, error) {
+	var body ExternalTool
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMExternalTool overwrites any union data inside the LLMTool as the provided LLMExternalTool
-func (t *LLMTool) FromLLMExternalTool(v LLMExternalTool) error {
+// FromExternalTool overwrites any union data inside the Tool as the provided ExternalTool
+func (t *Tool) FromExternalTool(v ExternalTool) error {
 	v.Type = "external"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMExternalTool performs a merge with any union data inside the LLMTool, using the provided LLMExternalTool
-func (t *LLMTool) MergeLLMExternalTool(v LLMExternalTool) error {
+// MergeExternalTool performs a merge with any union data inside the Tool, using the provided ExternalTool
+func (t *Tool) MergeExternalTool(v ExternalTool) error {
 	v.Type = "external"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -483,23 +483,23 @@ func (t *LLMTool) MergeLLMExternalTool(v LLMExternalTool) error {
 	return err
 }
 
-// AsLLMWebSearchTool returns the union data inside the LLMTool as a LLMWebSearchTool
-func (t LLMTool) AsLLMWebSearchTool() (LLMWebSearchTool, error) {
-	var body LLMWebSearchTool
+// AsWebSearchTool returns the union data inside the Tool as a WebSearchTool
+func (t Tool) AsWebSearchTool() (WebSearchTool, error) {
+	var body WebSearchTool
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMWebSearchTool overwrites any union data inside the LLMTool as the provided LLMWebSearchTool
-func (t *LLMTool) FromLLMWebSearchTool(v LLMWebSearchTool) error {
+// FromWebSearchTool overwrites any union data inside the Tool as the provided WebSearchTool
+func (t *Tool) FromWebSearchTool(v WebSearchTool) error {
 	v.Type = "web_search"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMWebSearchTool performs a merge with any union data inside the LLMTool, using the provided LLMWebSearchTool
-func (t *LLMTool) MergeLLMWebSearchTool(v LLMWebSearchTool) error {
+// MergeWebSearchTool performs a merge with any union data inside the Tool, using the provided WebSearchTool
+func (t *Tool) MergeWebSearchTool(v WebSearchTool) error {
 	v.Type = "web_search"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -511,7 +511,7 @@ func (t *LLMTool) MergeLLMWebSearchTool(v LLMWebSearchTool) error {
 	return err
 }
 
-func (t LLMTool) Discriminator() (string, error) {
+func (t Tool) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
 	}
@@ -519,27 +519,27 @@ func (t LLMTool) Discriminator() (string, error) {
 	return discriminator.Discriminator, err
 }
 
-func (t LLMTool) ValueByDiscriminator() (interface{}, error) {
+func (t Tool) ValueByDiscriminator() (interface{}, error) {
 	discriminator, err := t.Discriminator()
 	if err != nil {
 		return nil, err
 	}
 	switch discriminator {
 	case "external":
-		return t.AsLLMExternalTool()
+		return t.AsExternalTool()
 	case "web_search":
-		return t.AsLLMWebSearchTool()
+		return t.AsWebSearchTool()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
 }
 
-func (t LLMTool) MarshalJSON() ([]byte, error) {
+func (t Tool) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *LLMTool) UnmarshalJSON(b []byte) error {
+func (t *Tool) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
