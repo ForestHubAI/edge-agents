@@ -1,0 +1,19 @@
+# Node
+node_modules/
+ts/**/dist/
+*.tsbuildinfo
+
+# Go
+*.test
+*.out
+
+# Generated code is COMMITTED (CI regenerates + diffs to catch drift):
+#   go/contract/contract.gen.go
+#   ts/workflow-core/src/generated/contract.ts
+# Do not ignore them.
+
+# Env / local
+.env
+.env.*
+!.env.example
+.DS_Store

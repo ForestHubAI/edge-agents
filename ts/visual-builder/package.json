@@ -1,0 +1,23 @@
+{
+  "name": "@foresthub/visual-builder",
+  "version": "0.1.0",
+  "description": "React component library: the workflow canvas/editor. Imports workflow-core for validation. No app shell, no router, no governance.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@foresthub/workflow-core": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}

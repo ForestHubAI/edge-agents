@@ -1,0 +1,17 @@
+{
+  "name": "@foresthub/forge-ts",
+  "private": true,
+  "description": "TypeScript workspace for the ForestHub open platform (workflow-core, visual-builder).",
+  "workspaces": [
+    "workflow-core",
+    "visual-builder"
+  ],
+  "scripts": {
+    "codegen": "npm run codegen --workspace @foresthub/workflow-core",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -b workflow-core visual-builder"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

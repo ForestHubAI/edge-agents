@@ -1,0 +1,14 @@
+# oapi-codegen config for the shared workflow contract.
+# Generates ONLY models (no server/client) — this package is the canonical
+# Go binding the engine and the closed fh-backend both import.
+#
+#   go generate ./...
+#
+# fh-backend does NOT regenerate these types; it points its own codegen at
+# this package via x-go-type-import (ownership inversion).
+package: api
+output: workflow.gen.go
+generate:
+  models: true
+output-options:
+  skip-prune: true # keep all schemas; consumers select what they need

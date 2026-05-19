@@ -1,0 +1,24 @@
+{
+  "name": "@foresthub/workflow-core",
+  "version": "0.1.0",
+  "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "codegen": "openapi-typescript ../../contract/openapi/workflow.yaml -o src/generated/contract.ts",
+    "build": "tsc -b",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.6.0"
+  }
+}

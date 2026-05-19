@@ -1,0 +1,16 @@
+LICENSE NOT YET CHOSEN — PLACEHOLDER.
+
+This repository has no license yet. Until a LICENSE is selected and
+committed, default copyright applies: no permission is granted to use,
+copy, modify, or distribute this code.
+
+Pick deliberately before any public push. The open-core split makes this
+a business/legal decision, not a default:
+
+  - Apache-2.0 / MIT  — maximal adoption; anyone (incl. competitors) may
+    host the engine. Fine if the moat is the closed control plane.
+  - Source-available (BSL / Elastic / SSPL-style) — adoption with a
+    hosting carve-out. Choose if "anyone may resell the engine as a
+    service" is an actual threat.
+
+Do not treat this as legal advice. Decide, then replace this file.

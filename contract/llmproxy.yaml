@@ -1,0 +1,301 @@
+openapi: 3.0.3
+info:
+  title: ForestHub LLM-Proxy Contract
+  version: 0.1.0
+  description: OpenAPI schema definition for the ForestHub LLM-Proxy API.
+
+components:
+  schemas:
+    ContentType:
+      type: string
+      description: MIME type of a file.
+      enum: [text/plain, text/csv, image/png, image/jpeg, application/pdf, application/json, application/zip]
+
+    ModelCapability:
+      type: string
+      enum: [chat, embedding, function_call, vision, fine_tuning, reasoning, classification, code]
+
+    ModelInfo:
+      type: object
+      description: Information about an available LLM model.
+      required: [id, provider, label, capabilities, tokenModifier]
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the model.
+        provider:
+          type: string
+          description: Provider that hosts the model.
+        label:
+          type: string
+          description: Human-readable model name.
+        capabilities:
+          type: array
+          description: Capabilities supported by the model.
+          items:
+            $ref: "#/components/schemas/ModelCapability"
+        tokenModifier:
+          type: number
+          format: float
+          description: Multiplier to apply to input token count when estimating usage for billing purposes (e.g. 1.2 means "20% more tokens than actual input count")
+        maxTokens:
+          type: integer
+          description: Maximum number of tokens supported by the model.
+        embeddingDimension:
+          type: integer
+          description: Dimension of the model's embedding output (only applicable for embedding-capable models)
+
+    ProviderInfo:
+      type: object
+      required: [id, models]
+      properties:
+        id:
+          type: string
+          description: Provider identifier (e.g. OpenAI, Anthropic, Local).
+        models:
+          type: array
+          description: Concrete models (only populated for Local provider).
+          items:
+            $ref: "#/components/schemas/ModelInfo"
+
+    LLMOptions:
+      type: object
+      description: Model generation options.
+      properties:
+        maxTokens:
+          type: integer
+        temperature:
+          type: number
+          format: float
+        topK:
+          type: integer
+        topP:
+          type: number
+          format: float
+        frequencyPenalty:
+          type: number
+          format: float
+        presencePenalty:
+          type: number
+          format: float
+        seed:
+          type: integer
+
+    ResponseFormat:
+      type: object
+      description: Structured response format for LLM outputs.
+      required: [name, schema]
+      properties:
+        name:
+          type: string
+        schema:
+          type: object
+          additionalProperties: true
+        description:
+          type: string
+
+    LLMTool:
+      oneOf:
+        - $ref: "#/components/schemas/LLMExternalTool"
+        - $ref: "#/components/schemas/LLMWebSearchTool"
+      discriminator:
+        propertyName: type
+        mapping:
+          external: "#/components/schemas/LLMExternalTool"
+          web_search: "#/components/schemas/LLMWebSearchTool"
+
+    LLMExternalTool:
+      type: object
+      description: An external tool that can be called by the model.
+      required: [type, name, parameters]
+      properties:
+        type:
+          type: string
+          enum: ["external"]
+        name:
+          type: string
+          description: Name of the tool.
+        description:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Description of the tool and its purpose.
+        parameters:
+          type: object
+          description: JSON schema describing the tool's parameters.
+          additionalProperties: true
+
+    LLMWebSearchTool:
+      type: object
+      description: A built-in web search tool that allows the model to search the web.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: ["web_search"]
+
+    Citation:
+      type: object
+      description: A source reference attached to a span of assistant-generated text.
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: The cited source URL.
+        title:
+          type: string
+          description: The source's title.
+        snippet:
+          type: string
+          description: The cited text excerpt from the source.
+        startIdx:
+          type: integer
+          description: Start offset into the assistant message text.
+        endIdx:
+          type: integer
+          description: End offset into the assistant message text.
+
+    ToolCallRequest:
+      type: object
+      description: Request made by the model to call an external tool.
+      required: [callId, name, arguments]
+      properties:
+        callId:
+          type: string
+          description: Unique ID of the function tool call request.
+        name:
+          type: string
+          description: Name of the function tool called.
+        arguments:
+          x-go-type: json.RawMessage
+          type: object
+          description: Arguments passed to the function tool.
+          additionalProperties: true
+
+    ToolResult:
+      type: object
+      description: Result of an external tool execution.
+      required: [callId, name, output]
+      properties:
+        callId:
+          type: string
+          description: Unique ID of the external tool call request.
+        name:
+          type: string
+          description: Name of the external tool called.
+        output:
+          description: Output returned by the external tool.
+          additionalProperties: true
+
+    LLMInput:
+      oneOf:
+        - $ref: "#/components/schemas/LLMInputString"
+        - type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/LLMInputString"
+              - $ref: "#/components/schemas/ToolCallRequest"
+              - $ref: "#/components/schemas/ToolResult"
+
+    LLMInputString:
+      type: object
+      description: Input string to the model.
+      required: [value]
+      properties:
+        value:
+          type: string
+          description: The input text.
+
+    ChatRequest:
+      type: object
+      description: LLM response generation request.
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          description: Model name.
+        input:
+          description: Runtime input to the model.
+          $ref: "#/components/schemas/LLMInput"
+        systemPrompt:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          maxLength: 100000
+          description: Overrides the model's default system prompt.
+        previousResponseID:
+          x-go-type-skip-optional-pointer: true
+          type: string
+        responseFormat:
+          $ref: "#/components/schemas/ResponseFormat"
+        tools:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            $ref: "#/components/schemas/LLMTool"
+        fileIDs:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            type: string
+        imageIDs:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            type: string
+        imageURLs:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            type: string
+        options:
+          $ref: "#/components/schemas/LLMOptions"
+
+    ChatResponse:
+      type: object
+      description: LLM response.
+      required: [responseID, tokensUsed]
+      properties:
+        text:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        citations:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            $ref: "#/components/schemas/Citation"
+        toolCallRequests:
+          x-go-type-skip-optional-pointer: true
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallRequest"
+        responseID:
+          type: string
+        tokensUsed:
+          type: integer
+
+    FileUploadRequest:
+      type: object
+      description: File upload request.
+      required: [file, fileName, fileType, providerID]
+      properties:
+        file:
+          type: string
+          format: binary
+        fileName:
+          type: string
+        fileType:
+          $ref: "#/components/schemas/ContentType"
+        purpose:
+          type: string
+        providerID:
+          type: string
+
+    FileUpload:
+      type: object
+      description: Uploaded file result.
+      required: [fileID, fileName]
+      properties:
+        fileID:
+          type: string
+        fileName:
+          type: string
+
