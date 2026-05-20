@@ -88,8 +88,11 @@ export function useWorkflowSerialization() {
  * Read the editor's live Zustand state into a {@link WorkflowState} literal.
  * Peels the React Flow wrapper without recomputing anything; channels and
  * memory files are unprefixed for the core shape.
+ *
+ * Exported so the imperative handle can pass live state to
+ * `validateWorkflowState` without a serialize/deserialize round-trip.
  */
-function readStateFromStores(): WorkflowState {
+export function readStateFromStores(): WorkflowState {
   const canvases: Record<string, CanvasData> = {};
   for (const [id, store] of Object.entries(getAllCanvasStores())) {
     const s = store.getState();

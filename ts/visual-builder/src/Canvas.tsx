@@ -16,7 +16,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import React, { useCallback } from "react";
-import { useTheme } from "next-themes";
+import { useResolvedTheme } from "./hooks/useResolvedTheme";
 
 import { NodeCategory, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
 import { isValidConnection as validateConnection } from "@foresthub/workflow-core/node";
@@ -49,7 +49,7 @@ const CanvasArea = ({
   viewportCenterRef,
 }: CanvasProps) => {
   const readOnly = useEditorStore((s) => isReadOnly(s.builderMode));
-  const { resolvedTheme } = useTheme();
+  const resolvedTheme = useResolvedTheme();
   const { screenToFlowPosition, getViewport } = useReactFlow();
 
   // Expose viewport center calculation to parent via ref
@@ -174,7 +174,7 @@ const CanvasArea = ({
       onContextMenu={(e) => e.preventDefault()}
       onMouseDownCapture={handleMouseDownCapture}
       onAuxClick={handleAuxClick}
-      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+      colorMode={resolvedTheme}
       style={{ "--xy-background-color": "hsl(var(--canvas-background))" } as React.CSSProperties}
     >
       <Background

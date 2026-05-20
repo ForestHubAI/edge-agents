@@ -79,6 +79,13 @@ export interface CanvasState {
   functionInfo: FunctionInfo | null;
   // Output expression assignments - maps return variable uid → Expression
   outputAssignments: OutputAssignments;
+  /**
+   * Monotonic counter bumped only on domain-state mutations (nodes/edges/
+   * variables/functionInfo/outputAssignments + initialize). Selection-only
+   * actions (selectNodes/selectEdges) do NOT bump it. Subscribe to this to
+   * detect save-worthy changes.
+   */
+  mutationCount: number;
 
   setNodes: (updater: (nodes: Node<NodeInstance>[]) => Node<NodeInstance>[]) => void;
   setEdges: (updater: (edges: Edge<EdgeInstance>[]) => Edge<EdgeInstance>[]) => void;
@@ -124,33 +131,34 @@ function createCanvasStore(): CanvasStore {
       variables: {},
       functionInfo: null,
       outputAssignments: {},
+      mutationCount: 0,
 
       setNodes: (updater) =>
         set((state) => {
           const next = updater(state.nodes);
           if (next === state.nodes) return state;
-          return { nodes: next };
+          return { nodes: next, mutationCount: state.mutationCount + 1 };
         }),
 
       setEdges: (updater) =>
         set((state) => {
           const next = updater(state.edges);
           if (next === state.edges) return state;
-          return { edges: next };
+          return { edges: next, mutationCount: state.mutationCount + 1 };
         }),
 
       setVariables: (updater) =>
         set((state) => {
           const next = updater(state.variables);
           if (next === state.variables) return state;
-          return { variables: next };
+          return { variables: next, mutationCount: state.mutationCount + 1 };
         }),
 
       setFunctionInfo: (updater) => {
         const state = baseStore.getState();
         const next = updater(state.functionInfo);
         if (next === state.functionInfo) return;
-        set({ functionInfo: next });
+        set({ functionInfo: next, mutationCount: state.mutationCount + 1 });
         // Notify registry of function info change after state is updated
         notifyFunctionInfoListeners();
       },
@@ -159,7 +167,7 @@ function createCanvasStore(): CanvasStore {
         set((state) => {
           const next = updater(state.outputAssignments);
           if (next === state.outputAssignments) return state;
-          return { outputAssignments: next };
+          return { outputAssignments: next, mutationCount: state.mutationCount + 1 };
         }),
 
       selectNodes: (nodeIds) => {
@@ -192,13 +200,14 @@ function createCanvasStore(): CanvasStore {
             vars[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
           }
         }
-        set({
+        set((state) => ({
           nodes,
           edges,
           variables: vars,
           functionInfo,
           outputAssignments,
-        });
+          mutationCount: state.mutationCount + 1,
+        }));
       },
     })),
   );

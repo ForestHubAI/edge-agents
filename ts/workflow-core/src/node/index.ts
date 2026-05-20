@@ -30,6 +30,9 @@ export type { ExternalInput } from "./NodeMethods";
 export type { FunctionCallNode, FunctionCallNodeType, FunctionNodeDefinition } from "./FunctionNode";
 export { buildFunctionNodeDef } from "./FunctionNode";
 
+// Port-level helpers used by the visual builder and by validation.
+export { isNodeUsedAsTool, canPortAcceptEdge, getCompatibleNodeDefs, isValidConnection } from "./portUtils";
+
 // =============================================================================
 // TYPE DEFINITIONS (from API schema)
 // =============================================================================

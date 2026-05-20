@@ -1,3 +1,7 @@
+/* ReactFlow's required CSS — without this, nodes can't be dragged/selected and
+   the canvas chrome (controls, minimap, viewport transforms) renders unstyled. */
+@import "@xyflow/react/dist/style.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

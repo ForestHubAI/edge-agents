@@ -4,7 +4,8 @@
   "description": "TypeScript workspace for the ForestHub open platform (workflow-core, visual-builder).",
   "workspaces": [
     "workflow-core",
-    "visual-builder"
+    "visual-builder",
+    "playground"
   ],
   "scripts": {
     "generate": "npm run generate --workspace @foresthub/workflow-core",

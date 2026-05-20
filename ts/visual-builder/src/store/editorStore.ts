@@ -16,30 +16,15 @@ export function createDefaultChannels(): Record<string, ChannelInstance> {
   return { [channelKey(uart.id)]: uart };
 }
 
-// ---------------------------------------------------------------------------
-// Builder Mode — unified discriminated union
-// ---------------------------------------------------------------------------
-
-export type BuilderMode =
-  | { type: "edit" }
-  | {
-      type: "preview";
-      label: string;
-      description?: string;
-      /** When set, preview is bound to this project (cancel reloads it). */
-      projectId?: string;
-    }
-  | { type: "debug" };
-
-/** True when the builder is not in edit mode (canvas mutations should be blocked). */
-export function isReadOnly(mode: BuilderMode): boolean {
-  return mode.type !== "edit";
-}
-
-/** Type guard for preview mode. */
-export function isPreview(mode: BuilderMode): mode is Extract<BuilderMode, { type: "preview" }> {
-  return mode.type === "preview";
-}
+// BuilderMode + helpers live alongside Props/Handle in ../WorkflowBuilder.tsx
+// so the full public contract is in one place. The `import type` below is
+// type-only — TypeScript erases it at compile time, so no runtime cycle is
+// introduced even though WorkflowBuilder.tsx imports useEditorStore from here.
+//
+// Re-exported so the 14+ panels that already do
+// `import { isReadOnly } from "./store/editorStore"` keep working unchanged.
+export { isReadOnly, isPreview, type BuilderMode } from "../WorkflowBuilder";
+import type { BuilderMode } from "../WorkflowBuilder";
 
 // ---------------------------------------------------------------------------
 // Store
@@ -59,6 +44,12 @@ interface EditorState {
   // Project-scoped memory files — shared across all canvases, referenced from
   // agent nodes by uid.
   memoryFiles: Record<string, MemoryFileInstance>;
+  /**
+   * Monotonic counter bumped on project-scoped domain mutations
+   * (channels/memoryFiles). Mirrors `canvasStore.mutationCount` so the
+   * builder can fire a single onChange event from either source.
+   */
+  mutationCount: number;
   setActiveCanvas: (canvasId: string) => void;
   setBuilderMode: (mode: BuilderMode) => void;
   setSelection: (nodeIds: string[], edgeIds: string[]) => void;
@@ -80,6 +71,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedMemoryFileId: null,
   channels: createDefaultChannels(),
   memoryFiles: {},
+  mutationCount: 0,
   setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId }),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
   setSelection: (nodeIds, edgeIds) =>
@@ -128,6 +120,16 @@ export const useEditorStore = create<EditorState>((set) => ({
       };
     });
   },
-  setChannels: (updater) => set((state) => ({ channels: updater(state.channels) })),
-  setMemoryFiles: (updater) => set((state) => ({ memoryFiles: updater(state.memoryFiles) })),
+  setChannels: (updater) =>
+    set((state) => {
+      const next = updater(state.channels);
+      if (next === state.channels) return state;
+      return { channels: next, mutationCount: state.mutationCount + 1 };
+    }),
+  setMemoryFiles: (updater) =>
+    set((state) => {
+      const next = updater(state.memoryFiles);
+      if (next === state.memoryFiles) return state;
+      return { memoryFiles: next, mutationCount: state.mutationCount + 1 };
+    }),
 }));

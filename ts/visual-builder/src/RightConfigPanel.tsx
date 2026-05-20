@@ -1,0 +1,204 @@
+import { useCallback, useMemo } from "react";
+import type { NodeInstance, NodeDefinition } from "@foresthub/workflow-core/node";
+import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
+import { isControlFlow } from "@foresthub/workflow-core/edge";
+import type { Schemas } from "@foresthub/workflow-core";
+import type { NodeCategory as NodeCategoryEnum } from "@foresthub/workflow-core/node";
+
+import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
+import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
+import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
+import { MemoryFileConfigPanel } from "./panels/MemoryFileConfigPanel";
+import { NodeConfigPanel } from "./panels/NodeConfigPanel";
+import { getOrCreateCanvasStore } from "./store/canvasStore";
+import { useEditorStore } from "./store/editorStore";
+
+/**
+ * Right-side selection-routed config panel.
+ *
+ * Reads the current selection from editorStore (project-wide) and the
+ * selected node/edge from the active canvas store, then renders the
+ * appropriate config component. Receives graph mutation handlers from
+ * BuilderLayout — it never touches the canvas store directly for writes.
+ *
+ * Hidden while the user is mid selection-drag to avoid flicker.
+ */
+export interface RightConfigPanelProps {
+  canvasId: string;
+  isDebugMode: boolean;
+  selectionDrag: boolean;
+
+  // Lookups
+  getNodeDef: (node: NodeInstance) => NodeDefinition | undefined;
+
+  // Mutation handlers (live in BuilderLayout, bound to active canvas)
+  onNodeUpdate: (nodeId: string, updates: Partial<NodeInstance>) => void;
+  onNodeDelete: (nodeId: string) => void;
+  onEdgeUpdate: (edgeId: string, updates: Partial<EdgeInstance>) => void;
+  onEdgeDelete: (edgeId: string) => void;
+  onClearSelection: () => void;
+
+  // Embedder-fulfilled
+  onTestNode?: (nodeId: string) => void;
+  onDebugStep?: (nodeId?: string, externalState?: Schemas["DebugExternalState"]) => void;
+}
+
+export const RightConfigPanel = ({
+  canvasId,
+  isDebugMode,
+  selectionDrag,
+  getNodeDef,
+  onNodeUpdate,
+  onNodeDelete,
+  onEdgeUpdate,
+  onEdgeDelete,
+  onClearSelection,
+  onTestNode,
+  onDebugStep,
+}: RightConfigPanelProps) => {
+  const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
+  const selectedEdgeIds = useEditorStore((s) => s.selectedEdgeIds);
+  const selectedChannelId = useEditorStore((s) => s.selectedChannelId);
+  const channels = useEditorStore((s) => s.channels);
+  const setSelectedChannelId = useEditorStore((s) => s.setSelectedChannelId);
+  const selectedMemoryFileId = useEditorStore((s) => s.selectedMemoryFileId);
+  const memoryFiles = useEditorStore((s) => s.memoryFiles);
+  const setSelectedMemoryFileId = useEditorStore((s) => s.setSelectedMemoryFileId);
+
+  const useStore = getOrCreateCanvasStore(canvasId);
+
+  const selectedNode = useStore(
+    useCallback(
+      (s) => {
+        if (selectedNodeIds.length !== 1) return null;
+        const node = s.nodes.find((n) => n.id === selectedNodeIds[0]);
+        return node?.data ?? null;
+      },
+      [selectedNodeIds],
+    ),
+  );
+
+  const selectedEdgeRaw = useStore(
+    useCallback(
+      (s) => {
+        if (selectedEdgeIds.length !== 1 || selectedNodeIds.length > 0) return null;
+        return s.edges.find((e) => e.id === selectedEdgeIds[0]) ?? null;
+      },
+      [selectedEdgeIds, selectedNodeIds],
+    ),
+  );
+  const selectedEdge = selectedEdgeRaw
+    ? {
+        id: selectedEdgeRaw.id,
+        source: selectedEdgeRaw.source,
+        type: (selectedEdgeRaw.type ?? "control") as EdgeType,
+        data: (selectedEdgeRaw.data ?? {}) as EdgeInstance,
+      }
+    : null;
+
+  const sourceControlEdgeCount = useStore(
+    useCallback(
+      (s) => {
+        if (!selectedEdge) return 0;
+        return s.edges.filter((e) => e.source === selectedEdge.source && isControlFlow(e.type as EdgeType)).length;
+      },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [selectedEdge?.source],
+    ),
+  );
+
+  const selectedChannel = useMemo(
+    () =>
+      selectedChannelId
+        ? Object.values(channels).find((v) => v.id === selectedChannelId) ?? null
+        : null,
+    [selectedChannelId, channels],
+  );
+
+  const selectedMemoryFile = useMemo(
+    () =>
+      selectedMemoryFileId
+        ? Object.values(memoryFiles).find((m) => m.uid === selectedMemoryFileId) ?? null
+        : null,
+    [selectedMemoryFileId, memoryFiles],
+  );
+
+  const getNodeCategory = useCallback(
+    (node: NodeInstance) => getNodeDef(node)?.category as NodeCategoryEnum | undefined,
+    [getNodeDef],
+  );
+
+  const handleTestNode = useCallback(
+    (nodeId: string) => onTestNode?.(nodeId),
+    [onTestNode],
+  );
+
+  if (selectionDrag) return null;
+
+  if (isDebugMode) {
+    if (!selectedNode) return null;
+    return (
+      <div className="w-80 border-l border-border bg-background overflow-y-auto p-3">
+        <DebugExternalIOPanel
+          canvasId={canvasId}
+          onStep={onDebugStep ?? (() => {})}
+          getNodeCategory={getNodeCategory}
+        />
+      </div>
+    );
+  }
+
+  if (selectedNode) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <NodeConfigPanel
+          canvasId={canvasId}
+          selectedNode={selectedNode}
+          onNodeUpdate={onNodeUpdate}
+          onNodeDelete={onNodeDelete}
+          onClose={onClearSelection}
+          onOpenTest={handleTestNode}
+          getNodeDef={getNodeDef}
+        />
+      </div>
+    );
+  }
+
+  if (selectedEdge) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <EdgeConfigPanel
+          canvasId={canvasId}
+          edgeId={selectedEdge.id}
+          edgeType={selectedEdge.type}
+          edgeData={selectedEdge.data}
+          sourceControlEdgeCount={sourceControlEdgeCount}
+          onEdgeUpdate={onEdgeUpdate}
+          onEdgeDelete={onEdgeDelete}
+          onClose={onClearSelection}
+        />
+      </div>
+    );
+  }
+
+  if (selectedChannel) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <ChannelConfigPanel channel={selectedChannel} onClose={() => setSelectedChannelId(null)} />
+      </div>
+    );
+  }
+
+  if (selectedMemoryFile) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <MemoryFileConfigPanel
+          memoryFile={selectedMemoryFile}
+          onClose={() => setSelectedMemoryFileId(null)}
+        />
+      </div>
+    );
+  }
+
+  return null;
+};
