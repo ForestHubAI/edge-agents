@@ -1,9 +1,21 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { fileBridge } from "./plugins/filebridge";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Lets the SPA read/write a single workflow file on disk through
+    // /api/file?path=… . The CLI (pass 2) will pass a tighter allowedRoots.
+    fileBridge({
+      allowedRoots: [
+        process.env.FH_BUILDER_ALLOW_ROOT
+          ? path.resolve(process.env.FH_BUILDER_ALLOW_ROOT)
+          : path.resolve(__dirname, ".."),
+      ],
+    }),
+  ],
   server: {
     port: 5173,
     open: true,
@@ -15,6 +27,7 @@ export default defineConfig({
     alias: {
       "@foresthub/visual-builder": path.resolve(__dirname, "../visual-builder/src"),
       "@foresthub/workflow-core": path.resolve(__dirname, "../workflow-core/src"),
+      // TODO: implement stubs
       // Stubs for embedder-provided hooks that visual-builder unfortunately
       // still imports via `@/hooks/...`. Replaced by a proper injection point
       // when useDynamicSelectionOptions is refactored.
