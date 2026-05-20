@@ -1,12 +1,11 @@
 import { create, UseBoundStore, StoreApi } from "zustand";
 import { Node, Edge } from "@xyflow/react";
-import type { NodeInstance, FunctionInfo, Expression } from "@foresthub/workflow-core/types/node";
-import type { EdgeInstance } from "@foresthub/workflow-core/types/edge";
-import { NodeCategory } from "@foresthub/workflow-core/types/node/NodeConstants";
-import { getNodeOutput } from "@foresthub/workflow-core/types/node/NodeMethods";
+import { NodeCategory, type NodeInstance, type FunctionInfo, type Expression } from "@foresthub/workflow-core/node";
+import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import { history, History, type HistoryData } from "../utils/history";
 import { generateId } from "../utils/IDs";
-import { type CanvasVariable, type NodeOutputVariable, fnargKey, nodeOutputVariableKey } from "../utils/variables";
+import { fnargKey, type CanvasVariable, type NodeOutputVariable } from "@foresthub/workflow-core/variable";
+import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
 
 /**
  * OutputAssignments map return variable uid → Expression.
@@ -35,7 +34,8 @@ export function syncFunctionArgVariables(store: CanvasStore, newFunctionInfo: Fu
   });
 }
 
-export const MAIN_CANVAS_ID = "main" as const;
+export { MAIN_CANVAS_ID } from "@foresthub/workflow-core/workflow";
+import { MAIN_CANVAS_ID } from "@foresthub/workflow-core/workflow";
 const HISTORY_LIMIT = 50 as const;
 
 // ============================================================================
@@ -183,8 +183,10 @@ function createCanvasStore(): CanvasStore {
       },
 
       initialize: (nodes, edges, functionInfo = null, outputAssignments = {}) => {
-        // Build variables: node outputs + fnarg entries from functionInfo
-        const vars: Record<string, CanvasVariable> = computeVariablesFromNodes(nodes);
+        // Build variables: node outputs + fnarg entries from functionInfo.
+        // computeVariablesFromNodes is the core (NodeInstance[]) variant; peel
+        // the React Flow wrapper at the call site.
+        const vars: Record<string, CanvasVariable> = computeVariablesFromNodes(nodes.map((n) => n.data));
         if (functionInfo?.arguments) {
           for (const arg of functionInfo.arguments) {
             vars[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
@@ -289,23 +291,3 @@ export function retainCanvasStores(idsToKeep: Set<string>): void {
   }
 }
 
-// ============================================================================
-// Variable Management Utilities
-// ============================================================================
-
-// Compute node output variables record from nodes
-export function computeVariablesFromNodes(nodes: Node<NodeInstance>[]): Record<string, NodeOutputVariable> {
-  const variables: Record<string, NodeOutputVariable> = {};
-  for (const node of nodes) {
-    for (const [outputId, variable] of Object.entries(getNodeOutput(node.data))) {
-      variables[nodeOutputVariableKey(node.id, outputId)] = {
-        kind: "node",
-        nodeId: node.id,
-        outputId,
-        name: variable.name,
-        dataType: variable.dataType,
-      };
-    }
-  }
-  return variables;
-}

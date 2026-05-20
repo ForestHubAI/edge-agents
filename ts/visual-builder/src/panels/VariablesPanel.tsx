@@ -8,9 +8,8 @@ import { cn } from "../lib/utils";
 import { useEditorStore, isReadOnly } from "../store/editorStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../store/canvasStore";
-import type { AvailableVariable, DeclaredVariable } from "../utils/variables";
-import { declaredVarKey } from "../utils/variables";
-import type { DataType } from "@foresthub/workflow-core/types/node";
+import { declaredVarKey, type AvailableVariable, type DeclaredVariable } from "@foresthub/workflow-core/variable";
+import type { DataType } from "@foresthub/workflow-core/node";
 import { generateId } from "../utils/IDs";
 
 interface VariablesPanelProps {

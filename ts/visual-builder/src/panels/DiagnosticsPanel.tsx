@@ -6,7 +6,7 @@ import { cn } from "../lib/utils";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
 import { getOrCreateCanvasStore } from "../store/canvasStore";
 import { useNodeDefinitions } from "../hooks/useNodeDefinitions";
-import type { Diagnostic } from "../utils/diagnostics";
+import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
 
 interface DiagnosticsPanelProps {
   canvasId: string;

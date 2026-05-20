@@ -18,6 +18,8 @@ export interface components {
             port: string;
         };
         Edge: {
+            /** @description Stable edge identifier. Preserved across save/load roundtrips so references by edge id (selection, diagnostics) stay valid. */
+            id: string;
             type: components["schemas"]["EdgeType"];
             from: components["schemas"]["Vertex"];
             to: components["schemas"]["Vertex"];
@@ -145,7 +147,7 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Time in milliseconds to pause execution */
-                delayMs: number;
+                delayMs?: number;
             };
         };
         TickerNode: {
@@ -159,12 +161,12 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description How many units between ticks */
-                intervalValue: number;
+                intervalValue?: number;
                 /**
                  * @description Time unit for the interval
                  * @enum {string}
                  */
-                intervalUnit: "milliseconds" | "seconds" | "minutes" | "hours";
+                intervalUnit?: "milliseconds" | "seconds" | "minutes" | "hours";
             };
         };
         AlarmNode: {
@@ -178,7 +180,7 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Time of day to fire (HH:MM, 24h format) */
-                time: string;
+                time?: string;
                 /** @description Days of the week to fire on (empty = every day) */
                 days?: string[];
             };
@@ -194,10 +196,10 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             functionInfo: components["schemas"]["FunctionInfo"];
             arguments: {
-                inputBindings: {
+                inputBindings?: {
                     [key: string]: components["schemas"]["Expression"];
                 };
-                outputBindings: {
+                outputBindings?: {
                     [key: string]: components["schemas"]["OutputBinding"];
                 };
                 /** @description Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode. */
@@ -235,12 +237,12 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description IO variable ID of the digital pin to watch */
-                pinReference: string;
+                pinReference?: string;
                 /**
                  * @description Edge transition that fires the trigger
                  * @enum {string}
                  */
-                edge: "rising" | "falling" | "both";
+                edge?: "rising" | "falling" | "both";
             };
         };
         OnSerialReceiveNode: {
@@ -254,8 +256,8 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an IO variable ID (the serial port to listen on) */
-                portReference: string;
-                output: components["schemas"]["OutputBinding"];
+                portReference?: string;
+                output?: components["schemas"]["OutputBinding"];
             };
         };
         OnThresholdNode: {
@@ -269,9 +271,9 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Numeric variable to watch for threshold crossings */
-                variable: components["schemas"]["Reference"];
+                variable?: components["schemas"]["Reference"];
                 /** @description Value the variable crosses to fire the trigger */
-                threshold: number;
+                threshold?: number;
                 /**
                  * @description Crossing direction to fire on (default both)
                  * @enum {string}
@@ -294,12 +296,12 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description RAG collection ID to query */
-                collectionId: string;
+                collectionId?: string;
                 /** @description Number of results to return */
-                topK: number;
+                topK?: number;
                 /** @description Search query expression */
-                query: components["schemas"]["Expression"];
-                output: components["schemas"]["OutputBinding"];
+                query?: components["schemas"]["Expression"];
+                output?: components["schemas"]["OutputBinding"];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };
@@ -315,10 +317,10 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description URL expression to fetch (http or https) */
-                url: components["schemas"]["Expression"];
+                url?: components["schemas"]["Expression"];
                 /** @description Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive. */
                 maxChars?: number;
-                output: components["schemas"]["OutputBinding"];
+                output?: components["schemas"]["OutputBinding"];
             };
         };
         ReadPinNode: {
@@ -332,9 +334,9 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an IO variable ID */
-                pinReference: string;
-                signalType: components["schemas"]["SignalType"];
-                output: components["schemas"]["OutputBinding"];
+                pinReference?: string;
+                signalType?: components["schemas"]["SignalType"];
+                output?: components["schemas"]["OutputBinding"];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };
@@ -350,9 +352,9 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an IO variable ID */
-                pinReference: string;
-                signalType: components["schemas"]["SignalType"];
-                value: components["schemas"]["Expression"];
+                pinReference?: string;
+                signalType?: components["schemas"]["SignalType"];
+                value?: components["schemas"]["Expression"];
             };
         };
         AgentNode: {
@@ -366,16 +368,16 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Name of the agent */
-                name: string;
-                model: string;
+                name?: string;
+                model?: string;
                 instructions?: string;
                 /** @description Maximum number of agent runner turns */
                 maxTurns?: number;
-                answer: components["schemas"]["OutputBinding"];
+                answer?: components["schemas"]["OutputBinding"];
                 /** @description Ordered list of structured-output declarations. Names must be unique within this list */
-                outputDeclarations: components["schemas"]["OutputDeclaration"][];
+                outputDeclarations?: components["schemas"]["OutputDeclaration"][];
                 /** @description Memory files this agent can access, each with an access mode. */
-                memoryRefs: components["schemas"]["MemoryRef"][];
+                memoryRefs?: components["schemas"]["MemoryRef"][];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };
@@ -390,7 +392,7 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                condition: components["schemas"]["Expression"];
+                condition?: components["schemas"]["Expression"];
             };
         };
         SerialReadNode: {
@@ -404,9 +406,9 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an UART ID (the serial port to read from) */
-                portReference: string;
+                portReference?: string;
                 prompt?: string;
-                output: components["schemas"]["OutputBinding"];
+                output?: components["schemas"]["OutputBinding"];
             };
         };
         SerialWriteNode: {
@@ -420,8 +422,8 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to a UART channel ID (the serial port to write to) */
-                portReference: string;
-                value: components["schemas"]["Expression"];
+                portReference?: string;
+                value?: components["schemas"]["Expression"];
             };
         };
         SetVariableNode: {
@@ -434,8 +436,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                variable: components["schemas"]["Reference"];
-                value: components["schemas"]["Expression"];
+                variable?: components["schemas"]["Reference"];
+                value?: components["schemas"]["Expression"];
             };
         };
         MqttPublishNode: {
@@ -449,18 +451,18 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
-                channelReference: string;
+                channelReference?: string;
                 /** @description Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime. */
-                topic: string;
-                dataType: components["schemas"]["DataType"];
-                value: components["schemas"]["Expression"];
+                topic?: string;
+                dataType?: components["schemas"]["DataType"];
+                value?: components["schemas"]["Expression"];
                 /**
                  * @description MQTT Quality of Service level
                  * @enum {integer}
                  */
-                qos: 0 | 1 | 2;
+                qos?: 0 | 1 | 2;
                 /** @description Whether the broker should retain the message */
-                retain: boolean;
+                retain?: boolean;
             };
         };
         OnMqttMessageNode: {
@@ -474,11 +476,11 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
-                channelReference: string;
+                channelReference?: string;
                 /** @description Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime. */
-                topic: string;
-                dataType: components["schemas"]["DataType"];
-                output: components["schemas"]["OutputBinding"];
+                topic?: string;
+                dataType?: components["schemas"]["DataType"];
+                output?: components["schemas"]["OutputBinding"];
             };
         };
         Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"];

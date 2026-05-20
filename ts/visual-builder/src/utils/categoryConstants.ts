@@ -1,6 +1,6 @@
 // Shared category icons and colors for node categories in the visual builder.
 
-import { NodeCategory } from "@foresthub/workflow-core/types/node";
+import { NodeCategory } from "@foresthub/workflow-core/node";
 import { Bot, Box, Brain, Inbox, Send, Variable, Wrench, Zap, type LucideIcon } from "lucide-react";
 
 export const categoryIcons: Record<string, LucideIcon> = {

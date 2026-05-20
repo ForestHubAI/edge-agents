@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../componen
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { FunctionInfo, NodeCategory } from "@foresthub/workflow-core/types/node";
+import { FunctionInfo, NodeCategory } from "@foresthub/workflow-core/node";
 import {
   CheckCircle,
   ChevronDown,
@@ -20,11 +20,11 @@ import type { TFunction } from "i18next";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { NodeDefinition } from "@foresthub/workflow-core/types/node/NodeDefinition";
+import { NodeDefinition } from "@foresthub/workflow-core/node";
 import { categoryIcons } from "../utils/categoryConstants";
 import { useEditorStore, isReadOnly } from "../store/editorStore";
-import { FunctionNodeDefinition } from "@foresthub/workflow-core/types/node/FunctionNode";
-import { Parameter } from "@foresthub/workflow-core/types/parameter";
+import { FunctionNodeDefinition } from "@foresthub/workflow-core/node";
+import { Parameter } from "@foresthub/workflow-core/parameter";
 import { getNodeDescription } from "../utils/translation";
 
 const getParameterIcon = (type: string) => {

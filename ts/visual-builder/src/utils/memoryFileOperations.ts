@@ -1,4 +1,4 @@
-import type { MemoryFileInstance } from "@foresthub/workflow-core/types/memory";
+import type { MemoryFileInstance } from "@foresthub/workflow-core/memory";
 import { useEditorStore } from "../store/editorStore";
 import { generateId } from "./IDs";
 import { memoryFileKey } from "./memoryFiles";

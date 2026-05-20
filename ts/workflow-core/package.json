@@ -10,23 +10,55 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./types/node/*": {
-      "types": "./dist/types/node/*.d.ts",
-      "import": "./dist/types/node/*.js"
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
     },
-    "./types/*": {
-      "types": "./dist/types/*/index.d.ts",
-      "import": "./dist/types/*/index.js"
+    "./edge": {
+      "types": "./dist/edge/index.d.ts",
+      "import": "./dist/edge/index.js"
+    },
+    "./channel": {
+      "types": "./dist/channel/index.d.ts",
+      "import": "./dist/channel/index.js"
+    },
+    "./memory": {
+      "types": "./dist/memory/index.d.ts",
+      "import": "./dist/memory/index.js"
+    },
+    "./parameter": {
+      "types": "./dist/parameter/index.d.ts",
+      "import": "./dist/parameter/index.js"
+    },
+    "./variable": {
+      "types": "./dist/variable/index.d.ts",
+      "import": "./dist/variable/index.js"
+    },
+    "./expression": {
+      "types": "./dist/expression/index.d.ts",
+      "import": "./dist/expression/index.js"
+    },
+    "./workflow": {
+      "types": "./dist/workflow/index.d.ts",
+      "import": "./dist/workflow/index.js"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics/index.d.ts",
+      "import": "./dist/diagnostics/index.js"
     }
   },
   "files": ["dist", "src"],
   "scripts": {
     "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts",
     "build": "tsc -b",
-    "test": "node --test"
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jsep": "^1.4.0"
   },
   "devDependencies": {
     "openapi-typescript": "^7.4.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.4"
   }
 }

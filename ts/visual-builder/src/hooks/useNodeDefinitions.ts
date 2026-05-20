@@ -1,10 +1,19 @@
 import { useMemo, useCallback } from "react";
 import i18n from "../i18n";
-import { NodeCategory, DataType, NodeRegistry, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/types/node";
-import type { FunctionInfo } from "@foresthub/workflow-core/types/node";
+import { NodeCategory, NodeRegistry, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core/node";
 import { useFunctionRegistry } from "./useFunctionRegistry";
-import { FunctionCallNode, FunctionNodeDefinition } from "@foresthub/workflow-core/types/node/FunctionNode";
-import { paramKey } from "../utils/variables";
+import { FunctionCallNode, FunctionNodeDefinition, buildFunctionNodeDef as coreBuildFunctionNodeDef } from "@foresthub/workflow-core/node";
+
+/**
+ * Visual-builder binding for {@link coreBuildFunctionNodeDef} — passes
+ * `i18n.t` so descriptions are translated. Consumers continue to call
+ * `buildFunctionNodeDef(fn)` unchanged; core's signature is the pure
+ * `(fn, t?)` form.
+ */
+export function buildFunctionNodeDef(fn: FunctionInfo): FunctionNodeDefinition {
+  return coreBuildFunctionNodeDef(fn, i18n.t.bind(i18n));
+}
 
 // Use function registry to provide dynamic node definitions based on available functions
 export const useNodeDefinitions = () => {
@@ -70,40 +79,3 @@ export const useNodeDefinitions = () => {
   };
 };
 
-// Build a FunctionCall NodeDefinition from FunctionInfo.
-// Inputs become expression parameters keyed by arg uid, returns become static
-// outputs keyed by return uid. The rest of the system then handles FunctionCall
-// like any other node — flat parameter reads, flat output binding writes.
-export function buildFunctionNodeDef(fn: FunctionInfo): FunctionNodeDefinition {
-  return {
-    type: "FunctionCall",
-    functionInfo: fn,
-    label: fn.name,
-    category: NodeCategory.Function,
-    description: i18n.t("builder.functionCallDesc", { name: fn.name }),
-    parameters: [
-      ...fn.arguments.map((param) => ({
-        id: paramKey(param),
-        label: param.name,
-        description: i18n.t("builder.functionParamDesc", { name: param.name }),
-        type: "expression" as const,
-        expressionType: param.dataType as DataType,
-        activationRules: [{ type: "isControlFlow" as const }],
-      })),
-      {
-        id: "toolDescription",
-        label: "Tool Description",
-        description: "Description shown to the agent when this function is wired as a tool",
-        type: "string" as const,
-        multiline: true,
-        activationRules: [{ type: "isToolInput" as const }],
-      },
-    ],
-    outputs: fn.returns.map((ret) => ({
-      id: paramKey(ret),
-      label: ret.name,
-      type: "static" as const,
-      dataType: ret.dataType as DataType,
-    })),
-  };
-}

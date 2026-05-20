@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
-import type { Expression, FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/types/node";
+import type { Expression, FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/node";
 import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../store/canvasStore";
 import type { OutputAssignments } from "../store/canvasStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";

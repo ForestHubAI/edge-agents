@@ -1,6 +1,6 @@
-import { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/types/node";
+import { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
 import { Connection, Edge, Node } from "@xyflow/react";
-import type { EdgeInstance } from "@foresthub/workflow-core/types/edge";
+import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import { useCallback } from "react";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../store/canvasStore";
 import {
@@ -13,7 +13,7 @@ import {
   updateEdgeInStore,
   updateNodeInStore,
 } from "../utils/graphOperations";
-import type { EdgeType } from "@foresthub/workflow-core/types/edge";
+import type { EdgeType } from "@foresthub/workflow-core/edge";
 import { useNodeDefinitions } from "./useNodeDefinitions";
 
 // Shared across all useGraph instances (one per canvas) so copy/paste works

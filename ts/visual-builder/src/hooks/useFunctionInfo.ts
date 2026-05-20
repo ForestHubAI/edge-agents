@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import type { FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/types/node";
-import { ensureUid } from "../utils/variables";
+import type { FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/node";
+import { ensureUid } from "@foresthub/workflow-core/variable";
 
 /**
  * Hook for managing function info.

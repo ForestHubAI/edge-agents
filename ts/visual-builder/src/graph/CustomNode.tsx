@@ -1,4 +1,4 @@
-import { NodeInstance, NodeRegistry } from "@foresthub/workflow-core/types/node";
+import { NodeInstance, NodeRegistry } from "@foresthub/workflow-core/node";
 import { NodeProps } from "@xyflow/react";
 import { memo, useMemo } from "react";
 import { BaseNode } from "./BaseNode";

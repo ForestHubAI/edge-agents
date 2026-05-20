@@ -4,25 +4,33 @@ import { Input } from "../components/ui/input";
 import { Separator } from "../components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
-import { NodeDefinition, NodeInstance, OutputBinding, DataType, Reference } from "@foresthub/workflow-core/types/node";
-import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthub/workflow-core/types/parameter";
-import { FunctionCallNode } from "@foresthub/workflow-core/types/node/FunctionNode";
-import { getArguments, getNodeAvailableOutput, getOutputBinding } from "@foresthub/workflow-core/types/node/NodeMethods";
-import { isParameterActive, Parameter } from "@foresthub/workflow-core/types/parameter";
+import {
+  NodeDefinition,
+  NodeInstance,
+  OutputBinding,
+  DataType,
+  Reference,
+  FunctionCallNode,
+  getArguments,
+  getNodeAvailableOutput,
+  getOutputBinding,
+} from "@foresthub/workflow-core/node";
+import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthub/workflow-core/parameter";
+import { isParameterActive, Parameter } from "@foresthub/workflow-core/parameter";
 import { ArrowRight, ChevronRight, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { getOrCreateCanvasStore } from "../store/canvasStore";
-import { isNodeUsedAsTool } from "../utils/portUtils";
+import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
+import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
+import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { PortSection } from "../dialogs/FunctionInfoDialog";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import type { Diagnostic } from "../utils/diagnostics";
 import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";
 import { useEditorStore, isReadOnly } from "../store/editorStore";
 import { migrateFunctionCallNodes } from "../utils/migrateFunctionNodes";
-import { canvasVarKey, refToLookupKey } from "../utils/variables";
 import { getNodeDescription } from "../utils/translation";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 

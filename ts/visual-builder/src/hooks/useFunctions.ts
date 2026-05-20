@@ -2,9 +2,9 @@ import { useCallback } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { deleteCanvasStore, getOrCreateCanvasStore, getCanvasStore, syncFunctionArgVariables } from "../store/canvasStore";
 import { useFunctionRegistry } from "./useFunctionRegistry";
-import type { FunctionInfo } from "@foresthub/workflow-core/types/node";
+import type { FunctionInfo } from "@foresthub/workflow-core/node";
 import { generateId } from "../utils/IDs";
-import { ensureUids } from "../utils/variables";
+import { ensureUids } from "@foresthub/workflow-core/variable";
 
 export interface UseFunctionsOptions {
   /** Called when a function tab should be opened */

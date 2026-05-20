@@ -5,10 +5,8 @@ import { Switch } from "../components/ui/switch";
 import { Loader2, Play } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NodeCategory } from "@foresthub/workflow-core/types/node/NodeConstants";
-import type { NodeInstance } from "@foresthub/workflow-core/types/node";
+import { NodeCategory, getInput, type NodeInstance, type ExternalInput } from "@foresthub/workflow-core/node";
 import type { Schemas } from "@foresthub/workflow-core";
-import { getInput, type ExternalInput } from "@foresthub/workflow-core/types/node/NodeMethods";
 import { getOrCreateCanvasStore } from "../store/canvasStore";
 import { useDebugStore, type DebugSessionPhase } from "../store/debugStore";
 

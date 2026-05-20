@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NodeDefinition, NodeCategory } from "@foresthub/workflow-core/types/node";
+import { NodeDefinition, NodeCategory } from "@foresthub/workflow-core/node";
 import {
   CommandDialog,
   CommandInput,

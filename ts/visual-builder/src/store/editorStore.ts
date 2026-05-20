@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
-import type { ChannelInstance } from "@foresthub/workflow-core/types/channel";
-import type { MemoryFileInstance } from "@foresthub/workflow-core/types/memory";
+import type { ChannelInstance } from "@foresthub/workflow-core/channel";
+import type { MemoryFileInstance } from "@foresthub/workflow-core/memory";
 import { channelKey } from "../utils/channels";
 
 // ---------------------------------------------------------------------------

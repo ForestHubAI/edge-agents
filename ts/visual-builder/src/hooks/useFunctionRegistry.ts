@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { getAllCanvasStores, MAIN_CANVAS_ID, subscribeFunctionInfoChanges } from "../store/canvasStore";
-import type { FunctionInfo } from "@foresthub/workflow-core/types/node";
+import type { FunctionInfo } from "@foresthub/workflow-core/node";
 
 // Cached snapshot of all function definitions
 let cachedFunctions: Record<string, FunctionInfo> = {};

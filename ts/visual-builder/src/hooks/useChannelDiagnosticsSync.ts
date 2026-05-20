@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { validateChannel } from "../utils/diagnostics";
+import { validateChannel } from "@foresthub/workflow-core/diagnostics";
 
 /**
  * Keeps `diagnosticsStore.byChannelId` in sync with the editor's channels.

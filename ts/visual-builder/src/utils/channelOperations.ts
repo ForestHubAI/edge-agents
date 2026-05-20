@@ -1,5 +1,5 @@
-import { CHANNEL_DEFINITION, type ChannelType, type ChannelInstance, stripInactiveArguments } from "@foresthub/workflow-core/types/channel";
-import { isParameterActive } from "@foresthub/workflow-core/types/parameter";
+import { CHANNEL_DEFINITION, type ChannelType, type ChannelInstance, stripInactiveArguments } from "@foresthub/workflow-core/channel";
+import { isParameterActive } from "@foresthub/workflow-core/parameter";
 import { useEditorStore } from "../store/editorStore";
 import { generateId } from "./IDs";
 import { channelKey } from "./channels";

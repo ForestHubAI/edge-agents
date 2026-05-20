@@ -9,19 +9,20 @@ import {
   NodeRegistry,
   NodeType,
   OutputBinding,
-} from "@foresthub/workflow-core/types/node";
-import type { OutputDeclaration } from "@foresthub/workflow-core/types/parameter";
-import { FunctionCallNode, FunctionNodeDefinition } from "@foresthub/workflow-core/types/node/FunctionNode";
-import { getArguments, getNodeOutput } from "@foresthub/workflow-core/types/node/NodeMethods";
+  FunctionCallNode,
+  FunctionNodeDefinition,
+  getArguments,
+  getNodeOutput,
+} from "@foresthub/workflow-core/node";
+import type { OutputDeclaration } from "@foresthub/workflow-core/parameter";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
-import type { EdgeInstance } from "@foresthub/workflow-core/types/edge";
-import { CanvasStore, computeVariablesFromNodes } from "../store/canvasStore";
-import { nodeOutputVariableKey } from "./variables";
-import { isExpression } from "./expressions/types";
-import type { EdgeType } from "@foresthub/workflow-core/types/edge";
-import { isValidConnection } from "./portUtils";
+import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
+import { CanvasStore } from "../store/canvasStore";
+import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
+import { nodeOutputVariableKey, paramKey } from "@foresthub/workflow-core/variable";
+import { isExpression } from "@foresthub/workflow-core/expression";
+import { isValidConnection } from "@foresthub/workflow-core/node";
 import { generateId } from "./IDs";
-import { paramKey } from "./variables";
 
 // ============================================================================
 // Output Name Deduplication
@@ -171,7 +172,7 @@ export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, posi
   setNodes((nds) => [...nds, newNode]);
 
   // Add new node's output variables to store (computed via getNodeOutput)
-  setVariables((vars) => ({ ...vars, ...computeVariablesFromNodes([newNode]) }));
+  setVariables((vars) => ({ ...vars, ...computeVariablesFromNodes([newNode.data]) }));
 
   return nodeId;
 }
@@ -480,7 +481,7 @@ export function pasteToStore(
   setEdges((eds) => [...eds, ...newEdges]);
 
   // Add pasted nodes' variables to store
-  setVariables((vars) => ({ ...vars, ...computeVariablesFromNodes(newNodes) }));
+  setVariables((vars) => ({ ...vars, ...computeVariablesFromNodes(newNodes.map((n) => n.data)) }));
 
   return { pasted: true, skippedLabels };
 }

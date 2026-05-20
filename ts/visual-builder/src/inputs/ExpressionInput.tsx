@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { DataType, Expression } from "@foresthub/workflow-core/types/node";
+import { DataType, Expression } from "@foresthub/workflow-core/node";
 import type { Schemas } from "@foresthub/workflow-core";
-import { ResolvedExpr, resolveExpression } from "../utils/expressions/types";
+import { ResolvedExpr, resolveExpression } from "@foresthub/workflow-core/expression";
+import { canvasVarKey, type AvailableVariable } from "@foresthub/workflow-core/variable";
 import { cn } from "../lib/utils";
-import type { AvailableVariable } from "../utils/variables";
-import { canvasVarKey } from "../utils/variables";
 
 interface ExpressionInputProps {
   value: Expression;

@@ -14,7 +14,7 @@
  * See docs/diagnostics.md for full architecture and lifecycle details.
  */
 import { create } from "zustand";
-import type { Diagnostic } from "../utils/diagnostics";
+import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
 
 interface DiagnosticsState {
   byNodeId: Record<string, Diagnostic[]>;

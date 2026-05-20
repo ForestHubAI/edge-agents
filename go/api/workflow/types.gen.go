@@ -679,21 +679,21 @@ type ADCChannelType string
 // AgentNode defines model for AgentNode.
 type AgentNode struct {
 	Arguments struct {
-		Answer       OutputBinding `json:"answer"`
-		Instructions *string       `json:"instructions,omitempty"`
+		Answer       *OutputBinding `json:"answer,omitempty"`
+		Instructions *string        `json:"instructions,omitempty"`
 
 		// MaxTurns Maximum number of agent runner turns
 		MaxTurns *int `json:"maxTurns,omitempty"`
 
 		// MemoryRefs Memory files this agent can access, each with an access mode.
-		MemoryRefs []MemoryRef `json:"memoryRefs"`
-		Model      string      `json:"model"`
+		MemoryRefs *[]MemoryRef `json:"memoryRefs,omitempty"`
+		Model      *string      `json:"model,omitempty"`
 
 		// Name Name of the agent
-		Name string `json:"name"`
+		Name *string `json:"name,omitempty"`
 
 		// OutputDeclarations Ordered list of structured-output declarations. Names must be unique within this list
-		OutputDeclarations []OutputDeclaration `json:"outputDeclarations"`
+		OutputDeclarations *[]OutputDeclaration `json:"outputDeclarations,omitempty"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -714,7 +714,7 @@ type AlarmNode struct {
 		Days *[]string `json:"days,omitempty"`
 
 		// Time Time of day to fire (HH:MM, 24h format)
-		Time string `json:"time"`
+		Time *string `json:"time,omitempty"`
 	} `json:"arguments"`
 	Id       string        `json:"id"`
 	Label    *string       `json:"label,omitempty"`
@@ -752,7 +752,7 @@ type DataType string
 type DelayNode struct {
 	Arguments struct {
 		// DelayMs Time in milliseconds to pause execution
-		DelayMs int `json:"delayMs"`
+		DelayMs *int `json:"delayMs,omitempty"`
 	} `json:"arguments"`
 	Id       string        `json:"id"`
 	Label    *string       `json:"label,omitempty"`
@@ -766,11 +766,14 @@ type DelayNodeType string
 // Edge defines model for Edge.
 type Edge struct {
 	// Description LLM-readable explanation of when the edge should fire. Present on `agentChoice` and `agentDelegate`.
-	Description *string     `json:"description,omitempty"`
-	From        Vertex      `json:"from"`
-	Prompt      *Expression `json:"prompt,omitempty"`
-	To          Vertex      `json:"to"`
-	Type        EdgeType    `json:"type"`
+	Description *string `json:"description,omitempty"`
+	From        Vertex  `json:"from"`
+
+	// Id Stable edge identifier. Preserved across save/load roundtrips so references by edge id (selection, diagnostics) stay valid.
+	Id     string      `json:"id"`
+	Prompt *Expression `json:"prompt,omitempty"`
+	To     Vertex      `json:"to"`
+	Type   EdgeType    `json:"type"`
 }
 
 // EdgeType defines model for EdgeType.
@@ -799,8 +802,8 @@ type Function struct {
 // FunctionCallNode defines model for FunctionCallNode.
 type FunctionCallNode struct {
 	Arguments struct {
-		InputBindings  map[string]Expression    `json:"inputBindings"`
-		OutputBindings map[string]OutputBinding `json:"outputBindings"`
+		InputBindings  *map[string]Expression    `json:"inputBindings,omitempty"`
+		OutputBindings *map[string]OutputBinding `json:"outputBindings,omitempty"`
 
 		// ToolDescription Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -866,7 +869,7 @@ type GPIOOUTChannelType string
 // IfNode defines model for IfNode.
 type IfNode struct {
 	Arguments struct {
-		Condition Expression `json:"condition"`
+		Condition *Expression `json:"condition,omitempty"`
 	} `json:"arguments"`
 	Id       string       `json:"id"`
 	Label    *string      `json:"label,omitempty"`
@@ -921,18 +924,18 @@ type MemoryRefMode string
 type MqttPublishNode struct {
 	Arguments struct {
 		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-		ChannelReference string   `json:"channelReference"`
-		DataType         DataType `json:"dataType"`
+		ChannelReference *string   `json:"channelReference,omitempty"`
+		DataType         *DataType `json:"dataType,omitempty"`
 
 		// Qos MQTT Quality of Service level
-		Qos MqttPublishNodeArgumentsQos `json:"qos"`
+		Qos *MqttPublishNodeArgumentsQos `json:"qos,omitempty"`
 
 		// Retain Whether the broker should retain the message
-		Retain bool `json:"retain"`
+		Retain *bool `json:"retain,omitempty"`
 
 		// Topic Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime.
-		Topic string     `json:"topic"`
-		Value Expression `json:"value"`
+		Topic *string     `json:"topic,omitempty"`
+		Value *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -972,12 +975,12 @@ type OnFunctionCallNodeType string
 type OnMqttMessageNode struct {
 	Arguments struct {
 		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-		ChannelReference string        `json:"channelReference"`
-		DataType         DataType      `json:"dataType"`
-		Output           OutputBinding `json:"output"`
+		ChannelReference *string        `json:"channelReference,omitempty"`
+		DataType         *DataType      `json:"dataType,omitempty"`
+		Output           *OutputBinding `json:"output,omitempty"`
 
 		// Topic Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime.
-		Topic string `json:"topic"`
+		Topic *string `json:"topic,omitempty"`
 	} `json:"arguments"`
 	Id       string                `json:"id"`
 	Label    *string               `json:"label,omitempty"`
@@ -992,10 +995,10 @@ type OnMqttMessageNodeType string
 type OnPinEdgeNode struct {
 	Arguments struct {
 		// Edge Edge transition that fires the trigger
-		Edge OnPinEdgeNodeArgumentsEdge `json:"edge"`
+		Edge *OnPinEdgeNodeArgumentsEdge `json:"edge,omitempty"`
 
 		// PinReference IO variable ID of the digital pin to watch
-		PinReference string `json:"pinReference"`
+		PinReference *string `json:"pinReference,omitempty"`
 	} `json:"arguments"`
 	Id       string            `json:"id"`
 	Label    *string           `json:"label,omitempty"`
@@ -1012,10 +1015,10 @@ type OnPinEdgeNodeType string
 // OnSerialReceiveNode defines model for OnSerialReceiveNode.
 type OnSerialReceiveNode struct {
 	Arguments struct {
-		Output OutputBinding `json:"output"`
+		Output *OutputBinding `json:"output,omitempty"`
 
 		// PortReference Reference to an IO variable ID (the serial port to listen on)
-		PortReference string `json:"portReference"`
+		PortReference *string `json:"portReference,omitempty"`
 	} `json:"arguments"`
 	Id       string                  `json:"id"`
 	Label    *string                 `json:"label,omitempty"`
@@ -1048,8 +1051,8 @@ type OnThresholdNode struct {
 		Output    *OutputBinding                     `json:"output,omitempty"`
 
 		// Threshold Value the variable crosses to fire the trigger
-		Threshold float32   `json:"threshold"`
-		Variable  Reference `json:"variable"`
+		Threshold *float32   `json:"threshold,omitempty"`
+		Variable  *Reference `json:"variable,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1114,11 +1117,11 @@ type PWMChannelType string
 // ReadPinNode defines model for ReadPinNode.
 type ReadPinNode struct {
 	Arguments struct {
-		Output OutputBinding `json:"output"`
+		Output *OutputBinding `json:"output,omitempty"`
 
 		// PinReference Reference to an IO variable ID
-		PinReference string     `json:"pinReference"`
-		SignalType   SignalType `json:"signalType"`
+		PinReference *string     `json:"pinReference,omitempty"`
+		SignalType   *SignalType `json:"signalType,omitempty"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -1142,15 +1145,15 @@ type Reference struct {
 type RetrieverNode struct {
 	Arguments struct {
 		// CollectionID RAG collection ID to query
-		CollectionID string        `json:"collectionId"`
-		Output       OutputBinding `json:"output"`
-		Query        Expression    `json:"query"`
+		CollectionID *string        `json:"collectionId,omitempty"`
+		Output       *OutputBinding `json:"output,omitempty"`
+		Query        *Expression    `json:"query,omitempty"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 
 		// TopK Number of results to return
-		TopK int `json:"topK"`
+		TopK *int `json:"topK,omitempty"`
 	} `json:"arguments"`
 	Id       string            `json:"id"`
 	Label    *string           `json:"label,omitempty"`
@@ -1164,10 +1167,10 @@ type RetrieverNodeType string
 // SerialReadNode defines model for SerialReadNode.
 type SerialReadNode struct {
 	Arguments struct {
-		Output OutputBinding `json:"output"`
+		Output *OutputBinding `json:"output,omitempty"`
 
 		// PortReference Reference to an UART ID (the serial port to read from)
-		PortReference string  `json:"portReference"`
+		PortReference *string `json:"portReference,omitempty"`
 		Prompt        *string `json:"prompt,omitempty"`
 	} `json:"arguments"`
 	Id       string             `json:"id"`
@@ -1183,8 +1186,8 @@ type SerialReadNodeType string
 type SerialWriteNode struct {
 	Arguments struct {
 		// PortReference Reference to a UART channel ID (the serial port to write to)
-		PortReference string     `json:"portReference"`
-		Value         Expression `json:"value"`
+		PortReference *string     `json:"portReference,omitempty"`
+		Value         *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1198,8 +1201,8 @@ type SerialWriteNodeType string
 // SetVariableNode defines model for SetVariableNode.
 type SetVariableNode struct {
 	Arguments struct {
-		Value    Expression `json:"value"`
-		Variable Reference  `json:"variable"`
+		Value    *Expression `json:"value,omitempty"`
+		Variable *Reference  `json:"variable,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1217,10 +1220,10 @@ type SignalType string
 type TickerNode struct {
 	Arguments struct {
 		// IntervalUnit Time unit for the interval
-		IntervalUnit TickerNodeArgumentsIntervalUnit `json:"intervalUnit"`
+		IntervalUnit *TickerNodeArgumentsIntervalUnit `json:"intervalUnit,omitempty"`
 
 		// IntervalValue How many units between ticks
-		IntervalValue int `json:"intervalValue"`
+		IntervalValue *int `json:"intervalValue,omitempty"`
 	} `json:"arguments"`
 	Id       string         `json:"id"`
 	Label    *string        `json:"label,omitempty"`
@@ -1268,9 +1271,9 @@ type Vertex struct {
 type WebFetchNode struct {
 	Arguments struct {
 		// MaxChars Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
-		MaxChars *int          `json:"maxChars,omitempty"`
-		Output   OutputBinding `json:"output"`
-		Url      Expression    `json:"url"`
+		MaxChars *int           `json:"maxChars,omitempty"`
+		Output   *OutputBinding `json:"output,omitempty"`
+		Url      *Expression    `json:"url,omitempty"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`
@@ -1312,9 +1315,9 @@ type Workflow struct {
 type WritePinNode struct {
 	Arguments struct {
 		// PinReference Reference to an IO variable ID
-		PinReference string     `json:"pinReference"`
-		SignalType   SignalType `json:"signalType"`
-		Value        Expression `json:"value"`
+		PinReference *string     `json:"pinReference,omitempty"`
+		SignalType   *SignalType `json:"signalType,omitempty"`
+		Value        *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`

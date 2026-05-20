@@ -1,7 +1,6 @@
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { NodeBase, NodeCategory, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/types/node";
-import { getArguments, getPorts } from "@foresthub/workflow-core/types/node/NodeMethods";
+import { NodeBase, NodeCategory, NodeDefinition, NodeInstance, getArguments, getPorts } from "@foresthub/workflow-core/node";
 import { NodeProps, Position } from "@xyflow/react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
@@ -12,12 +11,18 @@ import { useDebugStore } from "../store/debugStore";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
 import { useEditorStore, isReadOnly } from "../store/editorStore";
 import { categoryIcons } from "../utils/categoryConstants";
-import { computeNodeDiagnostics } from "../utils/diagnostics";
-import { parseExpression, type ParseResult } from "../utils/expressions/parser";
-import { displayValue, isExpression, resolveExpression, type ResolvedExpr } from "../utils/expressions/types";
-import { isNodeUsedAsTool, canPortAcceptEdge } from "../utils/portUtils";
+import { computeNodeDiagnostics } from "@foresthub/workflow-core/diagnostics";
+import {
+  parseExpression,
+  type ParseResult,
+  displayValue,
+  isExpression,
+  resolveExpression,
+  type ResolvedExpr,
+} from "@foresthub/workflow-core/expression";
+import { isNodeUsedAsTool, canPortAcceptEdge } from "@foresthub/workflow-core/node";
 import { PortHandle } from "./PortHandle";
-import { formatParamDisplay, isParameterActive } from "@foresthub/workflow-core/types/parameter";
+import { formatParamDisplay, isParameterActive } from "@foresthub/workflow-core/parameter";
 
 // Node shape variants
 type NodeShape = "rectangle" | "tapered-right";

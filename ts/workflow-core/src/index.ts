@@ -1,25 +1,30 @@
 // @foresthub/workflow-core — public entry point.
 //
-// SCAFFOLD. The pure validator is extracted from the FE monolith
-// (parameterize validateAllCanvases() -> validateWorkflow(serialized),
-// pull out the expression checker) IN PLACE under existing FE tests,
-// then moved here. It must run headless (Node, no React/DOM).
+// One persistence format throughout: the OpenAPI contract `Schemas["Workflow"]`
+// from /contract/workflow.yaml. Same wire shape the Go binding consumes.
+// `npm run generate` regenerates ./api/workflow.ts; commit + diff in CI to
+// keep TS and Go in lockstep.
 //
-// `npm run codegen` regenerates ./api/generated.ts from the SAME
-// /contract/workflow.yaml the Go binding uses. Generated code is
-// committed; CI regenerates + diffs to prevent cross-language drift.
+// Two validator entries:
+//   - validateWorkflow(workflow)        — takes contract JSON, deserializes
+//                                          internally; what the CLI calls.
+//   - validateWorkflowState(state)      — takes the in-memory domain shape;
+//                                          what the editor's live-diagnostics
+//                                          path calls (no double roundtrip).
 
-export type { components, paths, webhooks, Schemas } from "./api/index.js";
+import { deserialize } from "./workflow/serialization.js";
+import { validateWorkflowState, type ValidationResult } from "./diagnostics/diagnostics.js";
+import type { Schemas } from "./api/index.js";
 
-export interface Diagnostic {
-  severity: "error" | "warning" | "info";
-  category: string;
-  nodeId?: string;
-  message: string;
-  range?: { start: number; end: number };
-}
+export type { components, Schemas } from "./api/index.js";
 
-/** Parse + validate a serialized workflow. Pure; no I/O, no stores. */
-export function validateWorkflow(_serialized: unknown): Diagnostic[] {
-  throw new Error("not implemented: extract from FE diagnostics in place first");
+/**
+ * Validate a workflow against the headless validator. Takes the contract's
+ * wire shape (`Schemas["Workflow"]`), deserializes to the in-memory domain
+ * shape (`WorkflowState`), and delegates to {@link validateWorkflowState}.
+ * Pure: no I/O, no Zustand, no React, no DOM. Runnable in Node, a CLI, or
+ * a Claude Code skill.
+ */
+export function validateWorkflow(workflow: Schemas["Workflow"]): ValidationResult {
+  return validateWorkflowState(deserialize(workflow));
 }
