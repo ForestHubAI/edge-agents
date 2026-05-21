@@ -1,4 +1,5 @@
 import type { Schemas } from "@foresthub/workflow-core";
+import type { Workflow } from "@foresthub/workflow-core/workflow";
 import { validateWorkflowState, type ValidationResult } from "@foresthub/workflow-core/diagnostics";
 import {
   forwardRef,
@@ -11,7 +12,9 @@ import { BuilderLayout } from "./BuilderLayout";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/toaster";
 import { useCanvasTabs } from "./hooks/useCanvasTabs";
+import { useChannelDiagnosticsSync } from "./hooks/useChannelDiagnosticsSync";
 import { useFunctions } from "./hooks/useFunctions";
+import { useMemoryDiagnosticsSync } from "./hooks/useMemoryDiagnosticsSync";
 import { useWorkflowSerialization, readStateFromStores } from "./hooks/useWorkflowSerialization";
 import {
   clearAllCanvasStores,
@@ -47,7 +50,7 @@ export function isPreview(mode: BuilderMode): mode is Extract<BuilderMode, { typ
 export interface WorkflowBuilderProps {
   // ── Initial state (one-shot; subsequent updates go through the handle) ──
   /** Workflow loaded on mount. */
-  initialWorkflow?: Schemas["Workflow"];
+  initialWorkflow?: Workflow;
   /** Builder mode on mount. Defaults to { type: "edit" }. */
   initialMode?: BuilderMode;
 
@@ -68,8 +71,8 @@ export interface WorkflowBuilderProps {
 
 export interface WorkflowBuilderHandle {
   // State I/O
-  loadWorkflow: (workflow: Schemas["Workflow"]) => void;
-  exportWorkflow: () => Schemas["Workflow"];
+  loadWorkflow: (workflow: Workflow) => void;
+  exportWorkflow: () => Workflow;
   clear: () => void;
 
   // Mode (replaces preview/debug entry-point props)
@@ -112,6 +115,11 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
     } = props;
 
     const { importProject, exportProject } = useWorkflowSerialization();
+
+    // Keep project-scoped (channel + memory) diagnostics in sync. Mounted once
+    // here at the root so badges survive sidebar tab open/close.
+    useChannelDiagnosticsSync();
+    useMemoryDiagnosticsSync();
 
     // Canvas tabs + functions live here because they survive canvas switches.
     const canvasTabs = useCanvasTabs();

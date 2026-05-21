@@ -1,6 +1,7 @@
 import type { Edge } from "@xyflow/react";
 import type { DataType, Expression, NodeDefinition, NodeInstance, Reference } from "../../node";
 import type { ChannelInstance } from "../../channel";
+import type { MemoryInstance } from "../../memory";
 import { NodeCategory } from "../../node";
 import type { AvailableVariable, DeclaredVariable, NodeOutputVariable } from "../../variable";
 import type { Diagnostic, DiagnosticCategory } from "../diagnostics";
@@ -92,6 +93,26 @@ export function makeChannel(overrides: Partial<ChannelInstance> = {}): ChannelIn
 export function makeChannels(channels: ChannelInstance[]): Record<string, ChannelInstance> {
   const map: Record<string, ChannelInstance> = {};
   for (const v of channels) map[v.id] = v;
+  return map;
+}
+
+// ============================================================================
+// Memory builders
+// ============================================================================
+
+export function makeMemory(overrides: Partial<MemoryInstance> = {}): MemoryInstance {
+  return {
+    id: "mem1",
+    label: "memory1",
+    type: "MemoryFile",
+    arguments: {},
+    ...overrides,
+  };
+}
+
+export function makeMemories(memories: MemoryInstance[]): Record<string, MemoryInstance> {
+  const map: Record<string, MemoryInstance> = {};
+  for (const m of memories) map[m.id] = m;
   return map;
 }
 

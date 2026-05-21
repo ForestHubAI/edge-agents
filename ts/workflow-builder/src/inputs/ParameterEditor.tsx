@@ -1,4 +1,3 @@
-import type { Schemas } from "@foresthub/workflow-core";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
@@ -9,18 +8,17 @@ import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
-import type { ExpressionParam, ChannelSelectParam, LLMModelParam, Parameter, StringParam } from "@foresthub/workflow-core/parameter";
-import { resolveCapabilities, resolveExpressionType, resolveChannelTypes } from "@foresthub/workflow-core/parameter";
+import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, LLMModelParam, Parameter, StringParam } from "@foresthub/workflow-core/parameter";
+import { resolveCapabilities, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes } from "@foresthub/workflow-core/parameter";
 import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDynamicSelectionOptions, type DynamicSelectionType } from "../hooks/useDynamicSelectionOptions";
 import { useEditorStore } from "../store/editorStore";
 import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
+import type { MemoryInstance, MemoryRef } from "@foresthub/workflow-core/memory";
 import ExpressionInput from "./ExpressionInput";
 import { getParamDescription } from "../utils/translation";
-
-type MemoryRef = Schemas["MemoryRef"];
 
 /** Shared Select component for all reference-select parameter types */
 function ReferenceSelect({
@@ -102,13 +100,12 @@ const ParameterEditor = ({
   // This preserves the distinction between "user cleared field" and "default value".
   const currentValue = value;
   const { list: variableList, lookup: variables } = useAvailableVariables(canvasId);
-  const dynamicType: DynamicSelectionType =
-    parameter.type === "rag-collection" ? "ragCollections" : parameter.type === "llm-model" ? "llmModels" : null;
+  const dynamicType: DynamicSelectionType = parameter.type === "llm-model" ? "llmModels" : null;
   const llmCapabilities =
     parameter.type === "llm-model" ? resolveCapabilities(parameter as LLMModelParam, allArguments) : undefined;
   const { options: dynamicOptions, loading: dynamicLoading } = useDynamicSelectionOptions(dynamicType, llmCapabilities);
   const channels = useEditorStore((s) => s.channels);
-  const memoryFiles = useEditorStore((s) => s.memoryFiles);
+  const memory = useEditorStore((s) => s.memory);
 
   const renderInput = () => {
     switch (parameter.type) {
@@ -245,17 +242,21 @@ const ParameterEditor = ({
         );
       }
 
-      case "rag-collection": {
+      case "memorySelect": {
+        const memoryParam = parameter as ParameterEditorProps["parameter"] & MemorySelectParam;
+        const allowedTypes = resolveMemoryTypes(memoryParam, allArguments);
+        const matching = Object.values(memory).filter((m: MemoryInstance) => allowedTypes.includes(m.type));
+
         const selectedId = currentValue as string | undefined;
-        const isStale = !!(selectedId && !dynamicLoading && !dynamicOptions.some((o) => o.value === selectedId));
+        const isStale = !!(selectedId && !matching.some((m) => m.id === selectedId));
+        const options = matching.map((m) => ({ value: m.id, label: m.label }));
 
         return (
           <ReferenceSelect
             value={selectedId}
-            options={dynamicOptions}
+            options={options}
             isStale={isStale}
-            loading={dynamicLoading}
-            placeholder="Select collection..."
+            placeholder={t("selectMemory", "Select memory...")}
             onChange={(v) => onChange(v)}
           />
         );
@@ -328,10 +329,9 @@ const ParameterEditor = ({
 
       case "memory-refs": {
         const refs = (currentValue as MemoryRef[] | undefined) ?? [];
-        // Look up by uid (the store keys on uid via memoryFileKey() but Object.values
-        // gives us instances we can match directly).
-        const allFiles = Object.values(memoryFiles);
-        const allFilesByUid = new Map(allFiles.map((m) => [m.uid, m]));
+        // memory-refs bind to MemoryFile-type memories only.
+        const allFiles = Object.values(memory).filter((m) => m.type === "MemoryFile");
+        const allFilesById = new Map(allFiles.map((m) => [m.id, m]));
 
         const replace = (index: number, next: MemoryRef) =>
           onChange(refs.map((r, i) => (i === index ? next : r)));
@@ -339,9 +339,9 @@ const ParameterEditor = ({
         const add = () => {
           // Pre-select the first unused memory file (if any) so adding a row
           // immediately gives the user a valid binding to start tweaking.
-          const usedUids = new Set(refs.map((r) => r.uid));
-          const firstUnused = allFiles.find((m) => !usedUids.has(m.uid));
-          onChange([...refs, { uid: firstUnused?.uid ?? "", mode: "r" as const }]);
+          const usedIds = new Set(refs.map((r) => r.id));
+          const firstUnused = allFiles.find((m) => !usedIds.has(m.id));
+          onChange([...refs, { id: firstUnused?.id ?? "", mode: "r" as const }]);
         };
 
         // Always render existing refs (even when there are 0 memory files left)
@@ -360,10 +360,10 @@ const ParameterEditor = ({
               </p>
             )}
             {refs.map((ref, index) => {
-              const file = ref.uid ? allFilesByUid.get(ref.uid) : undefined;
-              const isStale = !!(ref.uid && !file);
-              const usedByOthers = new Set(refs.filter((_, i) => i !== index).map((r) => r.uid));
-              const selectableFiles = allFiles.filter((m) => m.uid === ref.uid || !usedByOthers.has(m.uid));
+              const file = ref.id ? allFilesById.get(ref.id) : undefined;
+              const isStale = !!(ref.id && !file);
+              const usedByOthers = new Set(refs.filter((_, i) => i !== index).map((r) => r.id));
+              const selectableFiles = allFiles.filter((m) => m.id === ref.id || !usedByOthers.has(m.id));
 
               return (
                 <div
@@ -372,8 +372,8 @@ const ParameterEditor = ({
                 >
                   <div className="flex items-center gap-2">
                     <Select
-                      value={ref.uid || undefined}
-                      onValueChange={(uid) => replace(index, { ...ref, uid })}
+                      value={ref.id || undefined}
+                      onValueChange={(id) => replace(index, { ...ref, id })}
                     >
                       <SelectTrigger className="h-7 text-xs flex-1">
                         <SelectValue
@@ -390,8 +390,8 @@ const ParameterEditor = ({
                       </SelectTrigger>
                       <SelectContent>
                         {selectableFiles.map((m) => (
-                          <SelectItem key={m.uid} value={m.uid}>
-                            {m.name}
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.label}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -21,7 +21,6 @@
       "@foresthub/workflow-builder": ["../workflow-builder/src/index.ts"],
       "@foresthub/workflow-core": ["../workflow-core/src/index.ts"],
       "@foresthub/workflow-core/*": ["../workflow-core/src/*/index.ts"],
-      "@/hooks/useRagCollections": ["./src/stubs/useRagCollections.ts"],
       "@/hooks/useAvailableProviders": ["./src/stubs/useAvailableProviders.ts"]
     }
   },

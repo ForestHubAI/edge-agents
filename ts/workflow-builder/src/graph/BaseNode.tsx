@@ -5,7 +5,6 @@ import { NodeProps, Position } from "@xyflow/react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { useDynamicSelectionOptions } from "../hooks/useDynamicSelectionOptions";
 import { getOrCreateCanvasStore } from "../store/canvasStore";
 import { useDebugStore } from "../store/debugStore";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
@@ -60,7 +59,7 @@ export const BaseNode = memo(
     const edges = canvasStore((s) => s.edges);
     const nodes = canvasStore((s) => s.nodes);
     const channels = useEditorStore((s) => s.channels);
-    const memoryFiles = useEditorStore((s) => s.memoryFiles);
+    const memory = useEditorStore((s) => s.memory);
 
     // Get available variables for resolving expressions
     const { lookup: availableVariables } = useAvailableVariables(activeCanvasId);
@@ -72,12 +71,12 @@ export const BaseNode = memo(
       return labels;
     }, [channels]);
 
-    // Resolve rag-collection options early (needed for diagnostics + inline display)
-    const hasRagParam = useMemo(
-      () => (nodeDefinition?.parameters ?? []).some((p) => p.type === "rag-collection"),
-      [nodeDefinition],
-    );
-    const { options: dynamicOptions } = useDynamicSelectionOptions(hasRagParam ? "ragCollections" : null);
+    // Build memory ID → label lookup for formatParamDisplay (memorySelect params)
+    const memoryLabels = useMemo(() => {
+      const labels: Record<string, string> = {};
+      for (const m of Object.values(memory)) labels[m.id] = m.label;
+      return labels;
+    }, [memory]);
 
     // Get port definitions using centralized dispatcher
     const portDefinitions = getPorts(nodeData);
@@ -121,8 +120,7 @@ export const BaseNode = memo(
           nodeDefinition,
           availableVariables,
           channels,
-          memoryFiles,
-          dynamicOptions,
+          memory,
           edges,
           isStale,
           isDeleted,
@@ -134,8 +132,7 @@ export const BaseNode = memo(
         nodeDefinition,
         availableVariables,
         channels,
-        memoryFiles,
-        dynamicOptions,
+        memory,
         edges,
         isStale,
         isDeleted,
@@ -457,7 +454,7 @@ export const BaseNode = memo(
 
                 const paramDisplay = resolved
                   ? null
-                  : formatParamDisplay(param, value, availableVariables, dynamicOptions, channelLabels);
+                  : formatParamDisplay(param, value, availableVariables, channelLabels, memoryLabels);
                 const isInvalid = resolved ? !resolved.parseRes.isValid : !!paramDisplay?.isInvalid;
 
                 return (

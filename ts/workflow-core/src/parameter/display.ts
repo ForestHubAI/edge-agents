@@ -12,8 +12,8 @@ export function formatParamDisplay(
   param: Parameter,
   value: unknown,
   variables: Record<string, AvailableVariable>,
-  dynamicOptions?: Array<{ value: string; label: string }>,
   channelLabels?: Record<string, string>,
+  memoryLabels?: Record<string, string>,
 ): ParamDisplayResult {
   switch (param.type) {
     case "variable-reference": {
@@ -32,11 +32,10 @@ export function formatParamDisplay(
       const option = param.options.find((o) => o.value === value);
       return { text: option?.label ?? String(value ?? "") };
     }
-    case "rag-collection": {
-      const strVal = value as string | undefined;
-      if (!strVal) return { text: "" };
-      const option = dynamicOptions?.find((o) => o.value === strVal);
-      return option ? { text: option.label } : { text: "unknown", isInvalid: true };
+    case "memorySelect": {
+      const memoryId = value as string | undefined;
+      if (!memoryId) return { text: "" };
+      return memoryLabels?.[memoryId] ? { text: memoryLabels[memoryId] } : { text: "unknown", isInvalid: true };
     }
     case "channelSelect": {
       const channelId = value as string | undefined;

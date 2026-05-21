@@ -1,22 +1,15 @@
-import type { Parameter } from "../parameter";
+import type { MemoryDefinition } from "./MemoryDefinition";
 
 /**
- * Parameters that make up a MemoryFile. Mirrors CHANNEL_DEFINITION's shape so
- * the config panel can reuse ParameterEditor verbatim. `name` is the display
- * name (uniqueness is enforced in the panel, not in this definition).
+ * Agent-scoped durable text storage. The instance `label` (edited like a channel
+ * label) is the identifier the LLM sees in tool calls, so it is not a parameter.
+ * The config panel renders these parameters via ParameterEditor, same as channels.
  */
-export interface MemoryFileDefinition {
-  parameters: Parameter[];
-}
-
-export const MEMORY_FILE_DEFINITION: MemoryFileDefinition = {
+export const MemoryFileDefinition: MemoryDefinition = {
+  type: "MemoryFile",
+  label: "Memory File",
+  description: "Durable text storage an agent can read and write",
   parameters: [
-    {
-      id: "name",
-      label: "Name",
-      description: "Display name exposed to the LLM as the memory file's identifier",
-      type: "string",
-    },
     {
       id: "description",
       label: "Description",

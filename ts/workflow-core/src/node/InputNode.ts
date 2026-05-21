@@ -25,7 +25,7 @@ export interface SerialReadNode extends NodeBase {
 export interface RetrieverNode extends NodeBase {
   type: "Retriever";
   arguments: {
-    collectionId: string;
+    memoryReference: string;
     topK: number | undefined;
     query: Expression;
     output: OutputBinding;
@@ -100,10 +100,11 @@ export const RetrieverNodeDefinition: NodeDefinition = {
   outputs: [{ id: "output", label: "Retrieved Documents", type: "static", dataType: "string" }],
   parameters: [
     {
-      id: "collectionId",
-      label: "Collection",
-      description: "The knowledge base collection to search",
-      type: "rag-collection",
+      id: "memoryReference",
+      label: "Vector Database",
+      description: "The vector database to search",
+      type: "memorySelect",
+      memoryType: ["VectorDatabase"],
     },
     {
       id: "topK",

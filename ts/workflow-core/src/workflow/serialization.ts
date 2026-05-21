@@ -13,8 +13,8 @@ import { getNodeOutput } from "../node/NodeMethods";
 import type { EdgeInstance, EdgeType } from "../edge";
 import { ALL_CHANNEL_TYPES, type ChannelInstance, type ChannelType, type EditorChannelSchema } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
-import type { MemoryFileInstance } from "../memory";
-import { serialize as serializeMemoryFile, deserialize as deserializeMemoryFile } from "../memory";
+import type { MemoryInstance } from "../memory";
+import { serialize as serializeMemory, deserialize as deserializeMemory } from "../memory";
 import { serialize as serializeNode, deserialize as deserializeNode } from "../node/NodeSerialization";
 import { isNodeUsedAsTool } from "../node/portUtils";
 import type { CanvasVariable, NodeOutputVariable } from "../variable";
@@ -66,7 +66,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
   }
 
   const channels = Object.values(state.channels ?? {}).map(serializeChannel);
-  const memoryFiles = Object.values(state.memoryFiles ?? {}).map(serializeMemoryFile);
+  const memory = Object.values(state.memory ?? {}).map(serializeMemory);
 
   return {
     nodes: mainNodes,
@@ -74,7 +74,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
     functions,
     declaredVariables: mainDeclared,
     channels,
-    ...(memoryFiles.length > 0 ? { memoryFiles } : {}),
+    ...(memory.length > 0 ? { memory } : {}),
   };
 }
 
@@ -133,16 +133,16 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
     channels[instance.id] = instance;
   }
 
-  const memoryFiles: Record<string, MemoryFileInstance> = {};
-  for (const m of workflow.memoryFiles ?? []) {
-    const instance = deserializeMemoryFile(m);
-    memoryFiles[instance.uid] = instance;
+  const memory: Record<string, MemoryInstance> = {};
+  for (const m of workflow.memory ?? []) {
+    const instance = deserializeMemory(m);
+    memory[instance.id] = instance;
   }
 
   return {
     canvases,
     ...(Object.keys(channels).length > 0 ? { channels } : {}),
-    ...(Object.keys(memoryFiles).length > 0 ? { memoryFiles } : {}),
+    ...(Object.keys(memory).length > 0 ? { memory } : {}),
   };
 }
 

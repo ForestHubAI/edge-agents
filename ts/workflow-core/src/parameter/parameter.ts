@@ -1,6 +1,7 @@
 import type { Schemas } from "../api";
 import type { Expression, Reference } from "../node";
 import type { ChannelType } from "../channel";
+import type { MemoryType } from "../memory";
 import { refToLookupKey } from "../variable";
 import { DataType, FromArgs, unwrapFromArgs } from ".";
 
@@ -66,11 +67,6 @@ export interface VariableReferenceParam {
   default?: never;
 }
 
-export interface RagCollectionParam {
-  type: "rag-collection";
-  default?: never;
-}
-
 // LLM model reference parameter — selects a model from active providers
 export interface LLMModelParam {
   type: "llm-model";
@@ -85,6 +81,13 @@ export interface ChannelSelectParam {
   default?: never;
 }
 
+export interface MemorySelectParam {
+  type: "memorySelect";
+  /** Memory types this slot accepts (e.g. ["VectorDatabase"]). Static list or args-derived lambda. */
+  memoryType: FromArgs<MemoryType[]>;
+  default?: never;
+}
+
 /**
  * List parameter that binds an agent node to project-declared memory files,
  * each with an access mode (`r` = read-only, `rw` = read + write). The editor
@@ -96,10 +99,10 @@ export interface MemoryRefsParam {
 }
 
 /** Union of all reference-select parameter variants, used for type guards. */
-export type ReferenceSelectParam = VariableReferenceParam | ChannelSelectParam | RagCollectionParam | LLMModelParam;
+export type ReferenceSelectParam = VariableReferenceParam | ChannelSelectParam | MemorySelectParam | LLMModelParam;
 
 export function isReferenceSelectParam(param: Parameter): param is ParameterBase & ReferenceSelectParam {
-  return param.type === "variable-reference" || param.type === "channelSelect" || param.type === "rag-collection" || param.type === "llm-model";
+  return param.type === "variable-reference" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "llm-model";
 }
 
 export type Parameter =
@@ -109,7 +112,7 @@ export type Parameter =
   | (ParameterBase & BoolParam)
   | (ParameterBase & WeekdaysParam)
   | (ParameterBase & SelectionParam)
-  | (ParameterBase & RagCollectionParam)
+  | (ParameterBase & MemorySelectParam)
   | (ParameterBase & LLMModelParam)
   | (ParameterBase & ExpressionParam)
   | (ParameterBase & ChannelSelectParam)
@@ -178,4 +181,9 @@ export function resolveCapabilities(
 /** Resolve the allowed channel types for a ChannelSelectParam. */
 export function resolveChannelTypes(param: ChannelSelectParam, args: Record<string, unknown>): ChannelType[] {
   return unwrapFromArgs(param.channelType, args);
+}
+
+/** Resolve the allowed memory types for a MemorySelectParam. */
+export function resolveMemoryTypes(param: MemorySelectParam, args: Record<string, unknown>): MemoryType[] {
+  return unwrapFromArgs(param.memoryType, args);
 }

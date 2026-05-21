@@ -21,8 +21,8 @@ Nodes additionally declare **output parameters** — typed slots for what the no
 | `selection`            | `SelectionParam`         | `options: {value, label}[]`                               |
 | `expression`           | `ExpressionParam`        | `expressionType`, `fromReference?`                        |
 | `variable-reference`   | `VariableReferenceParam` | — (extends `ReferenceSelectBase`)                         |
-| `rag-collection`       | `RagCollectionParam`     | — (extends `ReferenceSelectBase`)                         |
-| `ioSelect`             | `IOSelectParam`          | `ioType`, `capabilities?` (extends `ReferenceSelectBase`) |
+| `memorySelect`         | `MemorySelectParam`      | `memoryType` (extends `ReferenceSelectBase`)              |
+| `channelSelect`        | `ChannelSelectParam`     | `channelType` (extends `ReferenceSelectBase`)             |
 
 **`ParameterBase` fields:** `id`, `label`, `description`, `optional?`, `default?`, `activationRules?`
 
@@ -48,7 +48,7 @@ Output parameters are **not** routed through `ParameterEditor`. They are rendere
 
 ### Reference-select parameters
 
-`variable-reference`, `rag-collection`, and `ioSelect` all extend `ReferenceSelectBase` — they select from an external entity list and share common behavior:
+`variable-reference`, `memorySelect`, and `channelSelect` all extend `ReferenceSelectBase` — they select from an external entity list and share common behavior:
 
 - **`default?: never`** — reference targets are user-chosen, not pre-selectable
 - **"None" option** always present in the dropdown to allow explicit unset
@@ -61,8 +61,8 @@ The `ReferenceSelectParam` union type and `isReferenceSelectParam()` helper are 
 | Reference type       | Options source                             | Stored value type        |
 | -------------------- | ------------------------------------------ | ------------------------ |
 | `variable-reference` | Canvas variables (`useAvailableVariables`) | `Reference \| undefined` |
-| `rag-collection`     | Backend API (`useRagCollections`)          | `string \| undefined`    |
-| `ioSelect`           | Editor store IO variables                  | `string \| undefined`    |
+| `memorySelect`       | Editor store memories (filtered by type)   | `string \| undefined`    |
+| `channelSelect`      | Editor store channels (filtered by type)   | `string \| undefined`    |
 
 ---
 
@@ -107,8 +107,8 @@ Since the arguments record is `unknown`-valued, TypeScript cannot enforce what r
 | `selection`          | see below                         | depends on `optional` and `default`            |
 | `expression`         | `Expression`                      | `{ expression: "", references: [], dataType }` |
 | `variable-reference` | `Reference \| undefined`          | `undefined` (no variable selected)             |
-| `rag-collection`     | `string \| undefined`             | `undefined` (no collection selected)           |
-| `ioSelect`           | `string \| undefined`             | `undefined` (no IO variable selected)          |
+| `memorySelect`       | `string \| undefined`             | `undefined` (no memory selected)               |
+| `channelSelect`      | `string \| undefined`             | `undefined` (no channel selected)              |
 | `time`               | `string \| undefined` (`"HH:MM"`) | `undefined` (no time selected)                 |
 | `weekdays`           | `string[]`                        | N/A — always set (default is required)         |
 
@@ -200,7 +200,7 @@ Each domain node has a corresponding schema in `src/api/openapi.yaml`. When crea
 | `$ref: "#/components/schemas/Reference"`  | `variable-reference` |                                            |
 | `$ref: "#/components/schemas/SignalType"` | `selection`          | Shared enum ref, expand to options         |
 
-Note: `rag-collection` and `ioSelect` have no API schema correspondence — they are editor-only parameter types. `rag-collection` references are resolved to a string ID for the API. `ioSelect` references are resolved to physical pin numbers at export time via platform binding.
+Note: `memorySelect` and `channelSelect` store a string ID referencing a project-declared Memory (filtered by `memoryType`) or Channel (filtered by `channelType`). Deploy-time bindings on the referenced primitive (e.g. a VectorDatabase's `collectionId`, a Channel's `driverId`) are resolved against the target device at deploy.
 
 ### Output fields: API type → Output parameter type
 

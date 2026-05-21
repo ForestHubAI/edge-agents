@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   WorkflowBuilder,
   type WorkflowBuilderHandle,
-  type Schemas,
 } from "@foresthub/workflow-builder";
+import type { Workflow } from "@foresthub/workflow-core/workflow";
 
 // `?file=…` query param: if present, the SPA loads/saves through the dev
 // server's /api/file bridge (round-trip to disk) instead of using <input
@@ -61,7 +61,7 @@ export default function App() {
           return null;
         }
         if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-        return res.json() as Promise<Schemas["Workflow"]>;
+        return res.json() as Promise<Workflow>;
       })
       .then((workflow) => {
         if (!workflow) return;
@@ -86,7 +86,7 @@ export default function App() {
     file
       .text()
       .then((text) => {
-        const workflow = JSON.parse(text) as Schemas["Workflow"];
+        const workflow = JSON.parse(text) as Workflow;
         loadingRef.current = true;
         builderRef.current?.loadWorkflow(workflow);
         // Microtask: allow onChange events from loadWorkflow to drain before

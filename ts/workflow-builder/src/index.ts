@@ -16,4 +16,4 @@ export type { ValidationResult, Diagnostic, CanvasValidationResult } from "@fore
 export { default as ValidationDialog } from "./dialogs/ValidationDialog";
 
 // Workflow snapshot type that crosses the boundary via loadWorkflow / exportWorkflow
-export type { Schemas } from "@foresthub/workflow-core";
+export type { Workflow } from "@foresthub/workflow-core/workflow";

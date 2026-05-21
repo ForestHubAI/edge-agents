@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
-import type { MemoryFileInstance } from "@foresthub/workflow-core/memory";
+import type { MemoryInstance } from "@foresthub/workflow-core/memory";
 import { channelKey } from "../utils/channels";
 
 // ---------------------------------------------------------------------------
@@ -37,16 +37,16 @@ interface EditorState {
   selectedEdgeIds: string[];
   /** Currently selected channel for the right-side ChannelConfigPanel. */
   selectedChannelId: string | null;
-  /** Currently selected memory file for the right-side MemoryFileConfigPanel. */
-  selectedMemoryFileId: string | null;
+  /** Currently selected memory primitive for the right-side MemoryConfigPanel. */
+  selectedMemoryId: string | null;
   // Project-scoped channels (pins, buses) — shared across all canvases
   channels: Record<string, ChannelInstance>;
-  // Project-scoped memory files — shared across all canvases, referenced from
-  // agent nodes by uid.
-  memoryFiles: Record<string, MemoryFileInstance>;
+  // Project-scoped memory primitives (memory files + vector databases) — shared
+  // across all canvases, referenced from nodes by id.
+  memory: Record<string, MemoryInstance>;
   /**
    * Monotonic counter bumped on project-scoped domain mutations
-   * (channels/memoryFiles). Mirrors `canvasStore.mutationCount` so the
+   * (channels/memory). Mirrors `canvasStore.mutationCount` so the
    * builder can fire a single onChange event from either source.
    */
   mutationCount: number;
@@ -55,11 +55,9 @@ interface EditorState {
   setSelection: (nodeIds: string[], edgeIds: string[]) => void;
   clearSelection: () => void;
   setSelectedChannelId: (id: string | null) => void;
-  setSelectedMemoryFileId: (id: string | null) => void;
+  setSelectedMemoryId: (id: string | null) => void;
   setChannels: (updater: (vars: Record<string, ChannelInstance>) => Record<string, ChannelInstance>) => void;
-  setMemoryFiles: (
-    updater: (files: Record<string, MemoryFileInstance>) => Record<string, MemoryFileInstance>,
-  ) => void;
+  setMemory: (updater: (mem: Record<string, MemoryInstance>) => Record<string, MemoryInstance>) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -68,9 +66,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedNodeIds: [],
   selectedEdgeIds: [],
   selectedChannelId: null,
-  selectedMemoryFileId: null,
+  selectedMemoryId: null,
   channels: createDefaultChannels(),
-  memoryFiles: {},
+  memory: {},
   mutationCount: 0,
   setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId }),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
@@ -83,11 +81,11 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedNodeIds: nodeIds,
       selectedEdgeIds: edgeIds,
       ...(nodeIds.length > 0 || edgeIds.length > 0
-        ? { selectedChannelId: null, selectedMemoryFileId: null }
+        ? { selectedChannelId: null, selectedMemoryId: null }
         : {}),
     }),
   clearSelection: () =>
-    set({ selectedNodeIds: [], selectedEdgeIds: [], selectedChannelId: null, selectedMemoryFileId: null }),
+    set({ selectedNodeIds: [], selectedEdgeIds: [], selectedChannelId: null, selectedMemoryId: null }),
   setSelectedChannelId: (id) => {
     set((state) => {
       // Drop ReactFlow's visual selection on the active canvas so a
@@ -99,13 +97,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       }
       return {
         selectedChannelId: id,
-        selectedMemoryFileId: id !== null ? null : state.selectedMemoryFileId,
+        selectedMemoryId: id !== null ? null : state.selectedMemoryId,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };
     });
   },
-  setSelectedMemoryFileId: (id) => {
+  setSelectedMemoryId: (id) => {
     set((state) => {
       if (id !== null) {
         const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
@@ -113,7 +111,7 @@ export const useEditorStore = create<EditorState>((set) => ({
         canvas.selectEdges([]);
       }
       return {
-        selectedMemoryFileId: id,
+        selectedMemoryId: id,
         selectedChannelId: id !== null ? null : state.selectedChannelId,
         selectedNodeIds: [],
         selectedEdgeIds: [],
@@ -126,10 +124,10 @@ export const useEditorStore = create<EditorState>((set) => ({
       if (next === state.channels) return state;
       return { channels: next, mutationCount: state.mutationCount + 1 };
     }),
-  setMemoryFiles: (updater) =>
+  setMemory: (updater) =>
     set((state) => {
-      const next = updater(state.memoryFiles);
-      if (next === state.memoryFiles) return state;
-      return { memoryFiles: next, mutationCount: state.mutationCount + 1 };
+      const next = updater(state.memory);
+      if (next === state.memory) return state;
+      return { memory: next, mutationCount: state.mutationCount + 1 };
     }),
 }));

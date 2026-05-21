@@ -1,10 +1,9 @@
 import { useCallback } from "react";
-import type { Schemas } from "@foresthub/workflow-core";
-import { serialize, deserialize, type WorkflowState, type CanvasData } from "@foresthub/workflow-core/workflow";
+import { serialize, deserialize, type Workflow, type WorkflowState, type CanvasData } from "@foresthub/workflow-core/workflow";
 import type { NodeInstance } from "@foresthub/workflow-core/node";
 import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
-import type { MemoryFileInstance } from "@foresthub/workflow-core/memory";
+import type { MemoryInstance } from "@foresthub/workflow-core/memory";
 import { Edge, Node } from "@xyflow/react";
 import {
   clearAllCanvasStores,
@@ -15,7 +14,7 @@ import {
 import { useEditorStore } from "../store/editorStore";
 import { getReactFlowType } from "../utils/graphOperations";
 import { channelKey } from "../utils/channels";
-import { memoryFileKey } from "../utils/memoryFiles";
+import { memoryKey } from "../utils/memory";
 
 /**
  * Store-bound wrapper around the headless `serialize`/`deserialize` in
@@ -26,15 +25,15 @@ import { memoryFileKey } from "../utils/memoryFiles";
  *  - Core sets each node's outer `type` to the domain node type (e.g.
  *    "Agent"); React Flow needs the *display* type — `getReactFlowType`
  *    handles that on import.
- *  - Core's `WorkflowState.channels`/`memoryFiles` are keyed by plain
- *    `id`/`uid`; the editor's stores prefix them (`ch:`, `mem:`). Rekey
- *    on import; unprefix on export.
+ *  - Core's `WorkflowState.channels`/`memory` are keyed by plain `id`;
+ *    the editor's stores prefix them (`ch:`, `mem:`). Rekey on import;
+ *    unprefix on export.
  *
  * Used for code generation, template loading, and (in the future) the
  * auto-save / version paths — one persistence format throughout.
  */
 export function useWorkflowSerialization() {
-  const importProject = useCallback((workflow: Schemas["Workflow"]): void => {
+  const importProject = useCallback((workflow: Workflow): void => {
     const state = deserialize(workflow);
 
     clearAllCanvasStores();
@@ -68,16 +67,16 @@ export function useWorkflowSerialization() {
       useEditorStore.getState().setChannels(() => rekeyed);
     }
 
-    if (state.memoryFiles && Object.keys(state.memoryFiles).length > 0) {
-      const rekeyed: Record<string, MemoryFileInstance> = {};
-      for (const m of Object.values(state.memoryFiles)) rekeyed[memoryFileKey(m.uid)] = m;
-      useEditorStore.getState().setMemoryFiles(() => rekeyed);
+    if (state.memory && Object.keys(state.memory).length > 0) {
+      const rekeyed: Record<string, MemoryInstance> = {};
+      for (const m of Object.values(state.memory)) rekeyed[memoryKey(m.id)] = m;
+      useEditorStore.getState().setMemory(() => rekeyed);
     }
 
     notifyFunctionRegistryChange();
   }, []);
 
-  const exportProject = useCallback((): Schemas["Workflow"] => {
+  const exportProject = useCallback((): Workflow => {
     return serialize(readStateFromStores());
   }, []);
 
@@ -121,12 +120,12 @@ export function readStateFromStores(): WorkflowState {
   const channels: Record<string, ChannelInstance> = {};
   for (const ch of Object.values(useEditorStore.getState().channels)) channels[ch.id] = ch;
 
-  const memoryFiles: Record<string, MemoryFileInstance> = {};
-  for (const m of Object.values(useEditorStore.getState().memoryFiles)) memoryFiles[m.uid] = m;
+  const memory: Record<string, MemoryInstance> = {};
+  for (const m of Object.values(useEditorStore.getState().memory)) memory[m.id] = m;
 
   return {
     canvases,
     ...(Object.keys(channels).length > 0 ? { channels } : {}),
-    ...(Object.keys(memoryFiles).length > 0 ? { memoryFiles } : {}),
+    ...(Object.keys(memory).length > 0 ? { memory } : {}),
   };
 }

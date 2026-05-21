@@ -8,7 +8,7 @@ import type { NodeCategory as NodeCategoryEnum } from "@foresthub/workflow-core/
 import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
 import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
 import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
-import { MemoryFileConfigPanel } from "./panels/MemoryFileConfigPanel";
+import { MemoryConfigPanel } from "./panels/MemoryConfigPanel";
 import { NodeConfigPanel } from "./panels/NodeConfigPanel";
 import { getOrCreateCanvasStore } from "./store/canvasStore";
 import { useEditorStore } from "./store/editorStore";
@@ -61,9 +61,9 @@ export const RightConfigPanel = ({
   const selectedChannelId = useEditorStore((s) => s.selectedChannelId);
   const channels = useEditorStore((s) => s.channels);
   const setSelectedChannelId = useEditorStore((s) => s.setSelectedChannelId);
-  const selectedMemoryFileId = useEditorStore((s) => s.selectedMemoryFileId);
-  const memoryFiles = useEditorStore((s) => s.memoryFiles);
-  const setSelectedMemoryFileId = useEditorStore((s) => s.setSelectedMemoryFileId);
+  const selectedMemoryId = useEditorStore((s) => s.selectedMemoryId);
+  const memory = useEditorStore((s) => s.memory);
+  const setSelectedMemoryId = useEditorStore((s) => s.setSelectedMemoryId);
 
   const useStore = getOrCreateCanvasStore(canvasId);
 
@@ -115,12 +115,10 @@ export const RightConfigPanel = ({
     [selectedChannelId, channels],
   );
 
-  const selectedMemoryFile = useMemo(
+  const selectedMemory = useMemo(
     () =>
-      selectedMemoryFileId
-        ? Object.values(memoryFiles).find((m) => m.uid === selectedMemoryFileId) ?? null
-        : null,
-    [selectedMemoryFileId, memoryFiles],
+      selectedMemoryId ? Object.values(memory).find((m) => m.id === selectedMemoryId) ?? null : null,
+    [selectedMemoryId, memory],
   );
 
   const getNodeCategory = useCallback(
@@ -189,13 +187,10 @@ export const RightConfigPanel = ({
     );
   }
 
-  if (selectedMemoryFile) {
+  if (selectedMemory) {
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
-        <MemoryFileConfigPanel
-          memoryFile={selectedMemoryFile}
-          onClose={() => setSelectedMemoryFileId(null)}
-        />
+        <MemoryConfigPanel memory={selectedMemory} onClose={() => setSelectedMemoryId(null)} />
       </div>
     );
   }

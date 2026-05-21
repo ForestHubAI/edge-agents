@@ -218,6 +218,14 @@
   "removeMemoryRef": "Remove memory ref",
   "memoryModeRead": "Read",
   "memoryModeReadWrite": "Read + Write",
+  "noMemory": "No memory declared yet",
+  "noMemoryHint": "Declare memory files for agents and vector databases for RAG",
+  "addVectorDatabase": "Add Vector Database",
+  "selectMemory": "Select memory...",
+  "memoryLabel": "Memory label",
+  "memoryLabelRequired": "Label is required",
+  "memoryLabelDuplicate": "Label must be unique per agent",
+  "deleteMemory": "Delete memory",
   "createNewPin": "Create new pin...",
   "capabilities": "Capabilities",
   "protocol": "Protocol",
@@ -356,8 +364,8 @@
     "Retriever": {
       "description": "Retrieves relevant documents from a knowledge base",
       "params": {
-        "collectionId": {
-          "description": "The knowledge base collection to search"
+        "memoryReference": {
+          "description": "The vector database to search"
         },
         "topK": {
           "description": "Number of results to retrieve"

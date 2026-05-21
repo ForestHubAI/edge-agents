@@ -25,18 +25,26 @@ interface DiagnosticsState {
    * which is mounted once at the workflow builder root.
    */
   byChannelId: Record<string, Diagnostic[]>;
+  /**
+   * Memory primitives are project-scoped like channels. Written by
+   * MemoryDiagnosticsSync, mounted once at the workflow builder root.
+   */
+  byMemoryId: Record<string, Diagnostic[]>;
   setNodeDiagnostics: (nodeId: string, diags: Diagnostic[]) => void;
   clearNodeDiagnostics: (nodeId: string) => void;
   setEdgeDiagnostics: (edgeId: string, diags: Diagnostic[]) => void;
   clearEdgeDiagnostics: (edgeId: string) => void;
   setChannelDiagnostics: (channelId: string, diags: Diagnostic[]) => void;
   clearChannelDiagnostics: (channelId: string) => void;
+  setMemoryDiagnostics: (memoryId: string, diags: Diagnostic[]) => void;
+  clearMemoryDiagnostics: (memoryId: string) => void;
 }
 
 export const useDiagnosticsStore = create<DiagnosticsState>((set) => ({
   byNodeId: {},
   byEdgeId: {},
   byChannelId: {},
+  byMemoryId: {},
 
   setNodeDiagnostics: (nodeId, diags) =>
     set((state) => ({
@@ -69,5 +77,16 @@ export const useDiagnosticsStore = create<DiagnosticsState>((set) => ({
     set((state) => {
       const { [channelId]: _, ...rest } = state.byChannelId;
       return { byChannelId: rest };
+    }),
+
+  setMemoryDiagnostics: (memoryId, diags) =>
+    set((state) => ({
+      byMemoryId: { ...state.byMemoryId, [memoryId]: diags },
+    })),
+
+  clearMemoryDiagnostics: (memoryId) =>
+    set((state) => {
+      const { [memoryId]: _, ...rest } = state.byMemoryId;
+      return { byMemoryId: rest };
     }),
 }));

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { DataType, Expression } from "@foresthub/workflow-core/node";
-import type { Schemas } from "@foresthub/workflow-core";
+import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
 import { ResolvedExpr, resolveExpression } from "@foresthub/workflow-core/expression";
 import { canvasVarKey, type AvailableVariable } from "@foresthub/workflow-core/variable";
 import { cn } from "../lib/utils";
@@ -58,7 +57,7 @@ const ExpressionInput = ({
   // Converts ${name} syntax to ${} placeholders with references array
   const parseToApiExpression = useCallback(
     (displayExpr: string): Expression => {
-      const references: Schemas["Reference"][] = [];
+      const references: Reference[] = [];
       const regex = /\$\{([^}]+)\}/g;
       let match;
       let expressionWithPlaceholders = displayExpr;

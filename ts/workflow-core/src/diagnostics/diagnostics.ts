@@ -9,11 +9,12 @@ import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
 import { isNodeUsedAsTool } from "../node/portUtils";
-import { isParameterActive, resolveExpressionType, resolveChannelTypes } from "../parameter";
-import type { ExpressionParam, ChannelSelectParam, OutputDeclaration } from "../parameter";
+import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes } from "../parameter";
+import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, OutputDeclaration } from "../parameter";
 import type { ChannelInstance } from "../channel";
 import { CHANNEL_DEFINITION } from "../channel";
-import type { MemoryFileInstance } from "../memory";
+import type { MemoryInstance } from "../memory";
+import { MemoryRegistry } from "../memory";
 import type { Schemas } from "../api";
 import type { Reference } from "../node";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
@@ -48,6 +49,8 @@ export interface Diagnostic {
   edgeId?: string;
   /** Set when the diagnostic targets a project-scoped channel. */
   channelId?: string;
+  /** Set when the diagnostic targets a project-scoped memory primitive. */
+  memoryId?: string;
   paramId?: string;
   outputId?: string; // For output binding diagnostics
 }
@@ -62,8 +65,7 @@ export function computeNodeDiagnostics(opts: {
   nodeDefinition: NodeDefinition | undefined;
   availableVariables: Record<string, AvailableVariable>;
   channels: Record<string, ChannelInstance>;
-  memoryFiles?: Record<string, MemoryFileInstance>;
-  dynamicOptions?: Array<{ value: string; label: string }>;
+  memory?: Record<string, MemoryInstance>;
   edges: Edge[];
   isStale?: boolean;
   isDeleted?: boolean;
@@ -75,8 +77,7 @@ export function computeNodeDiagnostics(opts: {
     nodeDefinition,
     availableVariables,
     channels,
-    memoryFiles,
-    dynamicOptions,
+    memory,
     edges,
     isStale = false,
     isDeleted = false,
@@ -201,10 +202,14 @@ export function computeNodeDiagnostics(opts: {
     }
 
     // invalid-reference: memory-refs entries point to deleted memory files
-    if (param.type === "memory-refs" && Array.isArray(value) && memoryFiles) {
+    if (param.type === "memory-refs" && Array.isArray(value) && memory) {
       const refs = value as Schemas["MemoryRef"][];
-      const knownUids = new Set(Object.values(memoryFiles).map((m) => m.uid));
-      const missing = refs.filter((r) => !r.uid || !knownUids.has(r.uid));
+      const knownIds = new Set(
+        Object.values(memory)
+          .filter((m) => m.type === "MemoryFile")
+          .map((m) => m.id),
+      );
+      const missing = refs.filter((r) => !r.id || !knownIds.has(r.id));
       if (missing.length > 0) {
         diags.push({
           severity: "error",
@@ -217,18 +222,32 @@ export function computeNodeDiagnostics(opts: {
       }
     }
 
-    // invalid-reference: rag-collection points to deleted collection
-    if (param.type === "rag-collection" && value && dynamicOptions) {
-      const strVal = value as string;
-      if (!dynamicOptions.some((o) => o.value === strVal)) {
+    // invalid-reference: memorySelect points to deleted or incompatible memory
+    if (param.type === "memorySelect" && value && memory) {
+      const memoryId = value as string;
+      const mem = Object.values(memory).find((m) => m.id === memoryId);
+      if (!mem) {
         diags.push({
           severity: "error",
           category: "invalid-reference",
           canvasId,
           nodeId,
           paramId: param.id,
-          message: `"${param.label}" references a deleted resource`,
+          message: `"${param.label}" references a deleted memory`,
         });
+      } else {
+        const memoryParam = param as MemorySelectParam;
+        const allowedTypes = resolveMemoryTypes(memoryParam, parameters);
+        if (!allowedTypes.includes(mem.type)) {
+          diags.push({
+            severity: "error",
+            category: "invalid-reference",
+            canvasId,
+            nodeId,
+            paramId: param.id,
+            message: `"${param.label}" references "${mem.label}" (${mem.type}), which is not a compatible memory type`,
+          });
+        }
       }
     }
   }
@@ -538,6 +557,44 @@ export function validateChannel(channel: ChannelInstance): Diagnostic[] {
   return diags;
 }
 
+/**
+ * Compute diagnostics for a single memory primitive. Mirrors validateChannel:
+ * an empty label is flagged (so memorySelect/memory-refs dropdowns have a
+ * non-blank name), then each required parameter for the memory's type is checked.
+ */
+export function validateMemory(mem: MemoryInstance): Diagnostic[] {
+  const diags: Diagnostic[] = [];
+
+  if (!mem.label || mem.label.trim() === "") {
+    diags.push({
+      severity: "error",
+      category: "missing-required-param",
+      memoryId: mem.id,
+      message: `Memory has no label`,
+    });
+  }
+
+  const def = MemoryRegistry.getByType(mem.type);
+  for (const param of def?.parameters ?? []) {
+    if (!isParameterActive(param, mem.arguments, false)) continue;
+    if (param.optional) continue;
+
+    const value = mem.arguments[param.id];
+    const isEmpty = value === undefined || value === "" || value === null;
+    if (isEmpty) {
+      diags.push({
+        severity: "error",
+        category: "missing-required-param",
+        memoryId: mem.id,
+        paramId: param.id,
+        message: `Missing required parameter "${param.label}" on memory "${mem.label}"`,
+      });
+    }
+  }
+
+  return diags;
+}
+
 // ============================================================================
 // Full-Project Validation Result Types
 // ============================================================================
@@ -554,6 +611,8 @@ export interface ValidationResult {
   canvases: CanvasValidationResult[];
   /** Project-scoped channel diagnostics (no canvasId). */
   channelDiagnostics: Diagnostic[];
+  /** Project-scoped memory diagnostics (no canvasId). */
+  memoryDiagnostics: Diagnostic[];
   totalErrors: number;
   totalWarnings: number;
 }
@@ -590,7 +649,7 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
   const canvasData = state.canvases ?? {};
   const allFunctions = deriveFunctionRegistry(canvasData);
   const channels = state.channels ?? {};
-  const memoryFiles = state.memoryFiles ?? {};
+  const memory = state.memory ?? {};
 
   const canvases: CanvasValidationResult[] = [];
   let totalErrors = 0;
@@ -634,7 +693,7 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
         nodeDefinition,
         availableVariables,
         channels,
-        memoryFiles,
+        memory,
         edges,
         isStale,
         isDeleted,
@@ -722,6 +781,16 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
     else totalWarnings++;
   }
 
-  return { canvases, channelDiagnostics, totalErrors, totalWarnings };
+  // Project-scoped memory diagnostics — independent of canvas iteration.
+  const memoryDiagnostics: Diagnostic[] = [];
+  for (const mem of Object.values(memory)) {
+    memoryDiagnostics.push(...validateMemory(mem));
+  }
+  for (const d of memoryDiagnostics) {
+    if (d.severity === "error") totalErrors++;
+    else totalWarnings++;
+  }
+
+  return { canvases, channelDiagnostics, memoryDiagnostics, totalErrors, totalWarnings };
 }
 

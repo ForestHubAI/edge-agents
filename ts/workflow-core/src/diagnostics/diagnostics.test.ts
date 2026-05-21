@@ -17,6 +17,8 @@ import {
   makeNode,
   makeNodeDef,
   makeChannel,
+  makeMemory,
+  makeMemories,
 } from "./__fixtures__/diagnosticFixtures";
 
 // ============================================================================
@@ -408,46 +410,58 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
 });
 
 // ============================================================================
-// RAG collection validation
+// memorySelect validation
 // ============================================================================
 
-describe("computeNodeDiagnostics — rag-collection validation", () => {
-  const ragDef = makeNodeDef({
+describe("computeNodeDiagnostics — memorySelect validation", () => {
+  const memDef = makeNodeDef({
     category: NodeCategory.Input,
-    parameters: [{ id: "col", label: "Collection", description: "", type: "rag-collection" }],
+    parameters: [{ id: "col", label: "Vector DB", description: "", type: "memorySelect", memoryType: ["VectorDatabase"] }],
   });
 
-  it("flags a collection id not present in dynamicOptions", () => {
+  it("flags a memory id not present in the store", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
-        nodeDefinition: ragDef,
-        nodeData: makeNode("OnIdle", { col: "deleted-col" }),
+        nodeDefinition: memDef,
+        nodeData: makeNode("OnIdle", { col: "deleted-mem" }),
       }),
-      dynamicOptions: [{ value: "col1", label: "Col 1" }],
+      memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/deleted resource/);
+    expect(refDiags[0].message).toMatch(/deleted memory/);
   });
 
-  it("accepts a collection id present in dynamicOptions", () => {
+  it("accepts a memory id present in the store with a compatible type", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
-        nodeDefinition: ragDef,
-        nodeData: makeNode("OnIdle", { col: "col1" }),
+        nodeDefinition: memDef,
+        nodeData: makeNode("OnIdle", { col: "vdb1" }),
       }),
-      dynamicOptions: [{ value: "col1", label: "Col 1" }],
+      memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
     });
     expect(diagsOfCategory(diags, "invalid-reference")).toHaveLength(0);
   });
 
-  it("does not flag when dynamicOptions is undefined (loader not run)", () => {
+  it("flags a memory of an incompatible type", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
-        nodeDefinition: ragDef,
-        nodeData: makeNode("OnIdle", { col: "col1" }),
+        nodeDefinition: memDef,
+        nodeData: makeNode("OnIdle", { col: "file1" }),
       }),
-      dynamicOptions: undefined,
+      memory: makeMemories([makeMemory({ id: "file1", type: "MemoryFile" })]),
+    });
+    const refDiags = diagsOfCategory(diags, "invalid-reference");
+    expect(refDiags).toHaveLength(1);
+    expect(refDiags[0].message).toMatch(/not a compatible memory type/);
+  });
+
+  it("does not flag when the memory map is undefined (not provided)", () => {
+    const diags = computeNodeDiagnostics({
+      ...baseOpts({
+        nodeDefinition: memDef,
+        nodeData: makeNode("OnIdle", { col: "vdb1" }),
+      }),
     });
     expect(diagsOfCategory(diags, "invalid-reference")).toHaveLength(0);
   });
@@ -460,7 +474,7 @@ describe("computeNodeDiagnostics — rag-collection validation", () => {
 describe("computeNodeDiagnostics — scalar output binding validation", () => {
   // Common valid retriever args (satisfies required params so assign-type-mismatch is isolated)
   const retrieverArgs = (outputBinding: unknown) => ({
-    collectionId: "col1",
+    memoryReference: "vdb1",
     topK: 5,
     query: makeExpression("hello", "string"),
     output: outputBinding,
@@ -472,11 +486,11 @@ describe("computeNodeDiagnostics — scalar output binding validation", () => {
     nodeDefinition: RetrieverNodeDefinition,
     availableVariables,
     channels: {},
+    memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
     edges: [
       makeEdge("e-in", "trigger", "ctrl", "n1", "ctrl"), // wire control input to silence unconnected-input
       makeEdge("e-out", "n1", "ctrl", "sink", "ctrl"),    // wire output to silence trigger
     ],
-    dynamicOptions: [{ value: "col1", label: "Col 1" }],
   });
 
   it("flags assign-mode output binding with empty srcId", () => {
@@ -725,7 +739,7 @@ describe("computeNodeDiagnostics — tool-not-connected", () => {
       canvasId: "main",
       nodeId: "n1",
       nodeData: makeNode("Retriever", {
-        collectionId: "col1",
+        memoryReference: "vdb1",
         topK: 5,
         query: makeExpression("hi", "string"),
         output: { active: true, mode: "emit", name: "out" },
@@ -733,8 +747,8 @@ describe("computeNodeDiagnostics — tool-not-connected", () => {
       nodeDefinition: RetrieverNodeDefinition,
       availableVariables: {},
       channels: {},
+      memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
       edges: [],
-      dynamicOptions: [{ value: "col1", label: "Col 1" }],
     });
     expect(diagsOfCategory(diags, "tool-not-connected")).toHaveLength(0);
   });

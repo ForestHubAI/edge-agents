@@ -18,7 +18,6 @@ export interface components {
             port: string;
         };
         Edge: {
-            /** @description Stable edge identifier. Preserved across save/load roundtrips so references by edge id (selection, diagnostics) stay valid. */
             id: string;
             type: components["schemas"]["EdgeType"];
             from: components["schemas"]["Vertex"];
@@ -51,21 +50,42 @@ export interface components {
             /** @description Initial value matching the dataType (number, boolean, or string). Only used by declared variables. */
             initialValue?: unknown;
         };
-        /** @description One memory file. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content. */
+        /** @description One memory file — a variant of the Memory union. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content. */
         MemoryFile: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MemoryFile";
             /** @description Stable identifier that survives renames; referenced from MemoryRef. */
-            uid: string;
+            id: string;
             /** @description Display name. Unique per agent (LLM tool enums use it). */
-            name: string;
+            label: string;
             description: string;
             content: string;
             /** @description Byte cap; null means unlimited. */
             maxSizeBytes?: number | null;
         };
-        /** @description Reference from an LLM agent node to a declared memory file with an access mode. */
+        /** @description A RAG vector database — a variant of the Memory union. Declares a logical knowledge base referenced by Retriever nodes. `collectionId` is a deploy-time binding (like a Channel's driverId): the editor emits "" and the control plane resolves it to a concrete backend collection at deploy. */
+        VectorDatabase: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "VectorDatabase";
+            /** @description Stable identifier; referenced from Retriever nodes. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+            description?: string;
+            /** @description Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy. */
+            collectionId: string;
+        };
+        Memory: components["schemas"]["MemoryFile"] | components["schemas"]["VectorDatabase"];
+        /** @description Reference from an LLM agent node to a declared MemoryFile with an access mode. */
         MemoryRef: {
-            /** @description UID of the referenced MemoryFile. */
-            uid: string;
+            /** @description id of the referenced MemoryFile. */
+            id: string;
             /**
              * @description r = read-only; rw = read + write.
              * @enum {string}
@@ -118,8 +138,8 @@ export interface components {
             functions: components["schemas"]["Function"][];
             declaredVariables: components["schemas"]["Variable"][];
             channels: components["schemas"]["Channel"][];
-            /** @description Declared memory files; referenced from agent nodes by uid. */
-            memoryFiles?: components["schemas"]["MemoryFile"][];
+            /** @description Declared memory primitives (memory files + vector databases); referenced from nodes by id. */
+            memory?: components["schemas"]["Memory"][];
         };
         Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
@@ -295,8 +315,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description RAG collection ID to query */
-                collectionId?: string;
+                /** @description Reference to a declared VectorDatabase memory id */
+                memoryReference?: string;
                 /** @description Number of results to return */
                 topK?: number;
                 /** @description Search query expression */

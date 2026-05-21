@@ -322,8 +322,8 @@
     "Retriever": {
       "description": "Ruft relevante Dokumente aus einer Wissensdatenbank ab",
       "params": {
-        "collectionId": {
-          "description": "Die zu durchsuchende Wissensdatenbank-Sammlung"
+        "memoryReference": {
+          "description": "Die zu durchsuchende Vektordatenbank"
         },
         "topK": {
           "description": "Anzahl der abzurufenden Ergebnisse"

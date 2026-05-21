@@ -98,14 +98,14 @@ components:
 
     MemoryFile:
       type: object
-      description: One memory file. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
-      required: [uid, name, description, content]
+      description: One memory file — a variant of the Memory union. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
+      required: [type, id, label, description, content]
       properties:
-        uid:
-          x-go-name: UID
+        type: { type: string, enum: [MemoryFile] }
+        id:
           type: string
           description: Stable identifier that survives renames; referenced from MemoryRef.
-        name:
+        label:
           type: string
           description: Display name. Unique per agent (LLM tool enums use it).
         description:
@@ -117,14 +117,47 @@ components:
           nullable: true
           description: Byte cap; null means unlimited.
 
+    VectorDatabase:
+      type: object
+      description: >
+        A RAG vector database — a variant of the Memory union. Declares a logical
+        knowledge base referenced by Retriever nodes. `collectionId` is a deploy-time
+        binding (like a Channel's driverId): the editor emits "" and the control plane
+        resolves it to a concrete backend collection at deploy.
+      required: [type, id, label, collectionId]
+      properties:
+        type: { type: string, enum: [VectorDatabase] }
+        id:
+          type: string
+          description: Stable identifier; referenced from Retriever nodes.
+        label:
+          type: string
+          description: Display name.
+        description:
+          type: string
+        collectionId:
+          type: string
+          x-go-name: CollectionID
+          description: Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
+
+    Memory:
+      oneOf:
+        - $ref: "#/components/schemas/MemoryFile"
+        - $ref: "#/components/schemas/VectorDatabase"
+      discriminator:
+        propertyName: type
+        mapping:
+          MemoryFile: "#/components/schemas/MemoryFile"
+          VectorDatabase: "#/components/schemas/VectorDatabase"
+
     MemoryRef:
       type: object
-      description: Reference from an LLM agent node to a declared memory file with an access mode.
-      required: [uid, mode]
+      description: Reference from an LLM agent node to a declared MemoryFile with an access mode.
+      required: [id, mode]
       properties:
-        uid:
+        id:
           type: string
-          description: UID of the referenced MemoryFile.
+          description: id of the referenced MemoryFile.
         mode:
           type: string
           enum: [r, rw]
@@ -193,7 +226,8 @@ components:
 
     Function:
       type: object
-      required: [functionInfo, outputAssignments, nodes, edges, declaredVariables]
+      required:
+        [functionInfo, outputAssignments, nodes, edges, declaredVariables]
       properties:
         functionInfo:
           $ref: "#/components/schemas/FunctionInfo"
@@ -240,11 +274,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Channel"
-        memoryFiles:
+        memory:
           type: array
-          description: Declared memory files; referenced from agent nodes by uid.
           items:
-            $ref: "#/components/schemas/MemoryFile"
+            $ref: "#/components/schemas/Memory"
 
     # ====== Node definitions ======
 
@@ -486,10 +519,9 @@ components:
         arguments:
           type: object
           properties:
-            collectionId:
+            memoryReference:
               type: string
-              description: RAG collection ID to query
-              x-go-name: CollectionID
+              description: Reference to a declared VectorDatabase memory id
             topK:
               type: integer
               description: Number of results to return
@@ -848,4 +880,3 @@ components:
           type: string
           x-go-name: NetworkID
           description: ID of a network the agent's device must be a member of.
-

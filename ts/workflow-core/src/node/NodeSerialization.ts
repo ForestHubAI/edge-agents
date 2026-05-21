@@ -205,7 +205,7 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
         type: node.type,
         position: position,
         arguments: {
-          collectionId: node.arguments.collectionId,
+          memoryReference: node.arguments.memoryReference,
           topK: node.arguments.topK!,
           query: node.arguments.query,
           output: node.arguments.output,
@@ -329,7 +329,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         type: apiNode.type,
         label: apiNode.label,
         arguments: {
-          collectionId: apiNode.arguments.collectionId ?? "",
+          memoryReference: apiNode.arguments.memoryReference ?? "",
           topK: apiNode.arguments.topK ?? 0,
           query: (apiNode.arguments.query as Expression | undefined) ?? DEFAULT_EXPRESSION,
           output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,

@@ -1,12 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-// Relative-path imports into workflow-core/src because workflow-core's
-// own dist/ is currently partial (TS errors elsewhere block its build).
-// tsx loads the .ts source directly at runtime.
-import { deserialize } from "../../workflow-core/src/workflow/serialization";
-import { validateWorkflowState } from "../../workflow-core/src/diagnostics/diagnostics";
-import type { Diagnostic } from "../../workflow-core/src/diagnostics/diagnostics";
-import type { Schemas } from "../../workflow-core/src/api";
+import { validateWorkflow } from "@foresthub/workflow-core";
+import type { ValidationResult, Diagnostic } from "@foresthub/workflow-core/diagnostics";
+import type { Workflow } from "@foresthub/workflow-core/workflow";
 
 /**
  * `fh-builder validate <file.json>`
@@ -34,7 +30,7 @@ export async function validateCommand(filePath?: string): Promise<void> {
     throw err;
   }
 
-  let workflow: Schemas["Workflow"];
+  let workflow: Workflow;
   try {
     workflow = JSON.parse(raw);
   } catch (err) {
@@ -42,18 +38,14 @@ export async function validateCommand(filePath?: string): Promise<void> {
     process.exit(1);
   }
 
-  const state = deserialize(workflow);
-  const result = validateWorkflowState(state);
+  const result = validateWorkflow(workflow);
 
   printReport(abs, result);
 
   if (result.totalErrors > 0) process.exit(1);
 }
 
-function printReport(
-  file: string,
-  result: { totalErrors: number; totalWarnings: number; canvases: Array<{ canvasId: string; diagnostics: Diagnostic[] }>; channelDiagnostics: Diagnostic[] },
-): void {
+function printReport(file: string, result: ValidationResult): void {
   const out = process.stdout;
 
   if (result.totalErrors === 0 && result.totalWarnings === 0) {
@@ -61,7 +53,9 @@ function printReport(
     return;
   }
 
-  out.write(`${file}: ${result.totalErrors} error${pluralize(result.totalErrors)}, ${result.totalWarnings} warning${pluralize(result.totalWarnings)}\n`);
+  out.write(
+    `${file}: ${result.totalErrors} error${pluralize(result.totalErrors)}, ${result.totalWarnings} warning${pluralize(result.totalWarnings)}\n`,
+  );
 
   for (const canvas of result.canvases) {
     if (canvas.diagnostics.length === 0) continue;
@@ -72,6 +66,11 @@ function printReport(
   if (result.channelDiagnostics.length > 0) {
     out.write(`\n  channels:\n`);
     for (const d of result.channelDiagnostics) printDiagnostic(d, "    ");
+  }
+
+  if (result.memoryDiagnostics.length > 0) {
+    out.write(`\n  memory:\n`);
+    for (const d of result.memoryDiagnostics) printDiagnostic(d, "    ");
   }
 }
 

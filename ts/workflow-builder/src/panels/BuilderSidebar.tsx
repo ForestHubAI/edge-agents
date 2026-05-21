@@ -9,7 +9,7 @@ import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { FunctionDefinitionPanel } from "./FunctionDefinitionPanel";
 import NodeLibrary from "./NodeLibrary";
 import { ChannelsPanel } from "./ChannelsPanel";
-import { MemoryFilesPanel } from "./MemoryFilesPanel";
+import { MemoryPanel } from "./MemoryPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
@@ -98,6 +98,19 @@ export const BuilderSidebar = ({
     return count;
   });
 
+  // Memory primitives are project-scoped too — counts drive the "memory" tab
+  // icon color + badge (mirrors the channels tab).
+  const memoryErrors = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byMemoryId)) for (const d of diags) if (d.severity === "error") count++;
+    return count;
+  });
+  const memoryWarnings = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byMemoryId)) for (const d of diags) if (d.severity === "warning") count++;
+    return count;
+  });
+
   const tabs = useMemo(
     () => isDebugMode
       ? debugTabs
@@ -134,7 +147,7 @@ export const BuilderSidebar = ({
       case "channels":
         return <ChannelsPanel />;
       case "memory":
-        return <MemoryFilesPanel />;
+        return <MemoryPanel />;
       case "diagnostics":
         return <DiagnosticsPanel canvasId={canvasId} onSelectNode={onSelectNode} onSelectEdge={onSelectEdge} />;
       case "debug-context":
@@ -167,6 +180,9 @@ export const BuilderSidebar = ({
           } else if (tab.id === "channels") {
             tabErrors = channelErrors;
             tabWarnings = channelWarnings;
+          } else if (tab.id === "memory") {
+            tabErrors = memoryErrors;
+            tabWarnings = memoryWarnings;
           }
           const tabIssueCount = tabErrors + tabWarnings;
           const showBadge = tabIssueCount > 0;
