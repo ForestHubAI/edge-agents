@@ -8,5 +8,5 @@
     "resolveJsonModule": true
   },
   "references": [{ "path": "../workflow-core" }],
-  "include": ["src"]
+  "include": ["src", "src/**/*.json"]
 }

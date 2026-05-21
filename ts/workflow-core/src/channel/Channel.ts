@@ -5,24 +5,9 @@
 // channels is bound against the device's network memberships. Both are
 // emitted as `""` on serialize and stripped on deserialize.
 
-export type ChannelType =
-  | "GPIOIN"
-  | "GPIOOUT"
-  | "ADC"
-  | "PWM"
-  | "DAC"
-  | "UART"
-  | "MQTT";
+export type ChannelType = "GPIOIN" | "GPIOOUT" | "ADC" | "PWM" | "DAC" | "UART" | "MQTT";
 
-export const ALL_CHANNEL_TYPES: ChannelType[] = [
-  "GPIOIN",
-  "GPIOOUT",
-  "ADC",
-  "PWM",
-  "DAC",
-  "UART",
-  "MQTT",
-];
+export const ALL_CHANNEL_TYPES: ChannelType[] = ["GPIOIN", "GPIOOUT", "ADC", "PWM", "DAC", "UART", "MQTT"];
 
 export interface ChannelInstance {
   id: string;
