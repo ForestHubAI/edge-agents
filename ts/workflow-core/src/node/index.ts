@@ -30,7 +30,7 @@ export type { ExternalInput } from "./NodeMethods";
 export type { FunctionCallNode, FunctionCallNodeType, FunctionNodeDefinition } from "./FunctionNode";
 export { buildFunctionNodeDef } from "./FunctionNode";
 
-// Port-level helpers used by the visual builder and by validation.
+// Port-level helpers used by the workflow builder and by validation.
 export { isNodeUsedAsTool, canPortAcceptEdge, getCompatibleNodeDefs, isValidConnection } from "./portUtils";
 
 // =============================================================================
@@ -55,7 +55,7 @@ export type NodeType =
   | MqttNodeType;
 
 /**
- * NodeInstance represents the runtime data for a node in the visual builder.
+ * NodeInstance represents the runtime data for a node in the workflow builder.
  * It is a union type of all specific node types, each with their own typed parameters.
  * Use this type when you need strong typing for a specific node.
  */

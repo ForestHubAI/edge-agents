@@ -1,6 +1,6 @@
 # Parameter Type System
 
-Nodes and edges in the visual builder are configured through parameters — typed fields that appear in the config panel when a node or edge is selected. Both use the same input-parameter type system, so the editing experience, validation, and serialization logic is shared.
+Nodes and edges in the workflow builder are configured through parameters — typed fields that appear in the config panel when a node or edge is selected. Both use the same input-parameter type system, so the editing experience, validation, and serialization logic is shared.
 
 Nodes additionally declare **output parameters** — typed slots for what the node produces into variable scope. Output parameters live alongside input parameters on `NodeDefinition` (in a separate `outputs` array) and store their runtime state in the same `node.arguments` bag, but they use their own variant types and are rendered through a dedicated output section of the config panel.
 
@@ -26,7 +26,7 @@ Nodes additionally declare **output parameters** — typed slots for what the no
 
 **`ParameterBase` fields:** `id`, `label`, `description`, `optional?`, `default?`, `activationRules?`
 
-`ParameterEditor` (`src/visual-builder/inputs/ParameterEditor.tsx`) has an exhaustive `switch` on `parameter.type` — adding a new input variant without a corresponding `case` is a compile error.
+`ParameterEditor` (`src/workflow-builder/inputs/ParameterEditor.tsx`) has an exhaustive `switch` on `parameter.type` — adding a new input variant without a corresponding `case` is a compile error.
 
 `ExpressionParam.fromReference` is an escape hatch for the variable-reference case: when set, it points to the id of a sibling `variable-reference` parameter, and the expression's expected type is taken from whatever variable that sibling currently references (falling back to the declared `expressionType`).
 
@@ -70,7 +70,7 @@ The `ReferenceSelectParam` union type and `isReferenceSelectParam()` helper are 
 
 ### Input parameter defaults
 
-Input-parameter defaults are **applied once at node creation** (`addNodeToStore()` in `src/visual-builder/utils/graphOperations.ts`). They are never re-applied — if a user clears a field, the value stays cleared.
+Input-parameter defaults are **applied once at node creation** (`addNodeToStore()` in `src/workflow-builder/utils/graphOperations.ts`). They are never re-applied — if a user clears a field, the value stays cleared.
 
 **`BoolParam` and `WeekdaysParam` are special:** their `default` fields are required (not optional) because their UI controls (switch toggle, day-of-week multi-toggle) have no visual "unset" state — they always represent a value. Both are always set from creation.
 

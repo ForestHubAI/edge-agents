@@ -86,7 +86,7 @@ export function paramKey(p: Variable): string {
  * main-canvas state is never merged in.
  *
  * Edges are only inspected for two fields (`type`, `target`) — the inline
- * structural shape lets visual-builder pass its React Flow `Edge[]` without
+ * structural shape lets workflow-builder pass its React Flow `Edge[]` without
  * an adapter while core stays free of `@xyflow/react`.
  */
 export function computeAvailableVariables(

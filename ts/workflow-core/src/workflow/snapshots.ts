@@ -15,7 +15,7 @@ export const MAIN_CANVAS_ID = "main" as const;
 /**
  * One canvas's worth of in-memory domain state. The outer `type` on each
  * node is the domain node type (e.g. "Agent"); the React Flow display type
- * is editor-only and lives in visual-builder's store wrapper.
+ * is editor-only and lives in workflow-builder's store wrapper.
  */
 export interface CanvasData {
   nodes: Array<{
@@ -48,7 +48,7 @@ export interface CanvasData {
  * `deserialize(contractWorkflow)` after parsing JSON.
  *
  * Channels and memory files are keyed by plain `id`/`uid`. Editor-specific
- * key prefixing (`ch:`, `mem:`) is visual-builder's concern.
+ * key prefixing (`ch:`, `mem:`) is workflow-builder's concern.
  */
 export interface WorkflowState {
   canvases: Record<string, CanvasData>;

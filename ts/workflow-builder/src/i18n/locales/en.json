@@ -1,0 +1,533 @@
+{
+  "exportAsJSON": "Export as JSON",
+  "nodeLibrary": "Node Library",
+  "blockLibrary": "Node Library",
+  "diagnostics": "Diagnostics",
+  "functionDefinition": "Function Definition",
+  "open": "Open",
+  "close": "Close",
+  "save": "Save",
+  "versionHistory": "Version History",
+  "test": "Test",
+  "run": "Run",
+  "stop": "Stop",
+  "deploy": "Deploy",
+  "configure": "Configure",
+  "addBlock": "Add Node",
+  "deleteBlock": "Delete Node",
+  "duplicateBlock": "Duplicate Node",
+  "connectBlocks": "Connect Nodes",
+  "disconnectBlocks": "Disconnect Nodes",
+  "zoomIn": "Zoom In",
+  "zoomOut": "Zoom Out",
+  "fitView": "Fit to View",
+  "autoLayout": "Auto Layout",
+  "grid": "Grid",
+  "showGrid": "Show Grid",
+  "snapToGrid": "Snap to Grid",
+  "undo": "Undo",
+  "redo": "Redo",
+  "cut": "Cut",
+  "copy": "Copy",
+  "paste": "Paste",
+  "selectAll": "Select All",
+  "deselectAll": "Deselect All",
+  "delete": "Delete",
+  "canvas": "Canvas",
+  "parameters": "Parameters",
+  "connections": "Connections",
+  "validation": "Validation",
+  "errors": "Errors",
+  "warnings": "Warnings",
+  "noErrors": "No errors found",
+  "unknownNodeType": "Unknown node type: {{type}}",
+  "deleteNode": "Delete Node",
+  "updateToLatestDefinition": "Update to latest definition",
+  "functionCallNodesMigrated": "Function call nodes updated",
+  "functionCallNodesMigratedDesc": "{{count}} node(s) were migrated to the latest function definition.",
+  "variables": "Variables",
+  "agents": "Agents",
+  "conversations": "Conversations",
+  "noVariables": "No variables available",
+  "addBlocksForVariables": "Add nodes to see their output variables",
+  "agentsDescription": "Manage and configure AI agents for your workflow",
+  "noAgentsConfigured": "No agents configured yet",
+  "addAgent": "Add Agent",
+  "availableAgents": "Available Agents",
+  "comingSoon": "Coming soon...",
+  "conversationsDescription": "View and manage conversation flows",
+  "noConversations": "No conversations yet",
+  "newConversation": "New Conversation",
+  "conversationTemplates": "Templates",
+  "newWorkflow": "New Workflow",
+  "searchBlocks": "Search nodes...",
+  "noParameters": "No parameters",
+  "moreCount": "+{{count}} more",
+  "parametersLabel": "Parameters:",
+  "required": "Required",
+  "optional": "Optional",
+  "typeLabel": "Type:",
+  "defaultLabel": "Default:",
+  "optionsLabel": "Options:",
+  "parameterCount": "{{count}} parameter",
+  "paramTypeText": "Text",
+  "paramTypeNumber": "Number",
+  "paramTypeBoolean": "Boolean",
+  "paramTypeSelection": "Selection",
+  "paramTypeExpression": "Expr",
+  "noModelsAvailable": "No LLM models are currently available. Please contact support.",
+  "generatedConfig": "Generated Configuration",
+  "importProject": "Import Project",
+  "jsonConfig": "JSON Configuration",
+  "jsonConfigPlaceholder": "Paste JSON configuration here...",
+  "orUploadFile": "Or upload file",
+  "import": "Import",
+  "saveWorkflow": "Save Workflow",
+  "createProject": "Create Project",
+  "create": "Create",
+  "unsavedDraft": "Unsaved draft",
+  "unsavedDraftWarning": "You have unsaved changes that will be lost. Leave anyway?",
+  "saveFailedMessage": "Could not create the project. Download your work as JSON to avoid losing it.",
+  "downloadAsJSON": "Download as JSON",
+  "namePlaceholder": "Enter workflow name...",
+  "descriptionOptional": "Description (optional)",
+  "descriptionPlaceholder": "Short description of the workflow...",
+  "saving": "Saving...",
+  "testAgentNode": "Test Agent Node",
+  "testAgentDescription": "Send a prompt to the agent and stream the response. Costs are charged to your balance.",
+  "prompt": "Prompt",
+  "promptPlaceholder": "Describe the task for the agent",
+  "testing": "Testing...",
+  "startTest": "Start Test",
+  "stopTest": "Stop",
+  "testAgent": "Test Agent",
+  "maxTurns": "Max Turns",
+  "toolCall": "Tool Call: {{name}}",
+  "toolResult": "Tool Result: {{name}}",
+  "finalOutput": "Final Output ({{turns}} turns)",
+  "structuredOutput": "Structured Output",
+  "structuredOutputParseError": "Could not parse structured output as JSON",
+  "rawJson": "Raw JSON",
+  "outputName": "Name",
+  "outputType": "Type",
+  "outputValue": "Value",
+  "noNodeSelected": "No node selected",
+  "selectNodeMessage": "Please select a target node on the canvas.",
+  "importError": "Import Error",
+  "invalidJson": "Invalid JSON format",
+  "exportSuccess": "Export successful",
+  "configDownloaded": "Configuration was downloaded",
+  "copied": "Copied",
+  "configCopied": "Configuration was copied to clipboard",
+  "autoVersionMessage": "Automatic checkpoint",
+  "autoVersionLabel": "Auto",
+  "saveStatus.saved": "Saved",
+  "saveStatus.saving": "Saving...",
+  "saveStatus.unsaved": "Unsaved changes",
+  "versionRenameTooltip": "Rename version",
+  "versionPreviewPlaceholder": "Visual preview coming soon",
+  "preview.viewingVersion": "Version #{{number}} from {{date}}",
+  "preview.restore": "Restore",
+  "preview.cancel": "Back to current",
+  "preview.viewButton": "Inspect",
+  "preview.viewOnly": "View only",
+  "preview.noPreview": "Select a version to preview",
+  "preview.selectVersion": "Select a version to inspect",
+  "preview.template": "Template: {{name}}",
+  "preview.useAsProject": "Use as Project",
+  "preview.emptyCanvas": "No nodes in this version",
+  "preview.setAsCurrent": "Set as current",
+  "preview.returnToCurrent": "Return to current",
+  "debug.session": "Debug Session",
+  "debug.start": "Debug",
+  "debug.stop": "Stop",
+  "debug.step": "Step",
+  "debug.building": "Building",
+  "debug.idle": "Idle",
+  "debug.paused": "Paused",
+  "debug.stepping": "Stepping",
+  "debug.error": "Error",
+  "debug.console": "Console",
+  "debug.clearConsole": "Clear console",
+  "debug.consoleEmpty": "Console output will appear here during execution.",
+  "debug.context": "Context",
+  "debug.externalIO": "External I/O",
+  "debug.noVariables": "No workflow variables defined.",
+  "debug.noInputsNeeded": "No external inputs needed for this node.",
+  "debug.selectNode": "Select a node to debug.",
+  "debug.triggerNotSteppable": "Trigger nodes cannot be stepped. Select a downstream node to begin debugging.",
+  "debug.gpioPin": "GPIO Pin {{pin}}",
+  "debug.serialInput": "Serial Input",
+  "debug.serialPlaceholder": "Enter serial data...",
+  "versionsLoading": "Loading versions...",
+  "noVersions": "No versions available.",
+  "versionsReadOnly": "Versions are read-only and cannot be modified.",
+  "loadingDialogs": "Loading dialogs...",
+  "loadingVersions": "Loading versions...",
+  "loadingTest": "Loading test dialog...",
+  "current": "Current",
+  "newFunction": "New Function",
+  "enterExpression": "Enter expression...",
+  "enterTypeExpression": "Enter {{type}} expression...",
+  "fromNode": "from {{node}}",
+  "addFunction": "Add Function",
+  "addFunctionHint": "Create a reusable function",
+  "addNodesForVariables": "Add nodes to see their output variables",
+  "addVariable": "Add Variable",
+  "continueWithWarnings": "Continue with Warnings",
+  "createFunction": "Create Function",
+  "definedVariables": "Defined Variables",
+  "deleteFunction": "Delete Function",
+  "deleteFunctionTitle": "Delete Function?",
+  "done": "Done",
+  "editFunction": "Edit Function",
+  "expressionFor": "Expression for",
+  "fnarg": "Arg",
+  "functionArguments": "Function Arguments",
+  "functionDialogDesc": "Configure the function name, inputs and outputs.",
+  "functionName": "Function Name",
+  "functionNamePlaceholder": "Enter function name...",
+  "functions": "Functions",
+  "globalVariable": "Global Variable",
+  "initialValue": "Initial Value",
+  "inputs": "Inputs",
+  "nodeOutputVariables": "Node Output Variables",
+  "noEdgeParams": "No edge parameters",
+  "noFunctionInfo": "No function information available",
+  "noFunctions": "No functions yet",
+  "noInputs": "No inputs",
+  "noChannels": "No channels defined yet",
+  "noChannelsHint": "Add channels to declare the hardware interfaces your workflow needs",
+  "channels": "Channels",
+  "channelLabelHeading": "Label",
+  "addChannel": "Add Channel",
+  "selectChannel": "Select a channel...",
+  "noMemoryFiles": "No memory files yet",
+  "noMemoryFilesHint": "Declare durable storage your agents can read or write",
+  "memoryFiles": "Memory",
+  "addMemoryFile": "Add Memory File",
+  "deleteMemoryFile": "Delete memory file",
+  "memoryFileName": "Memory file name",
+  "memoryFileDescription": "Agent-scoped durable storage",
+  "memoryFileNameRequired": "Name is required",
+  "memoryFileNameDuplicate": "Name must be unique per agent",
+  "noMemoryFilesForAgent": "No memory files declared yet. Add one from the Memory tab in the sidebar.",
+  "selectMemoryFile": "Select memory file...",
+  "memoryRefStale": "Deleted memory file",
+  "addMemoryRef": "Add memory ref",
+  "removeMemoryRef": "Remove memory ref",
+  "memoryModeRead": "Read",
+  "memoryModeReadWrite": "Read + Write",
+  "createNewPin": "Create new pin...",
+  "capabilities": "Capabilities",
+  "protocol": "Protocol",
+  "noIssuesFound": "No issues found",
+  "noOutputs": "No outputs",
+  "outputs": "Outputs",
+  "returnValueAssignments": "Return Value Assignments",
+  "returnValueAssignmentsDesc": "Assign expressions to function return values",
+  "deleteEdge": "Delete Edge",
+  "renameProject": "Rename project",
+  "functionCallDesc": "Invoke the \"{{name}}\" function",
+  "functionParamDesc": "Enter value for {{name}}",
+  "functionOutputDesc": "Enter name of output variable for {{name}}",
+  "deleteFunctionDesc": "This will permanently delete this function and all its nodes. This action cannot be undone.",
+  "nodeLabel": "Node",
+  "validationIssues": "Validation Issues",
+  "validationErrorsDesc": "{{errorCount}} error(s) and {{warningCount}} warning(s) found. Fix errors before exporting.",
+  "validationWarningsDesc": "{{warningCount}} warning(s) found. You can still proceed.",
+  "versionSaved": "Version saved",
+  "versionSaveError": "Version could not be saved",
+  "versionRestored": "Version restored",
+  "versionRestoreError": "Version could not be restored",
+  "versionRenamed": "Version renamed",
+  "versionRenameError": "Version could not be renamed",
+  "codeGenSuccess": "Embedded firmware was successfully generated and downloaded.",
+  "codeGenTitle": "C code generated",
+  "codeGenError": "C code generation failed",
+  "codeGenErrorDesc": "C code could not be generated.",
+  "seoDescription": "Visual builder for your projects.",
+  "projectNotFound": "Project not found",
+  "projectNotFoundDesc": "The selected project does not exist.",
+  "deploymentNotFound": "Deployment not found",
+  "deployDialog": {
+    "title": "Deploy Workflow",
+    "description": "Deploy this workflow to a device.",
+    "redeployTab": "Update Agent",
+    "newAgentTab": "New Agent",
+    "selectAgent": "Select an agent",
+    "redeploy": "Redeploy",
+    "selectDevice": "Select a device",
+    "agentName": "Agent name",
+    "agentNamePlaceholder": "e.g. Greenhouse Controller",
+    "confirm": "Deploy",
+    "platform": "Platform",
+    "platformPlaceholder": "Select a platform",
+    "submitPush": "Push to engine",
+    "submitBundle": "Download bundle",
+    "submitCreateAndBundle": "Create agent & download",
+    "method": {
+      "sectionTitle": "Deploy method",
+      "push": "Push to engine",
+      "pushHint": "Send the workflow directly to the running engine over the local network.",
+      "bundle": "Download bundle",
+      "bundleHint": "Download the deploy bundle and apply it on the device manually.",
+      "includeImage": "Also download engine image (.tar)",
+      "offlineHint": "Engine is offline — last seen {{time}}. Download the bundle and apply it on the device.",
+      "pendingHint": "Engine is still booting after the latest deployment. Download the bundle if you want to re-apply manually.",
+      "bootErrorHint": "Engine reported a boot error. Download the bundle and re-apply on the device.",
+      "newAgentHint": "A new agent has no running engine yet. Submit creates the agent and downloads the deploy bundle for manual install."
+    },
+    "redeployHeader": "Redeploy {{workflow}} to {{agent}}",
+    "success": {
+      "push": "Workflow pushed to engine",
+      "bundle": "Deploy bundle downloaded",
+      "bundleWithImage": "Bundle and engine image downloaded"
+    },
+    "warn": {
+      "imageFailed": "Engine image download failed",
+      "imageFailedDescription": "Bundle was downloaded successfully. You can retry the engine image download from the agent details page."
+    },
+    "error": {
+      "save": "Saving the workflow failed",
+      "push": "Push to engine failed",
+      "pushUnreachable": "Engine is unreachable — try downloading the bundle instead",
+      "pushForbidden": "Engine rejected the request — check agent credentials",
+      "bundle": "Bundle download failed"
+    },
+    "releaseInfo": "Release {{number}}",
+    "newRelease": "New release will be created",
+    "existingRelease": "Deploying existing release",
+    "savingChanges": "Saving changes...",
+    "deploying": "Deploying...",
+    "deploySuccess": "Deployed successfully",
+    "deploySuccessDesc": "Deployed to {{device}}",
+    "draftError": "Save your project before deploying"
+  },
+  "pinMapping": {
+    "title": "Map Pins to Board",
+    "description": "Drag each IO pin onto a compatible board pin",
+    "unassignedPins": "Unassigned Pins",
+    "allMapped": "All pins mapped",
+    "confirm": "Generate Code",
+    "clickToUnassign": "Click to unassign"
+  },
+  "blocks": {
+    "input": "Input",
+    "output": "Output",
+    "logic": "Logic",
+    "math": "Math",
+    "ai": "AI",
+    "control": "Control",
+    "sensor": "Sensor",
+    "actuator": "Actuator",
+    "communication": "Communication",
+    "storage": "Storage",
+    "custom": "Custom"
+  },
+  "add": "Add",
+  "cancel": "Cancel",
+  "nodes": {
+    "ReadPin": {
+      "description": "Read data from a pin",
+      "params": {
+        "pinNumber": {
+          "description": "Number of the pin to read"
+        },
+        "signalType": {
+          "description": "Type of signal"
+        },
+        "outputName": {
+          "description": "Name for the generated output variable"
+        }
+      }
+    },
+    "SerialRead": {
+      "description": "Read a string from serial interface",
+      "params": {
+        "prompt": {
+          "description": "Prompt for the serial read operation"
+        },
+        "outputName": {
+          "description": "Variable name for the read value"
+        }
+      }
+    },
+    "Retriever": {
+      "description": "Retrieves relevant documents from a knowledge base",
+      "params": {
+        "collectionId": {
+          "description": "The knowledge base collection to search"
+        },
+        "topK": {
+          "description": "Number of results to retrieve"
+        },
+        "outputName": {
+          "description": "Variable name for the retrieved results"
+        }
+      }
+    },
+    "WritePin": {
+      "description": "Write data to a pin",
+      "params": {
+        "pinNumber": {
+          "description": "Number of the pin to write to"
+        },
+        "signalType": {
+          "description": "Type of signal"
+        },
+        "value": {
+          "description": "Value to write to the pin"
+        }
+      }
+    },
+    "SerialWrite": {
+      "description": "Write a string to serial interface",
+      "params": {
+        "value": {
+          "description": "Expression for the value to write"
+        }
+      }
+    },
+    "OnIdle": {
+      "description": "Triggers when the system enters idle state"
+    },
+    "OnFunctionCall": {
+      "description": "Triggers when this function is called by a function call node"
+    },
+    "Delay": {
+      "description": "Pauses execution for a specified duration and triggers when the delay completes. Other node chains can execute during this pause.",
+      "params": {
+        "delayMs": {
+          "description": "Time in milliseconds to pause"
+        }
+      }
+    },
+    "Ticker": {
+      "description": "Triggers repeatedly at a fixed interval",
+      "params": {
+        "intervalValue": {
+          "description": "Number of units between ticks"
+        },
+        "intervalUnit": {
+          "description": "Time unit for the interval"
+        }
+      }
+    },
+    "Alarm": {
+      "description": "Triggers at a scheduled time on selected weekdays",
+      "params": {
+        "time": {
+          "description": "Time of day to trigger (24-hour format)"
+        },
+        "days": {
+          "description": "Weekdays to trigger on (empty = every day)"
+        }
+      }
+    },
+    "OnStartup": {
+      "description": "Triggers once when the device powers on"
+    },
+    "OnPinChange": {
+      "description": "Triggers when a pin value changes",
+      "params": {
+        "pinNumber": {
+          "description": "Pin number to monitor"
+        },
+        "outputName": {
+          "description": "Variable name that holds the pin value when the trigger fires"
+        },
+        "mode": {
+          "description": "Whether to read the pin as digital or analog"
+        },
+        "edge": {
+          "description": "Which edge transition triggers the event"
+        },
+        "threshold": {
+          "description": "Analog threshold value (0-1023)"
+        },
+        "direction": {
+          "description": "Direction of threshold crossing that triggers the event"
+        }
+      }
+    },
+    "OnSerialReceive": {
+      "description": "Triggers when serial data arrives"
+    },
+    "OnThreshold": {
+      "description": "Triggers when an expression value crosses a threshold",
+      "params": {
+        "value": {
+          "description": "Expression to monitor"
+        },
+        "threshold": {
+          "description": "Threshold value"
+        },
+        "direction": {
+          "description": "Direction of threshold crossing that triggers the event"
+        }
+      }
+    },
+    "Agent": {
+      "description": "AI-powered agent for intelligent processing",
+      "params": {
+        "name": {
+          "description": "Name of the agent"
+        },
+        "model": {
+          "description": "AI model for the cloud agent"
+        },
+        "instructions": {
+          "description": "Instructions for the cloud agent as system prompt"
+        }
+      }
+    },
+    "If": {
+      "description": "Conditional branching based on boolean expression",
+      "params": {
+        "condition": {
+          "description": "Boolean expression (e.g. ${Input_1.value} > 50)"
+        }
+      }
+    },
+    "SetVariable": {
+      "description": "Assign a new value to an existing variable",
+      "params": {
+        "variable": {
+          "description": "The variable to update"
+        },
+        "value": {
+          "description": "Expression to assign"
+        }
+      }
+    },
+    "WebSearchTool": {
+      "description": "Provides web search functionality for connected agents",
+      "params": {
+        "maxResults": {
+          "description": "Maximum number of search results to return"
+        },
+        "searchDomain": {
+          "description": "Optional domain to restrict the search"
+        }
+      }
+    }
+  },
+  "edges": {
+    "agentTask": {
+      "description": "Assigns a task with a prompt to an agent"
+    },
+    "agentChoice": {
+      "description": "A path the agent can choose based on its description"
+    },
+    "agentDelegate": {
+      "description": "Allows an agent to hand off control to another agent"
+    },
+    "control": {
+      "description": "Sequential control flow between nodes"
+    },
+    "tool": {
+      "description": "Tool connection between nodes"
+    }
+  }
+}

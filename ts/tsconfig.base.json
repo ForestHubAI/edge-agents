@@ -12,6 +12,21 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "composite": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+
+    // In-repo, every @foresthub/* import (root or subpath) resolves to that
+    // package's SOURCE — the same thing Vite's alias does at runtime. dist/ is
+    // produced only for publishing, where external consumers resolve via each
+    // package's "exports" map instead. One model in the repo: it's all source.
+    //
+    // No baseUrl (deprecated in TS 5, removed in 7): with `paths` and no
+    // baseUrl, these patterns resolve relative to THIS file's dir (ts/), and
+    // `extends` keeps them anchored here — so they're repo-relative for every
+    // package.
+    "paths": {
+      "@foresthub/workflow-core": ["./workflow-core/src/index.ts"],
+      "@foresthub/workflow-core/*": ["./workflow-core/src/*/index.ts"],
+      "@foresthub/workflow-builder": ["./workflow-builder/src/index.ts"]
+    }
   }
 }

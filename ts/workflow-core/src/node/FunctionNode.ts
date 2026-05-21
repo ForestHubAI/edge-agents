@@ -30,7 +30,7 @@ export interface FunctionNodeDefinition extends NodeDefinition {
 /**
  * Build a FunctionCall NodeDefinition from FunctionInfo. Pure — takes an
  * optional translator function so the headless validator can call it without
- * an i18n runtime; visual-builder passes `i18n.t.bind(i18n)` to get
+ * an i18n runtime; workflow-builder passes `i18n.t.bind(i18n)` to get
  * translated descriptions. Defaults to identity (returns the key) when no
  * translator is supplied; validation logic ignores description strings.
  */

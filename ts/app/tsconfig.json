@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Mirror vite.config.ts exactly so the editor resolves the same way the
+    // app runs: workspace packages → source, host hook stubs → ./src/stubs.
+    // No baseUrl (deprecated): paths resolve relative to this file's dir.
+    "paths": {
+      "@foresthub/workflow-builder": ["../workflow-builder/src/index.ts"],
+      "@foresthub/workflow-core": ["../workflow-core/src/index.ts"],
+      "@foresthub/workflow-core/*": ["../workflow-core/src/*/index.ts"],
+      "@/hooks/useRagCollections": ["./src/stubs/useRagCollections.ts"],
+      "@/hooks/useAvailableProviders": ["./src/stubs/useAvailableProviders.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

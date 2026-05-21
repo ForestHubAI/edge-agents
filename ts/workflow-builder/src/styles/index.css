@@ -1,0 +1,546 @@
+/* ReactFlow's required CSS — without this, nodes can't be dragged/selected and
+   the canvas chrome (controls, minimap, viewport transforms) renders unstyled. */
+@import "@xyflow/react/dist/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sidebar layout fixes — header offset + instant toggle (no animation) */
+.group.peer > div:first-child {
+  height: calc(100svh - var(--header-height, 64px)) !important;
+  transition-duration: 0s !important;
+}
+.group.peer > div:nth-child(2) {
+  transition-duration: 0s !important;
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  /*
+   * Token system: two layers
+   *
+   *  1. SURFACES (independent per mode) — background, card, popover, border, etc.
+   *     These are *materials*: white card vs dark card aren't the same hue shifted,
+   *     they're different identities. Defined separately in :root and .light.
+   *
+   *  2. SIGNALS (canonical hue, per-mode lightness) — node categories, type
+   *     indicators, channel types, badge severity. These are *identity markers*:
+   *     "logic" should be recognizably the same green in both modes. Hue/sat
+   *     stay fixed; only --signal-l / --signal-l-deep change per mode.
+   *
+   *  Consumers using opacity (hsl(var(--node-X) / 0.3)) automatically tint
+   *  toward the surface behind them, so the same canonical color reads well
+   *  on both dark and light surfaces.
+   */
+  :root {
+    /* Brand / accent (independent per mode below) */
+    --forest-green: 158 53% 42%;
+    --tech-cyan: 191 89% 74%;
+    --light-moss: 137 60% 78%;
+
+    --theme-primary-hue: 158;
+    --theme-primary-saturation: 53%;
+    --theme-primary-lightness: 42%;
+    --theme-accent-hue: 191;
+    --theme-accent-saturation: 89%;
+    --theme-accent-lightness: 74%;
+
+    /* ============================================================
+     * SURFACES — Dark mode (default)
+     * Hue 40, saturation 3% — very faint warm gray, premium feel.
+     * Nearly neutral; just enough warmth to avoid feeling clinical.
+     * ============================================================ */
+    --background: 40 2% 8%;
+    --foreground: 0 0% 95%;
+
+    /* Card surface — used by both workflow-builder panels and the AppSidebar.
+       Matches --sidebar-background and --panel-background so menu chrome
+       and editor chrome share one unified panel color. */
+    --card: 40 2% 18%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 40 2% 22%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 158 53% 42%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 158 53% 52%;
+
+    --secondary: 40 2% 24%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 40 2% 22%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 191 89% 74%;
+    --accent-foreground: 40 2% 10%;
+
+    --destructive: 0 78% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 2% 26%;
+    --input: 40 2% 26%;
+    --ring: 158 53% 42%;
+    --overlay: 0 0% 0% / 0.8;
+
+    /* Form-field fill — slightly darker than --card so inputs read as
+       recessed surfaces. Distinct from --input which is the field BORDER. */
+    --field: 40 2% 14%;
+
+    /* Selection glow — uniform high-contrast halo for selected nodes/edges.
+       Independent of category color so multi-selection doesn't get noisy. */
+    --selection-glow: 0 0% 100%;
+
+    --radius: 0.5rem;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(158 53% 42%), hsl(191 89% 74%));
+    --gradient-subtle: linear-gradient(135deg, hsl(40 2% 8%), hsl(40 2% 18%));
+    --gradient-glass: linear-gradient(135deg, var(--glass-bg-light), var(--glass-bg-medium));
+
+    /* Visual builder surfaces — canvas sits between the app shell (--background)
+       and the unified panel surface (--card), creating a subtle elevation. */
+    --canvas-background: 40 2% 14%;
+    --edge-default: 0 0% 50%;
+    --edge-active: 158 53% 42%;
+    --panel-background: 40 2% 18%;
+    --panel-border: 40 2% 26%;
+
+    --sidebar-background: 40 2% 18%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 158 53% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 2% 24%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 40 2% 26%;
+    --sidebar-ring: 158 53% 42%;
+
+    /* Status (severity colors used as full-saturation accents) */
+    --success: 158 53% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Shadows — black at moderate alpha; in dark mode the eye can't see
+       this much against near-black surfaces, so we add a subtle bright
+       inner edge via the glow tokens for elevated hover states. */
+    --shadow-sm: 0 2px 4px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.5);
+    --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 20px hsl(158 53% 42% / 0.4);
+
+    /* ============================================================
+     * SIGNAL TUNING — controls how saturated and how light/dark
+     * signal colors render. Same hues in both modes; only these
+     * three change between dark and light.
+     * ============================================================ */
+    --signal-s: 70%; /* default saturation for signals */
+    --signal-l: 58%; /* default lightness in dark mode */
+    --signal-l-deep: 48%; /* deeper variant for accents */
+    --signal-border-l: 50%; /* neutral signal border */
+
+    /* ============================================================
+     * NODE CATEGORY SIGNALS (canonical hue, mode-tuned lightness)
+     * ============================================================ */
+    --node-agent: 273 var(--signal-s) var(--signal-l);
+    --node-input: 195 var(--signal-s) var(--signal-l);
+    --node-output: 142 var(--signal-s) var(--signal-l);
+    --node-trigger: 32 88% var(--signal-l);
+    --node-logic: 175 var(--signal-s) var(--signal-l);
+    --node-data: 42 85% var(--signal-l);
+    --node-tool: 200 80% var(--signal-l);
+    --node-function: 320 var(--signal-s) var(--signal-l);
+    --node-border: 220 10% var(--signal-border-l);
+    --node-shadow: 40 2% 5%;
+
+    /* ============================================================
+     * TYPE INDICATOR SIGNALS (variables, expressions, ports)
+     * ============================================================ */
+    --type-string: 142 var(--signal-s) var(--signal-l);
+    --type-int: 210 var(--signal-s) var(--signal-l);
+    --type-float: 195 var(--signal-s) var(--signal-l);
+    --type-bool: 280 var(--signal-s) var(--signal-l);
+    --type-array: 25 85% var(--signal-l);
+    --type-object: 42 85% var(--signal-l);
+    --type-any: 220 10% 50%;
+  }
+
+  .light {
+    /* ============================================================
+     * SURFACES — Light mode (different material, not just shifted)
+     * ============================================================ */
+    --background: 220 14% 96%;
+    --foreground: 220 15% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+    --primary: 158 53% 38%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 158 53% 48%;
+    --secondary: 220 12% 92%;
+    --secondary-foreground: 220 15% 15%;
+    --muted: 220 12% 94%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 158 53% 42%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 158 53% 42%;
+    --overlay: 0 0% 0% / 0.5;
+
+    /* Form-field fill — clearly darker than white card so inputs read
+       as recessed surfaces (matches --canvas-background depth). */
+    --field: 220 14% 92%;
+
+    /* Selection glow — dark in light mode for high contrast on white. */
+    --selection-glow: 220 15% 15%;
+
+    /* Canvas sits deeper than the app shell — wider gap than before
+       so the editing surface is clearly distinct from chrome. */
+    --canvas-background: 220 14% 92%;
+    --edge-default: 220 8% 45%;
+    --edge-active: 158 53% 38%;
+
+    --panel-background: 0 0% 100%;
+    --panel-border: 220 13% 88%;
+
+    --sidebar-background: 220 14% 98%;
+    --sidebar-foreground: 220 15% 15%;
+    --sidebar-primary: 158 53% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 12% 94%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 158 53% 38%;
+
+    --success: 158 53% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 42%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Shadows — dark ink at moderate alpha on light surfaces; this is
+       what gives buttons the "lift" the user noticed. */
+    --shadow-sm: 0 1px 2px 0 hsl(220 15% 25% / 0.08), 0 2px 4px -1px hsl(220 15% 25% / 0.06);
+    --shadow-md: 0 2px 4px -1px hsl(220 15% 25% / 0.1), 0 4px 8px -2px hsl(220 15% 25% / 0.08);
+    --shadow-lg: 0 4px 8px -2px hsl(220 15% 25% / 0.12), 0 12px 24px -4px hsl(220 15% 25% / 0.18);
+    --shadow-glow: 0 0 24px hsl(158 53% 42% / 0.25);
+
+    /* ============================================================
+     * SIGNAL TUNING — same hues, darker lightness for legibility
+     * on light backgrounds.
+     * ============================================================ */
+    --signal-s: 68%;
+    --signal-l: 42%;
+    --signal-l-deep: 32%;
+    --signal-border-l: 45%;
+
+    /* Light-mode neutral type/any */
+    --type-any: 220 10% 38%;
+  }
+
+  /* Vordefinierte Theme-Varianten */
+  .theme-blue {
+    --theme-primary-hue: 220;
+    --theme-primary-saturation: 91%;
+    --theme-primary-lightness: 60%;
+    --theme-accent-hue: 200;
+    --theme-accent-saturation: 80%;
+    --theme-accent-lightness: 55%;
+  }
+
+  .theme-green {
+    --theme-primary-hue: 142;
+    --theme-primary-saturation: 76%;
+    --theme-primary-lightness: 45%;
+    --theme-accent-hue: 120;
+    --theme-accent-saturation: 70%;
+    --theme-accent-lightness: 40%;
+  }
+
+  .theme-orange {
+    --theme-primary-hue: 25;
+    --theme-primary-saturation: 95%;
+    --theme-primary-lightness: 53%;
+    --theme-accent-hue: 15;
+    --theme-accent-saturation: 90%;
+    --theme-accent-lightness: 48%;
+  }
+
+  .theme-red {
+    --theme-primary-hue: 0;
+    --theme-primary-saturation: 84%;
+    --theme-primary-lightness: 60%;
+    --theme-accent-hue: 340;
+    --theme-accent-saturation: 75%;
+    --theme-accent-lightness: 55%;
+  }
+
+  .theme-forest {
+    --theme-primary-hue: 162;
+    --theme-primary-saturation: 60%;
+    --theme-primary-lightness: 32%;
+    --theme-accent-hue: 42;
+    --theme-accent-saturation: 68%;
+    --theme-accent-lightness: 52%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-background via-background to-secondary/30 text-foreground font-[Poppins,system-ui,sans-serif] antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+/* Glass Forest Design System */
+@layer components {
+  /* Core Glass Components - Verstärkte Glass-Effekte */
+  .glass-forest-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg transition-all duration-300;
+  }
+
+  .glass-forest-card:hover {
+    @apply bg-card/70 shadow-xl scale-[1.02] border-primary/20;
+  }
+
+  .glass-forest-panel {
+    @apply bg-card/70 backdrop-blur-2xl border border-white/10 shadow-xl;
+  }
+
+  .glass-forest-button {
+    @apply bg-card/40 backdrop-blur-md border border-border rounded-full transition-all duration-300;
+  }
+
+  .glass-forest-button:hover {
+    @apply bg-card/60 border-primary/30 shadow-lg -translate-y-0.5;
+  }
+
+  .glass-forest-button-primary {
+    @apply bg-primary text-white rounded-full shadow-sm border-0;
+  }
+
+  .glass-forest-button-primary:hover {
+    @apply shadow-xl scale-[1.02] -translate-y-0.5;
+  }
+
+  .glass-forest-input {
+    @apply bg-card/40 backdrop-blur-lg border border-border rounded-2xl transition-all duration-300;
+  }
+
+  .glass-forest-input:focus {
+    @apply bg-card/60 border-primary outline-none ring-2 ring-primary/20;
+  }
+
+  /* Gradient Utilities */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-forest {
+    background: var(--gradient-primary);
+  }
+
+  /* Organic Hover Effects */
+  .hover-glow {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-glow:hover {
+    box-shadow: var(--glow-green);
+    transform: translateY(-2px);
+  }
+
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  /* Workflow Builder Glass Styles - Mehr Transparenz */
+  .workflow-builder-panel {
+    @apply bg-card/70 backdrop-blur-2xl border border-white/10 shadow-xl;
+  }
+
+  .block-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg cursor-pointer transition-all duration-300;
+  }
+
+  .block-card:hover {
+    @apply bg-card/70 shadow-xl scale-[1.02];
+  }
+
+  .block-node-glass {
+    @apply bg-card/70 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl transition-all duration-300;
+  }
+
+  .block-node-glass:hover {
+    @apply shadow-2xl scale-[1.02] bg-card/80;
+  }
+
+  /* Loading & Status */
+  .loading-organic {
+    @apply animate-pulse-organic rounded-full bg-primary/20;
+  }
+
+  .status-dot {
+    @apply w-2 h-2 rounded-full animate-pulse-organic;
+  }
+
+  .status-success .status-dot {
+    @apply bg-success;
+    box-shadow: var(--glow-green);
+  }
+
+  .status-warning .status-dot {
+    @apply bg-warning;
+  }
+}
+
+@layer utilities {
+  /* Organic Animations */
+  @keyframes pulse-organic {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes ripple-expand {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  @keyframes light-trail {
+    0% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%,
+    100% {
+      box-shadow: var(--glow-green);
+    }
+    50% {
+      box-shadow: var(--glow-combined);
+    }
+  }
+
+  /* Animation Classes */
+  .animate-pulse-organic {
+    animation: pulse-organic 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-ripple {
+    animation: ripple-expand 1.5s ease-out;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+/* Suppress ReactFlow's built-in selection outline — we use custom glow via editorStore */
+.react-flow__node.selected,
+.react-flow__edge.selected {
+  outline: none !important;
+}
+
+/* Debug cursor pulse animation for node highlighting */
+@keyframes debug-cursor-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

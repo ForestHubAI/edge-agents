@@ -4,7 +4,7 @@
 // a WorkflowState literal; the CLI calls deserialize on parsed JSON.
 //
 // Channels/memory files are keyed by plain id/uid in WorkflowState — editor
-// store keying conventions (e.g. `ch:${id}` prefixes) are visual-builder's
+// store keying conventions (e.g. `ch:${id}` prefixes) are workflow-builder's
 // internal concern and live in its wrapper.
 
 import type { Schemas } from "../api";
@@ -90,7 +90,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
  * redundancy.
  *
  * The outer `type` field on each CanvasData node is set to the domain node
- * type (e.g. "Agent"). Visual-builder's wrapper translates it to the React
+ * type (e.g. "Agent"). Workflow-builder's wrapper translates it to the React
  * Flow display type during store hydration — that translation is editor-only.
  */
 export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
@@ -155,7 +155,7 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
  * from an array of node instances. Calls {@link getNodeOutput} to inspect
  * each node's declared outputs.
  *
- * Ported from visual-builder's canvasStore to take NodeInstance[] directly
+ * Ported from workflow-builder's canvasStore to take NodeInstance[] directly
  * (NodeInstance carries id at the top level — no React Flow wrapper needed).
  */
 export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string, NodeOutputVariable> {
@@ -182,7 +182,7 @@ export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string,
  *
  * Disjoint key namespaces (`declared:`, `fnarg:`, `<nodeId>:<outputId>`) so
  * merge order is irrelevant. Used by both `deserialize` here and (via re-import)
- * by visual-builder's `CanvasState.initialize`.
+ * by workflow-builder's `CanvasState.initialize`.
  */
 export function buildCanvasVariables(
   nodes: NodeInstance[],
@@ -239,7 +239,7 @@ export function extractDeclaredVariables(variables: Record<string, CanvasVariabl
 /**
  * Convert a contract `Node` into a `CanvasData` node (the in-memory wrapper
  * the validator + editor consume). The outer `type` is the domain node type
- * (e.g. "Agent"); visual-builder's wrapper rewrites it to a React Flow
+ * (e.g. "Agent"); workflow-builder's wrapper rewrites it to a React Flow
  * display type during store hydration.
  */
 function toCanvasNode(apiNode: Schemas["Node"]): CanvasData["nodes"][number] {
