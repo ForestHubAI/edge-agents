@@ -407,9 +407,6 @@
         }
       }
     },
-    "OnIdle": {
-      "description": "Triggers when the system enters idle state"
-    },
     "OnFunctionCall": {
       "description": "Triggers when this function is called by a function call node"
     },

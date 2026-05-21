@@ -65,7 +65,7 @@ const ExpressionInput = ({
       // First pass: collect all variable names and their positions
       const matches: { name: string; start: number; end: number }[] = [];
       while ((match = regex.exec(displayExpr)) !== null) {
-        matches.push({ name: match[1], start: match.index, end: match.index + match[0].length });
+        matches.push({ name: match[1] ?? "", start: match.index, end: match.index + match[0].length });
       }
 
       // Build expression with empty placeholders and collect references

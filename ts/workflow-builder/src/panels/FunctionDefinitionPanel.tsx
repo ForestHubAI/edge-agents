@@ -107,8 +107,10 @@ export const FunctionDefinitionPanel = ({
   const updateArgument = useCallback(
     (index: number, updates: Partial<NodeOutput>) => {
       updateFunctionInfo((info) => {
+        const existing = info.arguments[index];
+        if (!existing) return info;
         const newArgs = [...info.arguments];
-        newArgs[index] = { ...newArgs[index], ...updates };
+        newArgs[index] = { ...existing, ...updates };
         return { ...info, arguments: newArgs };
       });
     },
@@ -118,8 +120,10 @@ export const FunctionDefinitionPanel = ({
   const updateReturnValue = useCallback(
     (index: number, updates: Partial<NodeOutput>) => {
       updateFunctionInfo((info) => {
+        const existing = info.returns[index];
+        if (!existing) return info;
         const newReturnValues = [...info.returns];
-        newReturnValues[index] = { ...newReturnValues[index], ...updates };
+        newReturnValues[index] = { ...existing, ...updates };
         return { ...info, returns: newReturnValues };
       });
     },

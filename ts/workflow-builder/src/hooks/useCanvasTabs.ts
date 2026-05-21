@@ -87,6 +87,7 @@ export const useCanvasTabs = () => {
     setTabs((prev) => {
       const updated = [...prev];
       const [moved] = updated.splice(fromIndex, 1);
+      if (!moved) return prev;
       updated.splice(toIndex, 0, moved);
       return updated;
     });

@@ -30,8 +30,10 @@ export function useFunctionInfo(fn: FunctionInfo, onUpdate: (updates: FunctionIn
 
   const updateArgument = useCallback(
     (index: number, updates: Partial<NodeOutput>) => {
+      const existing = fn.arguments[index];
+      if (!existing) return;
       const newArgs = [...fn.arguments];
-      newArgs[index] = { ...newArgs[index], ...updates };
+      newArgs[index] = { ...existing, ...updates };
       onUpdate({ ...fn, arguments: newArgs });
     },
     [fn, onUpdate],
@@ -39,8 +41,10 @@ export function useFunctionInfo(fn: FunctionInfo, onUpdate: (updates: FunctionIn
 
   const updateReturnValue = useCallback(
     (index: number, updates: Partial<NodeOutput>) => {
+      const existing = fn.returns[index];
+      if (!existing) return;
       const newReturnValues = [...fn.returns];
-      newReturnValues[index] = { ...newReturnValues[index], ...updates };
+      newReturnValues[index] = { ...existing, ...updates };
       onUpdate({ ...fn, returns: newReturnValues });
     },
     [fn, onUpdate],

@@ -206,8 +206,9 @@ export function updateNodeInStore(
     const targetNodeIndex = nds.findIndex((node) => node.id === nodeId);
     if (targetNodeIndex === -1) return nds;
 
-    found = true;
     const targetNode = nds[targetNodeIndex];
+    if (!targetNode) return nds;
+    found = true;
     const currentData = targetNode.data as NodeInstance;
     oldOutputs = getNodeOutput(currentData);
 

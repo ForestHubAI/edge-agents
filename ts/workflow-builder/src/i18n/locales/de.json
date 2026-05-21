@@ -355,9 +355,6 @@
         }
       }
     },
-    "OnIdle": {
-      "description": "Wird ausgelöst, wenn das System in den Leerlauf wechselt"
-    },
     "OnFunctionCall": {
       "description": "Wird ausgelöst, wenn diese Funktion von einem Funktionsaufruf-Knoten aufgerufen wird"
     },

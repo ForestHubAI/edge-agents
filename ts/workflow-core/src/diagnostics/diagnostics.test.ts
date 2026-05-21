@@ -26,7 +26,7 @@ import {
 // ============================================================================
 
 /**
- * Base options for a "neutral" node: real type "OnIdle" (no input ports, no tool ports,
+ * Base options for a "neutral" node: real type "OnStartup" (no input ports, no tool ports,
  * no output warnings when paired with a non-Trigger synthetic definition), empty args,
  * empty variable maps. Override any field per test.
  */
@@ -34,7 +34,7 @@ function baseOpts(overrides: Partial<Parameters<typeof computeNodeDiagnostics>[0
   return {
     canvasId: "main",
     nodeId: "n1",
-    nodeData: makeNode("OnIdle", {}),
+    nodeData: makeNode("OnStartup", {}),
     nodeDefinition: makeNodeDef({ category: NodeCategory.Input }),
     availableVariables: {},
     channels: {},
@@ -104,7 +104,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: exprDef,
-        nodeData: makeNode("OnIdle", { val: makeExpression("1 +", "int") }),
+        nodeData: makeNode("OnStartup", { val: makeExpression("1 +", "int") }),
       }),
     });
     const exprDiags = diagsOfCategory(diags, "invalid-expression");
@@ -117,7 +117,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: exprDef,
-        nodeData: makeNode("OnIdle", { val: makeExpression("1 + 2", "int") }),
+        nodeData: makeNode("OnStartup", { val: makeExpression("1 + 2", "int") }),
       }),
     });
     expect(diagsOfCategory(diags, "invalid-expression")).toHaveLength(0);
@@ -128,7 +128,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: exprDef,
-        nodeData: makeNode("OnIdle", { val: makeExpression("1 == 2", "int") }),
+        nodeData: makeNode("OnStartup", { val: makeExpression("1 == 2", "int") }),
       }),
     });
     const exprDiags = diagsOfCategory(diags, "invalid-expression");
@@ -137,20 +137,18 @@ describe("computeNodeDiagnostics — expression validation", () => {
   });
 
   it("reactivity: changing a referenced variable's type invalidates a previously-valid expression", () => {
-    // OnThreshold has a static expressionType: "float". An int var → int + 1 → int (float-compatible).
-    // Same expression with a string var → string + 1 → string (NOT float-compatible). The node itself
-    // does not change between calls; only the availableVariables map does. This is the reactivity
-    // invariant the test was commissioned to prove.
-    const node = makeNode("OnThreshold", {
-      value: makeExpression("${} + 1", "float", [makeDeclaredRef("v1")]),
-      threshold: 100,
-      direction: "above",
+    // exprDef.val has a static expressionType: "int". An int var → int + 1 → int (matches).
+    // The same expression with a string var → string + 1 → string (NOT int-compatible). The node
+    // and definition do not change between calls; only the availableVariables map does. This is the
+    // reactivity invariant the test was commissioned to prove.
+    const node = makeNode("OnStartup", {
+      val: makeExpression("${} + 1", "int", [makeDeclaredRef("v1")]),
     });
     const base = {
       canvasId: "main",
       nodeId: "n1",
       nodeData: node,
-      nodeDefinition: OnThresholdNodeDefinition,
+      nodeDefinition: exprDef,
       channels: {},
       // Connect control output so the trigger-unconnected warning doesn't muddy the picture
       edges: [makeEdge("e1", "n1", "ctrl", "n2", "ctrl")],
@@ -168,7 +166,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     expect(diagsOfCategory(before, "invalid-expression")).toHaveLength(0);
     const afterExprDiags = diagsOfCategory(after, "invalid-expression");
     expect(afterExprDiags).toHaveLength(1);
-    expect(afterExprDiags[0].paramId).toBe("value");
+    expect(afterExprDiags[0].paramId).toBe("val");
   });
 
   it("skips validation on inactive expression parameters", () => {
@@ -190,7 +188,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
       ...baseOpts({
         nodeDefinition: def,
         // mode=off → val inactive → garbage not validated
-        nodeData: makeNode("OnIdle", { mode: "off", val: makeExpression("1 +", "int") }),
+        nodeData: makeNode("OnStartup", { mode: "off", val: makeExpression("1 +", "int") }),
       }),
     });
     expect(diagsOfCategory(diags, "invalid-expression")).toHaveLength(0);
@@ -211,7 +209,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: requiredStringDef,
-        nodeData: makeNode("OnIdle", { name: "" }),
+        nodeData: makeNode("OnStartup", { name: "" }),
       }),
     });
     const missing = diagsOfCategory(diags, "missing-required-param");
@@ -227,7 +225,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", { expr: makeExpression("", "int") }),
+        nodeData: makeNode("OnStartup", { expr: makeExpression("", "int") }),
       }),
     });
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(1);
@@ -241,7 +239,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", { ref: { srcId: "declared", varId: "" } }),
+        nodeData: makeNode("OnStartup", { ref: { srcId: "declared", varId: "" } }),
       }),
     });
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(1);
@@ -255,7 +253,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", {}),
+        nodeData: makeNode("OnStartup", {}),
       }),
     });
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(0);
@@ -278,7 +276,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", { mode: "a" }),
+        nodeData: makeNode("OnStartup", { mode: "a" }),
       }),
     });
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(0);
@@ -288,7 +286,7 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: requiredStringDef,
-        nodeData: makeNode("OnIdle", { name: "hello" }),
+        nodeData: makeNode("OnStartup", { name: "hello" }),
       }),
     });
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(0);
@@ -309,7 +307,7 @@ describe("computeNodeDiagnostics — variable-reference validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", { ref: makeDeclaredRef("ghost") }),
+        nodeData: makeNode("OnStartup", { ref: makeDeclaredRef("ghost") }),
         // ghost isn't in the map
         availableVariables: makeAvailableVars([makeDeclaredVar({ uid: "v1" })]),
       }),
@@ -324,7 +322,7 @@ describe("computeNodeDiagnostics — variable-reference validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: def,
-        nodeData: makeNode("OnIdle", { ref: makeDeclaredRef("v1") }),
+        nodeData: makeNode("OnStartup", { ref: makeDeclaredRef("v1") }),
         availableVariables: makeAvailableVars([makeDeclaredVar({ uid: "v1" })]),
       }),
     });
@@ -332,7 +330,7 @@ describe("computeNodeDiagnostics — variable-reference validation", () => {
   });
 
   it("reactivity: a valid reference becomes invalid when the variable is removed", () => {
-    const node = makeNode("OnIdle", { ref: makeDeclaredRef("v1") });
+    const node = makeNode("OnStartup", { ref: makeDeclaredRef("v1") });
     const base = baseOpts({ nodeDefinition: def, nodeData: node });
 
     const before = computeNodeDiagnostics({
@@ -360,7 +358,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: channelDef,
-        nodeData: makeNode("OnIdle", { pin: "ghost-pin" }),
+        nodeData: makeNode("OnStartup", { pin: "ghost-pin" }),
         channels: makeChannels([makeChannel({ id: "pin1" })]),
       }),
     });
@@ -373,7 +371,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: channelDef,
-        nodeData: makeNode("OnIdle", { pin: "pin1" }),
+        nodeData: makeNode("OnStartup", { pin: "pin1" }),
         channels: makeChannels([makeChannel({ id: "pin1", type: "ADC" })]),
       }),
     });
@@ -386,7 +384,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: channelDef,
-        nodeData: makeNode("OnIdle", { pin: "pin1" }),
+        nodeData: makeNode("OnStartup", { pin: "pin1" }),
         channels: makeChannels([makeChannel({ id: "pin1", type: "GPIOIN" })]),
       }),
     });
@@ -401,7 +399,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: multiTypeDef,
-        nodeData: makeNode("OnIdle", { pin: "pin1" }),
+        nodeData: makeNode("OnStartup", { pin: "pin1" }),
         channels: makeChannels([makeChannel({ id: "pin1", type: "ADC" })]),
       }),
     });
@@ -423,7 +421,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: memDef,
-        nodeData: makeNode("OnIdle", { col: "deleted-mem" }),
+        nodeData: makeNode("OnStartup", { col: "deleted-mem" }),
       }),
       memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
     });
@@ -436,7 +434,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: memDef,
-        nodeData: makeNode("OnIdle", { col: "vdb1" }),
+        nodeData: makeNode("OnStartup", { col: "vdb1" }),
       }),
       memory: makeMemories([makeMemory({ id: "vdb1", type: "VectorDatabase" })]),
     });
@@ -447,7 +445,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: memDef,
-        nodeData: makeNode("OnIdle", { col: "file1" }),
+        nodeData: makeNode("OnStartup", { col: "file1" }),
       }),
       memory: makeMemories([makeMemory({ id: "file1", type: "MemoryFile" })]),
     });
@@ -460,7 +458,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     const diags = computeNodeDiagnostics({
       ...baseOpts({
         nodeDefinition: memDef,
-        nodeData: makeNode("OnIdle", { col: "vdb1" }),
+        nodeData: makeNode("OnStartup", { col: "vdb1" }),
       }),
     });
     expect(diagsOfCategory(diags, "invalid-reference")).toHaveLength(0);
@@ -695,7 +693,7 @@ describe("computeNodeDiagnostics — control-input connectivity", () => {
   });
 
   it("does not warn when a node has no control inputs at all", () => {
-    // OnIdle has zero input ports
+    // OnStartup has zero input ports
     const diags = computeNodeDiagnostics(baseOpts());
     expect(diagsOfCategory(diags, "unconnected-input")).toHaveLength(0);
   });
@@ -818,7 +816,7 @@ describe("computeNodeDiagnostics — edge cases", () => {
     const diags = computeNodeDiagnostics({
       canvasId: "main",
       nodeId: "n1",
-      nodeData: makeNode("OnIdle", {}),
+      nodeData: makeNode("OnStartup", {}),
       nodeDefinition: undefined,
       availableVariables: {},
       channels: {},

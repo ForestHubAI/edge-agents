@@ -466,6 +466,7 @@ function OutputsSection({
     index: number,
   ) => {
     const entry = entries[index];
+    if (!entry) return null;
     const compatibleVars = filterCompatible(entry.dataType);
     const outputId = listEntryOutputId(listId, index);
     const errors = outputErrors.get(outputId);

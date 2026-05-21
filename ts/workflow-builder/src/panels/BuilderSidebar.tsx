@@ -134,12 +134,16 @@ export const BuilderSidebar = ({
     return count;
   });
 
-  const tabs = useMemo(
-    () => isDebugMode
-      ? debugTabs
-      : isFunctionCanvas ? [staticTabs[0], functionTab, ...staticTabs.slice(1)] : staticTabs,
-    [isDebugMode, debugTabs, isFunctionCanvas, staticTabs, functionTab],
-  );
+  const tabs = useMemo(() => {
+    if (isDebugMode) return debugTabs;
+    if (!isFunctionCanvas) return staticTabs;
+    // Function canvases insert the "function" tab right after "nodes" (the first
+    // static tab). The guard narrows away the `… | undefined` that
+    // noUncheckedIndexedAccess attaches to the destructured head.
+    const [nodesTab, ...rest] = staticTabs;
+    if (!nodesTab) return staticTabs;
+    return [nodesTab, functionTab, ...rest];
+  }, [isDebugMode, debugTabs, isFunctionCanvas, staticTabs, functionTab]);
 
   const handleTabClick = (tabId: BuilderTab) => {
     onTabChange(activeTab === tabId ? null : tabId);
