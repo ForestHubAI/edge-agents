@@ -3,19 +3,29 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/toolti
 import { cn } from "../lib/utils";
 import { NodeCategory, NodeDefinition } from "@foresthub/workflow-core/node";
 import { useMemo } from "react";
-import { Blocks, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
+import { Blocks, Bot, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { FunctionDefinitionPanel } from "./FunctionDefinitionPanel";
 import NodeLibrary from "./NodeLibrary";
 import { ChannelsPanel } from "./ChannelsPanel";
 import { MemoryPanel } from "./MemoryPanel";
+import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../store/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
 import type { FunctionInfo } from "@foresthub/workflow-core/node";
 
-export type BuilderTab = "nodes" | "function" | "variables" | "channels" | "memory" | "diagnostics" | "debug-context" | null;
+export type BuilderTab =
+  | "nodes"
+  | "function"
+  | "variables"
+  | "channels"
+  | "memory"
+  | "models"
+  | "diagnostics"
+  | "debug-context"
+  | null;
 
 interface BuilderSidebarProps {
   canvasId: string;
@@ -59,6 +69,7 @@ export const BuilderSidebar = ({
     { id: "variables" as const, icon: Variable, label: t("variables") },
     { id: "channels" as const, icon: Cpu, label: t("channels") },
     { id: "memory" as const, icon: Database, label: t("memoryFiles", "Memory") },
+    { id: "models" as const, icon: Bot, label: t("models", "Models") },
     { id: "diagnostics" as const, icon: TriangleAlert, label: t("diagnostics") },
   ], [t]);
 
@@ -111,6 +122,18 @@ export const BuilderSidebar = ({
     return count;
   });
 
+  // Declared models are project-scoped too — counts drive the "models" tab badge.
+  const modelErrors = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byModelId)) for (const d of diags) if (d.severity === "error") count++;
+    return count;
+  });
+  const modelWarnings = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byModelId)) for (const d of diags) if (d.severity === "warning") count++;
+    return count;
+  });
+
   const tabs = useMemo(
     () => isDebugMode
       ? debugTabs
@@ -148,6 +171,8 @@ export const BuilderSidebar = ({
         return <ChannelsPanel />;
       case "memory":
         return <MemoryPanel />;
+      case "models":
+        return <ModelsPanel />;
       case "diagnostics":
         return <DiagnosticsPanel canvasId={canvasId} onSelectNode={onSelectNode} onSelectEdge={onSelectEdge} />;
       case "debug-context":
@@ -183,6 +208,9 @@ export const BuilderSidebar = ({
           } else if (tab.id === "memory") {
             tabErrors = memoryErrors;
             tabWarnings = memoryWarnings;
+          } else if (tab.id === "models") {
+            tabErrors = modelErrors;
+            tabWarnings = modelWarnings;
           }
           const tabIssueCount = tabErrors + tabWarnings;
           const showBadge = tabIssueCount > 0;

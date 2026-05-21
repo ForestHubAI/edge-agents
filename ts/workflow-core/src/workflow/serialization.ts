@@ -15,6 +15,8 @@ import { ALL_CHANNEL_TYPES, type ChannelInstance, type ChannelType, type EditorC
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
 import type { MemoryInstance } from "../memory";
 import { serialize as serializeMemory, deserialize as deserializeMemory } from "../memory";
+import type { ModelInstance } from "../model";
+import { serialize as serializeModel, deserialize as deserializeModel } from "../model";
 import { serialize as serializeNode, deserialize as deserializeNode } from "../node/NodeSerialization";
 import { isNodeUsedAsTool } from "../node/portUtils";
 import type { CanvasVariable, NodeOutputVariable } from "../variable";
@@ -67,6 +69,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
 
   const channels = Object.values(state.channels ?? {}).map(serializeChannel);
   const memory = Object.values(state.memory ?? {}).map(serializeMemory);
+  const models = Object.values(state.models ?? {}).map(serializeModel);
 
   return {
     nodes: mainNodes,
@@ -75,6 +78,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
     declaredVariables: mainDeclared,
     channels,
     ...(memory.length > 0 ? { memory } : {}),
+    ...(models.length > 0 ? { models } : {}),
   };
 }
 
@@ -139,10 +143,17 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
     memory[instance.id] = instance;
   }
 
+  const models: Record<string, ModelInstance> = {};
+  for (const m of workflow.models ?? []) {
+    const instance = deserializeModel(m);
+    models[instance.id] = instance;
+  }
+
   return {
     canvases,
     ...(Object.keys(channels).length > 0 ? { channels } : {}),
     ...(Object.keys(memory).length > 0 ? { memory } : {}),
+    ...(Object.keys(models).length > 0 ? { models } : {}),
   };
 }
 

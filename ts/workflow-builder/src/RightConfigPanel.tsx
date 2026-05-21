@@ -2,13 +2,13 @@ import { useCallback, useMemo } from "react";
 import type { NodeInstance, NodeDefinition } from "@foresthub/workflow-core/node";
 import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
 import { isControlFlow } from "@foresthub/workflow-core/edge";
-import type { Schemas } from "@foresthub/workflow-core";
 import type { NodeCategory as NodeCategoryEnum } from "@foresthub/workflow-core/node";
 
 import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
 import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
 import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
 import { MemoryConfigPanel } from "./panels/MemoryConfigPanel";
+import { ModelConfigPanel } from "./panels/ModelConfigPanel";
 import { NodeConfigPanel } from "./panels/NodeConfigPanel";
 import { getOrCreateCanvasStore } from "./store/canvasStore";
 import { useEditorStore } from "./store/editorStore";
@@ -40,7 +40,7 @@ export interface RightConfigPanelProps {
 
   // Embedder-fulfilled
   onTestNode?: (nodeId: string) => void;
-  onDebugStep?: (nodeId?: string, externalState?: Schemas["DebugExternalState"]) => void;
+  onDebugStep?: (nodeId?: string) => void;
 }
 
 export const RightConfigPanel = ({
@@ -64,6 +64,9 @@ export const RightConfigPanel = ({
   const selectedMemoryId = useEditorStore((s) => s.selectedMemoryId);
   const memory = useEditorStore((s) => s.memory);
   const setSelectedMemoryId = useEditorStore((s) => s.setSelectedMemoryId);
+  const selectedModelId = useEditorStore((s) => s.selectedModelId);
+  const models = useEditorStore((s) => s.models);
+  const setSelectedModelId = useEditorStore((s) => s.setSelectedModelId);
 
   const useStore = getOrCreateCanvasStore(canvasId);
 
@@ -119,6 +122,11 @@ export const RightConfigPanel = ({
     () =>
       selectedMemoryId ? Object.values(memory).find((m) => m.id === selectedMemoryId) ?? null : null,
     [selectedMemoryId, memory],
+  );
+
+  const selectedModel = useMemo(
+    () => (selectedModelId ? Object.values(models).find((m) => m.id === selectedModelId) ?? null : null),
+    [selectedModelId, models],
   );
 
   const getNodeCategory = useCallback(
@@ -191,6 +199,14 @@ export const RightConfigPanel = ({
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
         <MemoryConfigPanel memory={selectedMemory} onClose={() => setSelectedMemoryId(null)} />
+      </div>
+    );
+  }
+
+  if (selectedModel) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <ModelConfigPanel model={selectedModel} onClose={() => setSelectedModelId(null)} />
       </div>
     );
   }

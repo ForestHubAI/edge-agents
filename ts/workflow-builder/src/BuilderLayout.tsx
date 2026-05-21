@@ -1,14 +1,6 @@
 import type { FunctionInfo } from "@foresthub/workflow-core/node";
 import type { NodeDefinition } from "@foresthub/workflow-core/node";
-import type { Schemas } from "@foresthub/workflow-core";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Connection, OnSelectionChangeFunc } from "@xyflow/react";
 
 import { toast } from "./hooks/use-toast";
@@ -62,7 +54,7 @@ export interface BuilderLayoutProps {
   onCanvasTabReorder: (fromIndex: number, toIndex: number) => void;
 
   onTestNode?: (nodeId: string) => void;
-  onDebugStep?: (nodeId?: string, externalState?: Schemas["DebugExternalState"]) => void;
+  onDebugStep?: (nodeId?: string) => void;
 }
 
 export const BuilderLayout = ({
@@ -234,18 +226,18 @@ export const BuilderLayout = ({
   );
 
   // Debug mode: clicking a node sets the debug cursor.
-  useEffect(() => {
-    if (!isDebugMode || selectedNodeIds.length !== 1) return;
-    const nodeId = selectedNodeIds[0];
-    const phase = useDebugStore.getState().phase;
-    if (phase.status === "idle") {
-      useDebugStore
-        .getState()
-        .setPhase({ status: "paused", sessionId: phase.sessionId, cursorNodeId: nodeId });
-    } else if (phase.status === "paused") {
-      useDebugStore.getState().setPhase({ ...phase, cursorNodeId: nodeId });
-    }
-  }, [isDebugMode, selectedNodeIds]);
+  // useEffect(() => {
+  //   if (!isDebugMode || selectedNodeIds.length !== 1) return;
+  //   const nodeId = selectedNodeIds[0];
+  //   const phase = useDebugStore.getState().phase;
+  //   if (phase.status === "idle") {
+  //     useDebugStore
+  //       .getState()
+  //       .setPhase({ status: "paused", sessionId: phase.sessionId, cursorNodeId: nodeId });
+  //   } else if (phase.status === "paused") {
+  //     useDebugStore.getState().setPhase({ ...phase, cursorNodeId: nodeId });
+  //   }
+  // }, [isDebugMode, selectedNodeIds]);
 
   // Keyboard handlers — undo/redo/copy/paste/delete/escape.
   useEffect(() => {
@@ -295,18 +287,7 @@ export const BuilderLayout = ({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [
-    canUndo,
-    canRedo,
-    undo,
-    redo,
-    clearSelection,
-    deleteSelected,
-    selectedNodeIds,
-    graph,
-    handlePaste,
-    readOnly,
-  ]);
+  }, [canUndo, canRedo, undo, redo, clearSelection, deleteSelected, selectedNodeIds, graph, handlePaste, readOnly]);
 
   const isFunctionCanvas = activeCanvasId !== MAIN_CANVAS_ID;
 

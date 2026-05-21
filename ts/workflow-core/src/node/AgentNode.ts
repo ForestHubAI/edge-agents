@@ -42,7 +42,8 @@ export const AgentNodeDefinition: NodeDefinition = {
       id: "model",
       label: "Model",
       description: "AI model to use for the agent",
-      type: "llm-model",
+      type: "modelSelect",
+      modelType: ["LLMModel"],
       capabilities: ["chat"],
     },
     {

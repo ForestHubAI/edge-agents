@@ -6,13 +6,12 @@ import { Loader2, Play } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NodeCategory, getInput, type NodeInstance, type ExternalInput } from "@foresthub/workflow-core/node";
-import type { Schemas } from "@foresthub/workflow-core";
 import { getOrCreateCanvasStore } from "../store/canvasStore";
 import { useDebugStore, type DebugSessionPhase } from "../store/debugStore";
 
 interface DebugExternalIOPanelProps {
   canvasId: string;
-  onStep: (nodeId?: string, externalState?: Schemas["DebugExternalState"]) => void;
+  onStep: (nodeId?: string) => void;
   getNodeCategory: (node: NodeInstance) => NodeCategory | undefined;
 }
 
@@ -40,19 +39,11 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
   const [serialValues, setSerialValues] = useState<string[]>([""]);
 
   const handleStep = useCallback(() => {
-    const gpio: Record<string, number> = {};
-    const serial: string[] = [];
-
-    for (const req of requirements) {
-      if (req.kind === "gpio" && req.pinReference !== undefined) {
-        gpio[String(req.pinReference)] = gpioValues[String(req.pinReference)] ?? 0;
-      } else if (req.kind === "serial") {
-        serial.push(...serialValues.filter((s) => s.length > 0));
-      }
-    }
-
-    onStep(cursorNodeId ?? undefined, { gpio, serial });
-  }, [requirements, gpioValues, serialValues, cursorNodeId, onStep]);
+    // External-state injection (gpio/serial) is part of the not-yet-implemented
+    // debug contract (DebugExternalState). For now we only signal which node to
+    // step; the collected input values below are not yet wired to the engine.
+    onStep(cursorNodeId ?? undefined);
+  }, [cursorNodeId, onStep]);
 
   if (!cursorNodeId) {
     return (

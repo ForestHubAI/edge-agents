@@ -1,12 +1,7 @@
-import type { Schemas } from "@foresthub/workflow-core";
 import type { Workflow } from "@foresthub/workflow-core/workflow";
+import type { ModelInfo } from "@foresthub/workflow-core/model";
 import { validateWorkflowState, type ValidationResult } from "@foresthub/workflow-core/diagnostics";
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 import { BuilderLayout } from "./BuilderLayout";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -15,6 +10,7 @@ import { useCanvasTabs } from "./hooks/useCanvasTabs";
 import { useChannelDiagnosticsSync } from "./hooks/useChannelDiagnosticsSync";
 import { useFunctions } from "./hooks/useFunctions";
 import { useMemoryDiagnosticsSync } from "./hooks/useMemoryDiagnosticsSync";
+import { useModelDiagnosticsSync } from "./hooks/useModelDiagnosticsSync";
 import { useWorkflowSerialization, readStateFromStores } from "./hooks/useWorkflowSerialization";
 import {
   clearAllCanvasStores,
@@ -27,10 +23,7 @@ import { useDebugStore, type DebugSessionPhase } from "./store/debugStore";
 import { useEditorStore } from "./store/editorStore";
 
 /** BuilderMode steers the overall behavior of the workflow builder. */
-export type BuilderMode =
-  | { type: "edit" }
-  | { type: "preview" }
-  | { type: "debug" };
+export type BuilderMode = { type: "edit" } | { type: "preview" } | { type: "debug" };
 
 /** True when canvas mutations should be blocked (preview or debug). */
 export function isReadOnly(mode: BuilderMode): boolean {
@@ -53,12 +46,18 @@ export interface WorkflowBuilderProps {
   initialWorkflow?: Workflow;
   /** Builder mode on mount. Defaults to { type: "edit" }. */
   initialMode?: BuilderMode;
+  /**
+   * Static model catalog — the models the llmproxy supports. Shown as the
+   * built-in options in agent model pickers. Self-hosted/custom models are
+   * declared in the Models tab instead. Defaults to [] (empty dropdown).
+   */
+  models?: ModelInfo[];
 
   // ── Embedder-fulfilled actions (builder asks, embedder does) ──
   /** A node requested embedder-side testing (e.g. Agent "Test" button). */
   onTestNode?: (nodeId: string) => void;
   /** Step request from the in-builder debug panel — embedder forwards to the engine. */
-  onDebugStep?: (nodeId?: string, externalState?: Schemas["DebugExternalState"]) => void;
+  onDebugStep?: (nodeId?: string) => void;
 
   // ── Lifecycle events ──
   /** Fires after any save-worthy mutation. Pull current state via handle.exportWorkflow(). */
@@ -104,22 +103,23 @@ export interface WorkflowBuilderHandle {
 
 export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilderProps>(
   function WorkflowBuilder(props, ref) {
-    const {
-      initialWorkflow,
-      initialMode,
-      onTestNode,
-      onDebugStep,
-      onChange,
-      onSelectionChange,
-      onError,
-    } = props;
+    const { initialWorkflow, initialMode, models, onTestNode, onDebugStep, onChange, onSelectionChange, onError } =
+      props;
 
     const { importProject, exportProject } = useWorkflowSerialization();
 
-    // Keep project-scoped (channel + memory) diagnostics in sync. Mounted once
-    // here at the root so badges survive sidebar tab open/close.
+    // Keep project-scoped (channel + memory + model) diagnostics in sync. Mounted
+    // once here at the root so badges survive sidebar tab open/close.
     useChannelDiagnosticsSync();
     useMemoryDiagnosticsSync();
+    useModelDiagnosticsSync();
+
+    // Push the embedder-supplied model catalog into the store so agent model
+    // pickers can read it. Catalog is config (not workflow content), so this
+    // never bumps mutationCount / fires onChange.
+    useEffect(() => {
+      useEditorStore.getState().setAvailableModels(models ?? []);
+    }, [models]);
 
     // Canvas tabs + functions live here because they survive canvas switches.
     const canvasTabs = useCanvasTabs();
@@ -234,10 +234,8 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         validate: () => validateWorkflowState(readStateFromStores()),
         undo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).undo(),
         redo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).redo(),
-        canUndo: () =>
-          getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canUndo(),
-        canRedo: () =>
-          getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canRedo(),
+        canUndo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canUndo(),
+        canRedo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canRedo(),
         selectNodes: (nodeIds) => {
           useEditorStore.getState().setSelection(nodeIds, []);
           const canvasId = useEditorStore.getState().activeCanvasId;

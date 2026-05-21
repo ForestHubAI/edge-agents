@@ -14,6 +14,10 @@ components:
       type: string
       enum: [int, float, bool, string]
 
+    ModelCapability:
+      type: string
+      enum: [chat, embedding, function_call, vision, fine_tuning, reasoning, classification, code]
+
     EdgeType:
       type: string
       enum: [control, tool, agentTask, agentChoice, agentDelegate]
@@ -163,6 +167,42 @@ components:
           enum: [r, rw]
           description: r = read-only; rw = read + write.
 
+    LLMModel:
+      type: object
+      description: >
+        A declared custom/self-hosted LLM model — a variant of the Model union.
+        Static catalog models (what the llmproxy already supports) are picked
+        directly by id and need no declaration; this primitive exists for models
+        the llmproxy doesn't know yet (e.g. self-hosted llama). `providerBinding`
+        is a deploy-time binding (like a Channel's driverId): the editor emits ""
+        and the control plane maps it to a concrete llmproxy provider at deploy.
+      required: [type, id, label, capabilities, providerBinding]
+      properties:
+        type: { type: string, enum: [LLMModel] }
+        id:
+          type: string
+          description: Stable identifier; this is the ModelID nodes reference.
+        label:
+          type: string
+          description: Display name.
+        capabilities:
+          type: array
+          description: Capabilities this model supports (used to filter model pickers).
+          items:
+            $ref: "#/components/schemas/ModelCapability"
+        providerBinding:
+          type: string
+          x-go-name: ProviderBinding
+          description: Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
+
+    Model:
+      oneOf:
+        - $ref: "#/components/schemas/LLMModel"
+      discriminator:
+        propertyName: type
+        mapping:
+          LLMModel: "#/components/schemas/LLMModel"
+
     OutputBinding:
       type: object
       required: [active, mode]
@@ -278,6 +318,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Memory"
+        models:
+          type: array
+          description: Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
+          items:
+            $ref: "#/components/schemas/Model"
 
     # ====== Node definitions ======
 

@@ -4,6 +4,7 @@ import type { NodeInstance } from "@foresthub/workflow-core/node";
 import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance } from "@foresthub/workflow-core/memory";
+import type { ModelInstance } from "@foresthub/workflow-core/model";
 import { Edge, Node } from "@xyflow/react";
 import {
   clearAllCanvasStores,
@@ -15,6 +16,7 @@ import { useEditorStore } from "../store/editorStore";
 import { getReactFlowType } from "../utils/graphOperations";
 import { channelKey } from "../utils/channels";
 import { memoryKey } from "../utils/memory";
+import { modelKey } from "../utils/model";
 
 /**
  * Store-bound wrapper around the headless `serialize`/`deserialize` in
@@ -73,6 +75,12 @@ export function useWorkflowSerialization() {
       useEditorStore.getState().setMemory(() => rekeyed);
     }
 
+    if (state.models && Object.keys(state.models).length > 0) {
+      const rekeyed: Record<string, ModelInstance> = {};
+      for (const m of Object.values(state.models)) rekeyed[modelKey(m.id)] = m;
+      useEditorStore.getState().setModels(() => rekeyed);
+    }
+
     notifyFunctionRegistryChange();
   }, []);
 
@@ -123,9 +131,13 @@ export function readStateFromStores(): WorkflowState {
   const memory: Record<string, MemoryInstance> = {};
   for (const m of Object.values(useEditorStore.getState().memory)) memory[m.id] = m;
 
+  const models: Record<string, ModelInstance> = {};
+  for (const m of Object.values(useEditorStore.getState().models)) models[m.id] = m;
+
   return {
     canvases,
     ...(Object.keys(channels).length > 0 ? { channels } : {}),
     ...(Object.keys(memory).length > 0 ? { memory } : {}),
+    ...(Object.keys(models).length > 0 ? { models } : {}),
   };
 }

@@ -60,6 +60,8 @@ export const BaseNode = memo(
     const nodes = canvasStore((s) => s.nodes);
     const channels = useEditorStore((s) => s.channels);
     const memory = useEditorStore((s) => s.memory);
+    const models = useEditorStore((s) => s.models);
+    const availableModels = useEditorStore((s) => s.availableModels);
 
     // Get available variables for resolving expressions
     const { lookup: availableVariables } = useAvailableVariables(activeCanvasId);
@@ -77,6 +79,19 @@ export const BaseNode = memo(
       for (const m of Object.values(memory)) labels[m.id] = m.label;
       return labels;
     }, [memory]);
+
+    // Build model ID → label lookup (catalog ∪ declared customs) + the catalog id
+    // set — used for inline display and modelSelect reference validation.
+    const { modelLabels, availableModelIds } = useMemo(() => {
+      const labels: Record<string, string> = {};
+      const ids = new Set<string>();
+      for (const m of availableModels) {
+        labels[m.id] = m.label;
+        ids.add(m.id);
+      }
+      for (const m of Object.values(models)) labels[m.id] = m.label;
+      return { modelLabels: labels, availableModelIds: ids };
+    }, [availableModels, models]);
 
     // Get port definitions using centralized dispatcher
     const portDefinitions = getPorts(nodeData);
@@ -121,6 +136,8 @@ export const BaseNode = memo(
           availableVariables,
           channels,
           memory,
+          models,
+          availableModelIds,
           edges,
           isStale,
           isDeleted,
@@ -133,6 +150,8 @@ export const BaseNode = memo(
         availableVariables,
         channels,
         memory,
+        models,
+        availableModelIds,
         edges,
         isStale,
         isDeleted,
@@ -454,7 +473,7 @@ export const BaseNode = memo(
 
                 const paramDisplay = resolved
                   ? null
-                  : formatParamDisplay(param, value, availableVariables, channelLabels, memoryLabels);
+                  : formatParamDisplay(param, value, availableVariables, channelLabels, memoryLabels, modelLabels);
                 const isInvalid = resolved ? !resolved.parseRes.isValid : !!paramDisplay?.isInvalid;
 
                 return (

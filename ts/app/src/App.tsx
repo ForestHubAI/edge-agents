@@ -4,6 +4,17 @@ import {
   type WorkflowBuilderHandle,
 } from "@foresthub/workflow-builder";
 import type { Workflow } from "@foresthub/workflow-core/workflow";
+import type { ModelInfo } from "@foresthub/workflow-core/model";
+
+// Static model catalog — the models the llmproxy supports. The embedder owns
+// this list (the builder takes it via props); a real deployment would source it
+// from the llmproxy rather than hardcoding. Self-hosted models are declared in
+// the builder's Models tab instead.
+const MODEL_CATALOG: ModelInfo[] = [
+  { id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["chat"] },
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["chat"] },
+  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", capabilities: ["chat"] },
+];
 
 // `?file=…` query param: if present, the SPA loads/saves through the dev
 // server's /api/file bridge (round-trip to disk) instead of using <input
@@ -276,6 +287,7 @@ export default function App() {
       <main className="flex-1 min-h-0">
         <WorkflowBuilder
           ref={builderRef}
+          models={MODEL_CATALOG}
           onChange={handleChange}
           onError={handleError}
         />

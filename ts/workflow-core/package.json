@@ -26,6 +26,10 @@
       "types": "./dist/memory/index.d.ts",
       "import": "./dist/memory/index.js"
     },
+    "./model": {
+      "types": "./dist/model/index.d.ts",
+      "import": "./dist/model/index.js"
+    },
     "./parameter": {
       "types": "./dist/parameter/index.d.ts",
       "import": "./dist/parameter/index.js"

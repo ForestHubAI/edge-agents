@@ -14,6 +14,7 @@ export function formatParamDisplay(
   variables: Record<string, AvailableVariable>,
   channelLabels?: Record<string, string>,
   memoryLabels?: Record<string, string>,
+  modelLabels?: Record<string, string>,
 ): ParamDisplayResult {
   switch (param.type) {
     case "variable-reference": {
@@ -41,6 +42,14 @@ export function formatParamDisplay(
       const channelId = value as string | undefined;
       if (!channelId) return { text: "" };
       return channelLabels?.[channelId] ? { text: channelLabels[channelId] } : { text: "unknown", isInvalid: true };
+    }
+    case "modelSelect": {
+      // A ModelID is human-meaningful (e.g. "claude-opus-4-7"); show the catalog/
+      // custom label when known, otherwise the id itself. Staleness is surfaced
+      // by diagnostics, not inline, since the catalog isn't available headlessly.
+      const modelId = value as string | undefined;
+      if (!modelId) return { text: "" };
+      return { text: modelLabels?.[modelId] ?? modelId };
     }
     default:
       return { text: String(value ?? "") };

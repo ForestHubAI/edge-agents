@@ -27,11 +27,6 @@ export default defineConfig({
     alias: {
       "@foresthub/workflow-builder": path.resolve(__dirname, "../workflow-builder/src"),
       "@foresthub/workflow-core": path.resolve(__dirname, "../workflow-core/src"),
-      // Stub for the one remaining embedder-provided hook that workflow-builder
-      // still imports via `@/hooks/...` (the LLM model list). RAG collections are
-      // now declared project memory and need no stub. Replaced by a proper
-      // injection point when the model list is made self-contained.
-      "@/hooks/useAvailableProviders": path.resolve(__dirname, "src/stubs/useAvailableProviders.ts"),
     },
   },
 });

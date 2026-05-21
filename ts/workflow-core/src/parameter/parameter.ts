@@ -1,11 +1,9 @@
-import type { Schemas } from "../api";
 import type { Expression, Reference } from "../node";
 import type { ChannelType } from "../channel";
 import type { MemoryType } from "../memory";
+import type { ModelType, ModelCapability } from "../model";
 import { refToLookupKey } from "../variable";
 import { DataType, FromArgs, unwrapFromArgs } from ".";
-
-type ModelCapability = Schemas["ModelCapability"];
 
 // ============================================================================
 // Parameter definitions
@@ -67,11 +65,15 @@ export interface VariableReferenceParam {
   default?: never;
 }
 
-// LLM model reference parameter — selects a model from active providers
-export interface LLMModelParam {
-  type: "llm-model";
+// Model reference parameter — selects a model id from the static catalog (props)
+// unioned with declared custom models, filtered by model type and capability.
+export interface ModelSelectParam {
+  type: "modelSelect";
+  /** Model types this slot accepts (e.g. ["LLMModel"]). Static list or args-derived lambda. */
+  modelType: FromArgs<ModelType[]>;
+  /** Optional capability filter (e.g. ["chat"]) applied to catalog and declared models alike. */
+  capabilities?: FromArgs<ModelCapability[]>;
   default?: never;
-  capabilities?: FromArgs<ModelCapability[]>; // Optional filter
 }
 
 export interface ChannelSelectParam {
@@ -99,10 +101,10 @@ export interface MemoryRefsParam {
 }
 
 /** Union of all reference-select parameter variants, used for type guards. */
-export type ReferenceSelectParam = VariableReferenceParam | ChannelSelectParam | MemorySelectParam | LLMModelParam;
+export type ReferenceSelectParam = VariableReferenceParam | ChannelSelectParam | MemorySelectParam | ModelSelectParam;
 
 export function isReferenceSelectParam(param: Parameter): param is ParameterBase & ReferenceSelectParam {
-  return param.type === "variable-reference" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "llm-model";
+  return param.type === "variable-reference" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "modelSelect";
 }
 
 export type Parameter =
@@ -113,7 +115,7 @@ export type Parameter =
   | (ParameterBase & WeekdaysParam)
   | (ParameterBase & SelectionParam)
   | (ParameterBase & MemorySelectParam)
-  | (ParameterBase & LLMModelParam)
+  | (ParameterBase & ModelSelectParam)
   | (ParameterBase & ExpressionParam)
   | (ParameterBase & ChannelSelectParam)
   | (ParameterBase & MemoryRefsParam);
@@ -170,7 +172,7 @@ export function resolveExpressionType(
   return unwrapFromArgs(param.expressionType, args);
 }
 
-/** Resolve a capability filter (LLMModelParam) for the current node arguments. */
+/** Resolve a capability filter (ModelSelectParam) for the current node arguments. */
 export function resolveCapabilities(
   param: { capabilities?: FromArgs<ModelCapability[]> },
   args: Record<string, unknown>,
@@ -186,4 +188,9 @@ export function resolveChannelTypes(param: ChannelSelectParam, args: Record<stri
 /** Resolve the allowed memory types for a MemorySelectParam. */
 export function resolveMemoryTypes(param: MemorySelectParam, args: Record<string, unknown>): MemoryType[] {
   return unwrapFromArgs(param.memoryType, args);
+}
+
+/** Resolve the allowed model types for a ModelSelectParam. */
+export function resolveModelTypes(param: ModelSelectParam, args: Record<string, unknown>): ModelType[] {
+  return unwrapFromArgs(param.modelType, args);
 }

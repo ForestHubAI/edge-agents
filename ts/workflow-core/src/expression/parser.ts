@@ -313,8 +313,8 @@ function inferCallType(node: jsep.CallExpression, ctx: TypeContext, errors: stri
     return null;
   }
 
-  // Validate the argument expression (ensure it type-checks)
-  inferType(node.arguments[0], ctx, errors);
+  // Validate the argument expression (ensure it type-checks). Length checked as 1 above.
+  inferType(node.arguments[0]!, ctx, errors);
 
   return targetType;
 }

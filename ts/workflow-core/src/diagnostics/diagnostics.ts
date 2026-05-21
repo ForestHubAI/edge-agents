@@ -9,12 +9,14 @@ import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
 import { isNodeUsedAsTool } from "../node/portUtils";
-import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes } from "../parameter";
-import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, OutputDeclaration } from "../parameter";
+import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "../parameter";
+import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, OutputDeclaration } from "../parameter";
 import type { ChannelInstance } from "../channel";
 import { CHANNEL_DEFINITION } from "../channel";
 import type { MemoryInstance } from "../memory";
 import { MemoryRegistry } from "../memory";
+import type { ModelInstance } from "../model";
+import { ModelRegistry } from "../model";
 import type { Schemas } from "../api";
 import type { Reference } from "../node";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
@@ -51,6 +53,8 @@ export interface Diagnostic {
   channelId?: string;
   /** Set when the diagnostic targets a project-scoped memory primitive. */
   memoryId?: string;
+  /** Set when the diagnostic targets a project-scoped declared model. */
+  modelId?: string;
   paramId?: string;
   outputId?: string; // For output binding diagnostics
 }
@@ -66,6 +70,10 @@ export function computeNodeDiagnostics(opts: {
   availableVariables: Record<string, AvailableVariable>;
   channels: Record<string, ChannelInstance>;
   memory?: Record<string, MemoryInstance>;
+  /** Declared custom models (project-scoped). */
+  models?: Record<string, ModelInstance>;
+  /** Ids in the static model catalog (props-supplied). Undefined headlessly — catalog ids then aren't flagged. */
+  availableModelIds?: Set<string>;
   edges: Edge[];
   isStale?: boolean;
   isDeleted?: boolean;
@@ -78,6 +86,8 @@ export function computeNodeDiagnostics(opts: {
     availableVariables,
     channels,
     memory,
+    models,
+    availableModelIds,
     edges,
     isStale = false,
     isDeleted = false,
@@ -248,6 +258,37 @@ export function computeNodeDiagnostics(opts: {
             message: `"${param.label}" references "${mem.label}" (${mem.type}), which is not a compatible memory type`,
           });
         }
+      }
+    }
+
+    // invalid-reference: modelSelect points to a deleted custom model or unknown catalog id
+    if (param.type === "modelSelect" && value && models) {
+      const modelId = value as string;
+      const custom = Object.values(models).find((m) => m.id === modelId);
+      if (custom) {
+        const modelParam = param as ModelSelectParam;
+        const allowedTypes = resolveModelTypes(modelParam, parameters);
+        if (!allowedTypes.includes(custom.type)) {
+          diags.push({
+            severity: "error",
+            category: "invalid-reference",
+            canvasId,
+            nodeId,
+            paramId: param.id,
+            message: `"${param.label}" references "${custom.label}" (${custom.type}), which is not a compatible model type`,
+          });
+        }
+      } else if (availableModelIds && !availableModelIds.has(modelId)) {
+        // Not a declared custom model and not in the supplied catalog → stale.
+        // Headlessly (no catalog) static ids can't be verified, so we don't flag.
+        diags.push({
+          severity: "error",
+          category: "invalid-reference",
+          canvasId,
+          nodeId,
+          paramId: param.id,
+          message: `"${param.label}" references a deleted model`,
+        });
       }
     }
   }
@@ -595,6 +636,44 @@ export function validateMemory(mem: MemoryInstance): Diagnostic[] {
   return diags;
 }
 
+/**
+ * Compute diagnostics for a single declared (custom) model. Mirrors
+ * validateMemory: an empty label is flagged, then each required parameter for
+ * the model's type is checked (LLMModel has none today, so this is label-only).
+ */
+export function validateModel(model: ModelInstance): Diagnostic[] {
+  const diags: Diagnostic[] = [];
+
+  if (!model.label || model.label.trim() === "") {
+    diags.push({
+      severity: "error",
+      category: "missing-required-param",
+      modelId: model.id,
+      message: `Model has no label`,
+    });
+  }
+
+  const def = ModelRegistry.getByType(model.type);
+  for (const param of def?.parameters ?? []) {
+    if (!isParameterActive(param, model.arguments, false)) continue;
+    if (param.optional) continue;
+
+    const value = model.arguments[param.id];
+    const isEmpty = value === undefined || value === "" || value === null;
+    if (isEmpty) {
+      diags.push({
+        severity: "error",
+        category: "missing-required-param",
+        modelId: model.id,
+        paramId: param.id,
+        message: `Missing required parameter "${param.label}" on model "${model.label}"`,
+      });
+    }
+  }
+
+  return diags;
+}
+
 // ============================================================================
 // Full-Project Validation Result Types
 // ============================================================================
@@ -613,6 +692,8 @@ export interface ValidationResult {
   channelDiagnostics: Diagnostic[];
   /** Project-scoped memory diagnostics (no canvasId). */
   memoryDiagnostics: Diagnostic[];
+  /** Project-scoped declared-model diagnostics (no canvasId). */
+  modelDiagnostics: Diagnostic[];
   totalErrors: number;
   totalWarnings: number;
 }
@@ -650,6 +731,7 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
   const allFunctions = deriveFunctionRegistry(canvasData);
   const channels = state.channels ?? {};
   const memory = state.memory ?? {};
+  const models = state.models ?? {};
 
   const canvases: CanvasValidationResult[] = [];
   let totalErrors = 0;
@@ -694,6 +776,7 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
         availableVariables,
         channels,
         memory,
+        models,
         edges,
         isStale,
         isDeleted,
@@ -791,6 +874,16 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
     else totalWarnings++;
   }
 
-  return { canvases, channelDiagnostics, memoryDiagnostics, totalErrors, totalWarnings };
+  // Project-scoped declared-model diagnostics — independent of canvas iteration.
+  const modelDiagnostics: Diagnostic[] = [];
+  for (const model of Object.values(models)) {
+    modelDiagnostics.push(...validateModel(model));
+  }
+  for (const d of modelDiagnostics) {
+    if (d.severity === "error") totalErrors++;
+    else totalWarnings++;
+  }
+
+  return { canvases, channelDiagnostics, memoryDiagnostics, modelDiagnostics, totalErrors, totalWarnings };
 }
 

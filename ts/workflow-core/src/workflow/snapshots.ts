@@ -1,5 +1,6 @@
 import type { ChannelInstance } from "../channel";
 import type { MemoryInstance } from "../memory";
+import type { ModelInstance } from "../model";
 import type { NodeInstance, FunctionInfo, Expression } from "../node";
 import type { EdgeInstance } from "../edge";
 import type { CanvasVariable } from "../variable";
@@ -64,4 +65,6 @@ export interface WorkflowState {
   canvases: Record<string, CanvasData>;
   channels?: Record<string, ChannelInstance>;
   memory?: Record<string, MemoryInstance>;
+  /** Declared custom/self-hosted models (channel-like). Static catalog models need no declaration. */
+  models?: Record<string, ModelInstance>;
 }

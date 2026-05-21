@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance } from "@foresthub/workflow-core/memory";
+import type { ModelInstance, ModelInfo } from "@foresthub/workflow-core/model";
 import { channelKey } from "../utils/channels";
 
 // ---------------------------------------------------------------------------
@@ -39,14 +40,22 @@ interface EditorState {
   selectedChannelId: string | null;
   /** Currently selected memory primitive for the right-side MemoryConfigPanel. */
   selectedMemoryId: string | null;
+  /** Currently selected declared model for the right-side ModelConfigPanel. */
+  selectedModelId: string | null;
   // Project-scoped channels (pins, buses) — shared across all canvases
   channels: Record<string, ChannelInstance>;
   // Project-scoped memory primitives (memory files + vector databases) — shared
   // across all canvases, referenced from nodes by id.
   memory: Record<string, MemoryInstance>;
+  // Project-scoped declared custom/self-hosted models (channel-like) — referenced
+  // from nodes by id, mapped to llmproxy providers at deploy.
+  models: Record<string, ModelInstance>;
+  // The static model catalog (what the llmproxy supports), supplied by the
+  // embedder via WorkflowBuilderProps.models. Not workflow state — config only.
+  availableModels: ModelInfo[];
   /**
    * Monotonic counter bumped on project-scoped domain mutations
-   * (channels/memory). Mirrors `canvasStore.mutationCount` so the
+   * (channels/memory/models). Mirrors `canvasStore.mutationCount` so the
    * builder can fire a single onChange event from either source.
    */
   mutationCount: number;
@@ -56,8 +65,11 @@ interface EditorState {
   clearSelection: () => void;
   setSelectedChannelId: (id: string | null) => void;
   setSelectedMemoryId: (id: string | null) => void;
+  setSelectedModelId: (id: string | null) => void;
   setChannels: (updater: (vars: Record<string, ChannelInstance>) => Record<string, ChannelInstance>) => void;
   setMemory: (updater: (mem: Record<string, MemoryInstance>) => Record<string, MemoryInstance>) => void;
+  setModels: (updater: (models: Record<string, ModelInstance>) => Record<string, ModelInstance>) => void;
+  setAvailableModels: (models: ModelInfo[]) => void;
 }
 
 export const useEditorStore = create<EditorState>((set) => ({
@@ -67,8 +79,11 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedEdgeIds: [],
   selectedChannelId: null,
   selectedMemoryId: null,
+  selectedModelId: null,
   channels: createDefaultChannels(),
   memory: {},
+  models: {},
+  availableModels: [],
   mutationCount: 0,
   setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId }),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
@@ -81,11 +96,17 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedNodeIds: nodeIds,
       selectedEdgeIds: edgeIds,
       ...(nodeIds.length > 0 || edgeIds.length > 0
-        ? { selectedChannelId: null, selectedMemoryId: null }
+        ? { selectedChannelId: null, selectedMemoryId: null, selectedModelId: null }
         : {}),
     }),
   clearSelection: () =>
-    set({ selectedNodeIds: [], selectedEdgeIds: [], selectedChannelId: null, selectedMemoryId: null }),
+    set({
+      selectedNodeIds: [],
+      selectedEdgeIds: [],
+      selectedChannelId: null,
+      selectedMemoryId: null,
+      selectedModelId: null,
+    }),
   setSelectedChannelId: (id) => {
     set((state) => {
       // Drop ReactFlow's visual selection on the active canvas so a
@@ -98,6 +119,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       return {
         selectedChannelId: id,
         selectedMemoryId: id !== null ? null : state.selectedMemoryId,
+        selectedModelId: id !== null ? null : state.selectedModelId,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };
@@ -113,6 +135,23 @@ export const useEditorStore = create<EditorState>((set) => ({
       return {
         selectedMemoryId: id,
         selectedChannelId: id !== null ? null : state.selectedChannelId,
+        selectedModelId: id !== null ? null : state.selectedModelId,
+        selectedNodeIds: [],
+        selectedEdgeIds: [],
+      };
+    });
+  },
+  setSelectedModelId: (id) => {
+    set((state) => {
+      if (id !== null) {
+        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
+        canvas.selectNodes([]);
+        canvas.selectEdges([]);
+      }
+      return {
+        selectedModelId: id,
+        selectedChannelId: id !== null ? null : state.selectedChannelId,
+        selectedMemoryId: id !== null ? null : state.selectedMemoryId,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };
@@ -130,4 +169,12 @@ export const useEditorStore = create<EditorState>((set) => ({
       if (next === state.memory) return state;
       return { memory: next, mutationCount: state.mutationCount + 1 };
     }),
+  setModels: (updater) =>
+    set((state) => {
+      const next = updater(state.models);
+      if (next === state.models) return state;
+      return { models: next, mutationCount: state.mutationCount + 1 };
+    }),
+  // Catalog is config (from props), not workflow content — never bumps mutationCount.
+  setAvailableModels: (models) => set({ availableModels: models }),
 }));

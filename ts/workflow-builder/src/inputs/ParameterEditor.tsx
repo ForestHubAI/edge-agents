@@ -8,15 +8,15 @@ import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
-import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, LLMModelParam, Parameter, StringParam } from "@foresthub/workflow-core/parameter";
-import { resolveCapabilities, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes } from "@foresthub/workflow-core/parameter";
+import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, Parameter, StringParam } from "@foresthub/workflow-core/parameter";
+import { resolveCapabilities, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "@foresthub/workflow-core/parameter";
 import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { useDynamicSelectionOptions, type DynamicSelectionType } from "../hooks/useDynamicSelectionOptions";
 import { useEditorStore } from "../store/editorStore";
 import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance, MemoryRef } from "@foresthub/workflow-core/memory";
+import type { ModelCapability } from "@foresthub/workflow-core/model";
 import ExpressionInput from "./ExpressionInput";
 import { getParamDescription } from "../utils/translation";
 
@@ -100,12 +100,10 @@ const ParameterEditor = ({
   // This preserves the distinction between "user cleared field" and "default value".
   const currentValue = value;
   const { list: variableList, lookup: variables } = useAvailableVariables(canvasId);
-  const dynamicType: DynamicSelectionType = parameter.type === "llm-model" ? "llmModels" : null;
-  const llmCapabilities =
-    parameter.type === "llm-model" ? resolveCapabilities(parameter as LLMModelParam, allArguments) : undefined;
-  const { options: dynamicOptions, loading: dynamicLoading } = useDynamicSelectionOptions(dynamicType, llmCapabilities);
   const channels = useEditorStore((s) => s.channels);
   const memory = useEditorStore((s) => s.memory);
+  const models = useEditorStore((s) => s.models);
+  const availableModels = useEditorStore((s) => s.availableModels);
 
   const renderInput = () => {
     switch (parameter.type) {
@@ -262,11 +260,35 @@ const ParameterEditor = ({
         );
       }
 
-      case "llm-model": {
-        const selectedId = currentValue as string | undefined;
-        const isStale = !!(selectedId && !dynamicLoading && !dynamicOptions.some((o) => o.value === selectedId));
+      case "modelSelect": {
+        const modelParam = parameter as ParameterEditorProps["parameter"] & ModelSelectParam;
+        const allowedTypes = resolveModelTypes(modelParam, allArguments);
+        const requiredCaps = resolveCapabilities(modelParam, allArguments);
+        const hasAllCaps = (caps: ModelCapability[]) =>
+          !requiredCaps?.length || requiredCaps.every((c) => caps.includes(c));
 
-        if (!dynamicLoading && dynamicOptions.length === 0) {
+        // Static catalog (props): the always-available models the llmproxy supports.
+        const catalogOptions = availableModels
+          .filter((m) => hasAllCaps(m.capabilities))
+          .map((m) => ({ value: m.id, label: m.label }));
+
+        // Declared custom models of a compatible type (capabilities default to chat).
+        const customOptions = Object.values(models)
+          .filter(
+            (m) =>
+              allowedTypes.includes(m.type) &&
+              hasAllCaps((m.arguments.capabilities as ModelCapability[]) ?? ["chat"]),
+          )
+          .map((m) => ({ value: m.id, label: m.label }));
+
+        // Catalog first; drop customs shadowed by a catalog id.
+        const catalogIds = new Set(catalogOptions.map((o) => o.value));
+        const options = [...catalogOptions, ...customOptions.filter((o) => !catalogIds.has(o.value))];
+
+        const selectedId = currentValue as string | undefined;
+        const isStale = !!(selectedId && !options.some((o) => o.value === selectedId));
+
+        if (options.length === 0) {
           return (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -278,10 +300,9 @@ const ParameterEditor = ({
         return (
           <ReferenceSelect
             value={selectedId}
-            options={dynamicOptions}
+            options={options}
             isStale={isStale}
-            loading={dynamicLoading}
-            placeholder="Select model..."
+            placeholder={t("selectModel", "Select model...")}
             onChange={(v) => onChange(v)}
           />
         );

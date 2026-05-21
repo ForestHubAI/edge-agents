@@ -12,6 +12,8 @@ export interface components {
         /** @enum {string} */
         DataType: "int" | "float" | "bool" | "string";
         /** @enum {string} */
+        ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
+        /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
         Vertex: {
             nodeId: string;
@@ -92,6 +94,23 @@ export interface components {
              */
             mode: "r" | "rw";
         };
+        /** @description A declared custom/self-hosted LLM model — a variant of the Model union. Static catalog models (what the llmproxy already supports) are picked directly by id and need no declaration; this primitive exists for models the llmproxy doesn't know yet (e.g. self-hosted llama). `providerBinding` is a deploy-time binding (like a Channel's driverId): the editor emits "" and the control plane maps it to a concrete llmproxy provider at deploy. */
+        LLMModel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "LLMModel";
+            /** @description Stable identifier; this is the ModelID nodes reference. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+            /** @description Capabilities this model supports (used to filter model pickers). */
+            capabilities: components["schemas"]["ModelCapability"][];
+            /** @description Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy. */
+            providerBinding: string;
+        };
+        Model: components["schemas"]["LLMModel"];
         OutputBinding: {
             /** @description Discard the output if false; route it according to `mode` if true */
             active: boolean;
@@ -138,8 +157,9 @@ export interface components {
             functions: components["schemas"]["Function"][];
             declaredVariables: components["schemas"]["Variable"][];
             channels: components["schemas"]["Channel"][];
-            /** @description Declared memory primitives (memory files + vector databases); referenced from nodes by id. */
             memory?: components["schemas"]["Memory"][];
+            /** @description Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration. */
+            models?: components["schemas"]["Model"][];
         };
         Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
