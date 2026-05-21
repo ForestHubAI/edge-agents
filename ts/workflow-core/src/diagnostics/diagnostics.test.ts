@@ -231,10 +231,10 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     expect(diagsOfCategory(diags, "missing-required-param")).toHaveLength(1);
   });
 
-  it("flags required variable-reference param with empty varId", () => {
+  it("flags required variableSelect param with empty varId", () => {
     const def = makeNodeDef({
       category: NodeCategory.Input,
-      parameters: [{ id: "ref", label: "Ref", description: "", type: "variable-reference" }],
+      parameters: [{ id: "ref", label: "Ref", description: "", type: "variableSelect" }],
     });
     const diags = computeNodeDiagnostics({
       ...baseOpts({
@@ -297,10 +297,10 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
 // Variable-reference validation
 // ============================================================================
 
-describe("computeNodeDiagnostics — variable-reference validation", () => {
+describe("computeNodeDiagnostics — variableSelect validation", () => {
   const def = makeNodeDef({
     category: NodeCategory.Input,
-    parameters: [{ id: "ref", label: "Ref", description: "", type: "variable-reference" }],
+    parameters: [{ id: "ref", label: "Ref", description: "", type: "variableSelect" }],
   });
 
   it("flags reference to a deleted variable", () => {

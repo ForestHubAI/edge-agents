@@ -21,7 +21,7 @@ export const MAIN_CANVAS_ID = "main" as const;
  *
  * NOT a persistence format: this lives only in memory. Persisted JSON uses the
  * contract `Schemas["Workflow"]`; `serialize(state)`/`deserialize(workflow)` in
- * `./workflowSerialization` convert between the two. Two producers feed this
+ * `./serialization` convert between the two. Two producers feed this
  * shape: the editor reads it from live Zustand stores; the CLI calls
  * `deserialize(contractWorkflow)` after parsing JSON.
  */

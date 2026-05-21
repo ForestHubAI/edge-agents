@@ -380,7 +380,7 @@ components:
 
     WebSearchToolNode:
       type: object
-      required: [id, type, position]
+      required: [id, type, arguments, position]
       properties:
         id: { type: string }
         type: { type: string, enum: [WebSearchTool] }
@@ -419,6 +419,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [intervalUnit]
           properties:
             intervalValue:
               type: integer
@@ -438,6 +439,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [days]
           properties:
             time:
               type: string
@@ -503,6 +505,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [edge]
           properties:
             pinReference:
               type: string
@@ -522,6 +525,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [output]
           properties:
             portReference:
               type: string
@@ -539,6 +543,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [direction, output]
           properties:
             variable:
               $ref: "#/components/schemas/Reference"
@@ -567,6 +572,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [query, output]
           properties:
             memoryReference:
               type: string
@@ -593,6 +599,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [url, output]
           properties:
             url:
               $ref: "#/components/schemas/Expression"
@@ -614,6 +621,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [signalType, output]
           properties:
             pinReference:
               type: string
@@ -636,6 +644,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [signalType, value]
           properties:
             pinReference:
               type: string
@@ -655,6 +664,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [answer, outputDeclarations]
           properties:
             name:
               type: string
@@ -692,6 +702,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [condition]
           properties:
             condition:
               $ref: "#/components/schemas/Expression"
@@ -706,6 +717,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [output]
           properties:
             portReference:
               type: string
@@ -725,6 +737,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [value]
           properties:
             portReference:
               type: string
@@ -742,6 +755,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [value]
           properties:
             variable:
               $ref: "#/components/schemas/Reference"
@@ -758,6 +772,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [dataType, value, qos, retain]
           properties:
             channelReference:
               type: string
@@ -787,6 +802,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
+          required: [dataType, output]
           properties:
             channelReference:
               type: string

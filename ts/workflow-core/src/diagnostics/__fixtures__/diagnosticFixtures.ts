@@ -1,4 +1,4 @@
-import type { Edge } from "@xyflow/react";
+import type { GraphEdge } from "../../edge";
 import type { DataType, Expression, NodeDefinition, NodeInstance, Reference } from "../../node";
 import type { ChannelInstance } from "../../channel";
 import type { MemoryInstance } from "../../memory";
@@ -63,8 +63,8 @@ export function makeEdge(
   sourceHandle: string,
   target: string,
   targetHandle: string,
-  overrides: Partial<Edge> = {},
-): Edge {
+  overrides: Partial<GraphEdge> = {},
+): GraphEdge {
   return {
     id,
     source,
@@ -73,7 +73,7 @@ export function makeEdge(
     targetHandle,
     type: "control",
     ...overrides,
-  } as Edge;
+  };
 }
 
 // ============================================================================

@@ -21,7 +21,7 @@ import { generateId } from "@foresthub/workflow-core/id";
 import { ArrowRight, ChevronRight, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
-import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
+import { varKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -429,7 +429,7 @@ function OutputsSection({
               <Select
                 value={binding.target.srcId ? refToLookupKey(binding.target) : ""}
                 onValueChange={(lookupKey) => {
-                  const v = availableVars.find((av) => canvasVarKey(av) === lookupKey);
+                  const v = availableVars.find((av) => varKey(av) === lookupKey);
                   if (!v) return;
                   updateStaticBinding(key, { active: binding.active, mode: "assign", target: availableVarToRef(v) });
                 }}
@@ -440,7 +440,7 @@ function OutputsSection({
                 </SelectTrigger>
                 <SelectContent>
                   {compatibleVars.map((v) => (
-                    <SelectItem key={canvasVarKey(v)} value={canvasVarKey(v)}>
+                    <SelectItem key={varKey(v)} value={varKey(v)}>
                       {v.name}
                     </SelectItem>
                   ))}
@@ -564,7 +564,7 @@ function OutputsSection({
             <Select
               value={entry.target.srcId ? refToLookupKey(entry.target) : ""}
               onValueChange={(lookupKey) => {
-                const v = availableVars.find((av) => canvasVarKey(av) === lookupKey);
+                const v = availableVars.find((av) => varKey(av) === lookupKey);
                 if (!v) return;
                 replace({ ...entry, target: availableVarToRef(v) });
               }}
@@ -574,7 +574,7 @@ function OutputsSection({
               </SelectTrigger>
               <SelectContent>
                 {compatibleVars.map((v) => (
-                  <SelectItem key={canvasVarKey(v)} value={canvasVarKey(v)}>
+                  <SelectItem key={varKey(v)} value={varKey(v)}>
                     {v.name}
                   </SelectItem>
                 ))}

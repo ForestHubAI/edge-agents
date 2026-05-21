@@ -14,7 +14,8 @@
       "Bash(npx tsc *)",
       "Read(//tmp/**)",
       "Bash(npx vitest *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(grep -rn \"xyflow\" dist/)"
     ]
   }
 }

@@ -17,7 +17,7 @@ export function formatParamDisplay(
   modelLabels?: Record<string, string>,
 ): ParamDisplayResult {
   switch (param.type) {
-    case "variable-reference": {
+    case "variableSelect": {
       const ref = value as Reference | undefined;
       if (!ref?.varId) return { text: "" };
       const v = variables[refToLookupKey(ref)];

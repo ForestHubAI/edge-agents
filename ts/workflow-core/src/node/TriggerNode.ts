@@ -238,7 +238,7 @@ export const OnThresholdNodeDefinition: NodeDefinition = {
       id: "variable",
       label: "Variable",
       description: "Numeric variable to watch for threshold crossings",
-      type: "variable-reference",
+      type: "variableSelect",
     },
     {
       id: "threshold",

@@ -9,7 +9,7 @@
 
 import type { Schemas } from "../api";
 import type { NodeInstance, FunctionInfo } from "../node";
-import { getNodeOutput } from "../node/methods";
+import { getNodeOutput, isNodeUsedAsTool } from "../node/methods";
 import type { EdgeInstance, EdgeType } from "../edge";
 import { ALL_CHANNEL_TYPES, ApiChannel, type ChannelInstance, type ChannelType } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
@@ -18,9 +18,8 @@ import { serialize as serializeMemory, deserialize as deserializeMemory } from "
 import type { ModelInstance } from "../model";
 import { serialize as serializeModel, deserialize as deserializeModel } from "../model";
 import { serialize as serializeNode, deserialize as deserializeNode } from "../node/serialization";
-import { isNodeUsedAsTool } from "../node/portUtils";
 import type { Variable, NodeOutputVariable } from "../variable";
-import { declaredVarKey, fnargKey, nodeOutputVariableKey, ensureUids } from "../variable";
+import { declaredVarKey, fnargKey, nodeOutputVarKey, ensureUids } from "../variable";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
 
 const KNOWN_CHANNEL_TYPES = new Set<ChannelType>(ALL_CHANNEL_TYPES);
@@ -173,7 +172,7 @@ export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string,
   const out: Record<string, NodeOutputVariable> = {};
   for (const node of nodes) {
     for (const [outputId, variable] of Object.entries(getNodeOutput(node))) {
-      out[nodeOutputVariableKey(node.id, outputId)] = {
+      out[nodeOutputVarKey(node.id, outputId)] = {
         kind: "node",
         nodeId: node.id,
         outputId,

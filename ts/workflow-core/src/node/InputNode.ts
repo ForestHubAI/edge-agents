@@ -120,6 +120,7 @@ export const RetrieverNodeDefinition: NodeDefinition = {
       description: "Search query expression",
       type: "expression",
       expressionType: "string",
+      default: { expression: "", references: [], dataType: "string" },
     },
     {
       id: "toolDescription",
@@ -145,6 +146,7 @@ export const WebFetchNodeDefinition: NodeDefinition = {
       description: "URL to fetch (http or https)",
       type: "expression",
       expressionType: "string",
+      default: { expression: "", references: [], dataType: "string" },
     },
     {
       id: "maxChars",

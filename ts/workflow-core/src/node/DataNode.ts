@@ -25,7 +25,7 @@ export const SetVariableNodeDefinition: NodeDefinition = {
       id: "variable",
       label: "Variable",
       description: "The variable to update",
-      type: "variable-reference",
+      type: "variableSelect",
     },
     {
       id: "value",
@@ -34,6 +34,7 @@ export const SetVariableNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: "int", // fallback; actual type is derived from the target variable (see fromReference)
       fromReference: "variable",
+      default: { expression: "", references: [], dataType: "int" },
     },
   ],
 };

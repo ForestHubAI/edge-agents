@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { DataType, Expression, Reference, NodeRegistry } from "@foresthub/workflow-core/node";
 import { ResolvedExpr, resolveExpression } from "@foresthub/workflow-core/expression";
-import { canvasVarKey, type Variable } from "@foresthub/workflow-core/variable";
+import { varKey, type Variable } from "@foresthub/workflow-core/variable";
 import { useEditorStore } from "../stores/editorStore";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { cn } from "../lib/utils";
@@ -272,7 +272,7 @@ const ExpressionInput = ({
           <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-auto">
             {filteredVariables.map((variable, index) => (
               <button
-                key={canvasVarKey(variable)}
+                key={varKey(variable)}
                 onClick={() => selectVariable(variable)}
                 className={cn(
                   "w-full px-3 py-2 text-left text-sm flex items-center justify-between hover:bg-accent",

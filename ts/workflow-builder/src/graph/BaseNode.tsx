@@ -26,7 +26,8 @@ import {
   resolveExpression,
   type ResolvedExpr,
 } from "@foresthub/workflow-core/expression";
-import { isNodeUsedAsTool, canPortAcceptEdge } from "@foresthub/workflow-core/node";
+import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
+import { canPortAcceptEdge } from "../utils/connectionRules";
 import { PortHandle } from "./PortHandle";
 import { formatParamDisplay, isParameterActive } from "@foresthub/workflow-core/parameter";
 

@@ -19,9 +19,9 @@ import { addEdge, Connection, Edge, Node } from "@xyflow/react";
 import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
 import { CanvasStore } from "../stores/canvasStore";
 import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
-import { nodeOutputVariableKey, paramKey } from "@foresthub/workflow-core/variable";
+import { nodeOutputVarKey, paramKey } from "@foresthub/workflow-core/variable";
 import { isExpression } from "@foresthub/workflow-core/expression";
-import { isValidConnection } from "@foresthub/workflow-core/node";
+import { isValidConnection } from "./connectionRules";
 import { generateId } from "@foresthub/workflow-core/id";
 
 // ============================================================================
@@ -108,11 +108,13 @@ export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, posi
 
   const nodeId = generateId();
 
-  // Initialize parameters with default values
+  // Initialize parameters with default values. Clone so object/array defaults
+  // (Expression, weekdays `[]`) aren't shared by reference across instances or
+  // with the definition itself — a shared mutable default would alias on edit.
   const args: Record<string, unknown> = {};
   nodeDef.parameters.forEach((param) => {
     if (param.default !== undefined) {
-      args[param.id] = param.default;
+      args[param.id] = structuredClone(param.default);
     }
   });
 
@@ -261,12 +263,12 @@ export function updateNodeInStore(
       // Remove old outputs that no longer exist in new outputs
       for (const outputId of Object.keys(oldOutputs)) {
         if (!(outputId in newOutputs)) {
-          delete updated[nodeOutputVariableKey(nodeId, outputId)];
+          delete updated[nodeOutputVarKey(nodeId, outputId)];
         }
       }
       // Add/update new outputs (only if actually changed)
       for (const [outputId, variable] of Object.entries(newOutputs)) {
-        const key = nodeOutputVariableKey(nodeId, outputId);
+        const key = nodeOutputVarKey(nodeId, outputId);
         const oldVar = vars[key];
         if (!oldVar || oldVar.name !== variable.name || oldVar.dataType !== variable.dataType) {
           updated[key] = { kind: "node", nodeId, outputId, name: variable.name, dataType: variable.dataType };
@@ -309,7 +311,7 @@ export function deleteNodeFromStore(
     setVariables((vars) => {
       const updated = { ...vars };
       for (const outputId of outputKeys) {
-        delete updated[nodeOutputVariableKey(nodeId, outputId)];
+        delete updated[nodeOutputVarKey(nodeId, outputId)];
       }
       return updated;
     });

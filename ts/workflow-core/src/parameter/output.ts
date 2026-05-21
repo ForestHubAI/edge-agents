@@ -56,7 +56,7 @@ export function resolveStaticOutputDataType(output: StaticOutput, args: Record<s
 /**
  * A user-managed list of outputs. Entries live in `node.arguments[id]` as
  * `OutputDeclaration[]` — the UI CRUDs the list directly, and each entry
- * contributes one output. Used for Agent's outputDefinitions.
+ * contributes one output. Used for Agent's outputDeclarations.
  */
 export interface OutputList {
   id: string;

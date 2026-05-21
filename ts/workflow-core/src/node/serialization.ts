@@ -4,14 +4,6 @@ import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { isParameterActive } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 
-// Sentinel defaults applied at the deserialize boundary when the loosened
-// contract carries no value. The headless validator (utils/diagnostics.ts)
-// catches these sentinels as missing-required-field diagnostics; the editor
-// renders them as empty fields the user can fill in. Never throw on missing
-// data — the whole point of schema loosening is to load in-progress workflows.
-const DEFAULT_OUTPUT_BINDING: OutputBinding = { active: false, mode: "emit", name: "" };
-const DEFAULT_EXPRESSION: Expression = { expression: "", references: [], dataType: "string" };
-
 /**
  * Serialize a domain NodeInstance to the strict API format (Schemas["Node"]).
  * Strips hidden parameters (those whose activationRules are not met). The
@@ -24,13 +16,18 @@ export function serialize(node: NodeInstance, position: { x: number; y: number }
     (result as Record<string, unknown>).label = node.label;
   }
 
-  // Strip hidden parameters (active=false)
+  // Single source of truth for activation-gated params (e.g. toolDescription):
+  // serializeNode emits them uniformly, then this pass drops any that are
+  // inactive for this instance, or active but unset — keeping the wire free of
+  // e.g. `toolDescription: undefined`. FunctionCall gates its own params inline
+  // (its bindings have a different wire shape), so it's excluded here.
   if ("arguments" in result && result.arguments) {
     const def = node.type !== "FunctionCall" ? NodeRegistry.getByType(node.type) : undefined;
     if (def) {
       const args = result.arguments as Record<string, unknown>;
       for (const param of def.parameters) {
-        if (param.activationRules?.length && !isParameterActive(param, node.arguments, isToolInput)) {
+        if (!param.activationRules?.length) continue;
+        if (!isParameterActive(param, node.arguments, isToolInput) || args[param.id] === undefined) {
           delete args[param.id];
         }
       }
@@ -51,7 +48,7 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
           pinReference: node.arguments.pinReference!,
           signalType: node.arguments.signalType,
           output: node.arguments.output,
-          ...(node.arguments.toolDescription !== undefined ? { toolDescription: node.arguments.toolDescription } : {}),
+          toolDescription: node.arguments.toolDescription,
         },
       };
     case "SerialRead":
@@ -61,7 +58,7 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
         position: position,
         arguments: {
           portReference: node.arguments.portReference!,
-          prompt: node.arguments.prompt,
+          ...(node.arguments.prompt !== undefined ? { prompt: node.arguments.prompt } : {}),
           output: node.arguments.output,
         },
       };
@@ -103,7 +100,7 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
           outputDeclarations: node.arguments.outputDeclarations,
           memoryRefs: node.arguments.memoryRefs ?? [],
           answer: node.arguments.answer,
-          ...(node.arguments.toolDescription !== undefined ? { toolDescription: node.arguments.toolDescription } : {}),
+          toolDescription: node.arguments.toolDescription,
         },
       };
     }
@@ -209,7 +206,7 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
           topK: node.arguments.topK!,
           query: node.arguments.query,
           output: node.arguments.output,
-          ...(node.arguments.toolDescription !== undefined ? { toolDescription: node.arguments.toolDescription } : {}),
+          toolDescription: node.arguments.toolDescription,
         },
       };
     case "WebFetch":
@@ -307,8 +304,8 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           pinReference: apiNode.arguments.pinReference ?? "",
-          signalType: apiNode.arguments.signalType ?? "digital",
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          signalType: apiNode.arguments.signalType,
+          output: apiNode.arguments.output as OutputBinding,
           toolDescription: apiNode.arguments.toolDescription,
         },
       };
@@ -320,7 +317,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         arguments: {
           portReference: apiNode.arguments.portReference ?? "",
           prompt: apiNode.arguments.prompt ?? "",
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          output: apiNode.arguments.output as OutputBinding,
         },
       };
     case "Retriever":
@@ -331,8 +328,8 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         arguments: {
           memoryReference: apiNode.arguments.memoryReference ?? "",
           topK: apiNode.arguments.topK ?? 0,
-          query: (apiNode.arguments.query as Expression | undefined) ?? DEFAULT_EXPRESSION,
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          query: apiNode.arguments.query,
+          output: apiNode.arguments.output as OutputBinding,
           toolDescription: apiNode.arguments.toolDescription,
         },
       };
@@ -343,8 +340,8 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           pinReference: apiNode.arguments.pinReference ?? "",
-          signalType: apiNode.arguments.signalType ?? "digital",
-          value: (apiNode.arguments.value as Expression | undefined) ?? DEFAULT_EXPRESSION,
+          signalType: apiNode.arguments.signalType,
+          value: apiNode.arguments.value,
         },
       };
     case "SerialWrite":
@@ -354,7 +351,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           portReference: apiNode.arguments.portReference ?? "",
-          value: (apiNode.arguments.value as Expression | undefined) ?? DEFAULT_EXPRESSION,
+          value: apiNode.arguments.value,
         },
       };
     case "Agent":
@@ -367,9 +364,9 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
           model: apiNode.arguments.model ?? "",
           instructions: apiNode.arguments.instructions ?? "",
           maxTurns: apiNode.arguments.maxTurns,
-          outputDeclarations: (apiNode.arguments.outputDeclarations as OutputDeclaration[] | undefined) ?? [],
+          outputDeclarations: apiNode.arguments.outputDeclarations as OutputDeclaration[],
           memoryRefs: apiNode.arguments.memoryRefs ?? [],
-          answer: (apiNode.arguments.answer as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          answer: apiNode.arguments.answer as OutputBinding,
           toolDescription: apiNode.arguments.toolDescription,
         },
       };
@@ -379,7 +376,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         type: apiNode.type,
         label: apiNode.label,
         arguments: {
-          condition: (apiNode.arguments.condition as Expression | undefined) ?? DEFAULT_EXPRESSION,
+          condition: apiNode.arguments.condition,
         },
       };
     case "OnFunctionCall":
@@ -393,7 +390,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           pinReference: apiNode.arguments.pinReference ?? "",
-          edge: apiNode.arguments.edge ?? "both",
+          edge: apiNode.arguments.edge,
         },
       };
     case "OnSerialReceive":
@@ -403,7 +400,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           portReference: apiNode.arguments.portReference ?? "",
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          output: apiNode.arguments.output as OutputBinding,
         },
       };
     case "OnThreshold":
@@ -414,9 +411,9 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         arguments: {
           variable: apiNode.arguments.variable,
           threshold: apiNode.arguments.threshold,
-          direction: apiNode.arguments.direction ?? "both",
+          direction: apiNode.arguments.direction,
           deadband: apiNode.arguments.deadband,
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? { active: true, mode: "emit", name: "output" },
+          output: apiNode.arguments.output as OutputBinding,
         },
       };
     case "Delay":
@@ -435,7 +432,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           intervalValue: apiNode.arguments.intervalValue ?? 0,
-          intervalUnit: apiNode.arguments.intervalUnit ?? "seconds",
+          intervalUnit: apiNode.arguments.intervalUnit,
         },
       };
     case "Alarm":
@@ -445,7 +442,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           time: apiNode.arguments.time ?? "",
-          days: apiNode.arguments.days ?? [],
+          days: apiNode.arguments.days,
         },
       };
     case "WebSearchTool":
@@ -454,7 +451,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         type: apiNode.type,
         label: apiNode.label,
         arguments: {
-          maxResults: apiNode.arguments?.maxResults,
+          maxResults: apiNode.arguments.maxResults,
         },
       };
     case "WebFetch":
@@ -463,9 +460,9 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         type: apiNode.type,
         label: apiNode.label,
         arguments: {
-          url: (apiNode.arguments.url as Expression | undefined) ?? DEFAULT_EXPRESSION,
+          url: apiNode.arguments.url,
           maxChars: apiNode.arguments.maxChars,
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          output: apiNode.arguments.output as OutputBinding,
         },
       };
     case "SetVariable":
@@ -475,7 +472,7 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         label: apiNode.label,
         arguments: {
           variable: apiNode.arguments.variable,
-          value: (apiNode.arguments.value as Expression | undefined) ?? DEFAULT_EXPRESSION,
+          value: apiNode.arguments.value,
         },
       };
     case "FunctionCall": {
@@ -507,10 +504,10 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
           topic: apiNode.arguments.topic ?? "",
-          dataType: (apiNode.arguments.dataType ?? "string") as "int" | "float" | "bool" | "string",
-          value: (apiNode.arguments.value as Expression | undefined) ?? DEFAULT_EXPRESSION,
-          qos: (apiNode.arguments.qos ?? 0) as 0 | 1 | 2,
-          retain: apiNode.arguments.retain ?? false,
+          dataType: apiNode.arguments.dataType,
+          value: apiNode.arguments.value,
+          qos: apiNode.arguments.qos,
+          retain: apiNode.arguments.retain,
         },
       };
     case "OnMqttMessage":
@@ -521,8 +518,8 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
           topic: apiNode.arguments.topic ?? "",
-          dataType: (apiNode.arguments.dataType ?? "string") as "int" | "float" | "bool" | "string",
-          output: (apiNode.arguments.output as OutputBinding | undefined) ?? DEFAULT_OUTPUT_BINDING,
+          dataType: apiNode.arguments.dataType,
+          output: apiNode.arguments.output as OutputBinding,
         },
       };
   }

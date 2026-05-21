@@ -3,6 +3,7 @@ import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { PortDefinitions } from "./NodeDefinition";
 import { resolveStaticOutputDataType } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
+import { GraphEdge } from "../edge";
 
 /** Read a static output's binding from a node's arguments bag, keyed by the output id. */
 function getStaticBinding(args: Record<string, unknown>, outputId: string): OutputBinding | undefined {
@@ -254,4 +255,24 @@ export function getInput(node: NodeInstance): ExternalInput[] {
     default:
       return [];
   }
+}
+
+/**
+ * Determine whether a node is currently used as a tool input
+ * (i.e. its tool-input port has an incoming edge).
+ *
+ * Reads only the connectivity fields off each edge (`target`, `targetHandle`),
+ * so it takes the structural {@link GraphEdge} rather than React Flow's `Edge` —
+ * keeping this (and its callers in serialization/diagnostics) headless. The
+ * editor's React Flow `Edge[]` is structurally assignable without an adapter.
+ *
+ * Editor-only connection rules (canPortAcceptEdge, getCompatibleNodeDefs,
+ * isValidConnection) live in workflow-builder's connectionRules — they operate
+ * on React Flow `Node`/`Edge` and have no place in the headless core.
+ */
+export function isNodeUsedAsTool(nodeId: string, nodeData: NodeInstance, edges: readonly GraphEdge[]): boolean {
+  const ports = getPorts(nodeData);
+  const toolInputs = ports.input.filter((p) => p.type === "tool");
+  if (toolInputs.length === 0) return false;
+  return edges.some((e) => e.target === nodeId && toolInputs.some((p) => p.id === e.targetHandle));
 }

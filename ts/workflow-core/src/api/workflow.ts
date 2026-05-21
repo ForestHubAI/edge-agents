@@ -8,16 +8,25 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        SignalType: "digital" | "analog";
-        /** @enum {string} */
         DataType: "int" | "float" | "bool" | "string";
         /** @enum {string} */
-        ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
+        SignalType: "digital" | "analog";
         /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
-        Vertex: {
-            nodeId: string;
-            port: string;
+        NodePosition: {
+            x: number;
+            y: number;
+        };
+        /** @description Workflow represents the deployment format of a project, passed to agents. */
+        Workflow: {
+            nodes: components["schemas"]["Node"][];
+            edges: components["schemas"]["Edge"][];
+            functions: components["schemas"]["Function"][];
+            declaredVariables: components["schemas"]["Variable"][];
+            channels: components["schemas"]["Channel"][];
+            memory?: components["schemas"]["Memory"][];
+            /** @description Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration. */
+            models?: components["schemas"]["Model"][];
         };
         Edge: {
             id: string;
@@ -29,9 +38,36 @@ export interface components {
             /** @description LLM-readable explanation of when the edge should fire. Present on `agentChoice` and `agentDelegate`. */
             description?: string;
         };
-        NodePosition: {
-            x: number;
-            y: number;
+        Vertex: {
+            nodeId: string;
+            port: string;
+        };
+        Function: {
+            functionInfo: components["schemas"]["FunctionInfo"];
+            /** @description Maps return variable uid to its Expression */
+            outputAssignments: {
+                [key: string]: components["schemas"]["Expression"];
+            };
+            nodes: components["schemas"]["Node"][];
+            edges: components["schemas"]["Edge"][];
+            declaredVariables: components["schemas"]["Variable"][];
+        };
+        FunctionInfo: {
+            id: string;
+            /** Format: int32 */
+            version: number;
+            name: string;
+            arguments: components["schemas"]["Variable"][];
+            returns: components["schemas"]["Variable"][];
+        };
+        /** @description A named, typed variable with a stable uid that can be referenced throughout the workflow. */
+        Variable: {
+            /** @description Stable identifier that survives renames */
+            uid: string;
+            name: string;
+            dataType: components["schemas"]["DataType"];
+            /** @description Initial value matching the dataType (number, boolean, or string). Only used by declared variables. */
+            initialValue?: unknown;
         };
         Expression: {
             expression: string;
@@ -43,74 +79,6 @@ export interface components {
             srcId: string;
             varId: string;
         };
-        /** @description A named, typed variable with a stable uid that can be referenced throughout the workflow. */
-        Variable: {
-            /** @description Stable identifier that survives renames */
-            uid: string;
-            name: string;
-            dataType: components["schemas"]["DataType"];
-            /** @description Initial value matching the dataType (number, boolean, or string). Only used by declared variables. */
-            initialValue?: unknown;
-        };
-        /** @description One memory file — a variant of the Memory union. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content. */
-        MemoryFile: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "MemoryFile";
-            /** @description Stable identifier that survives renames; referenced from MemoryRef. */
-            id: string;
-            /** @description Display name. Unique per agent (LLM tool enums use it). */
-            label: string;
-            description: string;
-            content: string;
-            /** @description Byte cap; null means unlimited. */
-            maxSizeBytes?: number | null;
-        };
-        /** @description A RAG vector database — a variant of the Memory union. Declares a logical knowledge base referenced by Retriever nodes. `collectionId` is a deploy-time binding (like a Channel's driverId): the editor emits "" and the control plane resolves it to a concrete backend collection at deploy. */
-        VectorDatabase: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "VectorDatabase";
-            /** @description Stable identifier; referenced from Retriever nodes. */
-            id: string;
-            /** @description Display name. */
-            label: string;
-            description?: string;
-            /** @description Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy. */
-            collectionId: string;
-        };
-        Memory: components["schemas"]["MemoryFile"] | components["schemas"]["VectorDatabase"];
-        /** @description Reference from an LLM agent node to a declared MemoryFile with an access mode. */
-        MemoryRef: {
-            /** @description id of the referenced MemoryFile. */
-            id: string;
-            /**
-             * @description r = read-only; rw = read + write.
-             * @enum {string}
-             */
-            mode: "r" | "rw";
-        };
-        /** @description A declared custom/self-hosted LLM model — a variant of the Model union. Static catalog models (what the llmproxy already supports) are picked directly by id and need no declaration; this primitive exists for models the llmproxy doesn't know yet (e.g. self-hosted llama). `providerBinding` is a deploy-time binding (like a Channel's driverId): the editor emits "" and the control plane maps it to a concrete llmproxy provider at deploy. */
-        LLMModel: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "LLMModel";
-            /** @description Stable identifier; this is the ModelID nodes reference. */
-            id: string;
-            /** @description Display name. */
-            label: string;
-            /** @description Capabilities this model supports (used to filter model pickers). */
-            capabilities: components["schemas"]["ModelCapability"][];
-            /** @description Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy. */
-            providerBinding: string;
-        };
-        Model: components["schemas"]["LLMModel"];
         OutputBinding: {
             /** @description Discard the output if false; route it according to `mode` if true */
             active: boolean;
@@ -132,34 +100,66 @@ export interface components {
             /** @description Existing variable to route to (when mode=assign) */
             target?: components["schemas"]["Reference"];
         };
-        FunctionInfo: {
+        Memory: components["schemas"]["MemoryFile"] | components["schemas"]["VectorDatabase"];
+        /** @description One .md file that agent nodes can read and write to. */
+        MemoryFile: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MemoryFile";
+            /** @description Stable identifier that survives renames; referenced from MemoryRef. */
             id: string;
-            /** Format: int32 */
-            version: number;
-            name: string;
-            arguments: components["schemas"]["Variable"][];
-            returns: components["schemas"]["Variable"][];
+            /** @description Display name. Unique per agent (LLM tool enums use it). */
+            label: string;
+            description: string;
+            content: string;
+            /** @description Byte cap; null means unlimited. */
+            maxSizeBytes?: number | null;
         };
-        Function: {
-            functionInfo: components["schemas"]["FunctionInfo"];
-            /** @description Maps return variable uid to its Expression */
-            outputAssignments: {
-                [key: string]: components["schemas"]["Expression"];
-            };
-            nodes: components["schemas"]["Node"][];
-            edges: components["schemas"]["Edge"][];
-            declaredVariables: components["schemas"]["Variable"][];
+        /** @description A vector database for retrieval-augmented generation (RAG). */
+        VectorDatabase: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "VectorDatabase";
+            /** @description Stable identifier; referenced from Retriever nodes. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+            description?: string;
+            /** @description Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy. */
+            collectionId: string;
         };
-        /** @description Workflow represents the deployment format of a project, passed to agents. */
-        Workflow: {
-            nodes: components["schemas"]["Node"][];
-            edges: components["schemas"]["Edge"][];
-            functions: components["schemas"]["Function"][];
-            declaredVariables: components["schemas"]["Variable"][];
-            channels: components["schemas"]["Channel"][];
-            memory?: components["schemas"]["Memory"][];
-            /** @description Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration. */
-            models?: components["schemas"]["Model"][];
+        /** @description Reference from an LLM agent node to a declared MemoryFile with an access mode. */
+        MemoryRef: {
+            /** @description id of the referenced MemoryFile. */
+            id: string;
+            /**
+             * @description r = read-only; rw = read + write.
+             * @enum {string}
+             */
+            mode: "r" | "rw";
+        };
+        /** @enum {string} */
+        ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
+        Model: components["schemas"]["LLMModel"];
+        /** @description A custom or self-hosted language model that agent nodes can reference. */
+        LLMModel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "LLMModel";
+            /** @description Stable identifier; this is the ModelID nodes reference. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+            /** @description Capabilities this model supports (used to filter model pickers). */
+            capabilities: components["schemas"]["ModelCapability"][];
+            /** @description Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy. */
+            providerBinding: string;
         };
         Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
@@ -171,7 +171,7 @@ export interface components {
             type: "WebSearchTool";
             label?: string;
             position: components["schemas"]["NodePosition"];
-            arguments?: {
+            arguments: {
                 /** @description Maximum number of search results to return per call. Defaults to 5 when omitted or non-positive. Capped at 20. */
                 maxResults?: number;
             };
@@ -206,7 +206,7 @@ export interface components {
                  * @description Time unit for the interval
                  * @enum {string}
                  */
-                intervalUnit?: "milliseconds" | "seconds" | "minutes" | "hours";
+                intervalUnit: "milliseconds" | "seconds" | "minutes" | "hours";
             };
         };
         AlarmNode: {
@@ -222,7 +222,7 @@ export interface components {
                 /** @description Time of day to fire (HH:MM, 24h format) */
                 time?: string;
                 /** @description Days of the week to fire on (empty = every day) */
-                days?: string[];
+                days: string[];
             };
         };
         FunctionCallNode: {
@@ -282,7 +282,7 @@ export interface components {
                  * @description Edge transition that fires the trigger
                  * @enum {string}
                  */
-                edge?: "rising" | "falling" | "both";
+                edge: "rising" | "falling" | "both";
             };
         };
         OnSerialReceiveNode: {
@@ -297,7 +297,7 @@ export interface components {
             arguments: {
                 /** @description Reference to an IO variable ID (the serial port to listen on) */
                 portReference?: string;
-                output?: components["schemas"]["OutputBinding"];
+                output: components["schemas"]["OutputBinding"];
             };
         };
         OnThresholdNode: {
@@ -318,11 +318,11 @@ export interface components {
                  * @description Crossing direction to fire on (default both)
                  * @enum {string}
                  */
-                direction?: "rising" | "falling" | "both";
+                direction: "rising" | "falling" | "both";
                 /** @description Hysteresis band width around threshold; 0 disables (default 0) */
                 deadband?: number;
                 /** @description Optional binding for the triggering value */
-                output?: components["schemas"]["OutputBinding"];
+                output: components["schemas"]["OutputBinding"];
             };
         };
         RetrieverNode: {
@@ -340,8 +340,8 @@ export interface components {
                 /** @description Number of results to return */
                 topK?: number;
                 /** @description Search query expression */
-                query?: components["schemas"]["Expression"];
-                output?: components["schemas"]["OutputBinding"];
+                query: components["schemas"]["Expression"];
+                output: components["schemas"]["OutputBinding"];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };
@@ -357,10 +357,10 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description URL expression to fetch (http or https) */
-                url?: components["schemas"]["Expression"];
+                url: components["schemas"]["Expression"];
                 /** @description Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive. */
                 maxChars?: number;
-                output?: components["schemas"]["OutputBinding"];
+                output: components["schemas"]["OutputBinding"];
             };
         };
         ReadPinNode: {
@@ -375,8 +375,8 @@ export interface components {
             arguments: {
                 /** @description Reference to an IO variable ID */
                 pinReference?: string;
-                signalType?: components["schemas"]["SignalType"];
-                output?: components["schemas"]["OutputBinding"];
+                signalType: components["schemas"]["SignalType"];
+                output: components["schemas"]["OutputBinding"];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };
@@ -393,8 +393,8 @@ export interface components {
             arguments: {
                 /** @description Reference to an IO variable ID */
                 pinReference?: string;
-                signalType?: components["schemas"]["SignalType"];
-                value?: components["schemas"]["Expression"];
+                signalType: components["schemas"]["SignalType"];
+                value: components["schemas"]["Expression"];
             };
         };
         AgentNode: {
@@ -413,9 +413,9 @@ export interface components {
                 instructions?: string;
                 /** @description Maximum number of agent runner turns */
                 maxTurns?: number;
-                answer?: components["schemas"]["OutputBinding"];
+                answer: components["schemas"]["OutputBinding"];
                 /** @description Ordered list of structured-output declarations. Names must be unique within this list */
-                outputDeclarations?: components["schemas"]["OutputDeclaration"][];
+                outputDeclarations: components["schemas"]["OutputDeclaration"][];
                 /** @description Memory files this agent can access, each with an access mode. */
                 memoryRefs?: components["schemas"]["MemoryRef"][];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
@@ -432,7 +432,7 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                condition?: components["schemas"]["Expression"];
+                condition: components["schemas"]["Expression"];
             };
         };
         SerialReadNode: {
@@ -448,7 +448,7 @@ export interface components {
                 /** @description Reference to an UART ID (the serial port to read from) */
                 portReference?: string;
                 prompt?: string;
-                output?: components["schemas"]["OutputBinding"];
+                output: components["schemas"]["OutputBinding"];
             };
         };
         SerialWriteNode: {
@@ -463,7 +463,7 @@ export interface components {
             arguments: {
                 /** @description Reference to a UART channel ID (the serial port to write to) */
                 portReference?: string;
-                value?: components["schemas"]["Expression"];
+                value: components["schemas"]["Expression"];
             };
         };
         SetVariableNode: {
@@ -477,7 +477,7 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 variable?: components["schemas"]["Reference"];
-                value?: components["schemas"]["Expression"];
+                value: components["schemas"]["Expression"];
             };
         };
         MqttPublishNode: {
@@ -494,15 +494,15 @@ export interface components {
                 channelReference?: string;
                 /** @description Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime. */
                 topic?: string;
-                dataType?: components["schemas"]["DataType"];
-                value?: components["schemas"]["Expression"];
+                dataType: components["schemas"]["DataType"];
+                value: components["schemas"]["Expression"];
                 /**
                  * @description MQTT Quality of Service level
                  * @enum {integer}
                  */
-                qos?: 0 | 1 | 2;
+                qos: 0 | 1 | 2;
                 /** @description Whether the broker should retain the message */
-                retain?: boolean;
+                retain: boolean;
             };
         };
         OnMqttMessageNode: {
@@ -519,8 +519,8 @@ export interface components {
                 channelReference?: string;
                 /** @description Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime. */
                 topic?: string;
-                dataType?: components["schemas"]["DataType"];
-                output?: components["schemas"]["OutputBinding"];
+                dataType: components["schemas"]["DataType"];
+                output: components["schemas"]["OutputBinding"];
             };
         };
         Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"];

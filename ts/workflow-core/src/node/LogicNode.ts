@@ -26,6 +26,7 @@ export const IfNodeDefinition: NodeDefinition = {
       description: "Boolean expression (e.g., ${Input_1.value} > 50)",
       type: "expression",
       expressionType: "bool",
+      default: { expression: "", references: [], dataType: "bool" },
     },
   ],
 };

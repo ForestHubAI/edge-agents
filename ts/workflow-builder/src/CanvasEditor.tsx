@@ -2,7 +2,8 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Connection, Node, OnSelectionChangeFunc } from "@xyflow/react";
 import type { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
-import { getCompatibleNodeDefs, getPorts } from "@foresthub/workflow-core/node";
+import { getPorts } from "@foresthub/workflow-core/node";
+import { getCompatibleNodeDefs } from "./utils/connectionRules";
 
 import Canvas from "./Canvas";
 import { NodePickerDialog } from "./dialogs/NodePickerDialog";

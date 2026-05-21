@@ -55,6 +55,7 @@ export const WritePinNodeDefinition: NodeDefinition = {
       description: "What value to write to the pin",
       type: "expression",
       expressionType: (args) => ((args as WritePinNode["arguments"]).signalType === "digital" ? "bool" : "int"),
+      default: { expression: "", references: [], dataType: "bool" },
     },
   ],
 };
@@ -79,6 +80,7 @@ export const SerialWriteNodeDefinition: NodeDefinition = {
       description: "Expression for the value to write",
       type: "expression",
       expressionType: "string",
+      default: { expression: "", references: [], dataType: "string" },
     },
   ],
 };

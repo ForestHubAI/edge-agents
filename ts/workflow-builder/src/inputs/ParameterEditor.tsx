@@ -26,7 +26,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useEditorStore } from "../stores/editorStore";
-import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
+import { varKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance, MemoryRef } from "@foresthub/workflow-core/memory";
 import type { ModelCapability } from "@foresthub/workflow-core/model";
@@ -120,11 +120,11 @@ const ParameterEditor = ({
 
   const renderInput = () => {
     switch (parameter.type) {
-      case "variable-reference": {
+      case "variableSelect": {
         const ref = currentValue as Reference | undefined;
         const selectedKey = ref?.varId ? refToLookupKey(ref) : undefined;
         const isStale = !!(selectedKey && !variables[selectedKey]);
-        const options = variableList.map((v) => ({ value: canvasVarKey(v), label: `${v.name} (${v.dataType})` }));
+        const options = variableList.map((v) => ({ value: varKey(v), label: `${v.name} (${v.dataType})` }));
 
         return (
           <ReferenceSelect

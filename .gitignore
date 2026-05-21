@@ -1,3 +1,5 @@
+.claude
+
 # Node
 node_modules/
 ts/**/dist/

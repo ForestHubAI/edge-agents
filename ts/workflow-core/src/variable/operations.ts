@@ -1,5 +1,5 @@
 import type { NodeOutput, Reference, ApiVariable } from "../node";
-import { isToolFlow, type EdgeType } from "../edge";
+import { isToolFlow, type EdgeType, type GraphEdge } from "../edge";
 import { generateId } from "../id";
 import type { Variable } from "./Variable";
 
@@ -76,13 +76,14 @@ export function paramKey(p: ApiVariable): string {
  * own declared variables, node outputs, and function arguments are visible;
  * main-canvas state is never merged in.
  *
- * Edges are only inspected for two fields (`type`, `target`) — the inline
- * structural shape lets workflow-builder pass its React Flow `Edge[]` without
- * an adapter while core stays free of `@xyflow/react`.
+ * Only `type`/`target` are read, but the param takes the shared structural
+ * {@link GraphEdge} so there's one edge shape across core — workflow-builder
+ * still passes its React Flow `Edge[]` without an adapter, and core stays free
+ * of `@xyflow/react`.
  */
 export function computeAvailableVariables(
   variables: Record<string, Variable>,
-  canvasEdges: ReadonlyArray<{ type?: string | null; target: string }>,
+  canvasEdges: readonly GraphEdge[],
 ): { list: Variable[]; lookup: Record<string, Variable> } {
   const list: Variable[] = [];
   const lookup: Record<string, Variable> = {};

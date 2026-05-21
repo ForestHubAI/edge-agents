@@ -4,10 +4,10 @@
 
 export type { NodeOutputVariable, DeclaredVariable, FunctionArgVariable, Variable } from "./Variable";
 export {
-  varKey as canvasVarKey,
+  varKey,
   declaredVarKey,
   fnargKey,
-  nodeOutputVarKey as nodeOutputVariableKey,
+  nodeOutputVarKey,
   refToLookupKey,
   ensureUid,
   ensureUids,

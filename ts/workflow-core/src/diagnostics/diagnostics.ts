@@ -2,13 +2,12 @@ import type { Expression, FunctionInfo, NodeDefinition, NodeInstance } from "../
 import { NodeCategory, NodeRegistry } from "../node";
 import type { EdgeInstance, EdgeType } from "../edge";
 import { getEdgeDefinition, isControlFlow } from "../edge";
-import { getArguments, getNodeAvailableOutput, getOutputBinding, getPorts } from "../node/methods";
-import type { Edge } from "@xyflow/react";
+import { getArguments, getNodeAvailableOutput, getOutputBinding, getPorts, isNodeUsedAsTool } from "../node/methods";
+import type { GraphEdge } from "../edge";
 import type { Variable } from "../variable";
 import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
-import { isNodeUsedAsTool } from "../node/portUtils";
 import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "../parameter";
 import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, OutputDeclaration } from "../parameter";
 import type { ChannelInstance } from "../channel";
@@ -74,7 +73,7 @@ export function computeNodeDiagnostics(opts: {
   models?: Record<string, ModelInstance>;
   /** Ids in the static model catalog (props-supplied). Undefined headlessly — catalog ids then aren't flagged. */
   availableModelIds?: Set<string>;
-  edges: Edge[];
+  edges: readonly GraphEdge[];
   isStale?: boolean;
   isDeleted?: boolean;
 }): Diagnostic[] {
@@ -150,7 +149,7 @@ export function computeNodeDiagnostics(opts: {
       const isEmpty = value === undefined || value === "" || value === null;
       const isEmptyExpression = isExpression(value) && !value.expression;
       const isEmptyReference =
-        param.type === "variable-reference" &&
+        param.type === "variableSelect" &&
         (!value || (typeof value === "object" && value !== null && !(value as { varId?: string }).varId));
       if (isEmpty || isEmptyExpression || isEmptyReference) {
         diags.push({
@@ -164,8 +163,8 @@ export function computeNodeDiagnostics(opts: {
       }
     }
 
-    // invalid-reference: variable-reference points to deleted variable
-    if (param.type === "variable-reference" && value) {
+    // invalid-reference: variableSelect points to deleted variable
+    if (param.type === "variableSelect" && value) {
       const ref = value as Reference;
       if (ref.varId) {
         const key = refToLookupKey(ref);
@@ -723,8 +722,8 @@ function deriveFunctionRegistry(canvases: Record<string, Canvas>): Record<string
  * React, no DOM. Runnable in Node, a CLI, or a Claude Code skill.
  *
  * Two producers feed this: the editor reads its live stores into a
- * `WorkflowState` literal; the CLI calls `deserialize(contractWorkflow)` from
- * `./workflowSerialization` to convert on-wire JSON into this shape.
+ * `Workflow` literal; the CLI calls `deserialize(contractWorkflow)` from
+ * `../workflow/serialization` to convert on-wire JSON into this shape.
  */
 export function validateWorkflowState(state: Workflow): ValidationResult {
   const canvasData = state.canvases ?? {};

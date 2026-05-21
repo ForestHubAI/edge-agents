@@ -71,6 +71,7 @@ export const MqttPublishNodeDefinition: NodeDefinition = {
       description: "Value to publish",
       type: "expression",
       expressionType: (args) => (args as MqttPublishNode["arguments"]).dataType,
+      default: { expression: "", references: [], dataType: "string" },
     },
     {
       id: "qos",

@@ -52,6 +52,7 @@ export function buildFunctionNodeDef(
         description: t("builder.functionParamDesc", { name: param.name }),
         type: "expression" as const,
         expressionType: param.dataType as DataType,
+        default: { expression: "", references: [], dataType: param.dataType as DataType },
         activationRules: [{ type: "isControlFlow" as const }],
       })),
       {

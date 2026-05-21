@@ -52,7 +52,7 @@ export type NodeInstance = InputNode | OutputNode | AgentNode | LogicNode | Data
  *
  * Per-output bindings (emit/assign/discard) live as flat entries inside `arguments`,
  * keyed by the output id — same namespace as parameter values. List output entries
- * (e.g. AgentNode's `outputDefinitions`) bundle their binding alongside their variable
+ * (e.g. AgentNode's `outputDeclarations`) bundle their binding alongside their variable
  * declaration as OutputDeclaration[].
  */
 export interface NodeBase extends Record<string, unknown> {

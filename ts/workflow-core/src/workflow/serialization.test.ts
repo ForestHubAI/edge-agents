@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { serialize, deserialize, computeVariablesFromNodes, buildCanvasVariables } from "./serialization";
-import { MAIN_CANVAS_ID, type WorkflowState, type CanvasData } from "./snapshots";
+import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
 import type { Schemas } from "../api";
 import type { NodeInstance } from "../node";
 
@@ -166,7 +166,7 @@ describe("workflowSerialization — reverse roundtrip (JSON → deserialize → 
 // produce the expected value for us).
 // ============================================================================
 
-function makeMainCanvas(nodes: CanvasData["nodes"] = [], edges: CanvasData["edges"] = [], declared: Schemas["Variable"][] = []): CanvasData {
+function makeMainCanvas(nodes: Canvas["nodes"] = [], edges: Canvas["edges"] = [], declared: Schemas["Variable"][] = []): Canvas {
   return {
     nodes,
     edges,
@@ -178,16 +178,16 @@ function makeMainCanvas(nodes: CanvasData["nodes"] = [], edges: CanvasData["edge
 
 describe("workflowSerialization — forward roundtrip (state → serialize → deserialize)", () => {
   it("empty state roundtrips to a state with an empty main canvas", () => {
-    const state: WorkflowState = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() } };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() } };
     expect(deserialize(serialize(state))).toEqual(state);
   });
 
   it("preserves edge ids across serialize/deserialize", () => {
-    const edges: CanvasData["edges"] = [
+    const edges: Canvas["edges"] = [
       { id: "stable-id-A", type: "control", source: "n1", sourceHandle: "out", target: "n2", targetHandle: "in" },
       { id: "stable-id-B", type: "tool", source: "n1", sourceHandle: "tool", target: "n3", targetHandle: "in" },
     ];
-    const state: WorkflowState = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) } };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) } };
     const roundTripped = deserialize(serialize(state));
     expect(roundTripped.canvases[MAIN_CANVAS_ID]!.edges.map((e) => e.id)).toEqual(["stable-id-A", "stable-id-B"]);
   });

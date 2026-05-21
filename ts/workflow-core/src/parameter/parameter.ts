@@ -65,18 +65,21 @@ export interface ExpressionParam {
   /** Type can be dynamic (static value or args-only lambda). */
   expressionType: FromArgs<DataType>;
   /**
-   * Escape hatch for the variable-reference case: when set, points to the id of a sibling
-   * variable-reference parameter. If that parameter holds a live Reference, the expressionType
+   * Escape hatch for the variableSelect case: when set, points to the id of a sibling
+   * variableSelect parameter. If that parameter holds a live Reference, the expressionType
    * is taken from the referenced variable. Falls back to `expressionType` otherwise.
    */
   fromReference?: string;
-  default?: Expression;
+  /**
+   * Required: An expression always has a value object never an unset state.
+   */
+  default: Expression;
 }
 
 // Reference-select parameters: pick an external entity by id. No `default`.
 
-export interface VariableReferenceParam {
-  type: "variable-reference";
+export interface VariableSelectParam {
+  type: "variableSelect";
   default?: never;
 }
 
@@ -116,15 +119,17 @@ export interface MemoryRefsParam {
 }
 
 /** Union of all reference-select parameter variants, used for type guards. */
-export type ReferenceSelectParam = VariableReferenceParam | ChannelSelectParam | MemorySelectParam | ModelSelectParam;
+export type ReferenceSelectParam = VariableSelectParam | ChannelSelectParam | MemorySelectParam | ModelSelectParam;
 
 export function isReferenceSelectParam(param: Parameter): param is ParameterBase & ReferenceSelectParam {
-  return param.type === "variable-reference" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "modelSelect";
+  return (
+    param.type === "variableSelect" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "modelSelect"
+  );
 }
 
 export type Parameter =
   | (ParameterBase & BasicParam)
-  | (ParameterBase & VariableReferenceParam)
+  | (ParameterBase & VariableSelectParam)
   | (ParameterBase & StringParam)
   | (ParameterBase & BoolParam)
   | (ParameterBase & WeekdaysParam)
@@ -169,7 +174,7 @@ export function isParameterActive(param: Parameter, parameterValues: Record<stri
 
 /**
  * Resolve an ExpressionParam's expected dataType. Handles the `fromReference` escape hatch
- * (type taken from a live variable-reference sibling parameter) and falls back to the
+ * (type taken from a live variableSelect sibling parameter) and falls back to the
  * declared FromArgs<DataType>.
  */
 export function resolveExpressionType(

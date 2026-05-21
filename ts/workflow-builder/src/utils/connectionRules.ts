@@ -1,19 +1,14 @@
-import { Edge, Node } from "@xyflow/react";
-import { NodeInstance } from "./Node";
-import { NodeDefinition } from "./NodeDefinition";
-import { getPorts } from "./methods";
-import { type EdgeType } from "../edge";
+// Editor connection rules — which ports may connect, which node types are
+// offered from a port, and whether a node can take another outgoing edge.
+//
+// These operate on React Flow `Node`/`Edge` and drive canvas interactions, so
+// they live here in the editor rather than in the headless @foresthub/workflow-core.
+// Core exposes the pure primitive (`getPorts`); the React Flow coupling stays
+// on this side of the boundary.
 
-/**
- * Determine whether a node is currently used as a tool input
- * (i.e. its tool-input port has an incoming edge).
- */
-export function isNodeUsedAsTool(nodeId: string, nodeData: NodeInstance, edges: Edge[]): boolean {
-  const ports = getPorts(nodeData);
-  const toolInputs = ports.input.filter((p) => p.type === "tool");
-  if (toolInputs.length === 0) return false;
-  return edges.some((e) => e.target === nodeId && toolInputs.some((p) => p.id === e.targetHandle));
-}
+import { Edge, Node } from "@xyflow/react";
+import { getPorts, type NodeInstance, type NodeDefinition } from "@foresthub/workflow-core/node";
+import { type EdgeType } from "@foresthub/workflow-core/edge";
 
 /** Check whether a node already has tool-input edges (for mutual exclusion). */
 function hasToolInputEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[]): boolean {
