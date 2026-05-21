@@ -1,5 +1,6 @@
-import { Expression, NodeBase, OutputBinding } from ".";
-import { NodeCategory, NodeTag } from "./NodeConstants";
+import { Expression, NodeBase } from "./Node";
+import { OutputBinding } from "../parameter";
+import { NodeCategory, NodeTag } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 export interface ReadPinNode extends NodeBase {

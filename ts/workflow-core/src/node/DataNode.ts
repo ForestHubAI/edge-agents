@@ -1,5 +1,5 @@
-import { NodeBase, Expression, Reference } from ".";
-import { NodeCategory } from "./NodeConstants";
+import { NodeBase, Expression, Reference } from "./Node";
+import { NodeCategory } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 export interface SetVariableNode extends NodeBase {

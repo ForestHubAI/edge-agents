@@ -46,6 +46,7 @@
   "functionCallNodesMigrated": "Funktionsaufruf-Nodes aktualisiert",
   "functionCallNodesMigratedDesc": "{{count}} Node(s) wurden auf die neueste Funktionsdefinition migriert.",
   "variables": "Variablen",
+  "models": "KI-Modelle",
   "agents": "Agenten",
   "conversations": "Konversationen",
   "noVariables": "Keine Variablen verfügbar",

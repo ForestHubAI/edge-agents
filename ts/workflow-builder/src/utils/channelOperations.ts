@@ -1,8 +1,7 @@
 import { CHANNEL_DEFINITION, type ChannelType, type ChannelInstance, stripInactiveArguments } from "@foresthub/workflow-core/channel";
 import { isParameterActive } from "@foresthub/workflow-core/parameter";
-import { useEditorStore } from "../store/editorStore";
-import { generateId } from "./IDs";
-import { channelKey } from "./channels";
+import { useEditorStore } from "../stores/editorStore";
+import { generateId } from "@foresthub/workflow-core/id";
 
 /**
  * Build the initial `arguments` record for a new channel: each parameter
@@ -32,7 +31,7 @@ function nextDefaultLabel(existingLabels: string[]): string {
  * Create a new channel in the editor store. Returns the new instance.
  */
 export function addChannel(type: ChannelType = "GPIOIN"): ChannelInstance {
-  const id = generateId("ch");
+  const id = generateId();
   const existing = Object.values(useEditorStore.getState().channels).map((v) => v.label);
   const instance: ChannelInstance = {
     id,
@@ -40,7 +39,7 @@ export function addChannel(type: ChannelType = "GPIOIN"): ChannelInstance {
     type,
     arguments: defaultArguments(type),
   };
-  useEditorStore.getState().setChannels((vars) => ({ ...vars, [channelKey(id)]: instance }));
+  useEditorStore.getState().setChannels((vars) => ({ ...vars, [id]: instance }));
   return instance;
 }
 
@@ -49,11 +48,8 @@ export function addChannel(type: ChannelType = "GPIOIN"): ChannelInstance {
  * the merge, so changing `type` immediately drops fields that are no longer
  * relevant. Top-level fields (label/type) are merged separately from arguments.
  */
-export function updateChannel(
-  id: string,
-  patch: { label?: string; type?: ChannelType; arguments?: Record<string, unknown> },
-): void {
-  const key = channelKey(id);
+export function updateChannel(id: string, patch: { label?: string; type?: ChannelType; arguments?: Record<string, unknown> }): void {
+  const key = id;
   useEditorStore.getState().setChannels((vars) => {
     const existing = vars[key];
     if (!existing) return vars;
@@ -86,7 +82,7 @@ export function updateChannel(
 }
 
 export function deleteChannel(id: string): void {
-  const key = channelKey(id);
+  const key = id;
   useEditorStore.getState().setChannels((vars) => {
     const { [key]: _drop, ...rest } = vars;
     return rest;

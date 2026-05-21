@@ -3,8 +3,8 @@ import { Node, Edge } from "@xyflow/react";
 import { NodeCategory, type NodeInstance, type FunctionInfo, type Expression } from "@foresthub/workflow-core/node";
 import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import { history, History, type HistoryData } from "../utils/history";
-import { generateId } from "../utils/IDs";
-import { fnargKey, type CanvasVariable, type NodeOutputVariable } from "@foresthub/workflow-core/variable";
+import { generateId } from "@foresthub/workflow-core/id";
+import { fnargKey, type Variable } from "@foresthub/workflow-core/variable";
 import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
 
 /**
@@ -74,7 +74,7 @@ export interface CanvasState {
   nodes: Node<NodeInstance>[];
   edges: Edge<EdgeInstance>[];
   // Unified variable record: node outputs (nodeId:outputId), declared (declared:uid), fn args (fnarg:uid)
-  variables: Record<string, CanvasVariable>;
+  variables: Record<string, Variable>;
   // Function definition - only present for function canvases (null for main canvas)
   functionInfo: FunctionInfo | null;
   // Output expression assignments - maps return variable uid → Expression
@@ -89,7 +89,7 @@ export interface CanvasState {
 
   setNodes: (updater: (nodes: Node<NodeInstance>[]) => Node<NodeInstance>[]) => void;
   setEdges: (updater: (edges: Edge<EdgeInstance>[]) => Edge<EdgeInstance>[]) => void;
-  setVariables: (updater: (variables: Record<string, CanvasVariable>) => Record<string, CanvasVariable>) => void;
+  setVariables: (updater: (variables: Record<string, Variable>) => Record<string, Variable>) => void;
   setFunctionInfo: (updater: (info: FunctionInfo | null) => FunctionInfo | null) => void;
   setOutputAssignments: (updater: (assignments: OutputAssignments) => OutputAssignments) => void;
   /** Visual-only: set ReactFlow selected flag on nodes. No history, safe in read-only mode. */
@@ -194,7 +194,7 @@ function createCanvasStore(): CanvasStore {
         // Build variables: node outputs + fnarg entries from functionInfo.
         // computeVariablesFromNodes is the core (NodeInstance[]) variant; peel
         // the React Flow wrapper at the call site.
-        const vars: Record<string, CanvasVariable> = computeVariablesFromNodes(nodes.map((n) => n.data));
+        const vars: Record<string, Variable> = computeVariablesFromNodes(nodes.map((n) => n.data));
         if (functionInfo?.arguments) {
           for (const arg of functionInfo.arguments) {
             vars[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
@@ -246,7 +246,7 @@ export function getOrCreateCanvasStore(canvasId: string): CanvasStore {
 
     // Initialize function canvases with OnFunctionCall trigger node
     if (canvasId !== MAIN_CANVAS_ID) {
-      const nodeId = generateId("OnFunctionCall");
+      const nodeId = generateId();
       const initialNode: Node<NodeInstance> = {
         id: nodeId,
         type: NodeCategory.Trigger,
@@ -299,4 +299,3 @@ export function retainCanvasStores(idsToKeep: Set<string>): void {
     }
   }
 }
-

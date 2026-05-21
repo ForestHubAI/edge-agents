@@ -1,37 +1,66 @@
 openapi: 3.0.3
 info:
   title: ForestHub Workflow Contract
-  version: 0.1.0
+  version: 1.0.0
   description: OpenAPI schema definition for the ForestHub workflow format.
 
 components:
   schemas:
-    SignalType:
-      type: string
-      enum: [digital, analog]
-
     DataType:
       type: string
       enum: [int, float, bool, string]
 
-    ModelCapability:
+    SignalType:
       type: string
-      enum: [chat, embedding, function_call, vision, fine_tuning, reasoning, classification, code]
+      enum: [digital, analog]
 
     EdgeType:
       type: string
       enum: [control, tool, agentTask, agentChoice, agentDelegate]
 
-    Vertex:
+    NodePosition:
       type: object
-      required:
-        - nodeId
-        - port
+      required: [x, y]
       properties:
-        nodeId:
-          type: string
-        port:
-          type: string
+        x:
+          type: number
+        y:
+          type: number
+
+    Workflow:
+      type: object
+      description: Workflow represents the deployment format of a project, passed to agents.
+      required: [nodes, edges, functions, declaredVariables, channels]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Edge"
+        functions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Function"
+        declaredVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
+        memory:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+        models:
+          type: array
+          description: Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
+          items:
+            $ref: "#/components/schemas/Model"
 
     Edge:
       type: object
@@ -54,14 +83,76 @@ components:
           type: string
           description: LLM-readable explanation of when the edge should fire. Present on `agentChoice` and `agentDelegate`.
 
-    NodePosition:
+    Vertex:
       type: object
-      required: [x, y]
+      required:
+        - nodeId
+        - port
       properties:
-        x:
-          type: number
-        y:
-          type: number
+        nodeId:
+          type: string
+        port:
+          type: string
+
+    Function:
+      type: object
+      required:
+        [functionInfo, outputAssignments, nodes, edges, declaredVariables]
+      properties:
+        functionInfo:
+          $ref: "#/components/schemas/FunctionInfo"
+        outputAssignments:
+          type: object
+          description: Maps return variable uid to its Expression
+          additionalProperties:
+            $ref: "#/components/schemas/Expression"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Edge"
+        declaredVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+
+    FunctionInfo:
+      type: object
+      required: [id, version, name, arguments, returns]
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        name:
+          type: string
+        arguments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+        returns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+
+    Variable:
+      description: A named, typed variable with a stable uid that can be referenced throughout the workflow.
+      required: [uid, name, dataType]
+      properties:
+        uid:
+          type: string
+          description: Stable identifier that survives renames
+        name:
+          type: string
+        dataType:
+          $ref: "#/components/schemas/DataType"
+        initialValue:
+          description: Initial value matching the dataType (number, boolean, or string). Only used by declared variables.
 
     Expression:
       type: object
@@ -85,123 +176,6 @@ components:
           type: string
         varId:
           type: string
-
-    Variable:
-      description: A named, typed variable with a stable uid that can be referenced throughout the workflow.
-      required: [uid, name, dataType]
-      properties:
-        uid:
-          type: string
-          description: Stable identifier that survives renames
-        name:
-          type: string
-        dataType:
-          $ref: "#/components/schemas/DataType"
-        initialValue:
-          description: Initial value matching the dataType (number, boolean, or string). Only used by declared variables.
-
-    MemoryFile:
-      type: object
-      description: One memory file — a variant of the Memory union. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
-      required: [type, id, label, description, content]
-      properties:
-        type: { type: string, enum: [MemoryFile] }
-        id:
-          type: string
-          description: Stable identifier that survives renames; referenced from MemoryRef.
-        label:
-          type: string
-          description: Display name. Unique per agent (LLM tool enums use it).
-        description:
-          type: string
-        content:
-          type: string
-        maxSizeBytes:
-          type: integer
-          nullable: true
-          description: Byte cap; null means unlimited.
-
-    VectorDatabase:
-      type: object
-      description: >
-        A RAG vector database — a variant of the Memory union. Declares a logical
-        knowledge base referenced by Retriever nodes. `collectionId` is a deploy-time
-        binding (like a Channel's driverId): the editor emits "" and the control plane
-        resolves it to a concrete backend collection at deploy.
-      required: [type, id, label, collectionId]
-      properties:
-        type: { type: string, enum: [VectorDatabase] }
-        id:
-          type: string
-          description: Stable identifier; referenced from Retriever nodes.
-        label:
-          type: string
-          description: Display name.
-        description:
-          type: string
-        collectionId:
-          type: string
-          x-go-name: CollectionID
-          description: Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
-
-    Memory:
-      oneOf:
-        - $ref: "#/components/schemas/MemoryFile"
-        - $ref: "#/components/schemas/VectorDatabase"
-      discriminator:
-        propertyName: type
-        mapping:
-          MemoryFile: "#/components/schemas/MemoryFile"
-          VectorDatabase: "#/components/schemas/VectorDatabase"
-
-    MemoryRef:
-      type: object
-      description: Reference from an LLM agent node to a declared MemoryFile with an access mode.
-      required: [id, mode]
-      properties:
-        id:
-          type: string
-          description: id of the referenced MemoryFile.
-        mode:
-          type: string
-          enum: [r, rw]
-          description: r = read-only; rw = read + write.
-
-    LLMModel:
-      type: object
-      description: >
-        A declared custom/self-hosted LLM model — a variant of the Model union.
-        Static catalog models (what the llmproxy already supports) are picked
-        directly by id and need no declaration; this primitive exists for models
-        the llmproxy doesn't know yet (e.g. self-hosted llama). `providerBinding`
-        is a deploy-time binding (like a Channel's driverId): the editor emits ""
-        and the control plane maps it to a concrete llmproxy provider at deploy.
-      required: [type, id, label, capabilities, providerBinding]
-      properties:
-        type: { type: string, enum: [LLMModel] }
-        id:
-          type: string
-          description: Stable identifier; this is the ModelID nodes reference.
-        label:
-          type: string
-          description: Display name.
-        capabilities:
-          type: array
-          description: Capabilities this model supports (used to filter model pickers).
-          items:
-            $ref: "#/components/schemas/ModelCapability"
-        providerBinding:
-          type: string
-          x-go-name: ProviderBinding
-          description: Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
-
-    Model:
-      oneOf:
-        - $ref: "#/components/schemas/LLMModel"
-      discriminator:
-        propertyName: type
-        mapping:
-          LLMModel: "#/components/schemas/LLMModel"
 
     OutputBinding:
       type: object
@@ -243,88 +217,118 @@ components:
           $ref: "#/components/schemas/Reference"
           description: Existing variable to route to (when mode=assign)
 
-    FunctionInfo:
+    # ====== Memory ======
+
+    Memory:
+      oneOf:
+        - $ref: "#/components/schemas/MemoryFile"
+        - $ref: "#/components/schemas/VectorDatabase"
+      discriminator:
+        propertyName: type
+        mapping:
+          MemoryFile: "#/components/schemas/MemoryFile"
+          VectorDatabase: "#/components/schemas/VectorDatabase"
+
+    MemoryFile:
       type: object
-      required: [id, version, name, arguments, returns]
+      description: One .md file that agent nodes can read and write to.
+      required: [type, id, label, description, content]
+      properties:
+        type: { type: string, enum: [MemoryFile] }
+        id:
+          type: string
+          description: Stable identifier that survives renames; referenced from MemoryRef.
+        label:
+          type: string
+          description: Display name. Unique per agent (LLM tool enums use it).
+        description:
+          type: string
+        content:
+          type: string
+        maxSizeBytes:
+          type: integer
+          nullable: true
+          description: Byte cap; null means unlimited.
+
+    VectorDatabase:
+      type: object
+      description: A vector database for retrieval-augmented generation (RAG).
+      required: [type, id, label, collectionId]
+      properties:
+        type: { type: string, enum: [VectorDatabase] }
+        id:
+          type: string
+          description: Stable identifier; referenced from Retriever nodes.
+        label:
+          type: string
+          description: Display name.
+        description:
+          type: string
+        collectionId:
+          type: string
+          x-go-name: CollectionID
+          description: Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
+
+    MemoryRef:
+      type: object
+      description: Reference from an LLM agent node to a declared MemoryFile with an access mode.
+      required: [id, mode]
       properties:
         id:
           type: string
-        version:
-          type: integer
-          format: int32
-          minimum: 0
-        name:
+          description: id of the referenced MemoryFile.
+        mode:
           type: string
-        arguments:
-          type: array
-          items:
-            $ref: "#/components/schemas/Variable"
-        returns:
-          type: array
-          items:
-            $ref: "#/components/schemas/Variable"
+          enum: [r, rw]
+          description: r = read-only; rw = read + write.
 
-    Function:
+    # ====== Models ======
+
+    ModelCapability:
+      type: string
+      enum:
+        [
+          chat,
+          embedding,
+          function_call,
+          vision,
+          fine_tuning,
+          reasoning,
+          classification,
+          code,
+        ]
+
+    Model:
+      oneOf:
+        - $ref: "#/components/schemas/LLMModel"
+      discriminator:
+        propertyName: type
+        mapping:
+          LLMModel: "#/components/schemas/LLMModel"
+
+    LLMModel:
       type: object
-      required:
-        [functionInfo, outputAssignments, nodes, edges, declaredVariables]
+      description: A custom or self-hosted language model that agent nodes can reference.
+      required: [type, id, label, capabilities, providerBinding]
       properties:
-        functionInfo:
-          $ref: "#/components/schemas/FunctionInfo"
-        outputAssignments:
-          type: object
-          description: Maps return variable uid to its Expression
-          additionalProperties:
-            $ref: "#/components/schemas/Expression"
-        nodes:
+        type: { type: string, enum: [LLMModel] }
+        id:
+          type: string
+          description: Stable identifier; this is the ModelID nodes reference.
+        label:
+          type: string
+          description: Display name.
+        capabilities:
           type: array
+          description: Capabilities this model supports (used to filter model pickers).
           items:
-            $ref: "#/components/schemas/Node"
-        edges:
-          type: array
-          items:
-            $ref: "#/components/schemas/Edge"
-        declaredVariables:
-          type: array
-          items:
-            $ref: "#/components/schemas/Variable"
+            $ref: "#/components/schemas/ModelCapability"
+        providerBinding:
+          type: string
+          x-go-name: ProviderBinding
+          description: Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
 
-    Workflow:
-      type: object
-      description: Workflow represents the deployment format of a project, passed to agents.
-      required: [nodes, edges, functions, declaredVariables, channels]
-      properties:
-        nodes:
-          type: array
-          items:
-            $ref: "#/components/schemas/Node"
-        edges:
-          type: array
-          items:
-            $ref: "#/components/schemas/Edge"
-        functions:
-          type: array
-          items:
-            $ref: "#/components/schemas/Function"
-        declaredVariables:
-          type: array
-          items:
-            $ref: "#/components/schemas/Variable"
-        channels:
-          type: array
-          items:
-            $ref: "#/components/schemas/Channel"
-        memory:
-          type: array
-          items:
-            $ref: "#/components/schemas/Memory"
-        models:
-          type: array
-          description: Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
-          items:
-            $ref: "#/components/schemas/Model"
-
-    # ====== Node definitions ======
+    # ====== Nodes ======
 
     Node:
       oneOf:
@@ -795,7 +799,7 @@ components:
             output:
               $ref: "#/components/schemas/OutputBinding"
 
-    # ====== Channel definitions ======
+    # ====== Channels ======
 
     Channel:
       oneOf:

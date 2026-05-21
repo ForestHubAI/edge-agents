@@ -4,8 +4,8 @@ import { AlertTriangle } from "lucide-react";
 import { EdgeInstance, isControlFlow, isToolFlow, type EdgeType } from "@foresthub/workflow-core/edge";
 import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { computeEdgeDiagnostics } from "@foresthub/workflow-core/diagnostics";
 
 const EDGE_BASE_COLOR = "hsl(var(--edge-default))";

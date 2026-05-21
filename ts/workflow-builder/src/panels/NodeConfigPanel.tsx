@@ -17,8 +17,9 @@ import {
 } from "@foresthub/workflow-core/node";
 import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthub/workflow-core/parameter";
 import { isParameterActive, Parameter } from "@foresthub/workflow-core/parameter";
+import { generateId } from "@foresthub/workflow-core/id";
 import { ArrowRight, ChevronRight, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { getOrCreateCanvasStore } from "../store/canvasStore";
+import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
 import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
@@ -26,10 +27,10 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { PortSection } from "../dialogs/FunctionInfoDialog";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { migrateFunctionCallNodes } from "../utils/migrateFunctionNodes";
 import { getNodeDescription } from "../utils/translation";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
@@ -263,7 +264,12 @@ function listEntryOutputId(listId: string, index: number): string {
 }
 
 /** Convert an AvailableVariable into a canonical Reference (srcId + varId). */
-function availableVarToRef(v: { kind: "node"; nodeId: string; outputId: string } | { kind: "declared"; uid: string } | { kind: "fnarg"; uid: string }): Reference {
+function availableVarToRef(
+  v:
+    | { kind: "node"; nodeId: string; outputId: string }
+    | { kind: "declared"; uid: string }
+    | { kind: "fnarg"; uid: string },
+): Reference {
   if (v.kind === "node") return { srcId: v.nodeId, varId: v.outputId };
   if (v.kind === "declared") return { srcId: "declared", varId: v.uid };
   return { srcId: "fnarg", varId: v.uid };
@@ -347,8 +353,7 @@ function OutputsSection({
   // draft state when inactive so off→on round-trips identically. Body is dimmed and
   // pointer-event-disabled while inactive.
   const renderStaticRow = (key: string, output: { name: string; dataType: DataType }, displayLabel: string) => {
-    const binding =
-      getOutputBinding(node, key) ?? ({ active: true, mode: "emit", name: output.name } as OutputBinding);
+    const binding = getOutputBinding(node, key) ?? ({ active: true, mode: "emit", name: output.name } as OutputBinding);
     const compatibleVars = filterCompatible(output.dataType);
     const errors = outputErrors.get(key);
     const hasError = !!errors?.length;
@@ -416,7 +421,9 @@ function OutputsSection({
                 className="h-7 text-xs flex-1"
                 value={binding.name}
                 disabled={!enabled}
-                onChange={(e) => updateStaticBinding(key, { active: binding.active, mode: "emit", name: e.target.value })}
+                onChange={(e) =>
+                  updateStaticBinding(key, { active: binding.active, mode: "emit", name: e.target.value })
+                }
               />
             ) : compatibleVars.length > 0 ? (
               <Select
@@ -460,11 +467,7 @@ function OutputsSection({
   };
 
   // --- Row renderer: list declaration entry ------------------------------------------
-  const renderListEntryRow = (
-    listId: string,
-    entries: OutputDeclaration[],
-    index: number,
-  ) => {
+  const renderListEntryRow = (listId: string, entries: OutputDeclaration[], index: number) => {
     const entry = entries[index];
     if (!entry) return null;
     const compatibleVars = filterCompatible(entry.dataType);
@@ -472,14 +475,22 @@ function OutputsSection({
     const errors = outputErrors.get(outputId);
     const hasError = !!errors?.length;
 
-    const replace = (next: OutputDeclaration) => writeListEntries(listId, entries.map((e, i) => (i === index ? next : e)));
-    const remove = () => writeListEntries(listId, entries.filter((_, i) => i !== index));
+    const replace = (next: OutputDeclaration) =>
+      writeListEntries(
+        listId,
+        entries.map((e, i) => (i === index ? next : e)),
+      );
+    const remove = () =>
+      writeListEntries(
+        listId,
+        entries.filter((_, i) => i !== index),
+      );
     // Mode flip preserves name + dataType — the user already typed/picked them.
     // emit↔assign only swaps the trailing payload (uid vs target).
     const changeMode = (newMode: "emit" | "assign") => {
       if (entry.mode === newMode) return;
       if (newMode === "emit") {
-        replace({ mode: "emit", uid: crypto.randomUUID(), name: entry.name, dataType: entry.dataType });
+        replace({ mode: "emit", uid: generateId(), name: entry.name, dataType: entry.dataType });
       } else {
         replace({ mode: "assign", name: entry.name, dataType: entry.dataType, target: { srcId: "", varId: "" } });
       }
@@ -591,7 +602,7 @@ function OutputsSection({
   const addListEntry = (listId: string, entries: OutputDeclaration[]) => {
     const fresh: OutputDeclaration = {
       mode: "emit",
-      uid: crypto.randomUUID(),
+      uid: generateId(),
       name: `output${entries.length + 1}`,
       dataType: "string",
     };
@@ -600,9 +611,7 @@ function OutputsSection({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {t("outputs", "Outputs")}
-      </p>
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("outputs", "Outputs")}</p>
       <div className="space-y-2">
         {/* Static outputs from the node definition (FunctionCall returns flow here too). */}
         {staticOutputs.map((out) => {
@@ -615,26 +624,26 @@ function OutputsSection({
             then an "Add" button. The subheader also serves as the visual boundary between
             static outputs above and list entries below. */}
         {listOutputs.map((out) => {
-            const entries =
-              ((node.arguments as Record<string, unknown>)[out.id] as OutputDeclaration[] | undefined) ?? [];
-            return (
-              <Fragment key={out.id}>
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[11px] font-medium text-muted-foreground">{out.label}</span>
-                  <div className="flex-1 h-px bg-border/60" />
-                </div>
-                {entries.map((_, index) => renderListEntryRow(out.id, entries, index))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs w-full justify-start text-muted-foreground hover:text-foreground"
-                  onClick={() => addListEntry(out.id, entries)}
-                >
-                  + {t("addOutput", { label: out.label, defaultValue: `Add ${out.label.toLowerCase()}` })}
-                </Button>
-              </Fragment>
-            );
-          })}
+          const entries =
+            ((node.arguments as Record<string, unknown>)[out.id] as OutputDeclaration[] | undefined) ?? [];
+          return (
+            <Fragment key={out.id}>
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[11px] font-medium text-muted-foreground">{out.label}</span>
+                <div className="flex-1 h-px bg-border/60" />
+              </div>
+              {entries.map((_, index) => renderListEntryRow(out.id, entries, index))}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs w-full justify-start text-muted-foreground hover:text-foreground"
+                onClick={() => addListEntry(out.id, entries)}
+              >
+                + {t("addOutput", { label: out.label, defaultValue: `Add ${out.label.toLowerCase()}` })}
+              </Button>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );

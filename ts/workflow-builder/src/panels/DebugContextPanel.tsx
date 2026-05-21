@@ -2,8 +2,8 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import { useTranslation } from "react-i18next";
-import { useDebugStore } from "../store/debugStore";
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../store/canvasStore";
+import { useDebugStore } from "../stores/debugStore";
+import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import type { DataType } from "@foresthub/workflow-core/node";
 
 interface VariableEntry {
@@ -31,11 +31,7 @@ export const DebugContextPanel = () => {
   const entries = getVariableEntries();
 
   if (entries.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground text-center py-4">
-        {t("debug.noVariables")}
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground text-center py-4">{t("debug.noVariables")}</div>;
   }
 
   return (
@@ -49,15 +45,12 @@ export const DebugContextPanel = () => {
               <span className="text-muted-foreground font-mono">({dataType})</span>
             </Label>
             {dataType === "bool" ? (
-              <Switch
-                checked={!!value}
-                onCheckedChange={(checked) => updateContextVar(key, checked)}
-              />
+              <Switch checked={!!value} onCheckedChange={(checked) => updateContextVar(key, checked)} />
             ) : dataType === "int" ? (
               <Input
                 type="number"
                 step={1}
-                value={value as number ?? 0}
+                value={(value as number) ?? 0}
                 onChange={(e) => updateContextVar(key, parseInt(e.target.value) || 0)}
                 className="h-8 font-mono text-sm"
               />
@@ -65,7 +58,7 @@ export const DebugContextPanel = () => {
               <Input
                 type="number"
                 step={0.1}
-                value={value as number ?? 0}
+                value={(value as number) ?? 0}
                 onChange={(e) => updateContextVar(key, parseFloat(e.target.value) || 0)}
                 className="h-8 font-mono text-sm"
               />

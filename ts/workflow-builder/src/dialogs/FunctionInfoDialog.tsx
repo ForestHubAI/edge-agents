@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
-import type { FunctionInfo, NodeOutput, Variable } from "@foresthub/workflow-core/node";
+import type { FunctionInfo, NodeOutput, ApiVariable } from "@foresthub/workflow-core/node";
 import { useFunctionInfo } from "../hooks/useFunctionInfo";
 import { DataType } from "@foresthub/workflow-core/node";
 
@@ -21,7 +21,7 @@ const DATA_TYPES: DataType[] = ["int", "float", "bool", "string"];
 
 // Sub-component for editing a single variable
 export interface VariableEditorProps {
-  variable: NodeOutput | Variable;
+  variable: NodeOutput | ApiVariable;
   onUpdate: (updates: Partial<NodeOutput>) => void;
   onRemove: () => void;
 }
@@ -61,7 +61,7 @@ export const VariableEditor = ({ variable, onUpdate, onRemove }: VariableEditorP
 
 // Sub-component for a section of ports (inputs or outputs)
 export interface PortSectionProps {
-  ports: (NodeOutput | Variable)[];
+  ports: (NodeOutput | ApiVariable)[];
   direction: "input" | "output";
   onAdd: () => void;
   onUpdate: (index: number, updates: Partial<NodeOutput>) => void;
@@ -91,9 +91,7 @@ export const PortSection = ({ ports, direction, onAdd, onUpdate, onRemove, maxHe
       </div>
 
       {ports.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic py-2">
-          {isInput ? t("noInputs") : t("noOutputs")}
-        </p>
+        <p className="text-xs text-muted-foreground italic py-2">{isInput ? t("noInputs") : t("noOutputs")}</p>
       ) : (
         <div className="space-y-2 overflow-auto" style={maxHeight ? { maxHeight } : undefined}>
           {ports.map((port, index) => (
@@ -173,12 +171,8 @@ export const FunctionInfoDialog = ({ open, onClose, onSave, existingFunction }: 
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? t("editFunction") : t("createFunction")}
-          </DialogTitle>
-          <DialogDescription>
-            {t("functionDialogDesc")}
-          </DialogDescription>
+          <DialogTitle>{isEditMode ? t("editFunction") : t("createFunction")}</DialogTitle>
+          <DialogDescription>{t("functionDialogDesc")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">

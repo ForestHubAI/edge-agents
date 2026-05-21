@@ -5,9 +5,9 @@ import { Separator } from "../components/ui/separator";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { ModelRegistry, type ModelInstance } from "@foresthub/workflow-core/model";
 import ParameterEditor from "../inputs/ParameterEditor";
-import { MAIN_CANVAS_ID } from "../store/canvasStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { MAIN_CANVAS_ID } from "../stores/canvasStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { deleteModel, updateModel } from "../utils/modelOperations";
 
 interface ModelConfigPanelProps {

@@ -1,4 +1,4 @@
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../store/canvasStore";
+import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 
 /**
  * Hook that exposes all history functions from a canvas store.

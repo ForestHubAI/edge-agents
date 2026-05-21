@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-import { MAIN_CANVAS_ID } from "../store/canvasStore";
-import { useEditorStore } from "../store/editorStore";
+import { MAIN_CANVAS_ID } from "../stores/canvasStore";
+import { useEditorStore } from "../stores/editorStore";
 
 // Holds info for a canvas tab. id is identical to canvasId.
 export interface CanvasTab {

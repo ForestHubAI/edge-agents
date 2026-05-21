@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { useEditorStore } from "../store/editorStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
+import { useEditorStore } from "../stores/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { validateChannel } from "@foresthub/workflow-core/diagnostics";
 
 /**

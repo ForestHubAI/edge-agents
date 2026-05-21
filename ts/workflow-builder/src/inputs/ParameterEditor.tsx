@@ -8,11 +8,24 @@ import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
-import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, Parameter, StringParam } from "@foresthub/workflow-core/parameter";
-import { resolveCapabilities, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "@foresthub/workflow-core/parameter";
+import type {
+  ExpressionParam,
+  ChannelSelectParam,
+  MemorySelectParam,
+  ModelSelectParam,
+  Parameter,
+  StringParam,
+} from "@foresthub/workflow-core/parameter";
+import {
+  resolveCapabilities,
+  resolveExpressionType,
+  resolveChannelTypes,
+  resolveMemoryTypes,
+  resolveModelTypes,
+} from "@foresthub/workflow-core/parameter";
 import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { useEditorStore } from "../store/editorStore";
+import { useEditorStore } from "../stores/editorStore";
 import { canvasVarKey, refToLookupKey } from "@foresthub/workflow-core/variable";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance, MemoryRef } from "@foresthub/workflow-core/memory";
@@ -276,8 +289,7 @@ const ParameterEditor = ({
         const customOptions = Object.values(models)
           .filter(
             (m) =>
-              allowedTypes.includes(m.type) &&
-              hasAllCaps((m.arguments.capabilities as ModelCapability[]) ?? ["chat"]),
+              allowedTypes.includes(m.type) && hasAllCaps((m.arguments.capabilities as ModelCapability[]) ?? ["chat"]),
           )
           .map((m) => ({ value: m.id, label: m.label }));
 
@@ -354,8 +366,7 @@ const ParameterEditor = ({
         const allFiles = Object.values(memory).filter((m) => m.type === "MemoryFile");
         const allFilesById = new Map(allFiles.map((m) => [m.id, m]));
 
-        const replace = (index: number, next: MemoryRef) =>
-          onChange(refs.map((r, i) => (i === index ? next : r)));
+        const replace = (index: number, next: MemoryRef) => onChange(refs.map((r, i) => (i === index ? next : r)));
         const remove = (index: number) => onChange(refs.filter((_, i) => i !== index));
         const add = () => {
           // Pre-select the first unused memory file (if any) so adding a row
@@ -387,22 +398,14 @@ const ParameterEditor = ({
               const selectableFiles = allFiles.filter((m) => m.id === ref.id || !usedByOthers.has(m.id));
 
               return (
-                <div
-                  key={index}
-                  className="rounded-lg bg-card shadow-sm p-2 space-y-2 transition-all hover:shadow-md"
-                >
+                <div key={index} className="rounded-lg bg-card shadow-sm p-2 space-y-2 transition-all hover:shadow-md">
                   <div className="flex items-center gap-2">
-                    <Select
-                      value={ref.id || undefined}
-                      onValueChange={(id) => replace(index, { ...ref, id })}
-                    >
+                    <Select value={ref.id || undefined} onValueChange={(id) => replace(index, { ...ref, id })}>
                       <SelectTrigger className="h-7 text-xs flex-1">
                         <SelectValue
                           placeholder={
                             isStale ? (
-                              <span className="text-destructive">
-                                {t("memoryRefStale", "Deleted memory file")}
-                              </span>
+                              <span className="text-destructive">{t("memoryRefStale", "Deleted memory file")}</span>
                             ) : (
                               t("selectMemoryFile", "Select memory file...")
                             )
@@ -433,12 +436,7 @@ const ParameterEditor = ({
                     onValueChange={(v) => v && replace(index, { ...ref, mode: v as "r" | "rw" })}
                     className="gap-0 justify-start"
                   >
-                    <ToggleGroupItem
-                      value="r"
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-3 text-xs rounded-r-none"
-                    >
+                    <ToggleGroupItem value="r" size="sm" variant="outline" className="h-7 px-3 text-xs rounded-r-none">
                       {t("memoryModeRead", "Read")}
                     </ToggleGroupItem>
                     <ToggleGroupItem

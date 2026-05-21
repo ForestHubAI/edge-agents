@@ -17,12 +17,12 @@ import {
 import type { OutputDeclaration } from "@foresthub/workflow-core/parameter";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
 import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
-import { CanvasStore } from "../store/canvasStore";
+import { CanvasStore } from "../stores/canvasStore";
 import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
 import { nodeOutputVariableKey, paramKey } from "@foresthub/workflow-core/variable";
 import { isExpression } from "@foresthub/workflow-core/expression";
 import { isValidConnection } from "@foresthub/workflow-core/node";
-import { generateId } from "./IDs";
+import { generateId } from "@foresthub/workflow-core/id";
 
 // ============================================================================
 // Output Name Deduplication
@@ -106,7 +106,7 @@ export function canAddNode(store: CanvasStore, nodeDef: NodeDefinition): boolean
 export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, position?: { x: number; y: number }): string | null {
   if (!canAddNode(store, nodeDef)) return null;
 
-  const nodeId = generateId(nodeDef.type);
+  const nodeId = generateId();
 
   // Initialize parameters with default values
   const args: Record<string, unknown> = {};
@@ -414,7 +414,7 @@ export function pasteToStore(
   // Build old ID -> new ID mapping (only for pastable nodes)
   const idMap = new Map<string, string>();
   pastableNodes.forEach((node) => {
-    const newId = generateId(node.data.type);
+    const newId = generateId();
     idMap.set(node.id, newId);
   });
 
@@ -455,7 +455,7 @@ export function pasteToStore(
     .map((edge) => {
       const newEdge = {
         ...edge,
-        id: generateId("edge"),
+        id: generateId(),
         source: idMap.get(edge.source)!,
         target: idMap.get(edge.target)!,
         data: edge.data ? { ...edge.data } : edge.data,

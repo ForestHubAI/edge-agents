@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
-import { AlertTriangle, Bot, Plus } from "lucide-react";
+import { AlertTriangle, BrainCircuit, Plus } from "lucide-react";
 import { cn } from "../lib/utils";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { addModel } from "../utils/modelOperations";
 
 /**
@@ -30,7 +30,7 @@ export const ModelsPanel = () => {
   if (list.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Bot className="w-10 h-10 text-muted-foreground/50 mb-3" />
+        <BrainCircuit className="w-10 h-10 text-muted-foreground/50 mb-3" />
         <p className="text-sm text-muted-foreground">{t("noModels", "No custom models yet")}</p>
         <p className="text-xs text-muted-foreground/70 mt-1">
           {t("noModelsHint", "Built-in models are always available. Declare custom or self-hosted models here.")}
@@ -69,7 +69,7 @@ export const ModelsPanel = () => {
                 {model.label}
               </span>
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground shrink-0">
-                {t("modelCustomBadge", "Custom")}
+                {t("modelLLMBadge", "LLM")}
               </span>
             </div>
           </div>

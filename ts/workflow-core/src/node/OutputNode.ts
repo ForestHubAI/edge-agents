@@ -1,5 +1,5 @@
-import { NodeBase, Expression } from ".";
-import { NodeCategory, NodeTag } from "./NodeConstants";
+import { NodeBase, Expression } from "./Node";
+import { NodeCategory, NodeTag } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 export interface WritePinNode extends NodeBase {

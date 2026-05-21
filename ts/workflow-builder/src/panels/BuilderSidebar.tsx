@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/toolti
 import { cn } from "../lib/utils";
 import { NodeCategory, NodeDefinition } from "@foresthub/workflow-core/node";
 import { useMemo } from "react";
-import { Blocks, Bot, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
+import { Blocks, BrainCircuit, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { FunctionDefinitionPanel } from "./FunctionDefinitionPanel";
@@ -12,7 +12,7 @@ import { ChannelsPanel } from "./ChannelsPanel";
 import { MemoryPanel } from "./MemoryPanel";
 import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
 import type { FunctionInfo } from "@foresthub/workflow-core/node";
 
@@ -64,23 +64,21 @@ export const BuilderSidebar = ({
 }: BuilderSidebarProps) => {
   const { t } = useTranslation();
 
-  const staticTabs = useMemo(() => [
-    { id: "nodes" as const, icon: Blocks, label: t("nodeLibrary") },
-    { id: "variables" as const, icon: Variable, label: t("variables") },
-    { id: "channels" as const, icon: Cpu, label: t("channels") },
-    { id: "memory" as const, icon: Database, label: t("memoryFiles", "Memory") },
-    { id: "models" as const, icon: Bot, label: t("models", "Models") },
-    { id: "diagnostics" as const, icon: TriangleAlert, label: t("diagnostics") },
-  ], [t]);
-
-  const functionTab = useMemo(
-    () => ({ id: "function" as const, icon: Braces, label: t("functionDefinition") }),
+  const staticTabs = useMemo(
+    () => [
+      { id: "nodes" as const, icon: Blocks, label: t("nodeLibrary") },
+      { id: "variables" as const, icon: Variable, label: t("variables") },
+      { id: "channels" as const, icon: Cpu, label: t("channels") },
+      { id: "memory" as const, icon: Database, label: t("memoryFiles", "Memory") },
+      { id: "models" as const, icon: BrainCircuit, label: t("models", "AI Models") },
+      { id: "diagnostics" as const, icon: TriangleAlert, label: t("diagnostics") },
+    ],
     [t],
   );
 
-  const debugTabs = useMemo(() => [
-    { id: "debug-context" as const, icon: Bug, label: t("debug.context") },
-  ], [t]);
+  const functionTab = useMemo(() => ({ id: "function" as const, icon: Braces, label: t("functionDefinition") }), [t]);
+
+  const debugTabs = useMemo(() => [{ id: "debug-context" as const, icon: Bug, label: t("debug.context") }], [t]);
 
   // Current-canvas diagnostics counts for the diagnostics tab — node + edge only.
   const totalErrors = useDiagnosticsStore((s) => {

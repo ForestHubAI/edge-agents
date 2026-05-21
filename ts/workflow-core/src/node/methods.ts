@@ -1,5 +1,5 @@
-import { NodeInstance, NodeOutput, OutputBinding } from ".";
-import type { OutputDeclaration } from "../parameter";
+import { NodeInstance, NodeOutput } from "./Node";
+import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { PortDefinitions } from "./NodeDefinition";
 import { resolveStaticOutputDataType } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";

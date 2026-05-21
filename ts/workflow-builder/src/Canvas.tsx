@@ -20,8 +20,8 @@ import { useResolvedTheme } from "./hooks/useResolvedTheme";
 
 import { NodeCategory, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
 import { isValidConnection as validateConnection } from "@foresthub/workflow-core/node";
-import { getOrCreateCanvasStore } from "./store/canvasStore";
-import { useEditorStore, isReadOnly } from "./store/editorStore";
+import { getOrCreateCanvasStore } from "./stores/canvasStore";
+import { useEditorStore, isReadOnly } from "./stores/editorStore";
 import { nodeTypes, edgeTypes } from "./graph/reactFlowRegistry";
 
 interface CanvasProps {

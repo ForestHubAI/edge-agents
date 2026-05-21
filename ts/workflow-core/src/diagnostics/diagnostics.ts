@@ -2,9 +2,9 @@ import type { Expression, FunctionInfo, NodeDefinition, NodeInstance } from "../
 import { NodeCategory, NodeRegistry } from "../node";
 import type { EdgeInstance, EdgeType } from "../edge";
 import { getEdgeDefinition, isControlFlow } from "../edge";
-import { getArguments, getNodeAvailableOutput, getOutputBinding, getPorts } from "../node/NodeMethods";
+import { getArguments, getNodeAvailableOutput, getOutputBinding, getPorts } from "../node/methods";
 import type { Edge } from "@xyflow/react";
-import type { AvailableVariable } from "../variable";
+import type { Variable } from "../variable";
 import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
@@ -20,7 +20,7 @@ import { ModelRegistry } from "../model";
 import type { Schemas } from "../api";
 import type { Reference } from "../node";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
-import { MAIN_CANVAS_ID, type WorkflowState, type CanvasData } from "../workflow/snapshots";
+import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow/Workflow";
 
 // ============================================================================
 // Types
@@ -67,7 +67,7 @@ export function computeNodeDiagnostics(opts: {
   nodeId: string;
   nodeData: NodeInstance;
   nodeDefinition: NodeDefinition | undefined;
-  availableVariables: Record<string, AvailableVariable>;
+  availableVariables: Record<string, Variable>;
   channels: Record<string, ChannelInstance>;
   memory?: Record<string, MemoryInstance>;
   /** Declared custom models (project-scoped). */
@@ -495,7 +495,7 @@ export function computeEdgeDiagnostics(opts: {
   edgeId: string;
   edgeType: EdgeType;
   edgeData: EdgeInstance | undefined;
-  availableVariables: Record<string, AvailableVariable>;
+  availableVariables: Record<string, Variable>;
   sourceControlEdgeCount: number;
 }): Diagnostic[] {
   const { canvasId, edgeId, edgeType, edgeData, availableVariables, sourceControlEdgeCount } = opts;
@@ -708,7 +708,7 @@ export interface ValidationResult {
  * validation deterministic from its input alone — and removes the cache-lag
  * window the store-bound path had.
  */
-function deriveFunctionRegistry(canvases: Record<string, CanvasData>): Record<string, FunctionInfo> {
+function deriveFunctionRegistry(canvases: Record<string, Canvas>): Record<string, FunctionInfo> {
   const functions: Record<string, FunctionInfo> = {};
   for (const [id, canvas] of Object.entries(canvases)) {
     if (id === MAIN_CANVAS_ID) continue;
@@ -719,14 +719,14 @@ function deriveFunctionRegistry(canvases: Record<string, CanvasData>): Record<st
 
 /**
  * Headless full-project validation. Pure: depends only on the passed
- * {@link WorkflowState} (the in-memory domain shape) — no Zustand stores, no
+ * {@link Workflow} (the in-memory domain shape) — no Zustand stores, no
  * React, no DOM. Runnable in Node, a CLI, or a Claude Code skill.
  *
  * Two producers feed this: the editor reads its live stores into a
  * `WorkflowState` literal; the CLI calls `deserialize(contractWorkflow)` from
  * `./workflowSerialization` to convert on-wire JSON into this shape.
  */
-export function validateWorkflowState(state: WorkflowState): ValidationResult {
+export function validateWorkflowState(state: Workflow): ValidationResult {
   const canvasData = state.canvases ?? {};
   const allFunctions = deriveFunctionRegistry(canvasData);
   const channels = state.channels ?? {};
@@ -886,4 +886,3 @@ export function validateWorkflowState(state: WorkflowState): ValidationResult {
 
   return { canvases, channelDiagnostics, memoryDiagnostics, modelDiagnostics, totalErrors, totalWarnings };
 }
-

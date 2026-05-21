@@ -1,4 +1,5 @@
-import { NodeCategory, NodeTag, NodeType } from ".";
+import { NodeType } from "./Node";
+import { NodeCategory, NodeTag } from "./constants";
 import { OutputParameter, Parameter } from "../parameter";
 
 /**

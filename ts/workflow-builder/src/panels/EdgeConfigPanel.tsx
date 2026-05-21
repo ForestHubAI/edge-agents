@@ -6,8 +6,8 @@ import { ChevronRight, Trash2 } from "lucide-react";
 import { getEdgeDefinition } from "@foresthub/workflow-core/edge";
 import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
 import ParameterEditor from "../inputs/ParameterEditor";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { getEdgeDescription } from "../utils/translation";
 
 interface EdgeConfigPanelProps {
@@ -100,9 +100,7 @@ export const EdgeConfigPanel = ({
             );
           })
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("noEdgeParams")}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("noEdgeParams")}</p>
         )}
       </div>
 

@@ -1,7 +1,8 @@
-import { Expression, FunctionInfo, NodeBase, OutputBinding } from ".";
-import type { DataType } from ".";
+import { Expression, FunctionInfo, NodeBase } from "./Node";
+import type { DataType } from "./Node";
+import { OutputBinding } from "../parameter";
 import { NodeDefinition } from "./NodeDefinition";
-import { NodeCategory } from "./NodeConstants";
+import { NodeCategory } from "./constants";
 import { paramKey } from "../variable";
 
 // Function Call Node - invokes a user-defined function.

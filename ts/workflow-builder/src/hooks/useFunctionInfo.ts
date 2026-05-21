@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/node";
+import type { FunctionInfo, ApiVariable, NodeOutput } from "@foresthub/workflow-core/node";
 import { ensureUid } from "@foresthub/workflow-core/variable";
 
 /**
@@ -7,7 +7,7 @@ import { ensureUid } from "@foresthub/workflow-core/variable";
  */
 export function useFunctionInfo(fn: FunctionInfo, onUpdate: (updates: FunctionInfo) => void) {
   const addArgument = useCallback(() => {
-    const newParam: Variable = ensureUid({
+    const newParam: ApiVariable = ensureUid({
       name: `input${fn.arguments.length + 1}`,
       dataType: "string",
     });
@@ -18,7 +18,7 @@ export function useFunctionInfo(fn: FunctionInfo, onUpdate: (updates: FunctionIn
   }, [fn, onUpdate]);
 
   const addReturnValue = useCallback(() => {
-    const newParam: Variable = ensureUid({
+    const newParam: ApiVariable = ensureUid({
       name: `output${fn.returns.length + 1}`,
       dataType: "string",
     });

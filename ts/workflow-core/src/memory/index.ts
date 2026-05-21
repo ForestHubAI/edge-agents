@@ -4,5 +4,5 @@ export type { MemoryDefinition } from "./MemoryDefinition";
 export { MemoryFileDefinition } from "./MemoryFileDefinition";
 export { VectorDatabaseDefinition } from "./VectorDatabaseDefinition";
 export { MemoryRegistry } from "./MemoryRegistry";
-export { serialize, deserialize } from "./MemorySerialization";
-export type { EditorMemorySchema } from "./MemorySerialization";
+export { serialize, deserialize } from "./serialization";
+export type { ApiMemory } from "./serialization";

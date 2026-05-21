@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "../components/ui/badge";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 import { cn } from "../lib/utils";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { getOrCreateCanvasStore } from "../store/canvasStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useNodeDefinitions } from "../hooks/useNodeDefinitions";
 import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
 
@@ -105,9 +105,7 @@ export const DiagnosticsPanel = ({ canvasId, onSelectNode, onSelectEdge }: Diagn
         <DiagnosticGroupItem
           key={`${group.entityType}-${group.entityId}`}
           group={group}
-          onSelect={() =>
-            group.entityType === "node" ? onSelectNode(group.entityId) : onSelectEdge(group.entityId)
-          }
+          onSelect={() => (group.entityType === "node" ? onSelectNode(group.entityId) : onSelectEdge(group.entityId))}
         />
       ))}
     </div>
@@ -131,12 +129,18 @@ function DiagnosticGroupItem({ group, onSelect }: { group: DiagnosticGroup; onSe
         <span className="truncate flex-1 font-medium">{group.label}</span>
         <div className="flex items-center gap-1">
           {group.errorCount > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-4 border-destructive/40 text-destructive bg-destructive/10">
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-destructive/40 text-destructive bg-destructive/10"
+            >
               {group.errorCount}
             </Badge>
           )}
           {group.warningCount > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-4 border-warning/40 text-warning bg-warning/10">
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-warning/40 text-warning bg-warning/10"
+            >
               {group.warningCount}
             </Badge>
           )}

@@ -1,6 +1,7 @@
 import { Edge, Node } from "@xyflow/react";
-import { NodeInstance, NodeDefinition } from ".";
-import { getPorts } from "./NodeMethods";
+import { NodeInstance } from "./Node";
+import { NodeDefinition } from "./NodeDefinition";
+import { getPorts } from "./methods";
 import { type EdgeType } from "../edge";
 
 /**
@@ -17,9 +18,7 @@ export function isNodeUsedAsTool(nodeId: string, nodeData: NodeInstance, edges: 
 /** Check whether a node already has tool-input edges (for mutual exclusion). */
 function hasToolInputEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[]): boolean {
   const ports = getPorts(nodeData);
-  return edges.some(
-    (e) => e.target === nodeId && ports.input.some((p) => p.type === "tool" && p.id === e.targetHandle),
-  );
+  return edges.some((e) => e.target === nodeId && ports.input.some((p) => p.type === "tool" && p.id === e.targetHandle));
 }
 
 /** Check whether a node already has control-flow edges (for mutual exclusion). */
@@ -40,12 +39,7 @@ function hasControlFlowEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[
  * Check whether an output port can accept at least one more outgoing edge.
  * Used by the contextual "+" button on output ports.
  */
-export function canPortAcceptEdge(
-  nodeId: string,
-  handleId: string,
-  nodes: Node<NodeInstance>[],
-  edges: Edge[],
-): boolean {
+export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<NodeInstance>[], edges: Edge[]): boolean {
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return false;
 

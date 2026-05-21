@@ -1,7 +1,6 @@
 import { ModelRegistry, type ModelType, type ModelInstance } from "@foresthub/workflow-core/model";
-import { useEditorStore } from "../store/editorStore";
-import { generateId } from "./IDs";
-import { modelKey } from "./model";
+import { useEditorStore } from "../stores/editorStore";
+import { generateId } from "@foresthub/workflow-core/id";
 
 /**
  * Build the initial `arguments` record for a new declared model: each parameter
@@ -32,7 +31,7 @@ function nextDefaultLabel(prefix: string, existingLabels: string[]): string {
 
 /** Create a new declared (custom) model of the given type. Returns the new instance. */
 export function addModel(type: ModelType): ModelInstance {
-  const id = generateId("mdl");
+  const id = generateId();
   const existing = Object.values(useEditorStore.getState().models).map((m) => m.label);
   const instance: ModelInstance = {
     id,
@@ -40,7 +39,7 @@ export function addModel(type: ModelType): ModelInstance {
     type,
     arguments: defaultArguments(type),
   };
-  useEditorStore.getState().setModels((models) => ({ ...models, [modelKey(id)]: instance }));
+  useEditorStore.getState().setModels((models) => ({ ...models, [id]: instance }));
   return instance;
 }
 
@@ -49,7 +48,7 @@ export function addModel(type: ModelType): ModelInstance {
  * `arguments` record merge separately. `type` is fixed at creation.
  */
 export function updateModel(id: string, patch: { label?: string; arguments?: Record<string, unknown> }): void {
-  const key = modelKey(id);
+  const key = id;
   useEditorStore.getState().setModels((models) => {
     const existing = models[key];
     if (!existing) return models;
@@ -65,7 +64,7 @@ export function updateModel(id: string, patch: { label?: string; arguments?: Rec
 }
 
 export function deleteModel(id: string): void {
-  const key = modelKey(id);
+  const key = id;
   useEditorStore.getState().setModels((models) => {
     const { [key]: _drop, ...rest } = models;
     return rest;

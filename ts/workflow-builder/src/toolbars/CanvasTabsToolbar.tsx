@@ -12,7 +12,7 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FunctionInfo } from "@foresthub/workflow-core/node";
 import { CanvasTab } from "../hooks/useCanvasTabs";
-import { MAIN_CANVAS_ID } from "../store/canvasStore";
+import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 
 interface CanvasTabsToolbarProps {
   tabs: CanvasTab[];
@@ -71,9 +71,7 @@ export const CanvasTabsToolbar = ({
       const slot = isLeftHalf ? index : index + 1;
       // Indicator position: center of the gap (gap-1 = 4px) between tabs
       const GAP_HALF = 2;
-      const raw = isLeftHalf
-        ? rect.left - containerRect.left - GAP_HALF
-        : rect.right - containerRect.left + GAP_HALF;
+      const raw = isLeftHalf ? rect.left - containerRect.left - GAP_HALF : rect.right - containerRect.left + GAP_HALF;
       // Clamp so the indicator stays fully visible inside the container
       const x = Math.round(Math.max(0, Math.min(raw, containerRef.current.clientWidth - 2)));
 
@@ -109,7 +107,7 @@ export const CanvasTabsToolbar = ({
       {indicatorX !== null && (
         <div
           className="absolute top-1.5 bottom-1.5 bg-primary z-10 pointer-events-none"
-          style={{ left: 0, width: '2px', transform: `translateX(${indicatorX}px)` }}
+          style={{ left: 0, width: "2px", transform: `translateX(${indicatorX}px)` }}
         />
       )}
 
@@ -158,9 +156,7 @@ export const CanvasTabsToolbar = ({
             </div>
 
             {/* Static separator after Main tab */}
-            {isMainTab(index) && tabs.length > 1 && (
-              <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />
-            )}
+            {isMainTab(index) && tabs.length > 1 && <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />}
           </React.Fragment>
         );
       })}
@@ -179,16 +175,10 @@ export const CanvasTabsToolbar = ({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
           {functions.map((fn) => (
-            <DropdownMenuItem
-              key={fn.id}
-              onClick={() => onOpenFunction(fn.id)}
-              className="gap-2"
-            >
+            <DropdownMenuItem key={fn.id} onClick={() => onOpenFunction(fn.id)} className="gap-2">
               <FunctionSquare className="w-4 h-4 shrink-0" />
               <span className="truncate">{fn.name}</span>
-              {openTabIds.has(fn.id) && (
-                <span className="ml-auto text-xs text-muted-foreground">open</span>
-              )}
+              {openTabIds.has(fn.id) && <span className="ml-auto text-xs text-muted-foreground">open</span>}
             </DropdownMenuItem>
           ))}
           {functions.length > 0 && <DropdownMenuSeparator />}

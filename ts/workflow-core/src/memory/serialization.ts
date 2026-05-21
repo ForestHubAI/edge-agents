@@ -1,8 +1,7 @@
 import type { Schemas } from "../api";
 import type { MemoryInstance } from "./Memory";
 
-/** Every memory variant the editor produces. Same as Schemas["Memory"], aliased for clarity at call sites. */
-export type EditorMemorySchema = Schemas["Memory"];
+export type ApiMemory = Schemas["Memory"];
 
 /**
  * Serialize a domain MemoryInstance to the API discriminated-union shape.
@@ -10,7 +9,7 @@ export type EditorMemorySchema = Schemas["Memory"];
  * deploy step resolves it against a backend collection (mirrors Channel.driverId).
  * MemoryFile drops `maxSizeBytes` when unset (absent and null both mean "unlimited").
  */
-export function serialize(mem: MemoryInstance): EditorMemorySchema {
+export function serialize(mem: MemoryInstance): ApiMemory {
   const { id, label, type, arguments: args } = mem;
   switch (type) {
     case "MemoryFile":
@@ -37,7 +36,7 @@ export function serialize(mem: MemoryInstance): EditorMemorySchema {
  * Convert an API Memory into a domain MemoryInstance. Deploy-time bindings
  * (VectorDatabase.collectionId) are dropped — they aren't part of editor state.
  */
-export function deserialize(api: EditorMemorySchema): MemoryInstance {
+export function deserialize(api: ApiMemory): MemoryInstance {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};
   switch (type) {

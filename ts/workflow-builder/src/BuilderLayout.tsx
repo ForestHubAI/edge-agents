@@ -15,9 +15,9 @@ import { useGraph } from "./hooks/useGraph";
 import { useNodeDefinitions } from "./hooks/useNodeDefinitions";
 import { DebugConsolePanel } from "./panels/DebugConsolePanel";
 import type { CanvasTab } from "./hooks/useCanvasTabs";
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./store/canvasStore";
-import { useDebugStore } from "./store/debugStore";
-import { useEditorStore, isReadOnly } from "./store/editorStore";
+import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./stores/canvasStore";
+import { useDebugStore } from "./stores/debugStore";
+import { useEditorStore, isReadOnly } from "./stores/editorStore";
 import { migrateFunctionCallNodes } from "./utils/migrateFunctionNodes";
 
 /**

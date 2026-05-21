@@ -5,9 +5,9 @@ import { Separator } from "../components/ui/separator";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { MemoryRegistry, type MemoryInstance } from "@foresthub/workflow-core/memory";
 import ParameterEditor from "../inputs/ParameterEditor";
-import { MAIN_CANVAS_ID } from "../store/canvasStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { MAIN_CANVAS_ID } from "../stores/canvasStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { deleteMemory, updateMemory } from "../utils/memoryOperations";
 
 interface MemoryConfigPanelProps {
@@ -35,9 +35,7 @@ export const MemoryConfigPanel = ({ memory, onClose }: MemoryConfigPanelProps) =
   const isDuplicateLabel =
     memory.type === "MemoryFile" &&
     memory.label.trim() !== "" &&
-    Object.values(allMemory).some(
-      (m) => m.id !== memory.id && m.type === "MemoryFile" && m.label === memory.label,
-    );
+    Object.values(allMemory).some((m) => m.id !== memory.id && m.type === "MemoryFile" && m.label === memory.label);
   const isEmptyLabel = memory.label.trim() === "";
 
   // Per-parameter error map, keyed by paramId — same shape ChannelConfigPanel uses.

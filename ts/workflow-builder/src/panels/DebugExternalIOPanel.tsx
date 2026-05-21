@@ -6,8 +6,8 @@ import { Loader2, Play } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NodeCategory, getInput, type NodeInstance, type ExternalInput } from "@foresthub/workflow-core/node";
-import { getOrCreateCanvasStore } from "../store/canvasStore";
-import { useDebugStore, type DebugSessionPhase } from "../store/debugStore";
+import { getOrCreateCanvasStore } from "../stores/canvasStore";
+import { useDebugStore, type DebugSessionPhase } from "../stores/debugStore";
 
 interface DebugExternalIOPanelProps {
   canvasId: string;
@@ -22,13 +22,10 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
   const cursorNodeId = getCursorNodeId(phase);
   const canvasStore = getOrCreateCanvasStore(canvasId);
   const cursorNode = canvasStore((s) =>
-    cursorNodeId ? s.nodes.find((n) => n.id === cursorNodeId)?.data ?? null : null,
+    cursorNodeId ? (s.nodes.find((n) => n.id === cursorNodeId)?.data ?? null) : null,
   );
 
-  const requirements = useMemo(
-    () => (cursorNode ? getInput(cursorNode as NodeInstance) : []),
-    [cursorNode],
-  );
+  const requirements = useMemo(() => (cursorNode ? getInput(cursorNode as NodeInstance) : []), [cursorNode]);
 
   const isTrigger = cursorNode ? getNodeCategory(cursorNode as NodeInstance) === NodeCategory.Trigger : false;
   const isStepping = phase.status === "stepping";
@@ -46,11 +43,7 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
   }, [cursorNodeId, onStep]);
 
   if (!cursorNodeId) {
-    return (
-      <div className="text-sm text-muted-foreground text-center py-4">
-        {t("debug.selectNode")}
-      </div>
-    );
+    return <div className="text-sm text-muted-foreground text-center py-4">{t("debug.selectNode")}</div>;
   }
 
   if (isTrigger) {
@@ -72,9 +65,7 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
 
       {/* Requirements */}
       {requirements.length === 0 ? (
-        <div className="text-xs text-muted-foreground">
-          {t("debug.noInputsNeeded")}
-        </div>
+        <div className="text-xs text-muted-foreground">{t("debug.noInputsNeeded")}</div>
       ) : (
         <div className="space-y-3">
           {requirements.map((req, i) => (
@@ -143,17 +134,13 @@ function ExternalInputField({
         {requirement.dataType === "bool" ? (
           <Switch
             checked={!!value}
-            onCheckedChange={(checked) =>
-              setGpioValues((prev) => ({ ...prev, [pinKey]: checked ? 1 : 0 }))
-            }
+            onCheckedChange={(checked) => setGpioValues((prev) => ({ ...prev, [pinKey]: checked ? 1 : 0 }))}
           />
         ) : (
           <Input
             type="number"
             value={value}
-            onChange={(e) =>
-              setGpioValues((prev) => ({ ...prev, [pinKey]: parseInt(e.target.value) || 0 }))
-            }
+            onChange={(e) => setGpioValues((prev) => ({ ...prev, [pinKey]: parseInt(e.target.value) || 0 }))}
             className="h-8 font-mono text-sm"
             min={0}
             max={4095}

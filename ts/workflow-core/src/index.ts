@@ -1,6 +1,6 @@
 import { deserialize } from "./workflow/serialization";
 import { validateWorkflowState, type ValidationResult } from "./diagnostics/diagnostics";
-import type { Workflow } from "./workflow/snapshots";
+import type { ApiWorkflow } from "./workflow/Workflow";
 
 /**
  * Validate a workflow against the headless validator. Takes the contract's
@@ -9,6 +9,6 @@ import type { Workflow } from "./workflow/snapshots";
  * Pure: no I/O, no Zustand, no React, no DOM. Runnable in Node, a CLI, or
  * a Claude Code skill.
  */
-export function validateWorkflow(workflow: Workflow): ValidationResult {
+export function validateWorkflow(workflow: ApiWorkflow): ValidationResult {
   return validateWorkflowState(deserialize(workflow));
 }

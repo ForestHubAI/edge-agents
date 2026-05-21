@@ -1,5 +1,5 @@
 import type { Reference } from "../node";
-import { DataType, FromArgs, unwrapFromArgs } from ".";
+import { DataType, FromArgs, unwrapFromArgs } from "./Parameter";
 
 // ============================================================================
 // RUNTIME VALUES

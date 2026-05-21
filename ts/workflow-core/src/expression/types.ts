@@ -1,5 +1,5 @@
 import { DataType, Expression, NodeOutput } from "../node";
-import type { AvailableVariable } from "../variable";
+import type { Variable } from "../variable";
 import { refToLookupKey } from "../variable";
 
 // ResolvedExpr represents an expression with its variable references resolved to runtime variables
@@ -20,7 +20,7 @@ export function displayValue(expr: ResolvedExpr): string {
 }
 
 // Resolve an expression by converting variable references to runtime variables
-export function resolveExpression(apiExpr: Expression, availableVars: Record<string, AvailableVariable>): ResolvedExpr {
+export function resolveExpression(apiExpr: Expression, availableVars: Record<string, Variable>): ResolvedExpr {
   return {
     expression: apiExpr.expression,
     expectedType: apiExpr.dataType,

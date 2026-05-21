@@ -1,4 +1,4 @@
-import type { Workflow } from "@foresthub/workflow-core/workflow";
+import type { ApiWorkflow } from "@foresthub/workflow-core/workflow";
 import type { ModelInfo } from "@foresthub/workflow-core/model";
 import { validateWorkflowState, type ValidationResult } from "@foresthub/workflow-core/diagnostics";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
@@ -18,9 +18,9 @@ import {
   getOrCreateCanvasStore,
   subscribeFunctionInfoChanges,
   type CanvasStore,
-} from "./store/canvasStore";
-import { useDebugStore, type DebugSessionPhase } from "./store/debugStore";
-import { useEditorStore } from "./store/editorStore";
+} from "./stores/canvasStore";
+import { useDebugStore, type DebugSessionPhase } from "./stores/debugStore";
+import { useEditorStore } from "./stores/editorStore";
 
 /** BuilderMode steers the overall behavior of the workflow builder. */
 export type BuilderMode = { type: "edit" } | { type: "preview" } | { type: "debug" };
@@ -43,7 +43,7 @@ export function isPreview(mode: BuilderMode): mode is Extract<BuilderMode, { typ
 export interface WorkflowBuilderProps {
   // ── Initial state (one-shot; subsequent updates go through the handle) ──
   /** Workflow loaded on mount. */
-  initialWorkflow?: Workflow;
+  initialWorkflow?: ApiWorkflow;
   /** Builder mode on mount. Defaults to { type: "edit" }. */
   initialMode?: BuilderMode;
   /**
@@ -70,8 +70,8 @@ export interface WorkflowBuilderProps {
 
 export interface WorkflowBuilderHandle {
   // State I/O
-  loadWorkflow: (workflow: Workflow) => void;
-  exportWorkflow: () => Workflow;
+  loadWorkflow: (workflow: ApiWorkflow) => void;
+  exportWorkflow: () => ApiWorkflow;
   clear: () => void;
 
   // Mode (replaces preview/debug entry-point props)

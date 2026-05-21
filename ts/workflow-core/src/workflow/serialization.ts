@@ -8,20 +8,20 @@
 // internal concern and live in its wrapper.
 
 import type { Schemas } from "../api";
-import type { NodeInstance, FunctionInfo, Expression } from "../node";
-import { getNodeOutput } from "../node/NodeMethods";
+import type { NodeInstance, FunctionInfo } from "../node";
+import { getNodeOutput } from "../node/methods";
 import type { EdgeInstance, EdgeType } from "../edge";
-import { ALL_CHANNEL_TYPES, type ChannelInstance, type ChannelType, type EditorChannelSchema } from "../channel";
+import { ALL_CHANNEL_TYPES, ApiChannel, type ChannelInstance, type ChannelType } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
 import type { MemoryInstance } from "../memory";
 import { serialize as serializeMemory, deserialize as deserializeMemory } from "../memory";
 import type { ModelInstance } from "../model";
 import { serialize as serializeModel, deserialize as deserializeModel } from "../model";
-import { serialize as serializeNode, deserialize as deserializeNode } from "../node/NodeSerialization";
+import { serialize as serializeNode, deserialize as deserializeNode } from "../node/serialization";
 import { isNodeUsedAsTool } from "../node/portUtils";
-import type { CanvasVariable, NodeOutputVariable } from "../variable";
+import type { Variable, NodeOutputVariable } from "../variable";
 import { declaredVarKey, fnargKey, nodeOutputVariableKey, ensureUids } from "../variable";
-import { MAIN_CANVAS_ID, type WorkflowState, type CanvasData } from "./snapshots";
+import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
 
 const KNOWN_CHANNEL_TYPES = new Set<ChannelType>(ALL_CHANNEL_TYPES);
 
@@ -34,20 +34,13 @@ const KNOWN_CHANNEL_TYPES = new Set<ChannelType>(ALL_CHANNEL_TYPES);
  * mapping: the `main` canvas's nodes/edges/declaredVariables land at the
  * root of `Workflow`; every other canvas becomes a `Function` entry in
  * `Workflow.functions[]`, carrying its own functionInfo + outputAssignments.
- *
- * Main-canvas `outputAssignments` is silently dropped — main is not a
- * function and the contract has no slot for it. A non-empty assignments
- * record on main canvas surfaces as a dev-only `console.warn`.
  */
-export function serialize(state: WorkflowState): Schemas["Workflow"] {
+export function serialize(state: Workflow): Schemas["Workflow"] {
   const mainCanvas = state.canvases[MAIN_CANVAS_ID];
-  if (mainCanvas && Object.keys(mainCanvas.outputAssignments ?? {}).length > 0) {
-    console.warn(
-      "[workflow-core] main canvas has outputAssignments; dropping — main is not a function and the contract carries no slot for it.",
-    );
-  }
 
-  const mainNodes = mainCanvas ? mainCanvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, mainCanvas.edges))) : [];
+  const mainNodes = mainCanvas
+    ? mainCanvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, mainCanvas.edges)))
+    : [];
   const mainEdges = mainCanvas ? mainCanvas.edges.map(toApiEdge) : [];
   const mainDeclared = mainCanvas ? extractDeclaredVariables(mainCanvas.variables) : [];
 
@@ -55,8 +48,7 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
   for (const [canvasId, canvas] of Object.entries(state.canvases)) {
     if (canvasId === MAIN_CANVAS_ID) continue;
     if (!canvas.functionInfo) {
-      console.warn(`[workflow-core] canvas ${canvasId} has no functionInfo — skipping in serialize`);
-      continue;
+      throw new Error(`[workflow-core] canvas ${canvasId} has no functionInfo — cannot serialize as a Function`);
     }
     functions.push({
       functionInfo: canvas.functionInfo,
@@ -97,8 +89,8 @@ export function serialize(state: WorkflowState): Schemas["Workflow"] {
  * type (e.g. "Agent"). Workflow-builder's wrapper translates it to the React
  * Flow display type during store hydration — that translation is editor-only.
  */
-export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
-  const canvases: Record<string, CanvasData> = {};
+export function deserialize(workflow: Schemas["Workflow"]): Workflow {
+  const canvases: Record<string, Canvas> = {};
 
   // Main canvas: data at the contract root; no functionInfo, empty outputAssignments.
   const mainNodes = workflow.nodes.map(toCanvasNode);
@@ -107,7 +99,11 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
   canvases[MAIN_CANVAS_ID] = {
     nodes: mainNodes,
     edges: mainEdges,
-    variables: buildCanvasVariables(mainNodes.map((n) => n.data), null, mainDeclared),
+    variables: buildCanvasVariables(
+      mainNodes.map((n) => n.data),
+      null,
+      mainDeclared,
+    ),
     functionInfo: null,
     outputAssignments: {},
   };
@@ -124,7 +120,11 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
     canvases[functionInfo.id] = {
       nodes: fnNodes,
       edges: fnEdges,
-      variables: buildCanvasVariables(fnNodes.map((n) => n.data), functionInfo, fn.declaredVariables ?? []),
+      variables: buildCanvasVariables(
+        fnNodes.map((n) => n.data),
+        functionInfo,
+        fn.declaredVariables ?? [],
+      ),
       functionInfo,
       outputAssignments: fn.outputAssignments ?? {},
     };
@@ -133,7 +133,7 @@ export function deserialize(workflow: Schemas["Workflow"]): WorkflowState {
   const channels: Record<string, ChannelInstance> = {};
   for (const c of workflow.channels ?? []) {
     if (!KNOWN_CHANNEL_TYPES.has(c.type as ChannelType)) continue;
-    const instance = deserializeChannel(c as EditorChannelSchema);
+    const instance = deserializeChannel(c as ApiChannel);
     channels[instance.id] = instance;
   }
 
@@ -199,8 +199,8 @@ export function buildCanvasVariables(
   nodes: NodeInstance[],
   functionInfo: FunctionInfo | null,
   declaredVariables: readonly Schemas["Variable"][],
-): Record<string, CanvasVariable> {
-  const variables: Record<string, CanvasVariable> = computeVariablesFromNodes(nodes);
+): Record<string, Variable> {
+  const variables: Record<string, Variable> = computeVariablesFromNodes(nodes);
   if (functionInfo) {
     for (const arg of functionInfo.arguments) {
       variables[fnargKey(arg.uid)] = {
@@ -232,7 +232,7 @@ export function buildCanvasVariables(
  * variety the contract persists). Node-output and fnarg variables are
  * reconstructed on deserialize from nodes + functionInfo.
  */
-export function extractDeclaredVariables(variables: Record<string, CanvasVariable>): Schemas["Variable"][] {
+export function extractDeclaredVariables(variables: Record<string, Variable>): Schemas["Variable"][] {
   const result: Schemas["Variable"][] = [];
   for (const v of Object.values(variables)) {
     if (v.kind === "declared") {
@@ -253,7 +253,7 @@ export function extractDeclaredVariables(variables: Record<string, CanvasVariabl
  * (e.g. "Agent"); workflow-builder's wrapper rewrites it to a React Flow
  * display type during store hydration.
  */
-function toCanvasNode(apiNode: Schemas["Node"]): CanvasData["nodes"][number] {
+function toCanvasNode(apiNode: Schemas["Node"]): Canvas["nodes"][number] {
   const data = deserializeNode(apiNode);
   return {
     id: data.id,
@@ -270,7 +270,7 @@ function toCanvasNode(apiNode: Schemas["Node"]): CanvasData["nodes"][number] {
  * on agentTask/agentDelegate; `description` on agentChoice/agentDelegate)
  * is folded into `data` as `EdgeInstance`.
  */
-function toCanvasEdge(apiEdge: Schemas["Edge"]): CanvasData["edges"][number] {
+function toCanvasEdge(apiEdge: Schemas["Edge"]): Canvas["edges"][number] {
   let data: EdgeInstance | undefined;
   if ((apiEdge.type === "agentTask" || apiEdge.type === "agentDelegate") && apiEdge.prompt) {
     data = { ...data, prompt: apiEdge.prompt };
@@ -294,7 +294,7 @@ function toCanvasEdge(apiEdge: Schemas["Edge"]): CanvasData["edges"][number] {
  * (contract now requires it). Edge-type-conditional metadata is reattached
  * from the edge's `data` payload.
  */
-function toApiEdge(edge: CanvasData["edges"][number]): Schemas["Edge"] {
+function toApiEdge(edge: Canvas["edges"][number]): Schemas["Edge"] {
   const sourceHandle = edge.sourceHandle || "";
   const targetHandle = edge.targetHandle || "";
   const edgeType = edge.type as EdgeType | undefined;

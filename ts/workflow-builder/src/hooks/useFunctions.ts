@@ -1,9 +1,9 @@
 import { useCallback } from "react";
-import { useEditorStore } from "../store/editorStore";
-import { deleteCanvasStore, getOrCreateCanvasStore, getCanvasStore, syncFunctionArgVariables } from "../store/canvasStore";
+import { useEditorStore } from "../stores/editorStore";
+import { deleteCanvasStore, getOrCreateCanvasStore, getCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
 import { useFunctionRegistry } from "./useFunctionRegistry";
 import type { FunctionInfo } from "@foresthub/workflow-core/node";
-import { generateId } from "../utils/IDs";
+import { generateId } from "@foresthub/workflow-core/id";
 import { ensureUids } from "@foresthub/workflow-core/variable";
 
 export interface UseFunctionsOptions {
@@ -45,7 +45,7 @@ export const useFunctions = (options: UseFunctionsOptions) => {
   // Add a new function with optional inputs/outputs
   const addFunction = useCallback(
     (name: string, inputs?: FunctionInfo["arguments"], outputs?: FunctionInfo["returns"]) => {
-      const newId = generateId("function");
+      const newId = generateId();
 
       const functionInfo: FunctionInfo = {
         id: newId,

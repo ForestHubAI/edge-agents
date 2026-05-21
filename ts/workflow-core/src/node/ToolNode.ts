@@ -1,5 +1,5 @@
-import { NodeBase } from ".";
-import { NodeCategory } from "./NodeConstants";
+import { NodeBase } from "./Node";
+import { NodeCategory } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 // Web Search Tool - provides web search capability to agents

@@ -3,14 +3,14 @@ import type { DataType, Expression, NodeDefinition, NodeInstance, Reference } fr
 import type { ChannelInstance } from "../../channel";
 import type { MemoryInstance } from "../../memory";
 import { NodeCategory } from "../../node";
-import type { AvailableVariable, DeclaredVariable, NodeOutputVariable } from "../../variable";
+import type { Variable, DeclaredVariable, NodeOutputVariable } from "../../variable";
 import type { Diagnostic, DiagnosticCategory } from "../diagnostics";
 
 // ============================================================================
 // Variable builders
 // ============================================================================
 
-export function makeDeclaredVar(overrides: Partial<DeclaredVariable> = {}): AvailableVariable {
+export function makeDeclaredVar(overrides: Partial<DeclaredVariable> = {}): Variable {
   return {
     kind: "declared",
     uid: "v1",
@@ -20,7 +20,7 @@ export function makeDeclaredVar(overrides: Partial<DeclaredVariable> = {}): Avai
   };
 }
 
-export function makeNodeOutputVar(overrides: Partial<NodeOutputVariable> = {}): AvailableVariable {
+export function makeNodeOutputVar(overrides: Partial<NodeOutputVariable> = {}): Variable {
   return {
     kind: "node",
     nodeId: "n1",
@@ -32,8 +32,8 @@ export function makeNodeOutputVar(overrides: Partial<NodeOutputVariable> = {}): 
 }
 
 /** Build an `availableVariables` map from a list of `AvailableVariable` entries. */
-export function makeAvailableVars(vars: AvailableVariable[]): Record<string, AvailableVariable> {
-  const map: Record<string, AvailableVariable> = {};
+export function makeAvailableVars(vars: Variable[]): Record<string, Variable> {
+  const map: Record<string, Variable> = {};
   for (const v of vars) {
     const key = v.kind === "declared" ? `declared:${v.uid}` : v.kind === "fnarg" ? `fnarg:${v.uid}` : `${v.nodeId}:${v.outputId}`;
     map[key] = v;

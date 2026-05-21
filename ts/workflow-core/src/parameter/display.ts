@@ -1,6 +1,6 @@
 import type { Reference } from "../node";
-import { refToLookupKey, type AvailableVariable } from "../variable";
-import type { Parameter } from "./parameter";
+import { refToLookupKey, type Variable } from "../variable";
+import type { Parameter } from "./Parameter";
 
 export interface ParamDisplayResult {
   text: string;
@@ -11,7 +11,7 @@ export interface ParamDisplayResult {
 export function formatParamDisplay(
   param: Parameter,
   value: unknown,
-  variables: Record<string, AvailableVariable>,
+  variables: Record<string, Variable>,
   channelLabels?: Record<string, string>,
   memoryLabels?: Record<string, string>,
   modelLabels?: Record<string, string>,

@@ -1,7 +1,9 @@
-import { NodeBase, OutputBinding, OutputDeclaration } from ".";
+import { NodeBase } from "./Node";
+import { OutputBinding, OutputDeclaration } from "../parameter";
 import type { Schemas } from "../api";
-import { NodeCategory } from "./NodeConstants";
+import { NodeCategory } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
+
 export type MemoryRef = Schemas["MemoryRef"];
 
 export interface AgentNode extends NodeBase {

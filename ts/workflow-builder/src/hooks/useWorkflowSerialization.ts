@@ -1,22 +1,14 @@
 import { useCallback } from "react";
-import { serialize, deserialize, type Workflow, type WorkflowState, type CanvasData } from "@foresthub/workflow-core/workflow";
+import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthub/workflow-core/workflow";
 import type { NodeInstance } from "@foresthub/workflow-core/node";
 import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance } from "@foresthub/workflow-core/memory";
 import type { ModelInstance } from "@foresthub/workflow-core/model";
 import { Edge, Node } from "@xyflow/react";
-import {
-  clearAllCanvasStores,
-  getOrCreateCanvasStore,
-  getAllCanvasStores,
-  notifyFunctionRegistryChange,
-} from "../store/canvasStore";
-import { useEditorStore } from "../store/editorStore";
+import { clearAllCanvasStores, getOrCreateCanvasStore, getAllCanvasStores, notifyFunctionRegistryChange } from "../stores/canvasStore";
+import { useEditorStore } from "../stores/editorStore";
 import { getReactFlowType } from "../utils/graphOperations";
-import { channelKey } from "../utils/channels";
-import { memoryKey } from "../utils/memory";
-import { modelKey } from "../utils/model";
 
 /**
  * Store-bound wrapper around the headless `serialize`/`deserialize` in
@@ -27,15 +19,15 @@ import { modelKey } from "../utils/model";
  *  - Core sets each node's outer `type` to the domain node type (e.g.
  *    "Agent"); React Flow needs the *display* type — `getReactFlowType`
  *    handles that on import.
- *  - Core's `WorkflowState.channels`/`memory` are keyed by plain `id`;
- *    the editor's stores prefix them (`ch:`, `mem:`). Rekey on import;
- *    unprefix on export.
+ *
+ * Channels/memory/models are keyed by plain `id` on both sides now, so they
+ * pass through untouched — no rekeying.
  *
  * Used for code generation, template loading, and (in the future) the
  * auto-save / version paths — one persistence format throughout.
  */
 export function useWorkflowSerialization() {
-  const importProject = useCallback((workflow: Workflow): void => {
+  const importProject = useCallback((workflow: ApiWorkflow): void => {
     const state = deserialize(workflow);
 
     clearAllCanvasStores();
@@ -63,28 +55,21 @@ export function useWorkflowSerialization() {
       store.getState().setVariables(() => canvas.variables);
     }
 
-    if (state.channels && Object.keys(state.channels).length > 0) {
-      const rekeyed: Record<string, ChannelInstance> = {};
-      for (const ch of Object.values(state.channels)) rekeyed[channelKey(ch.id)] = ch;
-      useEditorStore.getState().setChannels(() => rekeyed);
+    const { channels, memory, models } = state;
+    if (channels && Object.keys(channels).length > 0) {
+      useEditorStore.getState().setChannels(() => channels);
     }
-
-    if (state.memory && Object.keys(state.memory).length > 0) {
-      const rekeyed: Record<string, MemoryInstance> = {};
-      for (const m of Object.values(state.memory)) rekeyed[memoryKey(m.id)] = m;
-      useEditorStore.getState().setMemory(() => rekeyed);
+    if (memory && Object.keys(memory).length > 0) {
+      useEditorStore.getState().setMemory(() => memory);
     }
-
-    if (state.models && Object.keys(state.models).length > 0) {
-      const rekeyed: Record<string, ModelInstance> = {};
-      for (const m of Object.values(state.models)) rekeyed[modelKey(m.id)] = m;
-      useEditorStore.getState().setModels(() => rekeyed);
+    if (models && Object.keys(models).length > 0) {
+      useEditorStore.getState().setModels(() => models);
     }
 
     notifyFunctionRegistryChange();
   }, []);
 
-  const exportProject = useCallback((): Workflow => {
+  const exportProject = useCallback((): ApiWorkflow => {
     return serialize(readStateFromStores());
   }, []);
 
@@ -92,15 +77,15 @@ export function useWorkflowSerialization() {
 }
 
 /**
- * Read the editor's live Zustand state into a {@link WorkflowState} literal.
+ * Read the editor's live Zustand state into a {@link Workflow} literal.
  * Peels the React Flow wrapper without recomputing anything; channels and
  * memory files are unprefixed for the core shape.
  *
  * Exported so the imperative handle can pass live state to
  * `validateWorkflowState` without a serialize/deserialize round-trip.
  */
-export function readStateFromStores(): WorkflowState {
-  const canvases: Record<string, CanvasData> = {};
+export function readStateFromStores(): Workflow {
+  const canvases: Record<string, Canvas> = {};
   for (const [id, store] of Object.entries(getAllCanvasStores())) {
     const s = store.getState();
     canvases[id] = {

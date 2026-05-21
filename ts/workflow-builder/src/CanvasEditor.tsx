@@ -6,7 +6,7 @@ import { getCompatibleNodeDefs, getPorts } from "@foresthub/workflow-core/node";
 
 import Canvas from "./Canvas";
 import { NodePickerDialog } from "./dialogs/NodePickerDialog";
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./store/canvasStore";
+import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./stores/canvasStore";
 import type { PortActionDetail } from "./graph/PortHandle";
 
 /**

@@ -3,14 +3,14 @@ import { isParameterActive } from "../parameter";
 import { CHANNEL_DEFINITION } from "./ChannelDefinition";
 import type { ChannelInstance } from "./Channel";
 
+export type ApiChannel = Schemas["Channel"];
+
 /**
  * Strip arguments belonging to inactive parameters (mirrors NodeSerialization).
  * Used both when writing into the store after a `type` change and when
  * serializing to the API, so the two stay consistent.
  */
-export function stripInactiveArguments(
-  args: Record<string, unknown>,
-): Record<string, unknown> {
+export function stripInactiveArguments(args: Record<string, unknown>): Record<string, unknown> {
   const out = { ...args };
   for (const param of CHANNEL_DEFINITION.parameters) {
     if (param.activationRules?.length && !isParameterActive(param, args, false)) {
@@ -20,16 +20,13 @@ export function stripInactiveArguments(
   return out;
 }
 
-/** Every channel variant the editor produces. Same as Schemas["Channel"], aliased for clarity at call sites. */
-export type EditorChannelSchema = Schemas["Channel"];
-
 /**
  * Serialize a domain ChannelInstance to the API discriminated-union shape.
  * Deploy-time bindings (`driverId` for hardware, `networkId` for MQTT) are
  * emitted as `""` — the deploy step fills them in against the target device's
  * manifest and network memberships.
  */
-export function serialize(ch: ChannelInstance): EditorChannelSchema {
+export function serialize(ch: ChannelInstance): ApiChannel {
   const { id, label, type } = ch;
   // type-discriminator must be in the args record so stripInactiveArguments
   // can evaluate `parameterIn` activation rules — otherwise every gated field
@@ -72,7 +69,7 @@ export function serialize(ch: ChannelInstance): EditorChannelSchema {
  * Convert an API Channel into a domain ChannelInstance. Deploy-time bindings
  * (`driverId`, `networkId`) are dropped — they aren't part of the editor state.
  */
-export function deserialize(api: EditorChannelSchema): ChannelInstance {
+export function deserialize(api: ApiChannel): ChannelInstance {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};
   switch (type) {

@@ -2,7 +2,7 @@ import { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
 import { Connection, Edge, Node } from "@xyflow/react";
 import type { EdgeInstance } from "@foresthub/workflow-core/edge";
 import { useCallback } from "react";
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../store/canvasStore";
+import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import {
   addNodeToStore,
   type Clipboard,

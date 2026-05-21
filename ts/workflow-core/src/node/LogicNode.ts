@@ -1,5 +1,5 @@
-import { NodeBase, Expression } from ".";
-import { NodeCategory } from "./NodeConstants";
+import { NodeBase, Expression } from "./Node";
+import { NodeCategory } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 export interface IfNode extends NodeBase {

@@ -1,7 +1,6 @@
 import { MemoryRegistry, type MemoryType, type MemoryInstance } from "@foresthub/workflow-core/memory";
-import { useEditorStore } from "../store/editorStore";
-import { generateId } from "./IDs";
-import { memoryKey } from "./memory";
+import { useEditorStore } from "../stores/editorStore";
+import { generateId } from "@foresthub/workflow-core/id";
 
 /**
  * Build the initial `arguments` record for a new memory: each parameter of the
@@ -33,7 +32,7 @@ function nextDefaultLabel(prefix: string, existingLabels: string[]): string {
 
 /** Create a new memory primitive of the given type in the editor store. Returns the new instance. */
 export function addMemory(type: MemoryType): MemoryInstance {
-  const id = generateId("mem");
+  const id = generateId();
   const existing = Object.values(useEditorStore.getState().memory).map((m) => m.label);
   const instance: MemoryInstance = {
     id,
@@ -41,7 +40,7 @@ export function addMemory(type: MemoryType): MemoryInstance {
     type,
     arguments: defaultArguments(type),
   };
-  useEditorStore.getState().setMemory((mem) => ({ ...mem, [memoryKey(id)]: instance }));
+  useEditorStore.getState().setMemory((mem) => ({ ...mem, [id]: instance }));
   return instance;
 }
 
@@ -51,7 +50,7 @@ export function addMemory(type: MemoryType): MemoryInstance {
  * at creation (the user picks a type when adding), so it is never patched here.
  */
 export function updateMemory(id: string, patch: { label?: string; arguments?: Record<string, unknown> }): void {
-  const key = memoryKey(id);
+  const key = id;
   useEditorStore.getState().setMemory((mem) => {
     const existing = mem[key];
     if (!existing) return mem;
@@ -67,7 +66,7 @@ export function updateMemory(id: string, patch: { label?: string; arguments?: Re
 }
 
 export function deleteMemory(id: string): void {
-  const key = memoryKey(id);
+  const key = id;
   useEditorStore.getState().setMemory((mem) => {
     const { [key]: _drop, ...rest } = mem;
     return rest;

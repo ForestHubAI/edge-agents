@@ -1,6 +1,6 @@
 import type { Schemas } from "../api";
-import { Expression, NodeInstance, OutputBinding } from ".";
-import type { OutputDeclaration } from "../parameter";
+import { Expression, NodeInstance } from "./Node";
+import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { isParameterActive } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 

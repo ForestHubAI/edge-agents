@@ -3,7 +3,6 @@ import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
 import type { ChannelInstance } from "@foresthub/workflow-core/channel";
 import type { MemoryInstance } from "@foresthub/workflow-core/memory";
 import type { ModelInstance, ModelInfo } from "@foresthub/workflow-core/model";
-import { channelKey } from "../utils/channels";
 
 // ---------------------------------------------------------------------------
 // Default Channels — every workflow starts pre-initialized with a UART
@@ -14,7 +13,7 @@ import { channelKey } from "../utils/channels";
 
 export function createDefaultChannels(): Record<string, ChannelInstance> {
   const uart: ChannelInstance = { id: "uart0", label: "Serial", type: "UART", arguments: {} };
-  return { [channelKey(uart.id)]: uart };
+  return { [uart.id]: uart };
 }
 
 // BuilderMode + helpers live alongside Props/Handle in ../WorkflowBuilder.tsx
@@ -23,7 +22,7 @@ export function createDefaultChannels(): Record<string, ChannelInstance> {
 // introduced even though WorkflowBuilder.tsx imports useEditorStore from here.
 //
 // Re-exported so the 14+ panels that already do
-// `import { isReadOnly } from "./store/editorStore"` keep working unchanged.
+// `import { isReadOnly } from "./stores/editorStore"` keep working unchanged.
 export { isReadOnly, isPreview, type BuilderMode } from "../WorkflowBuilder";
 import type { BuilderMode } from "../WorkflowBuilder";
 
@@ -42,6 +41,12 @@ interface EditorState {
   selectedMemoryId: string | null;
   /** Currently selected declared model for the right-side ModelConfigPanel. */
   selectedModelId: string | null;
+  /**
+   * Currently selected declared variable (uid) for the right-side
+   * VariableConfigPanel. Canvas-local — resolved against the active canvas
+   * store, so it is cleared whenever the active canvas changes.
+   */
+  selectedVariableUid: string | null;
   // Project-scoped channels (pins, buses) — shared across all canvases
   channels: Record<string, ChannelInstance>;
   // Project-scoped memory primitives (memory files + vector databases) — shared
@@ -66,6 +71,7 @@ interface EditorState {
   setSelectedChannelId: (id: string | null) => void;
   setSelectedMemoryId: (id: string | null) => void;
   setSelectedModelId: (id: string | null) => void;
+  setSelectedVariableUid: (uid: string | null) => void;
   setChannels: (updater: (vars: Record<string, ChannelInstance>) => Record<string, ChannelInstance>) => void;
   setMemory: (updater: (mem: Record<string, MemoryInstance>) => Record<string, MemoryInstance>) => void;
   setModels: (updater: (models: Record<string, ModelInstance>) => Record<string, ModelInstance>) => void;
@@ -80,12 +86,15 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedChannelId: null,
   selectedMemoryId: null,
   selectedModelId: null,
+  selectedVariableUid: null,
   channels: createDefaultChannels(),
   memory: {},
   models: {},
   availableModels: [],
   mutationCount: 0,
-  setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId }),
+  // selectedVariableUid is canvas-local; a uid from the previous canvas would
+  // resolve to nothing (or, worse, a collision) on the new one, so drop it.
+  setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId, selectedVariableUid: null }),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
   setSelection: (nodeIds, edgeIds) =>
     // Empty selection from ReactFlow's onSelectionChange can fire as a side
@@ -96,7 +105,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedNodeIds: nodeIds,
       selectedEdgeIds: edgeIds,
       ...(nodeIds.length > 0 || edgeIds.length > 0
-        ? { selectedChannelId: null, selectedMemoryId: null, selectedModelId: null }
+        ? { selectedChannelId: null, selectedMemoryId: null, selectedModelId: null, selectedVariableUid: null }
         : {}),
     }),
   clearSelection: () =>
@@ -106,6 +115,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       selectedChannelId: null,
       selectedMemoryId: null,
       selectedModelId: null,
+      selectedVariableUid: null,
     }),
   setSelectedChannelId: (id) => {
     set((state) => {
@@ -120,6 +130,7 @@ export const useEditorStore = create<EditorState>((set) => ({
         selectedChannelId: id,
         selectedMemoryId: id !== null ? null : state.selectedMemoryId,
         selectedModelId: id !== null ? null : state.selectedModelId,
+        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };
@@ -136,6 +147,7 @@ export const useEditorStore = create<EditorState>((set) => ({
         selectedMemoryId: id,
         selectedChannelId: id !== null ? null : state.selectedChannelId,
         selectedModelId: id !== null ? null : state.selectedModelId,
+        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };
@@ -152,6 +164,27 @@ export const useEditorStore = create<EditorState>((set) => ({
         selectedModelId: id,
         selectedChannelId: id !== null ? null : state.selectedChannelId,
         selectedMemoryId: id !== null ? null : state.selectedMemoryId,
+        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
+        selectedNodeIds: [],
+        selectedEdgeIds: [],
+      };
+    });
+  },
+  setSelectedVariableUid: (uid) => {
+    set((state) => {
+      // Picking a variable behaves like picking a node/edge: drop ReactFlow's
+      // visual selection on the active canvas and clear the project-scoped
+      // sidebar selections so only the VariableConfigPanel is shown.
+      if (uid !== null) {
+        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
+        canvas.selectNodes([]);
+        canvas.selectEdges([]);
+      }
+      return {
+        selectedVariableUid: uid,
+        selectedChannelId: uid !== null ? null : state.selectedChannelId,
+        selectedMemoryId: uid !== null ? null : state.selectedMemoryId,
+        selectedModelId: uid !== null ? null : state.selectedModelId,
         selectedNodeIds: [],
         selectedEdgeIds: [],
       };

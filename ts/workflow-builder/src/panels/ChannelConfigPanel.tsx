@@ -6,9 +6,9 @@ import { ChevronRight, Trash2 } from "lucide-react";
 import { CHANNEL_DEFINITION, type ChannelInstance, type ChannelType } from "@foresthub/workflow-core/channel";
 import { isParameterActive } from "@foresthub/workflow-core/parameter";
 import ParameterEditor from "../inputs/ParameterEditor";
-import { MAIN_CANVAS_ID } from "../store/canvasStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { MAIN_CANVAS_ID } from "../stores/canvasStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { deleteChannel, updateChannel } from "../utils/channelOperations";
 
 interface ChannelConfigPanelProps {
@@ -73,9 +73,7 @@ export const ChannelConfigPanel = ({ channel, onClose }: ChannelConfigPanelProps
                 }}
               />
             </div>
-            <p className="text-sm text-muted-foreground">
-              {t("channelDescription", "Hardware interface declaration")}
-            </p>
+            <p className="text-sm text-muted-foreground">{t("channelDescription", "Hardware interface declaration")}</p>
           </div>
           <Button variant="ghost" size="icon" className="shrink-0" onClick={onClose}>
             <ChevronRight className="h-4 w-4" />

@@ -2,7 +2,7 @@ import { Button } from "../components/ui/button";
 import { Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useDebugStore, type ConsoleEntry } from "../store/debugStore";
+import { useDebugStore, type ConsoleEntry } from "../stores/debugStore";
 
 export const DebugConsolePanel = () => {
   const { t } = useTranslation();
@@ -38,9 +38,7 @@ export const DebugConsolePanel = () => {
       {/* Console output */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-0.5">
         {entries.length === 0 ? (
-          <div className="text-muted-foreground text-center py-4">
-            {t("debug.consoleEmpty")}
-          </div>
+          <div className="text-muted-foreground text-center py-4">{t("debug.consoleEmpty")}</div>
         ) : (
           entries.map((entry) => <ConsoleRow key={entry.id} entry={entry} />)
         )}
@@ -57,11 +55,7 @@ function ConsoleRow({ entry }: { entry: ConsoleEntry }) {
   });
 
   const colorClass =
-    entry.type === "error"
-      ? "text-destructive"
-      : entry.type === "system"
-        ? "text-muted-foreground"
-        : "text-foreground";
+    entry.type === "error" ? "text-destructive" : entry.type === "system" ? "text-muted-foreground" : "text-foreground";
 
   return (
     <div className={`flex gap-2 leading-relaxed ${colorClass}`}>

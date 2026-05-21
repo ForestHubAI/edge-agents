@@ -3,8 +3,8 @@ import { Button } from "../components/ui/button";
 import { AlertTriangle, Database, FileText, Plus } from "lucide-react";
 import type { MemoryType } from "@foresthub/workflow-core/memory";
 import { cn } from "../lib/utils";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { addMemory } from "../utils/memoryOperations";
 
 /** Short, friendly badge label per memory type (the raw type names are long). */

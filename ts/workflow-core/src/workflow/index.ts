@@ -1,2 +1,2 @@
-export * from "./snapshots";
+export * from "./Workflow";
 export * from "./serialization";

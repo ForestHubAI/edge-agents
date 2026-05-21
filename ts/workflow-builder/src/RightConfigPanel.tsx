@@ -10,8 +10,10 @@ import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
 import { MemoryConfigPanel } from "./panels/MemoryConfigPanel";
 import { ModelConfigPanel } from "./panels/ModelConfigPanel";
 import { NodeConfigPanel } from "./panels/NodeConfigPanel";
-import { getOrCreateCanvasStore } from "./store/canvasStore";
-import { useEditorStore } from "./store/editorStore";
+import { VariableConfigPanel } from "./panels/VariableConfigPanel";
+import { getOrCreateCanvasStore } from "./stores/canvasStore";
+import { useEditorStore } from "./stores/editorStore";
+import { declaredVarKey } from "@foresthub/workflow-core/variable";
 
 /**
  * Right-side selection-routed config panel.
@@ -67,6 +69,8 @@ export const RightConfigPanel = ({
   const selectedModelId = useEditorStore((s) => s.selectedModelId);
   const models = useEditorStore((s) => s.models);
   const setSelectedModelId = useEditorStore((s) => s.setSelectedModelId);
+  const selectedVariableUid = useEditorStore((s) => s.selectedVariableUid);
+  const setSelectedVariableUid = useEditorStore((s) => s.setSelectedVariableUid);
 
   const useStore = getOrCreateCanvasStore(canvasId);
 
@@ -78,6 +82,17 @@ export const RightConfigPanel = ({
         return node?.data ?? null;
       },
       [selectedNodeIds],
+    ),
+  );
+
+  const selectedVariable = useStore(
+    useCallback(
+      (s) => {
+        if (!selectedVariableUid) return null;
+        const v = s.variables[declaredVarKey(selectedVariableUid)];
+        return v && v.kind === "declared" ? v : null;
+      },
+      [selectedVariableUid],
     ),
   );
 
@@ -111,21 +126,17 @@ export const RightConfigPanel = ({
   );
 
   const selectedChannel = useMemo(
-    () =>
-      selectedChannelId
-        ? Object.values(channels).find((v) => v.id === selectedChannelId) ?? null
-        : null,
+    () => (selectedChannelId ? (Object.values(channels).find((v) => v.id === selectedChannelId) ?? null) : null),
     [selectedChannelId, channels],
   );
 
   const selectedMemory = useMemo(
-    () =>
-      selectedMemoryId ? Object.values(memory).find((m) => m.id === selectedMemoryId) ?? null : null,
+    () => (selectedMemoryId ? (Object.values(memory).find((m) => m.id === selectedMemoryId) ?? null) : null),
     [selectedMemoryId, memory],
   );
 
   const selectedModel = useMemo(
-    () => (selectedModelId ? Object.values(models).find((m) => m.id === selectedModelId) ?? null : null),
+    () => (selectedModelId ? (Object.values(models).find((m) => m.id === selectedModelId) ?? null) : null),
     [selectedModelId, models],
   );
 
@@ -134,10 +145,7 @@ export const RightConfigPanel = ({
     [getNodeDef],
   );
 
-  const handleTestNode = useCallback(
-    (nodeId: string) => onTestNode?.(nodeId),
-    [onTestNode],
-  );
+  const handleTestNode = useCallback((nodeId: string) => onTestNode?.(nodeId), [onTestNode]);
 
   if (selectionDrag) return null;
 
@@ -182,6 +190,18 @@ export const RightConfigPanel = ({
           onEdgeUpdate={onEdgeUpdate}
           onEdgeDelete={onEdgeDelete}
           onClose={onClearSelection}
+        />
+      </div>
+    );
+  }
+
+  if (selectedVariable) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <VariableConfigPanel
+          canvasId={canvasId}
+          variable={selectedVariable}
+          onClose={() => setSelectedVariableUid(null)}
         />
       </div>
     );

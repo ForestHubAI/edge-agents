@@ -1,7 +1,7 @@
 import type { Expression, FunctionInfo, OutputBinding, FunctionCallNode } from "@foresthub/workflow-core/node";
 import { toast } from "../hooks/use-toast";
 import i18n from "../i18n";
-import { getAllCanvasStores, MAIN_CANVAS_ID, subscribeFunctionInfoChanges } from "../store/canvasStore";
+import { getAllCanvasStores, MAIN_CANVAS_ID, subscribeFunctionInfoChanges } from "../stores/canvasStore";
 import { paramKey } from "@foresthub/workflow-core/variable";
 import { updateNodeInStore } from "./graphOperations";
 
@@ -21,9 +21,7 @@ function buildMigrationUpdate(
   for (const arg of latest.arguments) {
     const key = paramKey(arg);
     const existing = oldArgs[key] as Expression | undefined;
-    newArgs[key] = existing
-      ? { ...existing, dataType: arg.dataType }
-      : { expression: "", references: [], dataType: arg.dataType };
+    newArgs[key] = existing ? { ...existing, dataType: arg.dataType } : { expression: "", references: [], dataType: arg.dataType };
   }
 
   // Preserve existing output bindings where uid matches; default emit for new returns.

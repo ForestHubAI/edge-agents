@@ -1,14 +1,21 @@
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { NodeBase, NodeCategory, NodeDefinition, NodeInstance, getArguments, getPorts } from "@foresthub/workflow-core/node";
+import {
+  NodeBase,
+  NodeCategory,
+  NodeDefinition,
+  NodeInstance,
+  getArguments,
+  getPorts,
+} from "@foresthub/workflow-core/node";
 import { NodeProps, Position } from "@xyflow/react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { getOrCreateCanvasStore } from "../store/canvasStore";
-import { useDebugStore } from "../store/debugStore";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { getOrCreateCanvasStore } from "../stores/canvasStore";
+import { useDebugStore } from "../stores/debugStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { categoryIcons } from "../utils/categoryConstants";
 import { computeNodeDiagnostics } from "@foresthub/workflow-core/diagnostics";
 import {

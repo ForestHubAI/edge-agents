@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
+import { DataType, Expression, Reference, NodeRegistry } from "@foresthub/workflow-core/node";
 import { ResolvedExpr, resolveExpression } from "@foresthub/workflow-core/expression";
-import { canvasVarKey, type AvailableVariable } from "@foresthub/workflow-core/variable";
+import { canvasVarKey, type Variable } from "@foresthub/workflow-core/variable";
+import { useEditorStore } from "../stores/editorStore";
+import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { cn } from "../lib/utils";
 
 interface ExpressionInputProps {
   value: Expression;
   onChange: (value: Expression) => void;
   expressionType: DataType;
-  availableVariables: Record<string, AvailableVariable>;
+  availableVariables: Record<string, Variable>;
   placeholder?: string;
 }
 
@@ -45,9 +47,24 @@ const ExpressionInput = ({
     [variableList, filterText],
   );
 
+  // nodeId → user-facing display name for the active canvas, used to label
+  // node-output variables in the dropdown. Falls back to the node definition's
+  // human label, never the schema-internal `type`. Resolved lazily when the
+  // dropdown opens (labels can't change while it's open) so typing in an
+  // expression doesn't subscribe this input to every node mutation.
+  const activeCanvasId = useEditorStore((s) => s.activeCanvasId);
+  const nodeLabelById = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!showDropdown) return map;
+    for (const n of getOrCreateCanvasStore(activeCanvasId).getState().nodes) {
+      map[n.id] = n.data.label ?? NodeRegistry.getByType(n.data.type)?.label ?? n.data.type;
+    }
+    return map;
+  }, [showDropdown, activeCanvasId]);
+
   // Find a variable by name from variableList
   const findVariableByName = useCallback(
-    (name: string): AvailableVariable | undefined => {
+    (name: string): Variable | undefined => {
       return variableList.find((v) => v.name === name);
     },
     [variableList],
@@ -164,7 +181,7 @@ const ExpressionInput = ({
     onChange(parseToApiExpression(inputValue));
   };
 
-  const selectVariable = (variable: AvailableVariable) => {
+  const selectVariable = (variable: Variable) => {
     const beforeDollar = inputValue.slice(0, dropdownPosition);
     const afterCursor = inputValue.slice(inputRef.current?.selectionStart ?? inputValue.length);
 
@@ -270,7 +287,7 @@ const ExpressionInput = ({
                   </span>
                   <span className="text-xs text-muted-foreground truncate max-w-[150px]">
                     {variable.kind === "node"
-                      ? t("fromNode", { node: variable.nodeId.split("_")[0] })
+                      ? t("fromNode", { node: nodeLabelById[variable.nodeId] ?? variable.nodeId })
                       : variable.kind === "declared"
                         ? t("globalVariable")
                         : t("fnarg")}

@@ -15,11 +15,12 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Trash2 } from "lucide-react";
-import type { Expression, FunctionInfo, Variable, NodeOutput } from "@foresthub/workflow-core/node";
-import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../store/canvasStore";
-import type { OutputAssignments } from "../store/canvasStore";
+import type { Expression, FunctionInfo, ApiVariable, NodeOutput } from "@foresthub/workflow-core/node";
+import { generateId } from "@foresthub/workflow-core/id";
+import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
+import type { OutputAssignments } from "../stores/canvasStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { PortSection } from "../dialogs/FunctionInfoDialog";
 import ExpressionInput from "../inputs/ExpressionInput";
 
@@ -89,7 +90,7 @@ export const FunctionDefinitionPanel = ({
       ...info,
       arguments: [
         ...info.arguments,
-        { uid: crypto.randomUUID(), name: `input${info.arguments.length + 1}`, dataType: "string" },
+        { uid: generateId(), name: `input${info.arguments.length + 1}`, dataType: "string" },
       ],
     }));
   }, [updateFunctionInfo]);
@@ -97,10 +98,7 @@ export const FunctionDefinitionPanel = ({
   const addReturnValue = useCallback(() => {
     updateFunctionInfo((info) => ({
       ...info,
-      returns: [
-        ...info.returns,
-        { uid: crypto.randomUUID(), name: `output${info.returns.length + 1}`, dataType: "string" },
-      ],
+      returns: [...info.returns, { uid: generateId(), name: `output${info.returns.length + 1}`, dataType: "string" }],
     }));
   }, [updateFunctionInfo]);
 
@@ -159,7 +157,7 @@ export const FunctionDefinitionPanel = ({
 
   // Output assignment handlers
   const getOutputAssignment = useCallback(
-    (returnVar: Variable): Expression => {
+    (returnVar: ApiVariable): Expression => {
       return outputAssignments[returnVar.uid] ?? { expression: "", references: [], dataType: returnVar.dataType };
     },
     [outputAssignments],
@@ -209,57 +207,53 @@ export const FunctionDefinitionPanel = ({
 
         {/* Inputs Section */}
         <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
-        <PortSection
-          ports={functionInfo.arguments}
-          direction="input"
-          onAdd={addArgument}
-          onUpdate={updateArgument}
-          onRemove={removeArgument}
-          maxHeight="10rem"
-        />
+          <PortSection
+            ports={functionInfo.arguments}
+            direction="input"
+            onAdd={addArgument}
+            onUpdate={updateArgument}
+            onRemove={removeArgument}
+            maxHeight="10rem"
+          />
 
-        <Separator />
+          <Separator />
 
-        {/* Outputs Section */}
-        <PortSection
-          ports={functionInfo.returns}
-          direction="output"
-          onAdd={addReturnValue}
-          onUpdate={updateReturnValue}
-          onRemove={removeReturnValue}
-          maxHeight="10rem"
-        />
+          {/* Outputs Section */}
+          <PortSection
+            ports={functionInfo.returns}
+            direction="output"
+            onAdd={addReturnValue}
+            onUpdate={updateReturnValue}
+            onRemove={removeReturnValue}
+            maxHeight="10rem"
+          />
 
-        {/* Return Value Assignments */}
-        {functionInfo.returns.length > 0 && (
-          <>
-            <Separator />
-
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">
-                {t("returnValueAssignments")}
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {t("returnValueAssignmentsDesc")}
-              </p>
+          {/* Return Value Assignments */}
+          {functionInfo.returns.length > 0 && (
+            <>
+              <Separator />
 
               <div className="space-y-3">
-                {functionInfo.returns.map((output) => (
-                  <div key={output.uid} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{output.name}</Label>
-                    <ExpressionInput
-                      value={getOutputAssignment(output)}
-                      onChange={(expr) => setOutputAssignment(output.uid, expr)}
-                      expressionType={output.dataType}
-                      availableVariables={availableVariables}
-                      placeholder={`${t("expressionFor")} ${output.name}...`}
-                    />
-                  </div>
-                ))}
+                <Label className="text-sm font-medium">{t("returnValueAssignments")}</Label>
+                <p className="text-xs text-muted-foreground">{t("returnValueAssignmentsDesc")}</p>
+
+                <div className="space-y-3">
+                  {functionInfo.returns.map((output) => (
+                    <div key={output.uid} className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{output.name}</Label>
+                      <ExpressionInput
+                        value={getOutputAssignment(output)}
+                        onChange={(expr) => setOutputAssignment(output.uid, expr)}
+                        expressionType={output.dataType}
+                        availableVariables={availableVariables}
+                        placeholder={`${t("expressionFor")} ${output.name}...`}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </>
-        )}
+            </>
+          )}
         </div>
 
         {/* Delete Function — hidden in readOnly */}
@@ -279,9 +273,7 @@ export const FunctionDefinitionPanel = ({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteFunctionTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteFunctionDesc")}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t("deleteFunctionDesc")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>

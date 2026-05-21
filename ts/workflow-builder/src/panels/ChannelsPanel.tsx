@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { AlertTriangle, Cpu, Plus } from "lucide-react";
 import { cn } from "../lib/utils";
-import { useDiagnosticsStore } from "../store/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { addChannel } from "../utils/channelOperations";
 
 export const ChannelsPanel = () => {

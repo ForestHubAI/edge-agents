@@ -1,5 +1,6 @@
-import { NodeBase, OutputBinding, Reference } from ".";
-import { NodeCategory, NodeTag } from "./NodeConstants";
+import { NodeBase, Reference } from "./Node";
+import { OutputBinding } from "../parameter";
+import { NodeCategory, NodeTag } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";
 
 // On Function Call Trigger - fires when a user-defined function is called

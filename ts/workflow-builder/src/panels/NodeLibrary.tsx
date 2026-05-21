@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 
 import { NodeDefinition } from "@foresthub/workflow-core/node";
 import { categoryIcons } from "../utils/categoryConstants";
-import { useEditorStore, isReadOnly } from "../store/editorStore";
+import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { FunctionNodeDefinition } from "@foresthub/workflow-core/node";
 import { Parameter } from "@foresthub/workflow-core/parameter";
 import { getNodeDescription } from "../utils/translation";
@@ -134,9 +134,7 @@ const NodeLibrary = ({
   const { t } = useTranslation();
   const readOnly = useEditorStore((s) => isReadOnly(s.builderMode));
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const search = searchTerm.toLowerCase();
   const filteredNodes = nodeDefinitions.filter(
@@ -240,11 +238,15 @@ const NodeLibrary = ({
                         const card = (
                           <Card
                             draggable={!readOnly}
-                            onDragStart={readOnly ? undefined : (e) => {
-                              const dragData = { nodeDef: nodedef };
-                              e.dataTransfer.setData("application/json", JSON.stringify(dragData));
-                              e.dataTransfer.effectAllowed = "copy";
-                            }}
+                            onDragStart={
+                              readOnly
+                                ? undefined
+                                : (e) => {
+                                    const dragData = { nodeDef: nodedef };
+                                    e.dataTransfer.setData("application/json", JSON.stringify(dragData));
+                                    e.dataTransfer.effectAllowed = "copy";
+                                  }
+                            }
                             className={`px-3 py-2 transition-all duration-150 border-border/50 group ${
                               readOnly
                                 ? "opacity-60 cursor-default"
@@ -259,11 +261,7 @@ const NodeLibrary = ({
                               {nodedef.tags && nodedef.tags.length > 0 && (
                                 <div className="flex items-center gap-1 shrink-0">
                                   {nodedef.tags.map((tag) => (
-                                    <Badge
-                                      key={tag}
-                                      variant="secondary"
-                                      className="text-[10px] h-4 px-1.5 font-normal"
-                                    >
+                                    <Badge key={tag} variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
                                       {tag}
                                     </Badge>
                                   ))}
