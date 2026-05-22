@@ -110,11 +110,15 @@ export const PortHandle = ({
   };
 
   const getPlusPositionClass = () => {
+    // Center with a negative margin (button is w-4 h-4 = 16px, so -8px = -2),
+    // NOT a translate. The hover effect uses `transform: scale()`, and reusing
+    // transform for centering too makes the translate drop out mid-animation,
+    // which both off-centers the plus and makes it jump on hover.
     switch (position) {
       case Position.Bottom:
-        return "top-[20px] left-1/2 -translate-x-1/2";
+        return "top-[15px] left-1/2 -ml-2";
       default:
-        return "left-[20px] top-1/2 -translate-y-1/2";
+        return "left-[15px] top-1/2 -mt-2";
     }
   };
 
@@ -168,7 +172,7 @@ export const PortHandle = ({
         <button
           type="button"
           title="Add port"
-          className={`nodrag absolute flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-background hover:bg-primary hover:scale-110 transition-all cursor-pointer ${getPlusPositionClass()}`}
+          className={`nodrag absolute flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-primary-foreground hover:bg-primary hover:scale-110 transition-all cursor-pointer ${getPlusPositionClass()}`}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();

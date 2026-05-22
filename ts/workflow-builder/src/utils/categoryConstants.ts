@@ -16,7 +16,7 @@ export const categoryIcons: Record<string, LucideIcon> = {
 
 export const categoryColors: Record<string, string> = {
   [NodeCategory.Input]: "bg-node-input/10 text-node-input border-node-input/20",
-  [NodeCategory.Logic]: "bg-primary/10 text-primary border-primary/20",
+  [NodeCategory.Logic]: "bg-node-logic/10 text-node-logic border-node-logic/20",
   [NodeCategory.Data]: "bg-node-data/10 text-node-data border-node-data/20",
   [NodeCategory.Output]: "bg-node-output/10 text-node-output border-node-output/20",
   [NodeCategory.AI]: "bg-node-agent/10 text-node-agent border-node-agent/20",

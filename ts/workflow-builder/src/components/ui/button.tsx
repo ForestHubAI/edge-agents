@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         glass: "glass-forest-button text-foreground",
         "glass-primary": "glass-forest-button-primary",
-        "glass-cyan": "glass-forest-button bg-primary text-white hover:scale-[1.02]",
+        "glass-cyan": "glass-forest-button bg-primary text-primary-foreground hover:scale-[1.02]",
         success: "glass-forest-button bg-success text-success-foreground hover:bg-success/90",
         warning: "glass-forest-button bg-warning text-warning-foreground hover:bg-warning/90",
       },

@@ -234,7 +234,7 @@ export const BuilderSidebar = ({
                   className={cn(
                     "w-10 h-10 transition-all duration-200 relative",
                     isActive
-                      ? "bg-primary/15 text-primary shadow-sm"
+                      ? "bg-accent text-primary shadow-sm"
                       : (iconColorClass ?? "text-muted-foreground hover:text-foreground hover:bg-accent/50"),
                   )}
                 >

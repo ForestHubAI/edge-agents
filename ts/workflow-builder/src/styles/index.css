@@ -50,68 +50,77 @@ All colors MUST be HSL.
    *  on both dark and light surfaces.
    */
   :root {
-    /* ============================================================
-     * SURFACES — Dark mode (default)
-     * Hue 40, saturation 3% — very faint warm gray, premium feel.
-     * Nearly neutral; just enough warmth to avoid feeling clinical.
-     * ============================================================ */
+    /* ════════════════════════════════════════════════════════════
+     * GENERAL UI — surfaces, text, controls. (DARK MODE = default)
+     *
+     * These are the colors an embedding app SHARES with the builder:
+     * buttons, panels, inputs, menus, status. A host that reuses this
+     * preset reuses everything in this block. Hue 40, saturation ~2%:
+     * a faint warm gray, premium and nearly neutral.
+     * (.light overrides these values further down.)
+     * ════════════════════════════════════════════════════════════ */
+
+    /* App shell / page background, and the default text drawn on it. */
     --background: 40 2% 8%;
     --foreground: 0 0% 95%;
 
-    /* Card surface — used by both workflow-builder panels and the AppSidebar.
-       Matches --sidebar-background and --panel-background so menu chrome
-       and editor chrome share one unified panel color. */
+    /* Card surface — builder panels, list rows, AND node bodies. Matches
+       --sidebar-background and --panel-background so all chrome shares one
+       panel color. --card-foreground is text drawn on a card. */
     --card: 40 2% 18%;
     --card-foreground: 0 0% 95%;
 
+    /* Popover / dropdown / menu surface (lifted slightly above cards). */
     --popover: 40 2% 22%;
     --popover-foreground: 0 0% 95%;
 
+    /* PRIMARY = the vibrant brand green. Active text/icons (text-primary),
+       primary buttons, the focus ring. --primary-foreground is text ON it. */
     --primary: 158 53% 42%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 158 53% 52%;
 
+    /* Secondary neutral surface — secondary buttons. */
     --secondary: 40 2% 24%;
     --secondary-foreground: 0 0% 95%;
 
+    /* MUTED = subtle neutral fill (hover backgrounds, bg-muted/50). Its
+       --muted-foreground is the canonical SUBTEXT color: port labels,
+       descriptions, "<arg>:" hints, and any secondary text. */
     --muted: 40 2% 22%;
     --muted-foreground: 0 0% 65%;
 
-    /* Selection/highlight fill — the muted green behind selected list rows and
-       focused menu/command/select items. Vibrant interactions use --primary. */
+    /* ACCENT = the muted/selection green. Fills selected list rows and
+       focused menu/command/select items (bg-accent). The calm "this is
+       selected" wash; vibrant interactions use --primary instead. */
     --accent: 158 16% 22%;
     --accent-foreground: 0 0% 95%;
 
+    /* DESTRUCTIVE = error red — delete buttons, error text/badges/borders. */
     --destructive: 0 78% 58%;
     --destructive-foreground: 0 0% 100%;
 
+    /* BORDER = every DOM border: panels, cards, separators, AND form-field
+       borders (the preset aliases border-input to this — one border color). */
     --border: 40 2% 26%;
-    --input: 40 2% 26%;
+    /* RING = focus highlight around inputs/buttons. */
     --ring: 158 53% 42%;
+    /* OVERLAY = dialog/backdrop scrim. */
     --overlay: 0 0% 0% / 0.8;
 
-    /* Form-field fill — slightly darker than --card so inputs read as
-       recessed surfaces. Distinct from --input which is the field BORDER. */
+    /* FIELD = form-input fill, darker than --card so inputs read as recessed
+       (--border draws their outline). */
     --field: 40 2% 14%;
-
-    /* Selection glow — uniform high-contrast halo for selected nodes/edges.
-       Independent of category color so multi-selection doesn't get noisy. */
-    --selection-glow: 0 0% 100%;
 
     --radius: 0.5rem;
 
-    /* Gradients */
-    --gradient-subtle: linear-gradient(135deg, hsl(40 2% 8%), hsl(40 2% 18%));
-    --gradient-glass: linear-gradient(135deg, var(--glass-bg-light), var(--glass-bg-medium));
+    /* Status accents (semantic, full-saturation). */
+    --success: 158 53% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
 
-    /* Visual builder surfaces — canvas sits between the app shell (--background)
-       and the unified panel surface (--card), creating a subtle elevation. */
-    --canvas-background: 40 2% 14%;
-    --edge-default: 0 0% 50%;
-    --edge-active: 158 53% 42%;
-    --panel-background: 40 2% 18%;
-    --panel-border: 40 2% 26%;
-
+    /* Sidebar — app-shell chrome, shared with the host's AppSidebar. */
     --sidebar-background: 40 2% 18%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 158 53% 42%;
@@ -121,31 +130,50 @@ All colors MUST be HSL.
     --sidebar-border: 40 2% 26%;
     --sidebar-ring: 158 53% 42%;
 
-    /* Status (severity colors used as full-saturation accents) */
-    --success: 158 53% 42%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    /* Gradients — page background and glass components. */
+    --gradient-subtle: linear-gradient(135deg, hsl(40 2% 8%), hsl(40 2% 18%));
+    --gradient-glass: linear-gradient(135deg, var(--glass-bg-light), var(--glass-bg-medium));
 
-    /* Shadows — black at moderate alpha; in dark mode the eye can't see
-       this much against near-black surfaces, so we add a subtle bright
-       inner edge via the glow tokens for elevated hover states. */
+    /* Shadows — black at moderate alpha; in dark mode the eye can't see much
+       against near-black surfaces, so elevated states lean on the glow tokens. */
     --shadow-sm: 0 2px 4px 0 hsl(0 0% 0% / 0.4);
     --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.5);
     --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.6);
     --shadow-glow: 0 0 20px hsl(158 53% 42% / 0.4);
 
-    /* ============================================================
-     * SIGNAL TUNING — controls how saturated and how light/dark
-     * signal colors render. Same hues in both modes; only these
-     * three change between dark and light.
-     * ============================================================ */
-    --signal-s: 70%; /* default saturation for signals */
-    --signal-l: 58%; /* default lightness in dark mode */
+    /* ════════════════════════════════════════════════════════════
+     * BUILDER / GRAPH ONLY — canvas, edges, ports, node categories.
+     *
+     * Embedding apps do NOT use these; they're specific to the React
+     * Flow editing surface and are mostly consumed INLINE by the graph
+     * layer (CustomEdge / PortHandle / BaseNode), not via Tailwind classes.
+     * ════════════════════════════════════════════════════════════ */
 
-    /* ============================================================
-     * NODE CATEGORY SIGNALS (canonical hue, mode-tuned lightness)
-     * ============================================================ */
+    /* Canvas = editing surface behind nodes (sits between --background and
+       --card for a subtle elevation). */
+    --canvas-background: 40 2% 14%;
+
+    /* Edge/connection color — ALSO the node OUTLINE color, so edges and node
+       borders share one graph-line color. */
+    --edge-default: 40 8% 58%;
+
+    /* Builder panel chrome (inspectors/sidebars inside the editor). */
+    --panel-background: 40 2% 18%;
+    --panel-border: 40 2% 26%;
+
+    /* Selection glow — uniform halo around selected nodes/edges, independent
+       of category color so multi-selection stays calm. */
+    --selection-glow: 0 0% 100%;
+
+    /* Drop shadow cast under nodes. */
+    --node-shadow: 40 2% 5%;
+
+    /* SIGNAL TUNING — node category hues are fixed; only saturation and
+       lightness shift per mode (see .light). */
+    --signal-s: 70%; /* signal saturation */
+    --signal-l: 58%; /* signal lightness (dark mode) */
+
+    /* NODE CATEGORY SIGNALS — one identity color per node type. */
     --node-agent: 273 var(--signal-s) var(--signal-l);
     --node-input: 195 var(--signal-s) var(--signal-l);
     --node-output: 142 var(--signal-s) var(--signal-l);
@@ -154,13 +182,10 @@ All colors MUST be HSL.
     --node-data: 42 85% var(--signal-l);
     --node-tool: 200 80% var(--signal-l);
     --node-function: 320 var(--signal-s) var(--signal-l);
-    --node-shadow: 40 2% 5%;
   }
 
   .light {
-    /* ============================================================
-     * SURFACES — Light mode (different material, not just shifted)
-     * ============================================================ */
+    /* ═══ GENERAL UI (light overrides — a different material, not a shift) ═══ */
     --background: 220 14% 96%;
     --foreground: 220 15% 15%;
     --card: 0 0% 100%;
@@ -179,26 +204,14 @@ All colors MUST be HSL.
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 88%;
-    --input: 220 13% 88%;
     --ring: 158 53% 42%;
     --overlay: 0 0% 0% / 0.5;
-
-    /* Form-field fill — clearly darker than white card so inputs read
-       as recessed surfaces (matches --canvas-background depth). */
+    /* Field fill — clearly darker than the white card so inputs read recessed. */
     --field: 220 14% 92%;
-
-    /* Selection glow — dark in light mode for high contrast on white. */
-    --selection-glow: 220 15% 15%;
-
-    /* Canvas sits deeper than the app shell — wider gap than before
-       so the editing surface is clearly distinct from chrome. */
-    --canvas-background: 220 14% 92%;
-    --edge-default: 220 8% 45%;
-    --edge-active: 158 53% 38%;
-
-    --panel-background: 0 0% 100%;
-    --panel-border: 220 13% 88%;
-
+    --success: 158 53% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 42%;
+    --warning-foreground: 0 0% 100%;
     --sidebar-background: 220 14% 98%;
     --sidebar-foreground: 220 15% 15%;
     --sidebar-primary: 158 53% 38%;
@@ -207,28 +220,27 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 220 15% 15%;
     --sidebar-border: 220 13% 88%;
     --sidebar-ring: 158 53% 38%;
-
-    --success: 158 53% 38%;
-    --success-foreground: 0 0% 100%;
-    --warning: 32 92% 42%;
-    --warning-foreground: 0 0% 100%;
-
     /* Shadows — dark ink on light surfaces. Alpha kept high enough that cards
-       read with clear elevation (matching the prominence dark mode gets from
-       its 0.4-alpha shadow), while staying soft so it doesn't smudge on white. */
+       read with clear elevation (matching dark mode's 0.4-alpha prominence),
+       while staying soft so they don't smudge on white. */
     --shadow-sm: 0 1px 3px 0 hsl(220 15% 25% / 0.16), 0 2px 6px -1px hsl(220 15% 25% / 0.12);
     --shadow-md: 0 4px 8px -1px hsl(220 15% 25% / 0.18), 0 8px 16px -2px hsl(220 15% 25% / 0.14);
     --shadow-lg: 0 4px 8px -2px hsl(220 15% 25% / 0.12), 0 12px 24px -4px hsl(220 15% 25% / 0.18);
     --shadow-glow: 0 0 24px hsl(158 53% 42% / 0.25);
 
-    /* ============================================================
-     * SIGNAL TUNING — same hues, darker lightness for legibility
-     * on light backgrounds.
-     * ============================================================ */
+    /* ═══ BUILDER / GRAPH ONLY (light overrides) ═══ */
+    /* Canvas sits deeper than the app shell so the editing surface is
+       clearly distinct from chrome. */
+    --canvas-background: 220 14% 92%;
+    --edge-default: 220 8% 45%;
+    --panel-background: 0 0% 100%;
+    --panel-border: 220 13% 88%;
+    /* Selection glow — dark in light mode for high contrast on white. */
+    --selection-glow: 220 15% 15%;
+    /* Same node hues as dark; only saturation/lightness drop for legibility. */
     --signal-s: 68%;
     --signal-l: 42%;
   }
-
 }
 
 @layer base {
@@ -279,7 +291,7 @@ All colors MUST be HSL.
   }
 
   .glass-forest-button-primary {
-    @apply bg-primary text-white rounded-full shadow-sm border-0;
+    @apply bg-primary text-primary-foreground rounded-full shadow-sm border-0;
   }
 
   .glass-forest-button-primary:hover {
