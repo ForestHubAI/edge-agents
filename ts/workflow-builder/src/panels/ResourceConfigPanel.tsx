@@ -69,7 +69,7 @@ export const ResourceConfigPanel = ({
   const [localLabel, setLocalLabel] = useState(label);
   useEffect(() => {
     setLocalLabel(label);
-  }, [resetKey]);
+  }, [resetKey, label]);
 
   return (
     <div className="p-4">

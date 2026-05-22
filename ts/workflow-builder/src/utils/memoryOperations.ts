@@ -1,7 +1,7 @@
 import { MemoryRegistry, type MemoryType, type MemoryInstance } from "@foresthub/workflow-core/memory";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
-import { seedDefaultArguments, nextDefaultLabel } from "./resourceHelpers";
+import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
 
 /** Default label prefix per memory type. */
 const LABEL_PREFIX: Record<MemoryType, string> = {
@@ -15,7 +15,7 @@ export function addMemory(type: MemoryType): MemoryInstance {
   const existing = Object.values(useEditorStore.getState().memory).map((m) => m.label);
   const instance: MemoryInstance = {
     id,
-    label: nextDefaultLabel(LABEL_PREFIX[type], existing),
+    label: uniqueName(LABEL_PREFIX[type], existing),
     type,
     arguments: seedDefaultArguments(MemoryRegistry.getByType(type)?.parameters ?? []),
   };

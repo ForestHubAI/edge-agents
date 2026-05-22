@@ -2,7 +2,7 @@ import { CHANNEL_DEFINITION, type ChannelType, type ChannelInstance, stripInacti
 import { isParameterActive } from "@foresthub/workflow-core/parameter";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
-import { nextDefaultLabel } from "./resourceHelpers";
+import { uniqueName } from "./resourceHelpers";
 
 /**
  * Build the initial `arguments` record for a new channel: each parameter
@@ -29,7 +29,7 @@ export function addChannel(type: ChannelType = "GPIOIN"): ChannelInstance {
   const existing = Object.values(useEditorStore.getState().channels).map((v) => v.label);
   const instance: ChannelInstance = {
     id,
-    label: nextDefaultLabel("ch", existing),
+    label: uniqueName("channel", existing),
     type,
     arguments: defaultArguments(type),
   };

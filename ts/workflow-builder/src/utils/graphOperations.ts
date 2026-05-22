@@ -23,18 +23,11 @@ import { nodeOutputVarKey, paramKey } from "@foresthub/workflow-core/variable";
 import { isExpression } from "@foresthub/workflow-core/expression";
 import { isValidConnection } from "./connectionRules";
 import { generateId } from "@foresthub/workflow-core/id";
+import { uniqueName } from "./resourceHelpers";
 
 // ============================================================================
 // Output Name Deduplication
 // ============================================================================
-
-/** Append 2, 3, 4... until the name is not in `existing`. */
-function deduplicateName(desired: string, existing: Set<string>): string {
-  if (!existing.has(desired)) return desired;
-  let i = 2;
-  while (existing.has(`${desired}${i}`)) i++;
-  return `${desired}${i}`;
-}
 
 /** Collect all output variable names currently in the store. */
 function collectVariableNames(store: CanvasStore): Set<string> {
@@ -57,9 +50,9 @@ function deduplicateEmitNames(node: NodeInstance, existingNames: Set<string>): v
     const binding = args[key] as OutputBinding | undefined;
     // Only active emit bindings produce a variable that could collide.
     if (!binding || !binding.active || binding.mode !== "emit" || !existingNames.has(binding.name)) return;
-    const uniqueName = deduplicateName(binding.name, existingNames);
-    existingNames.add(uniqueName);
-    args[key] = { active: true, mode: "emit", name: uniqueName };
+    const deduped = uniqueName(binding.name, existingNames);
+    existingNames.add(deduped);
+    args[key] = { active: true, mode: "emit", name: deduped };
   };
 
   if (node.type === "FunctionCall") {
@@ -80,9 +73,9 @@ function deduplicateEmitNames(node: NodeInstance, existingNames: Set<string>): v
       for (const entry of entries) {
         if (entry.mode !== "emit") continue;
         if (!existingNames.has(entry.name)) continue;
-        const uniqueName = deduplicateName(entry.name, existingNames);
-        existingNames.add(uniqueName);
-        entry.name = uniqueName;
+        const deduped = uniqueName(entry.name, existingNames);
+        existingNames.add(deduped);
+        entry.name = deduped;
       }
     }
   }

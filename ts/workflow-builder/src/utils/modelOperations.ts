@@ -1,7 +1,7 @@
 import { ModelRegistry, type ModelType, type ModelInstance } from "@foresthub/workflow-core/model";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
-import { seedDefaultArguments, nextDefaultLabel } from "./resourceHelpers";
+import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
 
 /** Default label prefix per model type. */
 const LABEL_PREFIX: Record<ModelType, string> = {
@@ -14,7 +14,7 @@ export function addModel(type: ModelType): ModelInstance {
   const existing = Object.values(useEditorStore.getState().models).map((m) => m.label);
   const instance: ModelInstance = {
     id,
-    label: nextDefaultLabel(LABEL_PREFIX[type], existing),
+    label: uniqueName(LABEL_PREFIX[type], existing),
     type,
     arguments: seedDefaultArguments(ModelRegistry.getByType(type)?.parameters ?? []),
   };

@@ -29,7 +29,7 @@ export const VariableConfigPanel = ({ canvasId, variable, onClose }: VariableCon
   const [localName, setLocalName] = useState(variable.name);
   useEffect(() => {
     setLocalName(variable.name);
-  }, [variable.uid]);
+  }, [variable.uid, variable.name]);
 
   const isEmptyName = variable.name.trim() === "";
 

@@ -19,9 +19,14 @@ export function seedDefaultArguments(params: Parameter[]): Record<string, unknow
   return args;
 }
 
-/** Pick a fresh `<prefix>N` label that doesn't collide with existing labels. */
-export function nextDefaultLabel(prefix: string, existingLabels: string[]): string {
-  let counter = 1;
-  while (existingLabels.includes(`${prefix}${counter}`)) counter++;
-  return `${prefix}${counter}`;
+/**
+ * Return `desired` if it's free, otherwise append 2, 3, 4… until the result
+ * doesn't collide with `existing`.
+ */
+export function uniqueName(desired: string, existing: Iterable<string>): string {
+  const taken = existing instanceof Set ? existing : new Set(existing);
+  if (!taken.has(desired)) return desired;
+  let i = 2;
+  while (taken.has(`${desired}${i}`)) i++;
+  return `${desired}${i}`;
 }

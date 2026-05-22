@@ -66,7 +66,7 @@ export const NodeConfigPanel = ({
   const [isFocused, setIsFocused] = useState(false);
   useEffect(() => {
     setLocalLabel(selectedNode.label || "");
-  }, [selectedNode.id]);
+  }, [selectedNode.id, selectedNode.label]);
 
   // Check if FunctionCall node is stale (e.g. after undo reverted migration)
   const functionId = selectedNode.type === "FunctionCall" ? (selectedNode as FunctionCallNode).functionInfo.id : null;
