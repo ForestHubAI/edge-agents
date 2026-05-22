@@ -3,7 +3,7 @@ export type ChannelType = "GPIOIN" | "GPIOOUT" | "ADC" | "PWM" | "DAC" | "UART" 
 export const ALL_CHANNEL_TYPES: ChannelType[] = ["GPIOIN", "GPIOOUT", "ADC", "PWM", "DAC", "UART", "MQTT"];
 
 /** Interface for a channel instance in the workflow */
-export interface ChannelInstance {
+export interface Channel {
   id: string;
   label: string;
   type: ChannelType;

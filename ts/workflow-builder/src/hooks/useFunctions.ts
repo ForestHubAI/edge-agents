@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useEditorStore } from "../stores/editorStore";
 import { deleteCanvasStore, getOrCreateCanvasStore, getCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
 import { useFunctionRegistry } from "./useFunctionRegistry";
-import type { FunctionInfo } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 import { generateId } from "@foresthub/workflow-core/id";
 import { ensureUids } from "@foresthub/workflow-core/variable";
 

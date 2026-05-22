@@ -1,7 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useEdges } from "@xyflow/react";
 import { AlertTriangle } from "lucide-react";
-import { EdgeInstance, isControlFlow, isToolFlow, type EdgeType } from "@foresthub/workflow-core/edge";
+import { EdgeData, isControlFlow, isToolFlow, type EdgeType } from "@foresthub/workflow-core/edge";
 import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
@@ -51,7 +51,7 @@ export const CustomEdge = ({
   sourceY: number;
   targetX: number;
   targetY: number;
-  data?: EdgeInstance;
+  data?: EdgeData;
   selected?: boolean;
 }) => {
   const isHighlighted = selected ?? false;

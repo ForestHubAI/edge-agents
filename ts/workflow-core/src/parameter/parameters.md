@@ -99,7 +99,7 @@ Emit-mode names are deduplicated against existing canvas variables at creation t
 
 ## 3. Definition → Instance mapping
 
-`NodeDefinition.parameters` (inputs) and `NodeDefinition.outputs` (outputs) together define the schema — what fields exist, their types, defaults, and constraints. `EdgeDefinition.parameters` does the same for edges (edges have no output parameters). The actual values live in `NodeInstance.arguments` (each concrete node type defines a typed `arguments` record) and `EdgeInstance` fields (the `EdgeInstance` interface itself is what React Flow stores as `edge.data`), keyed by `parameter.id` / `output.id`.
+`NodeDefinition.parameters` (inputs) and `NodeDefinition.outputs` (outputs) together define the schema — what fields exist, their types, defaults, and constraints. `EdgeDefinition.parameters` does the same for edges (edges have no output parameters). The actual values live in `NodeData.arguments` (each concrete node type defines a typed `arguments` record) and `EdgeData` fields (the `EdgeData` interface itself is what React Flow stores as `edge.data`), keyed by `parameter.id` / `output.id`.
 
 Since the arguments record is `unknown`-valued, TypeScript cannot enforce what runtime type a given key holds. Instead, each `Parameter.type` / `OutputParameter.type` implies a contract for what type the corresponding value will be at runtime. `ParameterEditor` and the output section of `NodeConfigPanel` uphold this contract on writes; consumers (serialization, diagnostics, code generation) cast accordingly on reads.
 
@@ -252,7 +252,7 @@ Output parameters have no `default` field — their initial shape is fixed by th
 
 ## 7. Serialization
 
-`serialize()` in `ts/workflow-core/src/node/serialization.ts` converts NodeInstance → API format; `deserialize()` does the reverse.
+`serialize()` in `ts/workflow-core/src/node/serialization.ts` converts NodeData → API format; `deserialize()` does the reverse.
 
 | Path                                   | `undefined` handling                                                                            |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------- |

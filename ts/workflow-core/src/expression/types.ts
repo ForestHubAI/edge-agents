@@ -1,4 +1,5 @@
-import { DataType, Expression, NodeOutput } from "../node";
+import type { NodeOutput } from "../node";
+import type { DataType, Expression } from "../api";
 import type { Variable } from "../variable";
 import { refToLookupKey } from "../variable";
 

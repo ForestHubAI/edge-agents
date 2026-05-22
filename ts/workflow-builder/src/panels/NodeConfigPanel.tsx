@@ -9,15 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import {
   NodeDefinition,
-  NodeInstance,
+  NodeData,
   OutputBinding,
-  DataType,
-  Reference,
   FunctionCallNode,
   getArguments,
   getNodeAvailableOutput,
   getOutputBinding,
 } from "@foresthub/workflow-core/node";
+import type { DataType, Reference } from "@foresthub/workflow-core";
 import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthub/workflow-core/parameter";
 import { isParameterActive, Parameter } from "@foresthub/workflow-core/parameter";
 import { generateId } from "@foresthub/workflow-core/id";
@@ -41,12 +40,12 @@ import { useAvailableVariables } from "../hooks/useAvailableVariables";
 
 interface NodeConfigPanelProps {
   canvasId: string;
-  selectedNode: NodeInstance;
+  selectedNode: NodeData;
   onNodeUpdate: (nodeId: string, updates: { arguments?: Record<string, unknown>; label?: string }) => void;
   onNodeDelete: (nodeId: string) => void;
   onClose: () => void;
   onOpenTest: (nodeId: string) => void;
-  getNodeDef: (node: NodeInstance) => NodeDefinition | undefined;
+  getNodeDef: (node: NodeData) => NodeDefinition | undefined;
 }
 
 export const NodeConfigPanel = ({
@@ -269,7 +268,7 @@ function OutputsSection({
   nodeDiags,
 }: {
   canvasId: string;
-  node: NodeInstance;
+  node: NodeData;
   nodeDefinition: NodeDefinition;
   onNodeUpdate: (nodeId: string, updates: { arguments?: Record<string, unknown> }) => void;
   nodeDiags: Diagnostic[] | undefined;

@@ -1,6 +1,6 @@
-import { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
+import { NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
 import { Connection, Edge, Node } from "@xyflow/react";
-import type { EdgeInstance } from "@foresthub/workflow-core/edge";
+import type { EdgeData } from "@foresthub/workflow-core/edge";
 import { useCallback } from "react";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import {
@@ -109,11 +109,11 @@ export const useGraph = (canvasId: string = MAIN_CANVAS_ID, readOnly: boolean = 
 
       const copiedNodes = nodes
         .filter((node) => nodeIdSet.has(node.id))
-        .map((node) => JSON.parse(JSON.stringify(node)) as Node<NodeInstance>);
+        .map((node) => JSON.parse(JSON.stringify(node)) as Node<NodeData>);
 
       const copiedEdges = edges
         .filter((edge) => nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target))
-        .map((edge) => JSON.parse(JSON.stringify(edge)) as Edge<EdgeInstance>);
+        .map((edge) => JSON.parse(JSON.stringify(edge)) as Edge<EdgeData>);
 
       clipboardRef.current = { nodes: copiedNodes, edges: copiedEdges };
     },

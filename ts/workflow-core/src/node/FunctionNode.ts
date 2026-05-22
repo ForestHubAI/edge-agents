@@ -1,5 +1,6 @@
-import { Expression, FunctionInfo, NodeBase } from "./Node";
-import type { DataType } from "./Node";
+import { NodeBase } from "./Node";
+import type { Expression, FunctionInfo } from "../api";
+import type { DataType } from "../api";
 import { OutputBinding } from "../parameter";
 import { NodeDefinition } from "./NodeDefinition";
 import { NodeCategory } from "./constants";

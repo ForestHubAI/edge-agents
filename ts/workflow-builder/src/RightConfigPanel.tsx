@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
-import type { NodeInstance, NodeDefinition } from "@foresthub/workflow-core/node";
-import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
+import type { NodeData, NodeDefinition } from "@foresthub/workflow-core/node";
+import type { EdgeData, EdgeType } from "@foresthub/workflow-core/edge";
 import { isControlFlow } from "@foresthub/workflow-core/edge";
 import type { NodeCategory as NodeCategoryEnum } from "@foresthub/workflow-core/node";
 
@@ -31,12 +31,12 @@ export interface RightConfigPanelProps {
   selectionDrag: boolean;
 
   // Lookups
-  getNodeDef: (node: NodeInstance) => NodeDefinition | undefined;
+  getNodeDef: (node: NodeData) => NodeDefinition | undefined;
 
   // Mutation handlers (live in BuilderLayout, bound to active canvas)
-  onNodeUpdate: (nodeId: string, updates: Partial<NodeInstance>) => void;
+  onNodeUpdate: (nodeId: string, updates: Partial<NodeData>) => void;
   onNodeDelete: (nodeId: string) => void;
-  onEdgeUpdate: (edgeId: string, updates: Partial<EdgeInstance>) => void;
+  onEdgeUpdate: (edgeId: string, updates: Partial<EdgeData>) => void;
   onEdgeDelete: (edgeId: string) => void;
   onClearSelection: () => void;
 
@@ -110,7 +110,7 @@ export const RightConfigPanel = ({
         id: selectedEdgeRaw.id,
         source: selectedEdgeRaw.source,
         type: (selectedEdgeRaw.type ?? "control") as EdgeType,
-        data: (selectedEdgeRaw.data ?? {}) as EdgeInstance,
+        data: (selectedEdgeRaw.data ?? {}) as EdgeData,
       }
     : null;
 
@@ -141,7 +141,7 @@ export const RightConfigPanel = ({
   );
 
   const getNodeCategory = useCallback(
-    (node: NodeInstance) => getNodeDef(node)?.category as NodeCategoryEnum | undefined,
+    (node: NodeData) => getNodeDef(node)?.category as NodeCategoryEnum | undefined,
     [getNodeDef],
   );
 

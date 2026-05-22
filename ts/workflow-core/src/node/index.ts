@@ -1,13 +1,9 @@
 // Base domain node types
 export type {
-  ApiVariable,
-  DataType,
-  Reference,
-  Expression,
-  FunctionInfo,
   NodeOutput,
   NodeType,
-  NodeInstance,
+  NodeData,
+  Node,
   NodeBase,
 } from "./Node";
 
@@ -17,7 +13,7 @@ export { NodeRegistry } from "./NodeRegistry";
 export type { NodeDefinition, Port, PortDefinitions } from "./NodeDefinition";
 export type { OutputParameter, StaticOutput, OutputList, OutputBinding, OutputDeclaration } from "../parameter";
 
-// NodeMethods — read helpers over a NodeInstance
+// NodeMethods — read helpers over a NodeData
 export { getPorts, getArguments, getNodeOutput, getNodeAvailableOutput, getOutputBinding, getInput, isNodeUsedAsTool } from "./methods";
 export type { ExternalInput } from "./methods";
 

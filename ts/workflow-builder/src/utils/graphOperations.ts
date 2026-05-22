@@ -1,10 +1,8 @@
 import {
-  Expression,
-  FunctionInfo,
   NodeBase,
   NodeCategory,
   NodeDefinition,
-  NodeInstance,
+  NodeData,
   NodeOutput,
   NodeRegistry,
   NodeType,
@@ -14,9 +12,10 @@ import {
   getArguments,
   getNodeOutput,
 } from "@foresthub/workflow-core/node";
+import type { Expression, FunctionInfo } from "@foresthub/workflow-core";
 import type { OutputDeclaration } from "@foresthub/workflow-core/parameter";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
-import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
+import type { EdgeData, EdgeType } from "@foresthub/workflow-core/edge";
 import { CanvasStore } from "../stores/canvasStore";
 import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
 import { nodeOutputVarKey, paramKey } from "@foresthub/workflow-core/variable";
@@ -43,7 +42,7 @@ function collectVariableNames(store: CanvasStore): Set<string> {
  *    when mode === "emit". Assign-mode entries have no name to rename, so they're skipped.)
  * `existingNames` is updated with each rename so subsequent calls see the new names.
  */
-function deduplicateEmitNames(node: NodeInstance, existingNames: Set<string>): void {
+function deduplicateEmitNames(node: NodeData, existingNames: Set<string>): void {
   const args = node.arguments as Record<string, unknown>;
 
   const renameBindingAt = (key: string): void => {
@@ -146,7 +145,7 @@ export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, posi
 
   // Deduplicate emit binding names against existing variables on the canvas
   const existingNames = collectVariableNames(store);
-  deduplicateEmitNames(nodeData as NodeInstance, existingNames);
+  deduplicateEmitNames(nodeData as NodeData, existingNames);
 
   // Nudge position if another node is already nearby (avoids stacking on click-to-add)
   const currentNodes = store.getState().nodes;
@@ -156,11 +155,11 @@ export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, posi
     pos = { x: pos.x + 40, y: pos.y + 40 };
   }
 
-  const newNode: Node<NodeInstance> = {
+  const newNode: Node<NodeData> = {
     id: nodeData.id,
     type: getReactFlowType(nodeDef.type),
     position: pos,
-    data: nodeData as NodeInstance,
+    data: nodeData as NodeData,
   };
 
   const { setNodes, setVariables } = store.getState();
@@ -204,13 +203,13 @@ export function updateNodeInStore(
     const targetNode = nds[targetNodeIndex];
     if (!targetNode) return nds;
     found = true;
-    const currentData = targetNode.data as NodeInstance;
+    const currentData = targetNode.data as NodeData;
     oldOutputs = getNodeOutput(currentData);
 
     // When functionInfo changes (FunctionCall signature update), arguments are a
     // full replacement so stale keys for removed args/returns get dropped;
     // otherwise shallow-merge.
-    let updatedNodeData: NodeInstance;
+    let updatedNodeData: NodeData;
 
     if (updates.arguments) {
       const mergedArgs = updates.functionInfo
@@ -220,9 +219,9 @@ export function updateNodeInStore(
         ...(currentData as Record<string, unknown>),
         ...updates,
         arguments: mergedArgs,
-      } as NodeInstance;
+      } as NodeData;
     } else {
-      updatedNodeData = { ...(currentData as Record<string, unknown>), ...updates } as NodeInstance;
+      updatedNodeData = { ...(currentData as Record<string, unknown>), ...updates } as NodeData;
     }
 
     newOutputs = getNodeOutput(updatedNodeData);
@@ -233,7 +232,7 @@ export function updateNodeInStore(
         return { ...node, data: updatedNodeData };
       }
       return node;
-    }) as Node<NodeInstance>[];
+    }) as Node<NodeData>[];
 
     // Check if any output variable changed (keys added/removed or values changed)
     const oldKeys = Object.keys(oldOutputs);
@@ -282,7 +281,7 @@ export function updateNodeInStore(
 export function deleteNodeFromStore(
   store: CanvasStore,
   nodeId: string,
-  getNodeDefinition?: (node: NodeInstance) => NodeDefinition | undefined,
+  getNodeDefinition?: (node: NodeData) => NodeDefinition | undefined,
 ): boolean {
   const { nodes, edges, setNodes, setEdges, setVariables } = store.getState();
 
@@ -318,7 +317,7 @@ export function deleteNodeFromStore(
  * Agent nodes get specialized control-edge types (agentTask, agentChoice, agentDelegate).
  * Tool edges have no agent-specific variant — every tool edge points at an agent.
  */
-function resolveEdgeType(basePortType: EdgeType, sourceNode: Node<NodeInstance>, targetNode: Node<NodeInstance>): EdgeType {
+function resolveEdgeType(basePortType: EdgeType, sourceNode: Node<NodeData>, targetNode: Node<NodeData>): EdgeType {
   const sourceIsAgent = sourceNode.data.type === "Agent";
   const targetIsAgent = targetNode.data.type === "Agent";
 
@@ -353,7 +352,7 @@ export function updateEdgeInStore(store: CanvasStore, edgeId: string, updates: R
   const edge = edges.find((e) => e.id === edgeId);
   if (!edge) return false;
 
-  setEdges((eds) => eds.map((e) => (e.id === edgeId ? { ...e, data: { ...e.data, ...updates } as EdgeInstance } : e)));
+  setEdges((eds) => eds.map((e) => (e.id === edgeId ? { ...e, data: { ...e.data, ...updates } as EdgeData } : e)));
   return true;
 }
 
@@ -369,8 +368,8 @@ export function deleteEdgesFromStore(store: CanvasStore, edgeIds: string[]): voi
 // ============================================================================
 
 export interface Clipboard {
-  nodes: Node<NodeInstance>[];
-  edges: Edge<EdgeInstance>[];
+  nodes: Node<NodeData>[];
+  edges: Edge<EdgeData>[];
 }
 
 export interface PasteResult {
@@ -384,7 +383,7 @@ export function pasteToStore(
   store: CanvasStore,
   clipboard: Clipboard,
   offset: { x: number; y: number } = { x: 50, y: 50 },
-  getNodeDefinition?: (node: NodeInstance) => NodeDefinition | undefined,
+  getNodeDefinition?: (node: NodeData) => NodeDefinition | undefined,
 ): PasteResult {
   const empty: PasteResult = { pasted: false, skippedLabels: [] };
   if (clipboard.nodes.length === 0) return empty;
@@ -414,11 +413,11 @@ export function pasteToStore(
   });
 
   // Create new nodes with updated IDs and positions
-  const newNodes: Node<NodeInstance>[] = pastableNodes.map((node) => {
+  const newNodes: Node<NodeData>[] = pastableNodes.map((node) => {
     const newId = idMap.get(node.id)!;
 
     // Deep copy and update node data
-    const newData = JSON.parse(JSON.stringify(node.data)) as NodeInstance;
+    const newData = JSON.parse(JSON.stringify(node.data)) as NodeData;
     newData.id = newId;
 
     // Update expression references to point to new node IDs
@@ -445,7 +444,7 @@ export function pasteToStore(
   }
 
   // Create new edges with updated IDs (only for edges where both nodes are pasted)
-  const newEdges: Edge<EdgeInstance>[] = clipboard.edges
+  const newEdges: Edge<EdgeData>[] = clipboard.edges
     .filter((edge) => idMap.has(edge.source) && idMap.has(edge.target))
     .map((edge) => {
       const newEdge = {

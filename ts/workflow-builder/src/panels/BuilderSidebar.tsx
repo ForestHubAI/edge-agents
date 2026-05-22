@@ -14,7 +14,7 @@ import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
-import type { FunctionInfo } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 
 export type BuilderTab =
   | "nodes"

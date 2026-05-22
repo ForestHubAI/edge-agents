@@ -13,9 +13,11 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
-import type { FunctionInfo, NodeOutput, ApiVariable } from "@foresthub/workflow-core/node";
+import type { NodeOutput } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
+import type { ApiVariable } from "@foresthub/workflow-core/variable";
 import { useFunctionInfo } from "../hooks/useFunctionInfo";
-import { DataType } from "@foresthub/workflow-core/node";
+import type { DataType } from "@foresthub/workflow-core";
 
 const DATA_TYPES: DataType[] = ["int", "float", "bool", "string"];
 

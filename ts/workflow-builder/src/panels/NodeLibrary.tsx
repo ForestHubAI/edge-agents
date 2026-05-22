@@ -3,7 +3,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../componen
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { FunctionInfo, NodeCategory } from "@foresthub/workflow-core/node";
+import { NodeCategory } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 import { ChevronDown, ChevronDown as DropdownIcon, Hash, Search, ToggleLeft, Type } from "lucide-react";
 import type { TFunction } from "i18next";
 import React, { useState } from "react";

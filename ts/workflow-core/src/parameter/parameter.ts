@@ -1,4 +1,4 @@
-import type { Expression, Reference } from "../node";
+import type { Expression, Reference } from "../api";
 import type { ChannelType } from "../channel";
 import type { MemoryType } from "../memory";
 import type { ModelType, ModelCapability } from "../model";

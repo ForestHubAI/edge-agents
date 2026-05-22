@@ -14,7 +14,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import type { Expression, FunctionInfo, ApiVariable, NodeOutput } from "@foresthub/workflow-core/node";
+import type { NodeOutput } from "@foresthub/workflow-core/node";
+import type { Expression, FunctionInfo } from "@foresthub/workflow-core";
+import type { ApiVariable } from "@foresthub/workflow-core/variable";
 import { generateId } from "@foresthub/workflow-core/id";
 import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
 import type { OutputAssignments } from "../stores/canvasStore";

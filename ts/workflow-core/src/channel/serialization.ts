@@ -1,7 +1,7 @@
 import type { Schemas } from "../api";
 import { isParameterActive } from "../parameter";
 import { CHANNEL_DEFINITION } from "./ChannelDefinition";
-import type { ChannelInstance } from "./Channel";
+import type { Channel } from "./Channel";
 
 export type ApiChannel = Schemas["Channel"];
 
@@ -21,12 +21,12 @@ export function stripInactiveArguments(args: Record<string, unknown>): Record<st
 }
 
 /**
- * Serialize a domain ChannelInstance to the API discriminated-union shape.
+ * Serialize a domain Channel to the API discriminated-union shape.
  * Deploy-time bindings (`driverId` for hardware, `networkId` for MQTT) are
  * emitted as `""` — the deploy step fills them in against the target device's
  * manifest and network memberships.
  */
-export function serialize(ch: ChannelInstance): ApiChannel {
+export function serialize(ch: Channel): ApiChannel {
   const { id, label, type } = ch;
   // type-discriminator must be in the args record so stripInactiveArguments
   // can evaluate `parameterIn` activation rules — otherwise every gated field
@@ -66,10 +66,10 @@ export function serialize(ch: ChannelInstance): ApiChannel {
 }
 
 /**
- * Convert an API Channel into a domain ChannelInstance. Deploy-time bindings
+ * Convert an API Channel into a domain Channel. Deploy-time bindings
  * (`driverId`, `networkId`) are dropped — they aren't part of the editor state.
  */
-export function deserialize(api: ApiChannel): ChannelInstance {
+export function deserialize(api: ApiChannel): Channel {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};
   switch (type) {

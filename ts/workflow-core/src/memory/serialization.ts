@@ -1,15 +1,15 @@
 import type { Schemas } from "../api";
-import type { MemoryInstance } from "./Memory";
+import type { Memory } from "./Memory";
 
 export type ApiMemory = Schemas["Memory"];
 
 /**
- * Serialize a domain MemoryInstance to the API discriminated-union shape.
+ * Serialize a domain Memory to the API discriminated-union shape.
  * VectorDatabase's `collectionId` is a deploy-time binding emitted as "" — the
  * deploy step resolves it against a backend collection (mirrors Channel.driverId).
  * MemoryFile drops `maxSizeBytes` when unset (absent and null both mean "unlimited").
  */
-export function serialize(mem: MemoryInstance): ApiMemory {
+export function serialize(mem: Memory): ApiMemory {
   const { id, label, type, arguments: args } = mem;
   switch (type) {
     case "MemoryFile":
@@ -33,10 +33,10 @@ export function serialize(mem: MemoryInstance): ApiMemory {
 }
 
 /**
- * Convert an API Memory into a domain MemoryInstance. Deploy-time bindings
+ * Convert an API Memory into a domain Memory. Deploy-time bindings
  * (VectorDatabase.collectionId) are dropped — they aren't part of editor state.
  */
-export function deserialize(api: ApiMemory): MemoryInstance {
+export function deserialize(api: ApiMemory): Memory {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};
   switch (type) {

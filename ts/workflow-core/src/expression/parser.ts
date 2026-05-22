@@ -1,5 +1,5 @@
 import jsep from "jsep";
-import { DataType } from "../node";
+import type { DataType } from "../api";
 import { ResolvedExpr } from "./types";
 
 export interface ParseResult {

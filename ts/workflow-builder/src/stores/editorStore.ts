@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
-import type { ChannelInstance } from "@foresthub/workflow-core/channel";
-import type { MemoryInstance } from "@foresthub/workflow-core/memory";
-import type { ModelInstance, ModelInfo } from "@foresthub/workflow-core/model";
+import type { Channel } from "@foresthub/workflow-core/channel";
+import type { Memory } from "@foresthub/workflow-core/memory";
+import type { Model, ModelInfo } from "@foresthub/workflow-core/model";
 
 // ---------------------------------------------------------------------------
 // Default Channels — every workflow starts pre-initialized with a UART
@@ -11,8 +11,8 @@ import type { ModelInstance, ModelInfo } from "@foresthub/workflow-core/model";
 // bound at deploy time from the DeploymentConfig.
 // ---------------------------------------------------------------------------
 
-export function createDefaultChannels(): Record<string, ChannelInstance> {
-  const uart: ChannelInstance = { id: "uart0", label: "Serial", type: "UART", arguments: {} };
+export function createDefaultChannels(): Record<string, Channel> {
+  const uart: Channel = { id: "uart0", label: "Serial", type: "UART", arguments: {} };
   return { [uart.id]: uart };
 }
 
@@ -48,13 +48,13 @@ interface EditorState {
    */
   selectedVariableUid: string | null;
   // Project-scoped channels (pins, buses) — shared across all canvases
-  channels: Record<string, ChannelInstance>;
+  channels: Record<string, Channel>;
   // Project-scoped memory primitives (memory files + vector databases) — shared
   // across all canvases, referenced from nodes by id.
-  memory: Record<string, MemoryInstance>;
+  memory: Record<string, Memory>;
   // Project-scoped declared custom/self-hosted models (channel-like) — referenced
   // from nodes by id, mapped to llmproxy providers at deploy.
-  models: Record<string, ModelInstance>;
+  models: Record<string, Model>;
   // The static model catalog (what the llmproxy supports), supplied by the
   // embedder via WorkflowBuilderProps.models. Not workflow state — config only.
   availableModels: ModelInfo[];
@@ -72,9 +72,9 @@ interface EditorState {
   setSelectedMemoryId: (id: string | null) => void;
   setSelectedModelId: (id: string | null) => void;
   setSelectedVariableUid: (uid: string | null) => void;
-  setChannels: (updater: (vars: Record<string, ChannelInstance>) => Record<string, ChannelInstance>) => void;
-  setMemory: (updater: (mem: Record<string, MemoryInstance>) => Record<string, MemoryInstance>) => void;
-  setModels: (updater: (models: Record<string, ModelInstance>) => Record<string, ModelInstance>) => void;
+  setChannels: (updater: (vars: Record<string, Channel>) => Record<string, Channel>) => void;
+  setMemory: (updater: (mem: Record<string, Memory>) => Record<string, Memory>) => void;
+  setModels: (updater: (models: Record<string, Model>) => Record<string, Model>) => void;
   setAvailableModels: (models: ModelInfo[]) => void;
 }
 

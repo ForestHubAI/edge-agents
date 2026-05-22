@@ -5,14 +5,14 @@ import { Switch } from "../components/ui/switch";
 import { Loader2, Play } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NodeCategory, getInput, type NodeInstance, type ExternalInput } from "@foresthub/workflow-core/node";
+import { NodeCategory, getInput, type NodeData, type ExternalInput } from "@foresthub/workflow-core/node";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useDebugStore, type DebugSessionPhase } from "../stores/debugStore";
 
 interface DebugExternalIOPanelProps {
   canvasId: string;
   onStep: (nodeId?: string) => void;
-  getNodeCategory: (node: NodeInstance) => NodeCategory | undefined;
+  getNodeCategory: (node: NodeData) => NodeCategory | undefined;
 }
 
 export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: DebugExternalIOPanelProps) => {
@@ -25,9 +25,9 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
     cursorNodeId ? (s.nodes.find((n) => n.id === cursorNodeId)?.data ?? null) : null,
   );
 
-  const requirements = useMemo(() => (cursorNode ? getInput(cursorNode as NodeInstance) : []), [cursorNode]);
+  const requirements = useMemo(() => (cursorNode ? getInput(cursorNode as NodeData) : []), [cursorNode]);
 
-  const isTrigger = cursorNode ? getNodeCategory(cursorNode as NodeInstance) === NodeCategory.Trigger : false;
+  const isTrigger = cursorNode ? getNodeCategory(cursorNode as NodeData) === NodeCategory.Trigger : false;
   const isStepping = phase.status === "stepping";
   const canStep = phase.status === "paused" || (phase.status === "idle" && cursorNodeId);
 
@@ -60,7 +60,7 @@ export const DebugExternalIOPanel = ({ canvasId, onStep, getNodeCategory }: Debu
     <div className="space-y-4">
       {/* Node label */}
       <div className="text-sm font-medium">
-        {(cursorNode as NodeInstance)?.label || (cursorNode as NodeInstance)?.type}
+        {(cursorNode as NodeData)?.label || (cursorNode as NodeData)?.type}
       </div>
 
       {/* Requirements */}

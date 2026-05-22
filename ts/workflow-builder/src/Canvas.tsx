@@ -18,7 +18,7 @@ import {
 import React, { useCallback } from "react";
 import { useResolvedTheme } from "./hooks/useResolvedTheme";
 
-import { NodeCategory, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
+import { NodeCategory, NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
 import { isValidConnection as validateConnection } from "./utils/connectionRules";
 import { getOrCreateCanvasStore } from "./stores/canvasStore";
 import { useEditorStore, isReadOnly } from "./stores/editorStore";
@@ -32,7 +32,7 @@ interface CanvasProps {
   onSelectionStop: () => void;
   onPaneClick: (event: React.MouseEvent) => void;
   onAddNode: (nodeType: NodeDefinition, position?: { x: number; y: number }) => void;
-  onNodeDragStart: (event: React.MouseEvent, node: Node<NodeInstance>) => void;
+  onNodeDragStart: (event: React.MouseEvent, node: Node<NodeData>) => void;
   viewportCenterRef: React.MutableRefObject<(() => { x: number; y: number }) | null>;
 }
 
@@ -90,7 +90,7 @@ const CanvasArea = ({
 
   // ReactFlow change handlers - apply changes directly to store
   const onNodesChange = useCallback(
-    (changes: NodeChange<Node<NodeInstance>>[]) => {
+    (changes: NodeChange<Node<NodeData>>[]) => {
       setNodes((nds) => applyNodeChanges(changes, nds));
     },
     [setNodes],

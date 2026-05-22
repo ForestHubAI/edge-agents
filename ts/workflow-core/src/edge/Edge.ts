@@ -1,22 +1,23 @@
-import type { Expression } from "../node";
+import type { Expression } from "../api";
 
-export interface EdgeInstance extends Record<string, unknown> {
+export interface EdgeData extends Record<string, unknown> {
   prompt?: Expression; // agentTask and agentDelegate
   description?: string; // agentChoice and agentDelegate
 }
 
 /**
- * Minimal structural shape of a graph edge — only the connectivity fields.
- * Deliberately NOT React Flow's `Edge`: lets the editor
- * pass its own `Edge[]` without an adapter while core stays free of
- * `@xyflow/react` (same approach as `computeAvailableVariables`' edge param).
- * The `data` payload is intentionally omitted — pure paths never inspect it.
+ * Full domain edge entity held on a {@link Canvas}: connectivity topology plus
+ * the optional {@link EdgeData} payload. Low-level core fns that read only
+ * connectivity accept it directly, and the editor's React Flow `Edge[]` is
+ * structurally assignable
+ * without an adapter (core stays free of `@xyflow/react`).
  */
-export interface GraphEdge {
-  id?: string;
-  type?: string | null;
+export interface Edge {
+  id: string;
+  type?: string;
   source: string;
   sourceHandle?: string | null;
   target: string;
   targetHandle?: string | null;
+  data?: EdgeData;
 }

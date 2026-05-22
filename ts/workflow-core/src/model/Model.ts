@@ -2,32 +2,32 @@
 //   1. The STATIC catalog (ModelInfo[]): the set of models the llmproxy already
 //      supports. Supplied to the editor as data (props), not declared per-workflow.
 //      A node simply stores the chosen catalog ModelID directly.
-//   2. DECLARED custom models (ModelInstance): self-hosted / custom models the
+//   2. DECLARED custom models (Model): self-hosted / custom models the
 //      llmproxy doesn't ship. These are channel-like — declared in the workflow,
 //      referenced by id from nodes, and mapped to an llmproxy provider at deploy
 //      (`providerBinding`, emitted "" by the editor like a Channel's driverId).
 //
 // A node's `model` field is always just a ModelID string either way; static ids
-// resolve via the catalog (no mapping), custom ids via a declared ModelInstance.
+// resolve via the catalog (no mapping), custom ids via a declared Model.
 //
 // `type` is the api discriminator; new model families (e.g. future YOLO/ONNX
 // variants) register their own definition in ModelRegistry, mirroring nodes.
 
 import type { Schemas } from "../api";
 
+/** A capability a model supports (chat, embedding, vision, ...). From the api. */
+export type ModelCapability = Schemas["ModelCapability"];
+
 export type ModelType = "LLMModel";
 
 export const ALL_MODEL_TYPES: ModelType[] = ["LLMModel"];
 
-export interface ModelInstance {
+export interface Model {
   id: string;
   label: string;
   type: ModelType;
   arguments: Record<string, unknown>;
 }
-
-/** A capability a model supports (chat, embedding, vision, ...). From the api. */
-export type ModelCapability = Schemas["ModelCapability"];
 
 /**
  * One entry in the static model catalog handed to the builder via props. The

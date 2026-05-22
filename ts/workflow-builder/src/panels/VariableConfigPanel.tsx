@@ -6,7 +6,7 @@ import { Separator } from "../components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { ChevronRight } from "lucide-react";
 import type { DeclaredVariable } from "@foresthub/workflow-core/variable";
-import type { DataType } from "@foresthub/workflow-core/node";
+import type { DataType } from "@foresthub/workflow-core";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";

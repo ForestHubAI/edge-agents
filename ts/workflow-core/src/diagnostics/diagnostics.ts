@@ -1,23 +1,24 @@
-import type { Expression, FunctionInfo, NodeDefinition, NodeInstance } from "../node";
+import type { NodeDefinition, NodeData } from "../node";
+import type { Expression, FunctionInfo } from "../api";
 import { NodeCategory, NodeRegistry } from "../node";
-import type { EdgeInstance, EdgeType } from "../edge";
+import type { EdgeData, EdgeType } from "../edge";
 import { getEdgeDefinition, isControlFlow } from "../edge";
 import { getArguments, getNodeAvailableOutput, getOutputBinding, getPorts, isNodeUsedAsTool } from "../node/methods";
-import type { GraphEdge } from "../edge";
+import type { Edge } from "../edge";
 import type { Variable } from "../variable";
 import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
 import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "../parameter";
 import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, OutputDeclaration } from "../parameter";
-import type { ChannelInstance } from "../channel";
+import type { Channel } from "../channel";
 import { CHANNEL_DEFINITION } from "../channel";
-import type { MemoryInstance } from "../memory";
+import type { Memory } from "../memory";
 import { MemoryRegistry } from "../memory";
-import type { ModelInstance } from "../model";
+import type { Model } from "../model";
 import { ModelRegistry } from "../model";
 import type { Schemas } from "../api";
-import type { Reference } from "../node";
+import type { Reference } from "../api";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow/Workflow";
 
@@ -64,16 +65,16 @@ export interface Diagnostic {
 export function computeNodeDiagnostics(opts: {
   canvasId: string;
   nodeId: string;
-  nodeData: NodeInstance;
+  nodeData: NodeData;
   nodeDefinition: NodeDefinition | undefined;
   availableVariables: Record<string, Variable>;
-  channels: Record<string, ChannelInstance>;
-  memory?: Record<string, MemoryInstance>;
+  channels: Record<string, Channel>;
+  memory?: Record<string, Memory>;
   /** Declared custom models (project-scoped). */
-  models?: Record<string, ModelInstance>;
+  models?: Record<string, Model>;
   /** Ids in the static model catalog (props-supplied). Undefined headlessly — catalog ids then aren't flagged. */
   availableModelIds?: Set<string>;
-  edges: readonly GraphEdge[];
+  edges: readonly Edge[];
   isStale?: boolean;
   isDeleted?: boolean;
 }): Diagnostic[] {
@@ -493,7 +494,7 @@ export function computeEdgeDiagnostics(opts: {
   canvasId: string;
   edgeId: string;
   edgeType: EdgeType;
-  edgeData: EdgeInstance | undefined;
+  edgeData: EdgeData | undefined;
   availableVariables: Record<string, Variable>;
   sourceControlEdgeCount: number;
 }): Diagnostic[] {
@@ -562,7 +563,7 @@ export function computeEdgeDiagnostics(opts: {
  * discriminator), then required-check each. Empty label is also flagged so
  * the user has a non-blank name in `channelSelect` dropdowns.
  */
-export function validateChannel(channel: ChannelInstance): Diagnostic[] {
+export function validateChannel(channel: Channel): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
   if (!channel.label || channel.label.trim() === "") {
@@ -602,7 +603,7 @@ export function validateChannel(channel: ChannelInstance): Diagnostic[] {
  * an empty label is flagged (so memorySelect/memory-refs dropdowns have a
  * non-blank name), then each required parameter for the memory's type is checked.
  */
-export function validateMemory(mem: MemoryInstance): Diagnostic[] {
+export function validateMemory(mem: Memory): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
   if (!mem.label || mem.label.trim() === "") {
@@ -640,7 +641,7 @@ export function validateMemory(mem: MemoryInstance): Diagnostic[] {
  * validateMemory: an empty label is flagged, then each required parameter for
  * the model's type is checked (LLMModel has none today, so this is label-only).
  */
-export function validateModel(model: ModelInstance): Diagnostic[] {
+export function validateModel(model: Model): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
   if (!model.label || model.label.trim() === "") {
@@ -746,7 +747,7 @@ export function validateWorkflowState(state: Workflow): ValidationResult {
 
     // Compute node diagnostics
     for (const node of nodes) {
-      const nodeData = node.data;
+      const nodeData = node;
 
       // Resolve node definition
       let nodeDefinition: NodeDefinition | undefined;

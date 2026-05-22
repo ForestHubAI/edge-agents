@@ -1,4 +1,4 @@
-import { MemoryRegistry, type MemoryType, type MemoryInstance } from "@foresthub/workflow-core/memory";
+import { MemoryRegistry, type MemoryType, type Memory } from "@foresthub/workflow-core/memory";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
 import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
@@ -10,10 +10,10 @@ const LABEL_PREFIX: Record<MemoryType, string> = {
 };
 
 /** Create a new memory primitive of the given type in the editor store. Returns the new instance. */
-export function addMemory(type: MemoryType): MemoryInstance {
+export function addMemory(type: MemoryType): Memory {
   const id = generateId();
   const existing = Object.values(useEditorStore.getState().memory).map((m) => m.label);
-  const instance: MemoryInstance = {
+  const instance: Memory = {
     id,
     label: uniqueName(LABEL_PREFIX[type], existing),
     type,

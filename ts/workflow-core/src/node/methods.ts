@@ -1,9 +1,9 @@
-import { NodeInstance, NodeOutput } from "./Node";
+import { NodeData, NodeOutput } from "./Node";
 import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { PortDefinitions } from "./NodeDefinition";
 import { resolveStaticOutputDataType } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
-import { GraphEdge } from "../edge";
+import { Edge } from "../edge";
 
 /** Read a static output's binding from a node's arguments bag, keyed by the output id. */
 function getStaticBinding(args: Record<string, unknown>, outputId: string): OutputBinding | undefined {
@@ -17,7 +17,7 @@ function getStaticBinding(args: Record<string, unknown>, outputId: string): Outp
  * emit-mode entries are addressable by uid here; callers that need to inspect assign-mode
  * entries should walk the declaration list directly via `arguments[out.id]`.
  */
-export function getOutputBinding(node: NodeInstance, outputId: string): OutputBinding | undefined {
+export function getOutputBinding(node: NodeData, outputId: string): OutputBinding | undefined {
   const args = node.arguments as Record<string, unknown>;
 
   if (node.type === "FunctionCall") {
@@ -49,7 +49,7 @@ export type ExternalInput = { kind: "gpio"; pinReference: string | undefined; da
 /**
  * Get ports for a node instance.
  */
-export function getPorts(node: NodeInstance): PortDefinitions {
+export function getPorts(node: NodeData): PortDefinitions {
   switch (node.type) {
     case "ReadPin":
       return {
@@ -140,7 +140,7 @@ export function getPorts(node: NodeInstance): PortDefinitions {
  * the same record under their own (non-colliding) output ids — lambdas address
  * parameters by parameter id and never hit them accidentally.
  */
-export function getArguments(node: NodeInstance): Record<string, unknown> {
+export function getArguments(node: NodeData): Record<string, unknown> {
   return node.arguments as Record<string, unknown>;
 }
 
@@ -153,7 +153,7 @@ export function getArguments(node: NodeInstance): Record<string, unknown> {
  * existing variables and don't create new output slots in scope — they're validated
  * as bindings, not reported as available outputs.
  */
-export function getNodeAvailableOutput(node: NodeInstance): Record<string, NodeOutput> {
+export function getNodeAvailableOutput(node: NodeData): Record<string, NodeOutput> {
   const result: Record<string, NodeOutput> = {};
 
   if (node.type === "FunctionCall") {
@@ -196,7 +196,7 @@ export function getNodeAvailableOutput(node: NodeInstance): Record<string, NodeO
  *  - List outputs: each entry is already a declaration; emit entries contribute
  *    directly (no separate binding), assign entries contribute nothing
  */
-export function getNodeOutput(node: NodeInstance): Record<string, NodeOutput> {
+export function getNodeOutput(node: NodeData): Record<string, NodeOutput> {
   const result: Record<string, NodeOutput> = {};
   const args = node.arguments as Record<string, unknown>;
 
@@ -240,7 +240,7 @@ export function getNodeOutput(node: NodeInstance): Record<string, NodeOutput> {
  * Compute external input requirements for a node instance (debug mode).
  * Returns the hardware I/O values the node will read during execution.
  */
-export function getInput(node: NodeInstance): ExternalInput[] {
+export function getInput(node: NodeData): ExternalInput[] {
   switch (node.type) {
     case "ReadPin":
       return [
@@ -262,7 +262,7 @@ export function getInput(node: NodeInstance): ExternalInput[] {
  * (i.e. its tool-input port has an incoming edge).
  *
  * Reads only the connectivity fields off each edge (`target`, `targetHandle`),
- * so it takes the structural {@link GraphEdge} rather than React Flow's `Edge` —
+ * so it takes the structural {@link Edge} rather than React Flow's `Edge` —
  * keeping this (and its callers in serialization/diagnostics) headless. The
  * editor's React Flow `Edge[]` is structurally assignable without an adapter.
  *
@@ -270,7 +270,7 @@ export function getInput(node: NodeInstance): ExternalInput[] {
  * isValidConnection) live in workflow-builder's connectionRules — they operate
  * on React Flow `Node`/`Edge` and have no place in the headless core.
  */
-export function isNodeUsedAsTool(nodeId: string, nodeData: NodeInstance, edges: readonly GraphEdge[]): boolean {
+export function isNodeUsedAsTool(nodeId: string, nodeData: NodeData, edges: readonly Edge[]): boolean {
   const ports = getPorts(nodeData);
   const toolInputs = ports.input.filter((p) => p.type === "tool");
   if (toolInputs.length === 0) return false;

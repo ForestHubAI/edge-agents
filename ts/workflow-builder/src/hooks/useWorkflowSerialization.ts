@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthub/workflow-core/workflow";
-import type { NodeInstance } from "@foresthub/workflow-core/node";
-import type { EdgeInstance } from "@foresthub/workflow-core/edge";
-import type { ChannelInstance } from "@foresthub/workflow-core/channel";
-import type { MemoryInstance } from "@foresthub/workflow-core/memory";
-import type { ModelInstance } from "@foresthub/workflow-core/model";
+import type { NodeData } from "@foresthub/workflow-core/node";
+import type { EdgeData } from "@foresthub/workflow-core/edge";
+import type { Channel } from "@foresthub/workflow-core/channel";
+import type { Memory } from "@foresthub/workflow-core/memory";
+import type { Model } from "@foresthub/workflow-core/model";
 import { Edge, Node } from "@xyflow/react";
 import { clearAllCanvasStores, getOrCreateCanvasStore, getAllCanvasStores, notifyFunctionRegistryChange } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
@@ -27,13 +27,13 @@ export function useWorkflowSerialization() {
 
     for (const [canvasId, canvas] of Object.entries(state.canvases)) {
       const store = getOrCreateCanvasStore(canvasId);
-      const rfNodes: Node<NodeInstance>[] = canvas.nodes.map((n) => ({
+      const rfNodes: Node<NodeData>[] = canvas.nodes.map((n) => ({
         id: n.id,
-        type: getReactFlowType(n.data.type),
+        type: getReactFlowType(n.type),
         position: n.position,
-        data: n.data,
+        data: n,
       }));
-      const rfEdges: Edge<EdgeInstance>[] = canvas.edges.map((e) => ({
+      const rfEdges: Edge<EdgeData>[] = canvas.edges.map((e) => ({
         id: e.id,
         type: e.type,
         source: e.source,
@@ -82,12 +82,7 @@ export function readStateFromStores(): Workflow {
   for (const [id, store] of Object.entries(getAllCanvasStores())) {
     const s = store.getState();
     canvases[id] = {
-      nodes: s.nodes.map((n) => ({
-        id: n.id,
-        type: n.data.type,
-        position: n.position,
-        data: n.data,
-      })),
+      nodes: s.nodes.map((n) => ({ ...n.data, position: n.position })),
       edges: s.edges.map((e) => ({
         id: e.id,
         type: e.type,
@@ -103,13 +98,13 @@ export function readStateFromStores(): Workflow {
     };
   }
 
-  const channels: Record<string, ChannelInstance> = {};
+  const channels: Record<string, Channel> = {};
   for (const ch of Object.values(useEditorStore.getState().channels)) channels[ch.id] = ch;
 
-  const memory: Record<string, MemoryInstance> = {};
+  const memory: Record<string, Memory> = {};
   for (const m of Object.values(useEditorStore.getState().memory)) memory[m.id] = m;
 
-  const models: Record<string, ModelInstance> = {};
+  const models: Record<string, Model> = {};
   for (const m of Object.values(useEditorStore.getState().models)) models[m.id] = m;
 
   return {

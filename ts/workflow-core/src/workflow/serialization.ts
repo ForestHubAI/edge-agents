@@ -4,14 +4,15 @@
 // a Workflow literal; the CLI calls deserialize on parsed JSON.
 
 import type { Schemas } from "../api";
-import type { NodeInstance, FunctionInfo } from "../node";
+import type { NodeData, Node } from "../node";
+import type { FunctionInfo } from "../api";
 import { getNodeOutput, isNodeUsedAsTool } from "../node/methods";
-import type { EdgeInstance, EdgeType } from "../edge";
-import { ALL_CHANNEL_TYPES, ApiChannel, type ChannelInstance, type ChannelType } from "../channel";
+import type { EdgeData, EdgeType, Edge } from "../edge";
+import { ALL_CHANNEL_TYPES, type ApiChannel, type Channel, type ChannelType } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
-import type { MemoryInstance } from "../memory";
+import type { Memory } from "../memory";
 import { serialize as serializeMemory, deserialize as deserializeMemory } from "../memory";
-import type { ModelInstance } from "../model";
+import type { Model } from "../model";
 import { serialize as serializeModel, deserialize as deserializeModel } from "../model";
 import { serialize as serializeNode, deserialize as deserializeNode } from "../node/serialization";
 import type { Variable, NodeOutputVariable } from "../variable";
@@ -31,7 +32,7 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
   if (!mainCanvas) {
     throw new Error("Main canvas missing");
   }
-  const mainNodes = mainCanvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, mainCanvas.edges)));
+  const mainNodes = mainCanvas.nodes.map((n) => serializeNode(n, n.position, isNodeUsedAsTool(n.id, n, mainCanvas.edges)));
   const mainEdges = mainCanvas.edges.map(toApiEdge);
   const mainDeclared = extractDeclaredVariables(mainCanvas.variables);
 
@@ -44,7 +45,7 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
     functions.push({
       functionInfo: canvas.functionInfo,
       outputAssignments: canvas.outputAssignments,
-      nodes: canvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, canvas.edges))),
+      nodes: canvas.nodes.map((n) => serializeNode(n, n.position, isNodeUsedAsTool(n.id, n, canvas.edges))),
       edges: canvas.edges.map(toApiEdge),
       declaredVariables: extractDeclaredVariables(canvas.variables),
     });
@@ -71,25 +72,21 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
  * since the api intentionally carries only `declaredVariables` to avoid
  * redundancy.
  *
- * The outer `type` field on each CanvasData node is set to the domain node
- * type (e.g. "Agent"). Workflow-builder's wrapper translates it to the React
- * Flow display type during store hydration — that translation is editor-only.
+ * Each node is a flat {@link Node} (domain `NodeData` + `position`);
+ * its `type` is the domain node type (e.g. "Agent"). Workflow-builder projects
+ * that into a React Flow display type during store hydration — editor-only.
  */
 export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   const canvases: Record<string, Canvas> = {};
 
   // Main canvas: data at the api root; no functionInfo, empty outputAssignments.
-  const mainNodes = workflow.nodes.map(toCanvasNode);
-  const mainEdges = workflow.edges.map(toCanvasEdge);
+  const mainNodes = workflow.nodes.map(toDomainNode);
+  const mainEdges = workflow.edges.map(toDomainEdge);
   const mainDeclared = workflow.declaredVariables ?? [];
   canvases[MAIN_CANVAS_ID] = {
     nodes: mainNodes,
     edges: mainEdges,
-    variables: buildCanvasVariables(
-      mainNodes.map((n) => n.data),
-      null,
-      mainDeclared,
-    ),
+    variables: buildCanvasVariables(mainNodes, null, mainDeclared),
     functionInfo: null,
     outputAssignments: {},
   };
@@ -101,35 +98,31 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
       arguments: ensureUids(fn.functionInfo.arguments),
       returns: ensureUids(fn.functionInfo.returns),
     };
-    const fnNodes = fn.nodes.map(toCanvasNode);
-    const fnEdges = fn.edges.map(toCanvasEdge);
+    const fnNodes = fn.nodes.map(toDomainNode);
+    const fnEdges = fn.edges.map(toDomainEdge);
     canvases[functionInfo.id] = {
       nodes: fnNodes,
       edges: fnEdges,
-      variables: buildCanvasVariables(
-        fnNodes.map((n) => n.data),
-        functionInfo,
-        fn.declaredVariables ?? [],
-      ),
+      variables: buildCanvasVariables(fnNodes, functionInfo, fn.declaredVariables ?? []),
       functionInfo,
       outputAssignments: fn.outputAssignments ?? {},
     };
   }
 
-  const channels: Record<string, ChannelInstance> = {};
+  const channels: Record<string, Channel> = {};
   for (const c of workflow.channels ?? []) {
     if (!KNOWN_CHANNEL_TYPES.has(c.type as ChannelType)) continue;
     const instance = deserializeChannel(c as ApiChannel);
     channels[instance.id] = instance;
   }
 
-  const memory: Record<string, MemoryInstance> = {};
+  const memory: Record<string, Memory> = {};
   for (const m of workflow.memory ?? []) {
     const instance = deserializeMemory(m);
     memory[instance.id] = instance;
   }
 
-  const models: Record<string, ModelInstance> = {};
+  const models: Record<string, Model> = {};
   for (const m of workflow.models ?? []) {
     const instance = deserializeModel(m);
     models[instance.id] = instance;
@@ -152,10 +145,10 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
  * from an array of node instances. Calls {@link getNodeOutput} to inspect
  * each node's declared outputs.
  *
- * Ported from workflow-builder's canvasStore to take NodeInstance[] directly
- * (NodeInstance carries id at the top level — no React Flow wrapper needed).
+ * Ported from workflow-builder's canvasStore to take NodeData[] directly
+ * (NodeData carries id at the top level — no React Flow wrapper needed).
  */
-export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string, NodeOutputVariable> {
+export function computeVariablesFromNodes(nodes: NodeData[]): Record<string, NodeOutputVariable> {
   const out: Record<string, NodeOutputVariable> = {};
   for (const node of nodes) {
     for (const [outputId, variable] of Object.entries(getNodeOutput(node))) {
@@ -182,7 +175,7 @@ export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string,
  * by workflow-builder's `CanvasState.initialize`.
  */
 export function buildCanvasVariables(
-  nodes: NodeInstance[],
+  nodes: NodeData[],
   functionInfo: FunctionInfo | null,
   declaredVariables: readonly Schemas["Variable"][],
 ): Record<string, Variable> {
@@ -234,19 +227,12 @@ function extractDeclaredVariables(variables: Record<string, Variable>): Schemas[
 }
 
 /**
- * Convert an api `Node` into a `CanvasData` node (the in-memory wrapper
- * the validator + editor consume). The outer `type` is the domain node type
- * (e.g. "Agent"); workflow-builder's wrapper rewrites it to a React Flow
- * display type during store hydration.
+ * Convert an api `Node` into a flat {@link Node} (the in-memory
+ * domain node the validator + editor consume) by deserializing its payload
+ * and attaching `position`.
  */
-function toCanvasNode(apiNode: Schemas["Node"]): Canvas["nodes"][number] {
-  const data = deserializeNode(apiNode);
-  return {
-    id: data.id,
-    type: data.type,
-    position: apiNode.position,
-    data,
-  };
+function toDomainNode(apiNode: Schemas["Node"]): Node {
+  return { ...deserializeNode(apiNode), position: apiNode.position };
 }
 
 /**
@@ -254,10 +240,10 @@ function toCanvasNode(apiNode: Schemas["Node"]): Canvas["nodes"][number] {
  * `id` field is preserved verbatim — earlier code synthesized `e${index+1}`,
  * which broke roundtrip identity. Edge type-conditional metadata (`prompt`
  * on agentTask/agentDelegate; `description` on agentChoice/agentDelegate)
- * is folded into `data` as `EdgeInstance`.
+ * is folded into `data` as `EdgeData`.
  */
-function toCanvasEdge(apiEdge: Schemas["Edge"]): Canvas["edges"][number] {
-  let data: EdgeInstance | undefined;
+function toDomainEdge(apiEdge: Schemas["Edge"]): Edge {
+  let data: EdgeData | undefined;
   if ((apiEdge.type === "agentTask" || apiEdge.type === "agentDelegate") && apiEdge.prompt) {
     data = { ...data, prompt: apiEdge.prompt };
   }
@@ -280,7 +266,7 @@ function toCanvasEdge(apiEdge: Schemas["Edge"]): Canvas["edges"][number] {
  * (the api now requires it). Edge-type-conditional metadata is reattached
  * from the edge's `data` payload.
  */
-function toApiEdge(edge: Canvas["edges"][number]): Schemas["Edge"] {
+function toApiEdge(edge: Edge): Schemas["Edge"] {
   const sourceHandle = edge.sourceHandle || "";
   const targetHandle = edge.targetHandle || "";
   const edgeType = edge.type as EdgeType | undefined;

@@ -1,4 +1,4 @@
-import { CHANNEL_DEFINITION, type ChannelType, type ChannelInstance, stripInactiveArguments } from "@foresthub/workflow-core/channel";
+import { CHANNEL_DEFINITION, type ChannelType, type Channel, stripInactiveArguments } from "@foresthub/workflow-core/channel";
 import { isParameterActive } from "@foresthub/workflow-core/parameter";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
@@ -24,10 +24,10 @@ function defaultArguments(type: ChannelType): Record<string, unknown> {
 /**
  * Create a new channel in the editor store. Returns the new instance.
  */
-export function addChannel(type: ChannelType = "GPIOIN"): ChannelInstance {
+export function addChannel(type: ChannelType = "GPIOIN"): Channel {
   const id = generateId();
   const existing = Object.values(useEditorStore.getState().channels).map((v) => v.label);
-  const instance: ChannelInstance = {
+  const instance: Channel = {
     id,
     label: uniqueName("channel", existing),
     type,

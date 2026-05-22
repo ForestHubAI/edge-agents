@@ -1,5 +1,5 @@
 import { declaredVarKey, type DeclaredVariable } from "@foresthub/workflow-core/variable";
-import type { DataType } from "@foresthub/workflow-core/node";
+import type { DataType } from "@foresthub/workflow-core";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";

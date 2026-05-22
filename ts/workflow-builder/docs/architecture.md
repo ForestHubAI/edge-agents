@@ -124,7 +124,7 @@ const canvasStores = new Map<string, CanvasStore>();
   builderMode: BuilderMode,                   // { type: "edit" } | { type: "preview", ... } | { type: "debug" }
   selectedNodeIds: string[],                  // Current selection (mirrored for cross-canvas readers)
   selectedEdgeIds: string[],
-  channels: Record<string, ChannelInstance>, // Project-scoped pins/buses, shared across canvases
+  channels: Record<string, Channel>, // Project-scoped pins/buses, shared across canvases
 }
 ```
 

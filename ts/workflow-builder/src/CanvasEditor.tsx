@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Connection, Node, OnSelectionChangeFunc } from "@xyflow/react";
-import type { NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
+import type { NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
 import { getPorts } from "@foresthub/workflow-core/node";
 import { getCompatibleNodeDefs } from "./utils/connectionRules";
 
@@ -42,7 +42,7 @@ export interface CanvasEditorProps {
   ) => string | null | undefined;
   onSelectionChange: OnSelectionChangeFunc;
   onPaneClick: () => void;
-  onNodeDragStart: (event: React.MouseEvent, node: Node<NodeInstance>) => void;
+  onNodeDragStart: (event: React.MouseEvent, node: Node<NodeData>) => void;
 
   // Selection-drag flag (lifted to BuilderLayout so the right panel can read it)
   setSelectionDrag: Dispatch<SetStateAction<boolean>>;
@@ -99,7 +99,7 @@ export const CanvasEditor = ({
         portAction.portType === "tool"
           ? { x: originPos.x, y: originPos.y + 200 }
           : { x: originPos.x + 280, y: originPos.y };
-      const newNodePorts = getPorts({ type: nodeDef.type } as NodeInstance);
+      const newNodePorts = getPorts({ type: nodeDef.type } as NodeData);
       const targetPort = newNodePorts.input.find((p) => p.type === portAction.portType);
       if (!targetPort) return;
       onAddNodeAndConnect(nodeDef, position, {

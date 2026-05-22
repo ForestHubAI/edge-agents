@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { serialize, deserialize, computeVariablesFromNodes, buildCanvasVariables } from "./serialization";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
 import type { Schemas } from "../api";
-import type { NodeInstance } from "../node";
+import type { NodeData } from "../node";
 
 // ============================================================================
 // Reverse roundtrip: api JSON → deserialize → serialize → deep-equal JSON
@@ -19,6 +19,8 @@ const empty: Schemas["Workflow"] = {
   functions: [],
   declaredVariables: [],
   channels: [],
+  memory: [],
+  models: [],
 };
 
 const mainOnly: Schemas["Workflow"] = {
@@ -44,6 +46,8 @@ const mainOnly: Schemas["Workflow"] = {
     { uid: "d1", name: "counter", dataType: "int", initialValue: 0 },
   ],
   channels: [],
+  memory: [],
+  models: [],
 };
 
 const allEdgeTypes: Schemas["Workflow"] = {
@@ -77,6 +81,8 @@ const allEdgeTypes: Schemas["Workflow"] = {
   functions: [],
   declaredVariables: [],
   channels: [],
+  memory: [],
+  models: [],
 };
 
 const withFunctionCanvas: Schemas["Workflow"] = {
@@ -132,6 +138,8 @@ const withFunctionCanvas: Schemas["Workflow"] = {
   ],
   declaredVariables: [],
   channels: [],
+  memory: [],
+  models: [],
 };
 
 describe("workflowSerialization — reverse roundtrip (JSON → deserialize → serialize)", () => {
@@ -170,7 +178,7 @@ function makeMainCanvas(nodes: Canvas["nodes"] = [], edges: Canvas["edges"] = []
   return {
     nodes,
     edges,
-    variables: buildCanvasVariables(nodes.map((n) => n.data), null, declared),
+    variables: buildCanvasVariables(nodes, null, declared),
     functionInfo: null,
     outputAssignments: {},
   };
@@ -178,7 +186,7 @@ function makeMainCanvas(nodes: Canvas["nodes"] = [], edges: Canvas["edges"] = []
 
 describe("workflowSerialization — forward roundtrip (state → serialize → deserialize)", () => {
   it("empty state roundtrips to a state with an empty main canvas", () => {
-    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() } };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() }, channels: {}, memory: {}, models: {} };
     expect(deserialize(serialize(state))).toEqual(state);
   });
 
@@ -187,7 +195,7 @@ describe("workflowSerialization — forward roundtrip (state → serialize → d
       { id: "stable-id-A", type: "control", source: "n1", sourceHandle: "out", target: "n2", targetHandle: "in" },
       { id: "stable-id-B", type: "tool", source: "n1", sourceHandle: "tool", target: "n3", targetHandle: "in" },
     ];
-    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) } };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) }, channels: {}, memory: {}, models: {} };
     const roundTripped = deserialize(serialize(state));
     expect(roundTripped.canvases[MAIN_CANVAS_ID]!.edges.map((e) => e.id)).toEqual(["stable-id-A", "stable-id-B"]);
   });
@@ -199,7 +207,7 @@ describe("workflowSerialization — forward roundtrip (state → serialize → d
 
 describe("buildCanvasVariables", () => {
   it("reconstructs node-output variables from nodes via getNodeOutput", () => {
-    const nodes: NodeInstance[] = [
+    const nodes: NodeData[] = [
       {
         id: "agent1",
         type: "Agent",
@@ -212,7 +220,7 @@ describe("buildCanvasVariables", () => {
           memoryRefs: [],
           answer: { active: true, mode: "emit", name: "answer" },
         },
-      } as NodeInstance,
+      } as NodeData,
     ];
     const vars = computeVariablesFromNodes(nodes);
     // Agent emits at least one output (the answer); key is "<nodeId>:<outputId>".

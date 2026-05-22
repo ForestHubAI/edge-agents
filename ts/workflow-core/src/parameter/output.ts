@@ -1,4 +1,4 @@
-import type { Reference } from "../node";
+import type { Reference } from "../api";
 import { DataType, FromArgs, unwrapFromArgs } from "./Parameter";
 
 // ============================================================================

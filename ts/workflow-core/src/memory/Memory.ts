@@ -4,7 +4,7 @@ export type MemoryType = "MemoryFile" | "VectorDatabase";
 
 export const ALL_MEMORY_TYPES: MemoryType[] = ["MemoryFile", "VectorDatabase"];
 
-export interface MemoryInstance {
+export interface Memory {
   id: string;
   label: string;
   type: MemoryType;

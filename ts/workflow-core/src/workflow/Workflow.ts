@@ -1,8 +1,9 @@
-import type { ChannelInstance } from "../channel";
-import type { MemoryInstance } from "../memory";
-import type { ModelInstance } from "../model";
-import type { NodeInstance, FunctionInfo, Expression } from "../node";
-import type { EdgeInstance } from "../edge";
+import type { Channel } from "../channel";
+import type { Memory } from "../memory";
+import type { Model } from "../model";
+import type { Node } from "../node";
+import type { FunctionInfo, Expression } from "../api";
+import type { Edge } from "../edge";
 import type { Variable } from "../variable";
 import type { Schemas } from "../api";
 
@@ -23,30 +24,17 @@ export const MAIN_CANVAS_ID = "main" as const;
  */
 export interface Workflow {
   canvases: Record<string, Canvas>;
-  channels: Record<string, ChannelInstance>;
-  memory: Record<string, MemoryInstance>;
-  models: Record<string, ModelInstance>;
+  channels: Record<string, Channel>;
+  memory: Record<string, Memory>;
+  models: Record<string, Model>;
 }
 
 /**
  * One canvas's worth of in-memory domain state.
  */
 export interface Canvas {
-  nodes: Array<{
-    id: string;
-    type: string;
-    position: { x: number; y: number };
-    data: NodeInstance;
-  }>;
-  edges: Array<{
-    id: string;
-    type?: string;
-    source: string;
-    sourceHandle?: string | null;
-    target: string;
-    targetHandle?: string | null;
-    data?: EdgeInstance;
-  }>;
+  nodes: Node[];
+  edges: Edge[];
   variables: Record<string, Variable>;
   functionInfo: FunctionInfo | null;
   outputAssignments: Record<string, Expression>;

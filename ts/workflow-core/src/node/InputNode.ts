@@ -1,4 +1,5 @@
-import { Expression, NodeBase } from "./Node";
+import { NodeBase } from "./Node";
+import type { Expression } from "../api";
 import { OutputBinding } from "../parameter";
 import { NodeCategory, NodeTag } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";

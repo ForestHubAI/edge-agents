@@ -7,17 +7,17 @@
 // on this side of the boundary.
 
 import { Edge, Node } from "@xyflow/react";
-import { getPorts, NodeRegistry, type NodeInstance, type NodeDefinition } from "@foresthub/workflow-core/node";
+import { getPorts, NodeRegistry, type NodeData, type NodeDefinition } from "@foresthub/workflow-core/node";
 import { type EdgeType } from "@foresthub/workflow-core/edge";
 
 /** Check whether a node already has tool-input edges (for mutual exclusion). */
-function hasToolInputEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[]): boolean {
+function hasToolInputEdge(nodeId: string, nodeData: NodeData, edges: Edge[]): boolean {
   const ports = getPorts(nodeData);
   return edges.some((e) => e.target === nodeId && ports.input.some((p) => p.type === "tool" && p.id === e.targetHandle));
 }
 
 /** Check whether a node already has control-flow edges (for mutual exclusion). */
-function hasControlFlowEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[]): boolean {
+function hasControlFlowEdge(nodeId: string, nodeData: NodeData, edges: Edge[]): boolean {
   const ports = getPorts(nodeData);
   return edges.some((e) => {
     if (e.target === nodeId) {
@@ -34,7 +34,7 @@ function hasControlFlowEdge(nodeId: string, nodeData: NodeInstance, edges: Edge[
  * Check whether an output port can accept at least one more outgoing edge.
  * Used by the contextual "+" button on output ports.
  */
-export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<NodeInstance>[], edges: Edge[]): boolean {
+export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<NodeData>[], edges: Edge[]): boolean {
   const node = nodes.find((n) => n.id === nodeId);
   if (!node) return false;
 
@@ -62,7 +62,7 @@ export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<
 export function getCompatibleNodeDefs(
   originNodeId: string,
   originHandleId: string,
-  nodes: Node<NodeInstance>[],
+  nodes: Node<NodeData>[],
   edges: Edge[],
   allNodeDefs: NodeDefinition[],
   isFunctionCanvas: boolean,
@@ -85,7 +85,7 @@ export function getCompatibleNodeDefs(
     if (isFunctionCanvas && def.category === "Trigger") return false;
 
     // Check candidate has a matching input port
-    const candidatePorts = getPorts({ type: def.type } as NodeInstance);
+    const candidatePorts = getPorts({ type: def.type } as NodeData);
     return candidatePorts.input.some((p) => p.type === originPortType);
   });
 }
@@ -95,7 +95,7 @@ export const isValidConnection = (
   targetId: string | null,
   sourceHandleId: string | null | undefined,
   targetHandleId: string | null | undefined,
-  nodes: Node<NodeInstance>[],
+  nodes: Node<NodeData>[],
   edges: Edge[],
 ): false | EdgeType => {
   // All handles must be present

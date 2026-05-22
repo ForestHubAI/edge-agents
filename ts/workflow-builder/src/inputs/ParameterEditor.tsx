@@ -8,7 +8,7 @@ import { Button } from "../components/ui/button";
 import { AddButton } from "../components/ui/add-button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AlertTriangle, Trash2 } from "lucide-react";
-import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
+import type { DataType, Expression, Reference } from "@foresthub/workflow-core";
 import type {
   ExpressionParam,
   ChannelSelectParam,
@@ -28,8 +28,8 @@ import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useEditorStore } from "../stores/editorStore";
 import { varKey, refToLookupKey } from "@foresthub/workflow-core/variable";
-import type { ChannelInstance } from "@foresthub/workflow-core/channel";
-import type { MemoryInstance, MemoryRef } from "@foresthub/workflow-core/memory";
+import type { Channel } from "@foresthub/workflow-core/channel";
+import type { Memory, MemoryRef } from "@foresthub/workflow-core/memory";
 import type { ModelCapability } from "@foresthub/workflow-core/model";
 import ExpressionInput from "./ExpressionInput";
 import { getParamDescription } from "../utils/translation";
@@ -257,7 +257,7 @@ const ParameterEditor = ({
       case "memorySelect": {
         const memoryParam = parameter as ParameterEditorProps["parameter"] & MemorySelectParam;
         const allowedTypes = resolveMemoryTypes(memoryParam, allArguments);
-        const matching = Object.values(memory).filter((m: MemoryInstance) => allowedTypes.includes(m.type));
+        const matching = Object.values(memory).filter((m: Memory) => allowedTypes.includes(m.type));
 
         const selectedId = currentValue as string | undefined;
         const isStale = !!(selectedId && !matching.some((m) => m.id === selectedId));
@@ -460,7 +460,7 @@ const ParameterEditor = ({
       case "channelSelect": {
         const channelParam = parameter as ParameterEditorProps["parameter"] & ChannelSelectParam;
         const allowedTypes = resolveChannelTypes(channelParam, allArguments);
-        const matching = Object.values(channels).filter((v: ChannelInstance) => allowedTypes.includes(v.type));
+        const matching = Object.values(channels).filter((v: Channel) => allowedTypes.includes(v.type));
 
         const selectedId = currentValue as string | undefined;
         const isStale = !!(selectedId && !matching.some((v) => v.id === selectedId));

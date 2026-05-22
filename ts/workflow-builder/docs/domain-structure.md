@@ -42,7 +42,7 @@ OutputBinding =
 
 `output` is keyed by a uid. Single-output nodes use `SYSTEM_OUTPUT_KEY = "out-0"`.
 
-### NodeType and NodeInstance (`src/types/node/index.ts`)
+### NodeType and NodeData (`src/types/node/index.ts`)
 
 ```typescript
 NodeType =
@@ -55,7 +55,7 @@ NodeType =
   FunctionCallNodeType |
   DataNodeType;
 
-NodeInstance = InputNode | OutputNode | AgentNode | LogicNode | TriggerNode | ToolNode | FunctionCallNode | DataNode;
+NodeData = InputNode | OutputNode | AgentNode | LogicNode | TriggerNode | ToolNode | FunctionCallNode | DataNode;
 ```
 
 Each concrete node type (e.g. `ReadPinNode`, `IfNode`) is defined in its category file (`InputNode.ts`, `LogicNode.ts`, etc.) and added to the union via the category-level union (e.g. `InputNode = ReadPinNode | SerialReadNode | RetrieverNode`).
@@ -145,7 +145,7 @@ FunctionNodeDefinition extends NodeDefinition {
 
 ### NodeSerialization (`src/types/node/NodeSerialization.ts`)
 
-Bidirectional conversion between domain `NodeInstance` and API wire format:
+Bidirectional conversion between domain `NodeData` and API wire format:
 
 - **`serialize(node, position)`** — strips hidden parameters, uses `!` assertions on fields validated by the diagnostics gate
 - **`deserialize(apiNode)`** — reconstructs domain node, calls `getOutput()` to populate outputs, coerces optional strings to `""`
@@ -171,10 +171,10 @@ Helper type guards:
 
 Control-flow edges render as horizontal beziers; tool-flow edges render as vertical beziers.
 
-### EdgeInstance (`src/types/edge/index.ts`)
+### EdgeData (`src/types/edge/index.ts`)
 
 ```typescript
-EdgeInstance extends Record<string, unknown> {
+EdgeData extends Record<string, unknown> {
   prompt?: Expression;      // agentTask and agentDelegate
   description?: string;     // agentChoice, agentTool, and agentDelegate
 }
@@ -221,8 +221,8 @@ Edge serialization lives alongside node serialization. Edges are serialized with
 | ------------------------------------- | --------------------------------------------------------------------------- |
 | `src/api/openapi.yaml`                | Node schema under `components/schemas`, add to `Node` oneOf + discriminator |
 | `src/api/generated.ts`                | Regenerate from openapi.yaml (`npm run generate-api`)                       |
-| `src/types/node/<Category>Node.ts`    | NodeInstance interface + NodeDefinition constant with parameters            |
-| `src/types/node/index.ts`             | Add to `NodeType` union and `NodeInstance` union, export the interface      |
+| `src/types/node/<Category>Node.ts`    | NodeData interface + NodeDefinition constant with parameters            |
+| `src/types/node/index.ts`             | Add to `NodeType` union and `NodeData` union, export the interface      |
 | `src/types/node/NodeRegistry.ts`      | Register the NodeDefinition in `initialize()`                               |
 | `src/types/node/NodeMethods.ts`       | Add `case` in `getPorts()` and `getOutput()` (if the node produces outputs) |
 | `src/types/node/NodeSerialization.ts` | Add `case` in both `serializeNodeByType()` and `deserialize()`              |
@@ -233,9 +233,9 @@ Edge serialization lives alongside node serialization. Edges are serialized with
 | ---------------------------------- | ------------------------------------------------------------ |
 | `src/api/openapi.yaml`             | Edge schema if the wire format changes                       |
 | `src/types/edge/EdgeType.ts`       | Add to `EdgeType` union, update `isControlFlow`/`isToolFlow` |
-| `src/types/edge/index.ts`          | Add fields to `EdgeInstance` if needed                       |
+| `src/types/edge/index.ts`          | Add fields to `EdgeData` if needed                       |
 | `src/types/edge/EdgeDefinition.ts` | Add entry in `EDGE_DEFINITIONS` with parameters              |
 
-## 6. API field → NodeInstance argument type
+## 6. API field → NodeData argument type
 
-The `NodeInstance` interface (`src/types/node/<Category>Node.ts`) must reflect the runtime type contract from [parameters.md section 3](parameters.md#3-definition--instance-mapping). Use the tables there to determine the correct TypeScript type for each argument field.
+The `NodeData` interface (`src/types/node/<Category>Node.ts`) must reflect the runtime type contract from [parameters.md section 3](parameters.md#3-definition--instance-mapping). Use the tables there to determine the correct TypeScript type for each argument field.

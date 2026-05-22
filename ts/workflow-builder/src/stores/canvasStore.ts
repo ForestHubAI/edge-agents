@@ -1,7 +1,8 @@
 import { create, UseBoundStore, StoreApi } from "zustand";
 import { Node, Edge } from "@xyflow/react";
-import { NodeCategory, type NodeInstance, type FunctionInfo, type Expression } from "@foresthub/workflow-core/node";
-import type { EdgeInstance } from "@foresthub/workflow-core/edge";
+import { NodeCategory, type NodeData } from "@foresthub/workflow-core/node";
+import type { FunctionInfo, Expression } from "@foresthub/workflow-core";
+import type { EdgeData } from "@foresthub/workflow-core/edge";
 import { history, History, type HistoryData } from "../utils/history";
 import { generateId } from "@foresthub/workflow-core/id";
 import { fnargKey, type Variable } from "@foresthub/workflow-core/variable";
@@ -71,8 +72,8 @@ const canvasStores = new Map<string, CanvasStore>();
 canvasStores.set(MAIN_CANVAS_ID, createCanvasStore()); // Always exists
 
 export interface CanvasState {
-  nodes: Node<NodeInstance>[];
-  edges: Edge<EdgeInstance>[];
+  nodes: Node<NodeData>[];
+  edges: Edge<EdgeData>[];
   // Unified variable record: node outputs (nodeId:outputId), declared (declared:uid), fn args (fnarg:uid)
   variables: Record<string, Variable>;
   // Function definition - only present for function canvases (null for main canvas)
@@ -87,8 +88,8 @@ export interface CanvasState {
    */
   mutationCount: number;
 
-  setNodes: (updater: (nodes: Node<NodeInstance>[]) => Node<NodeInstance>[]) => void;
-  setEdges: (updater: (edges: Edge<EdgeInstance>[]) => Edge<EdgeInstance>[]) => void;
+  setNodes: (updater: (nodes: Node<NodeData>[]) => Node<NodeData>[]) => void;
+  setEdges: (updater: (edges: Edge<EdgeData>[]) => Edge<EdgeData>[]) => void;
   setVariables: (updater: (variables: Record<string, Variable>) => Record<string, Variable>) => void;
   setFunctionInfo: (updater: (info: FunctionInfo | null) => FunctionInfo | null) => void;
   setOutputAssignments: (updater: (assignments: OutputAssignments) => OutputAssignments) => void;
@@ -97,8 +98,8 @@ export interface CanvasState {
   /** Visual-only: set ReactFlow selected flag on edges. No history, safe in read-only mode. */
   selectEdges: (edgeIds: string[]) => void;
   initialize: (
-    nodes: Node<NodeInstance>[],
-    edges: Edge<EdgeInstance>[],
+    nodes: Node<NodeData>[],
+    edges: Edge<EdgeData>[],
     functionInfo?: FunctionInfo | null,
     outputAssignments?: OutputAssignments,
   ) => void;
@@ -195,7 +196,7 @@ function createCanvasStore(): CanvasStore {
 
       initialize: (nodes, edges, functionInfo = null, outputAssignments = {}) => {
         // Build variables: node outputs + fnarg entries from functionInfo.
-        // computeVariablesFromNodes is the core (NodeInstance[]) variant; peel
+        // computeVariablesFromNodes is the core (NodeData[]) variant; peel
         // the React Flow wrapper at the call site.
         const vars: Record<string, Variable> = computeVariablesFromNodes(nodes.map((n) => n.data));
         if (functionInfo?.arguments) {
@@ -250,7 +251,7 @@ export function getOrCreateCanvasStore(canvasId: string): CanvasStore {
     // Initialize function canvases with OnFunctionCall trigger node
     if (canvasId !== MAIN_CANVAS_ID) {
       const nodeId = generateId();
-      const initialNode: Node<NodeInstance> = {
+      const initialNode: Node<NodeData> = {
         id: nodeId,
         type: NodeCategory.Trigger,
         position: { x: 100, y: 100 },
@@ -258,7 +259,7 @@ export function getOrCreateCanvasStore(canvasId: string): CanvasStore {
           id: nodeId,
           type: "OnFunctionCall",
           arguments: {},
-        } as NodeInstance,
+        } as NodeData,
       };
       store.getState().initialize([initialNode], []);
     }

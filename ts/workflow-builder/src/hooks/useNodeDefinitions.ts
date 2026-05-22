@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from "react";
 import i18n from "../i18n";
-import { NodeCategory, NodeRegistry, NodeDefinition, NodeInstance } from "@foresthub/workflow-core/node";
-import type { FunctionInfo } from "@foresthub/workflow-core/node";
+import { NodeCategory, NodeRegistry, NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 import { useFunctionRegistry } from "./useFunctionRegistry";
 import { FunctionCallNode, FunctionNodeDefinition, buildFunctionNodeDef as coreBuildFunctionNodeDef } from "@foresthub/workflow-core/node";
 
@@ -31,7 +31,7 @@ export const useNodeDefinitions = () => {
 
   // Get node definition for a node instance (still depending on all functions)
   const getNodeDefinition = useCallback(
-    (node: NodeInstance): NodeDefinition | undefined => {
+    (node: NodeData): NodeDefinition | undefined => {
       if (node.type === "FunctionCall") {
         const fnNode = node as FunctionCallNode;
         return functionNodeDefs.find((def) => def.type === "FunctionCall" && def.functionInfo.id === fnNode.functionInfo.id);

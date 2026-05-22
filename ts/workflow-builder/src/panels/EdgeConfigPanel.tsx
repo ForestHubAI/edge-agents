@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
 import { ChevronRight } from "lucide-react";
 import { getEdgeDefinition } from "@foresthub/workflow-core/edge";
-import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
+import type { EdgeData, EdgeType } from "@foresthub/workflow-core/edge";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
@@ -17,7 +17,7 @@ interface EdgeConfigPanelProps {
   canvasId: string;
   edgeId: string;
   edgeType: EdgeType;
-  edgeData: EdgeInstance;
+  edgeData: EdgeData;
   sourceControlEdgeCount: number;
   onEdgeUpdate: (edgeId: string, updates: Record<string, unknown>) => void;
   onEdgeDelete: (edgeId: string) => void;

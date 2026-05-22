@@ -1,4 +1,5 @@
-import { NodeBase, Reference } from "./Node";
+import { NodeBase } from "./Node";
+import type { Reference } from "../api";
 import { OutputBinding } from "../parameter";
 import { NodeCategory, NodeTag } from "./constants";
 import { NodeDefinition } from "./NodeDefinition";

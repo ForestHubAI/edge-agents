@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import type { FunctionInfo } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 import { FunctionInfoDialog } from "../dialogs/FunctionInfoDialog";
 
 interface FunctionsPanelProps {

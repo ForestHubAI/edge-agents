@@ -1,5 +1,5 @@
 import type { Schemas } from "../api";
-import type { DataType } from "../node";
+import type { DataType } from "../api";
 
 export type ApiVariable = Schemas["Variable"]; // Differentiate from domain variable type
 

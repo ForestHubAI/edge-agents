@@ -4,7 +4,7 @@ import {
   NodeBase,
   NodeCategory,
   NodeDefinition,
-  NodeInstance,
+  NodeData,
   getArguments,
   getPorts,
 } from "@foresthub/workflow-core/node";
@@ -43,7 +43,7 @@ export interface BaseNodeProps extends NodeProps {
 // Base Node component - handles all rendering logic
 export const BaseNode = memo(
   ({ id, data, selected, nodeDefinition, isStale = false, isDeleted = false }: BaseNodeProps) => {
-    const nodeData = data as NodeInstance;
+    const nodeData = data as NodeData;
     const isHighlighted = selected ?? false;
     // Skip diagnostics when in read-only mode OR when rendered inside VersionPreviewCanvas
     const isPreview = useEditorStore((s) => isReadOnly(s.builderMode)) || !!(data as Record<string, unknown>)?._preview;

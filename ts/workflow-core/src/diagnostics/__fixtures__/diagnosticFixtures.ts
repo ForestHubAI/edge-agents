@@ -1,7 +1,8 @@
-import type { GraphEdge } from "../../edge";
-import type { DataType, Expression, NodeDefinition, NodeInstance, Reference } from "../../node";
-import type { ChannelInstance } from "../../channel";
-import type { MemoryInstance } from "../../memory";
+import type { Edge } from "../../edge";
+import type { NodeDefinition, NodeData } from "../../node";
+import type { DataType, Expression, Reference } from "../../api";
+import type { Channel } from "../../channel";
+import type { Memory } from "../../memory";
 import { NodeCategory } from "../../node";
 import type { Variable, DeclaredVariable, NodeOutputVariable } from "../../variable";
 import type { Diagnostic, DiagnosticCategory } from "../diagnostics";
@@ -63,8 +64,8 @@ export function makeEdge(
   sourceHandle: string,
   target: string,
   targetHandle: string,
-  overrides: Partial<GraphEdge> = {},
-): GraphEdge {
+  overrides: Partial<Edge> = {},
+): Edge {
   return {
     id,
     source,
@@ -80,7 +81,7 @@ export function makeEdge(
 // Channel builders
 // ============================================================================
 
-export function makeChannel(overrides: Partial<ChannelInstance> = {}): ChannelInstance {
+export function makeChannel(overrides: Partial<Channel> = {}): Channel {
   return {
     id: "ch1",
     label: "GPIO 4",
@@ -90,8 +91,8 @@ export function makeChannel(overrides: Partial<ChannelInstance> = {}): ChannelIn
   };
 }
 
-export function makeChannels(channels: ChannelInstance[]): Record<string, ChannelInstance> {
-  const map: Record<string, ChannelInstance> = {};
+export function makeChannels(channels: Channel[]): Record<string, Channel> {
+  const map: Record<string, Channel> = {};
   for (const v of channels) map[v.id] = v;
   return map;
 }
@@ -100,7 +101,7 @@ export function makeChannels(channels: ChannelInstance[]): Record<string, Channe
 // Memory builders
 // ============================================================================
 
-export function makeMemory(overrides: Partial<MemoryInstance> = {}): MemoryInstance {
+export function makeMemory(overrides: Partial<Memory> = {}): Memory {
   return {
     id: "mem1",
     label: "memory1",
@@ -110,8 +111,8 @@ export function makeMemory(overrides: Partial<MemoryInstance> = {}): MemoryInsta
   };
 }
 
-export function makeMemories(memories: MemoryInstance[]): Record<string, MemoryInstance> {
-  const map: Record<string, MemoryInstance> = {};
+export function makeMemories(memories: Memory[]): Record<string, Memory> {
+  const map: Record<string, Memory> = {};
   for (const m of memories) map[m.id] = m;
   return map;
 }
@@ -121,12 +122,12 @@ export function makeMemories(memories: MemoryInstance[]): Record<string, MemoryI
 // ============================================================================
 
 /**
- * Build a minimal NodeInstance. Tests assert against the shape `computeNodeDiagnostics`
+ * Build a minimal NodeData. Tests assert against the shape `computeNodeDiagnostics`
  * sees (arguments record + type discriminator), not against the strict per-type shapes,
- * so we widen to `NodeInstance` via unknown at the boundary.
+ * so we widen to `NodeData` via unknown at the boundary.
  */
-export function makeNode(type: string, args: Record<string, unknown>, overrides: Record<string, unknown> = {}): NodeInstance {
-  return { id: "n1", type, arguments: args, ...overrides } as unknown as NodeInstance;
+export function makeNode(type: string, args: Record<string, unknown>, overrides: Record<string, unknown> = {}): NodeData {
+  return { id: "n1", type, arguments: args, ...overrides } as unknown as NodeData;
 }
 
 // ============================================================================

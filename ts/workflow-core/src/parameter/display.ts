@@ -1,4 +1,4 @@
-import type { Reference } from "../node";
+import type { Reference } from "../api";
 import { refToLookupKey, type Variable } from "../variable";
 import type { Parameter } from "./Parameter";
 

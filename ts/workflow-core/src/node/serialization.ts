@@ -1,16 +1,17 @@
 import type { Schemas } from "../api";
-import { Expression, NodeInstance } from "./Node";
+import { NodeData } from "./Node";
+import type { Expression } from "../api";
 import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { isParameterActive } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 
 /**
- * Serialize a domain NodeInstance to the strict API format (Schemas["Node"]).
+ * Serialize a domain NodeData to the strict API format (Schemas["Node"]).
  * Strips hidden parameters (those whose activationRules are not met). The
  * `isToolInput` flag is threaded into activation evaluation so rules like
  * `isControlFlow` / `isToolInput` resolve correctly per-instance.
  */
-export function serialize(node: NodeInstance, position: { x: number; y: number }, isToolInput = false): Schemas["Node"] {
+export function serialize(node: NodeData, position: { x: number; y: number }, isToolInput = false): Schemas["Node"] {
   const result = serializeNode(node, position, isToolInput);
   if (node.label) {
     (result as Record<string, unknown>).label = node.label;
@@ -37,7 +38,7 @@ export function serialize(node: NodeInstance, position: { x: number; y: number }
   return result;
 }
 
-function serializeNode(node: NodeInstance, position: { x: number; y: number }, isToolInput: boolean): Schemas["Node"] {
+function serializeNode(node: NodeData, position: { x: number; y: number }, isToolInput: boolean): Schemas["Node"] {
   switch (node.type) {
     case "ReadPin":
       return {
@@ -292,10 +293,10 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
 }
 
 /**
- * Convert a strict API Node (Schemas["Node"]) to a domain NodeInstance.
+ * Convert a strict API Node (Schemas["Node"]) to a domain NodeData.
  * All required fields are expected to be present — no default injection.
  */
-export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
+export function deserialize(apiNode: Schemas["Node"]): NodeData {
   switch (apiNode.type) {
     case "ReadPin":
       return {

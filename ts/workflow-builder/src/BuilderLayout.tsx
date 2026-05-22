@@ -1,4 +1,4 @@
-import type { FunctionInfo } from "@foresthub/workflow-core/node";
+import type { FunctionInfo } from "@foresthub/workflow-core";
 import type { NodeDefinition } from "@foresthub/workflow-core/node";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Connection, OnSelectionChangeFunc } from "@xyflow/react";

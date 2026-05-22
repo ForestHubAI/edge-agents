@@ -126,7 +126,7 @@ On **export**: `DeclaredVariable` entries are extracted back to `Variable[]`; no
 | `src/api/generated.ts`                                         | Generated TypeScript types matching the schema                          |
 | `src/types/node/index.ts`                                      | Domain type re-exports, `NodeBase` interface                            |
 | `src/types/node/NodeMethods.ts`                                | `getOutput()` — computes `NodeOutput` record from node arguments        |
-| `src/types/node/NodeSerialization.ts`                          | Serialize/deserialize between API JSON and `NodeInstance`               |
+| `src/types/node/NodeSerialization.ts`                          | Serialize/deserialize between API JSON and `NodeData`               |
 | `src/types/node/AgentNode.ts`                                  | `outputDefinitions: Variable[]`                                         |
 | `src/types/node/FunctionNode.ts`                               | `inputBindings`/`outputNames` keyed by Variable uid                     |
 | `src/workflow-builder/utils/variables.ts`             | Canvas variable types, key helpers, `refToLookupKey()`                  |

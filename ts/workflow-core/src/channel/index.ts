@@ -1,4 +1,4 @@
-export type { ChannelType, ChannelInstance } from "./Channel";
+export type { ChannelType, Channel } from "./Channel";
 export { ALL_CHANNEL_TYPES } from "./Channel";
 export type { ChannelDefinition } from "./ChannelDefinition";
 export { CHANNEL_DEFINITION } from "./ChannelDefinition";
