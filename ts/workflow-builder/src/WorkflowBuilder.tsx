@@ -1,16 +1,21 @@
 import type { ApiWorkflow } from "@foresthub/workflow-core/workflow";
 import type { ModelInfo } from "@foresthub/workflow-core/model";
-import { validateWorkflowState, type ValidationResult } from "@foresthub/workflow-core/diagnostics";
+import {
+  validateWorkflowState,
+  validateChannel,
+  validateMemory,
+  validateModel,
+  type ValidationResult,
+} from "@foresthub/workflow-core/diagnostics";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 import { BuilderLayout } from "./BuilderLayout";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/toaster";
 import { useCanvasTabs } from "./hooks/useCanvasTabs";
-import { useChannelDiagnosticsSync } from "./hooks/useChannelDiagnosticsSync";
+import { useResourceDiagnosticsSync } from "./hooks/useResourceDiagnosticsSync";
+import { useSuppressThemeTransition } from "./hooks/useSuppressThemeTransition";
 import { useFunctions } from "./hooks/useFunctions";
-import { useMemoryDiagnosticsSync } from "./hooks/useMemoryDiagnosticsSync";
-import { useModelDiagnosticsSync } from "./hooks/useModelDiagnosticsSync";
 import { useWorkflowSerialization, readStateFromStores } from "./hooks/useWorkflowSerialization";
 import {
   clearAllCanvasStores,
@@ -108,11 +113,32 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
 
     const { importProject, exportProject } = useWorkflowSerialization();
 
+    // Color-mode toggles should snap, not fade — see hook docs.
+    useSuppressThemeTransition();
+
     // Keep project-scoped (channel + memory + model) diagnostics in sync. Mounted
     // once here at the root so badges survive sidebar tab open/close.
-    useChannelDiagnosticsSync();
-    useMemoryDiagnosticsSync();
-    useModelDiagnosticsSync();
+    useResourceDiagnosticsSync({
+      selectItems: (s) => s.channels,
+      validate: validateChannel,
+      getStored: (d) => d.byChannelId,
+      set: (d, id, diags) => d.setChannelDiagnostics(id, diags),
+      clear: (d, id) => d.clearChannelDiagnostics(id),
+    });
+    useResourceDiagnosticsSync({
+      selectItems: (s) => s.memory,
+      validate: validateMemory,
+      getStored: (d) => d.byMemoryId,
+      set: (d, id, diags) => d.setMemoryDiagnostics(id, diags),
+      clear: (d, id) => d.clearMemoryDiagnostics(id),
+    });
+    useResourceDiagnosticsSync({
+      selectItems: (s) => s.models,
+      validate: validateModel,
+      getStored: (d) => d.byModelId,
+      set: (d, id, diags) => d.setModelDiagnostics(id, diags),
+      clear: (d, id) => d.clearModelDiagnostics(id),
+    });
 
     // Push the embedder-supplied model catalog into the store so agent model
     // pickers can read it. Catalog is config (not workflow content), so this

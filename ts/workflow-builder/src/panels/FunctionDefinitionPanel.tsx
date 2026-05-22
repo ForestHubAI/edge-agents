@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../components/ui/button";
+import { DeleteButton } from "../components/ui/delete-button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
@@ -14,13 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Trash2 } from "lucide-react";
 import type { Expression, FunctionInfo, ApiVariable, NodeOutput } from "@foresthub/workflow-core/node";
 import { generateId } from "@foresthub/workflow-core/id";
 import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
 import type { OutputAssignments } from "../stores/canvasStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { PortSection } from "../dialogs/FunctionInfoDialog";
 import ExpressionInput from "../inputs/ExpressionInput";
 
@@ -184,11 +184,7 @@ export const FunctionDefinitionPanel = ({
   return (
     <div className="p-4">
       <div className="space-y-4">
-        {readOnly && (
-          <div className="text-xs font-medium text-muted-foreground bg-muted/50 rounded px-2 py-1">
-            {t("preview.viewOnly")}
-          </div>
-        )}
+        {readOnly && <ReadOnlyBanner />}
 
         {/* Function Name */}
         <div className="space-y-2">
@@ -260,10 +256,7 @@ export const FunctionDefinitionPanel = ({
         {!readOnly && (
           <>
             <Separator />
-            <Button variant="destructive" className="w-full" onClick={() => setShowDeleteConfirm(true)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t("deleteFunction")}
-            </Button>
+            <DeleteButton onClick={() => setShowDeleteConfirm(true)}>{t("deleteFunction")}</DeleteButton>
           </>
         )}
       </div>

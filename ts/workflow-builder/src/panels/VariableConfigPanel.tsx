@@ -4,10 +4,12 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Separator } from "../components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { DeclaredVariable } from "@foresthub/workflow-core/variable";
 import type { DataType } from "@foresthub/workflow-core/node";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { ReadOnlyBanner } from "../components/ui/readonly-banner";
+import { DeleteButton } from "../components/ui/delete-button";
 import { deleteDeclaredVariable, setDeclaredVariableType, updateDeclaredVariable } from "../utils/variableOperations";
 
 interface VariableConfigPanelProps {
@@ -111,11 +113,7 @@ export const VariableConfigPanel = ({ canvasId, variable, onClose }: VariableCon
           </Button>
         </div>
 
-        {readOnly && (
-          <div className="text-xs font-medium text-muted-foreground bg-muted/50 rounded px-2 py-1">
-            {t("preview.viewOnly")}
-          </div>
-        )}
+        {readOnly && <ReadOnlyBanner />}
 
         <Separator />
 
@@ -151,14 +149,9 @@ export const VariableConfigPanel = ({ canvasId, variable, onClose }: VariableCon
         {!readOnly && (
           <>
             <Separator />
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={() => deleteDeclaredVariable(canvasId, variable.uid)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
+            <DeleteButton onClick={() => deleteDeclaredVariable(canvasId, variable.uid)}>
               {t("deleteVariable", "Delete variable")}
-            </Button>
+            </DeleteButton>
           </>
         )}
       </div>

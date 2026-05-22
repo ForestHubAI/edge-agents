@@ -15,6 +15,19 @@
   transition-duration: 0s !important;
 }
 
+/* Color-mode switch must snap, not fade. useSuppressThemeTransition adds
+   `theme-changing` while the embedder flips the `light` class on <html> and
+   removes it once React has committed the new colorMode, killing every
+   color/background/border transition in between (canvas tabs, the builder
+   sidebar, ReactFlow's controls and node chrome) so they change in lockstep
+   with the rest of the UI instead of animating to the new tokens. */
+.theme-changing,
+.theme-changing *,
+.theme-changing *::before,
+.theme-changing *::after {
+  transition: none !important;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -30,25 +43,13 @@ All colors MUST be HSL.
    *  2. SIGNALS (canonical hue, per-mode lightness) — node categories, type
    *     indicators, channel types, badge severity. These are *identity markers*:
    *     "logic" should be recognizably the same green in both modes. Hue/sat
-   *     stay fixed; only --signal-l / --signal-l-deep change per mode.
+   *     stay fixed; only --signal-l / --signal-border-l change per mode.
    *
    *  Consumers using opacity (hsl(var(--node-X) / 0.3)) automatically tint
    *  toward the surface behind them, so the same canonical color reads well
    *  on both dark and light surfaces.
    */
   :root {
-    /* Brand / accent (independent per mode below) */
-    --forest-green: 158 53% 42%;
-    --tech-cyan: 191 89% 74%;
-    --light-moss: 137 60% 78%;
-
-    --theme-primary-hue: 158;
-    --theme-primary-saturation: 53%;
-    --theme-primary-lightness: 42%;
-    --theme-accent-hue: 191;
-    --theme-accent-saturation: 89%;
-    --theme-accent-lightness: 74%;
-
     /* ============================================================
      * SURFACES — Dark mode (default)
      * Hue 40, saturation 3% — very faint warm gray, premium feel.
@@ -76,8 +77,10 @@ All colors MUST be HSL.
     --muted: 40 2% 22%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 191 89% 74%;
-    --accent-foreground: 40 2% 10%;
+    /* Selection/highlight fill — the muted green behind selected list rows and
+       focused menu/command/select items. Vibrant interactions use --primary. */
+    --accent: 158 16% 22%;
+    --accent-foreground: 0 0% 95%;
 
     --destructive: 0 78% 58%;
     --destructive-foreground: 0 0% 100%;
@@ -98,7 +101,6 @@ All colors MUST be HSL.
     --radius: 0.5rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(158 53% 42%), hsl(191 89% 74%));
     --gradient-subtle: linear-gradient(135deg, hsl(40 2% 8%), hsl(40 2% 18%));
     --gradient-glass: linear-gradient(135deg, var(--glass-bg-light), var(--glass-bg-medium));
 
@@ -140,7 +142,6 @@ All colors MUST be HSL.
      * ============================================================ */
     --signal-s: 70%; /* default saturation for signals */
     --signal-l: 58%; /* default lightness in dark mode */
-    --signal-l-deep: 48%; /* deeper variant for accents */
     --signal-border-l: 50%; /* neutral signal border */
 
     /* ============================================================
@@ -186,8 +187,8 @@ All colors MUST be HSL.
     --secondary-foreground: 220 15% 15%;
     --muted: 220 12% 94%;
     --muted-foreground: 220 8% 46%;
-    --accent: 158 53% 42%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 158 40% 93%;
+    --accent-foreground: 220 15% 15%;
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 88%;
@@ -225,10 +226,11 @@ All colors MUST be HSL.
     --warning: 32 92% 42%;
     --warning-foreground: 0 0% 100%;
 
-    /* Shadows — dark ink at moderate alpha on light surfaces; this is
-       what gives buttons the "lift" the user noticed. */
-    --shadow-sm: 0 1px 2px 0 hsl(220 15% 25% / 0.08), 0 2px 4px -1px hsl(220 15% 25% / 0.06);
-    --shadow-md: 0 2px 4px -1px hsl(220 15% 25% / 0.1), 0 4px 8px -2px hsl(220 15% 25% / 0.08);
+    /* Shadows — dark ink on light surfaces. Alpha kept high enough that cards
+       read with clear elevation (matching the prominence dark mode gets from
+       its 0.4-alpha shadow), while staying soft so it doesn't smudge on white. */
+    --shadow-sm: 0 1px 3px 0 hsl(220 15% 25% / 0.16), 0 2px 6px -1px hsl(220 15% 25% / 0.12);
+    --shadow-md: 0 4px 8px -1px hsl(220 15% 25% / 0.18), 0 8px 16px -2px hsl(220 15% 25% / 0.14);
     --shadow-lg: 0 4px 8px -2px hsl(220 15% 25% / 0.12), 0 12px 24px -4px hsl(220 15% 25% / 0.18);
     --shadow-glow: 0 0 24px hsl(158 53% 42% / 0.25);
 
@@ -238,58 +240,12 @@ All colors MUST be HSL.
      * ============================================================ */
     --signal-s: 68%;
     --signal-l: 42%;
-    --signal-l-deep: 32%;
     --signal-border-l: 45%;
 
     /* Light-mode neutral type/any */
     --type-any: 220 10% 38%;
   }
 
-  /* Vordefinierte Theme-Varianten */
-  .theme-blue {
-    --theme-primary-hue: 220;
-    --theme-primary-saturation: 91%;
-    --theme-primary-lightness: 60%;
-    --theme-accent-hue: 200;
-    --theme-accent-saturation: 80%;
-    --theme-accent-lightness: 55%;
-  }
-
-  .theme-green {
-    --theme-primary-hue: 142;
-    --theme-primary-saturation: 76%;
-    --theme-primary-lightness: 45%;
-    --theme-accent-hue: 120;
-    --theme-accent-saturation: 70%;
-    --theme-accent-lightness: 40%;
-  }
-
-  .theme-orange {
-    --theme-primary-hue: 25;
-    --theme-primary-saturation: 95%;
-    --theme-primary-lightness: 53%;
-    --theme-accent-hue: 15;
-    --theme-accent-saturation: 90%;
-    --theme-accent-lightness: 48%;
-  }
-
-  .theme-red {
-    --theme-primary-hue: 0;
-    --theme-primary-saturation: 84%;
-    --theme-primary-lightness: 60%;
-    --theme-accent-hue: 340;
-    --theme-accent-saturation: 75%;
-    --theme-accent-lightness: 55%;
-  }
-
-  .theme-forest {
-    --theme-primary-hue: 162;
-    --theme-primary-saturation: 60%;
-    --theme-primary-lightness: 32%;
-    --theme-accent-hue: 42;
-    --theme-accent-saturation: 68%;
-    --theme-accent-lightness: 52%;
-  }
 }
 
 @layer base {
@@ -353,18 +309,6 @@ All colors MUST be HSL.
 
   .glass-forest-input:focus {
     @apply bg-card/60 border-primary outline-none ring-2 ring-primary/20;
-  }
-
-  /* Gradient Utilities */
-  .gradient-text {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .gradient-forest {
-    background: var(--gradient-primary);
   }
 
   /* Organic Hover Effects */

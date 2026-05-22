@@ -118,7 +118,7 @@ export const BuilderLayout = ({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const selectNodeById: Dispatch<string> | ((id: string) => void) = useCallback(
+  const selectNodeById: (id: string) => void = useCallback(
     (nodeId: string) => {
       setSelection([nodeId], []);
       const store = getOrCreateCanvasStore(activeCanvasId).getState();

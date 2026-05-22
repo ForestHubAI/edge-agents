@@ -61,10 +61,12 @@ export const PortHandle = ({
           borderRadius: "2px",
         };
       case "tool":
-        // Diamond shape for tool ports via clip-path (no rotation offset)
+        // Diamond shape for tool ports via clip-path (no rotation offset).
+        // Carries the canonical tool signal color (--node-tool), the same hue
+        // the Tool node category uses.
         return {
           ...baseStyle,
-          backgroundColor: "hsl(var(--accent))",
+          backgroundColor: "hsl(var(--node-tool))",
           border: "none",
           borderRadius: "0",
           clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",

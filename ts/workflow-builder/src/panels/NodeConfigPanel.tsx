@@ -1,4 +1,7 @@
 import { Button } from "../components/ui/button";
+import { AddButton } from "../components/ui/add-button";
+import { ReadOnlyBanner } from "../components/ui/readonly-banner";
+import { DeleteButton } from "../components/ui/delete-button";
 import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Separator } from "../components/ui/separator";
@@ -29,6 +32,7 @@ import ParameterEditor from "../inputs/ParameterEditor";
 import { PortSection } from "../dialogs/FunctionInfoDialog";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
+import { useParamErrors } from "../hooks/useParamErrors";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { migrateFunctionCallNodes } from "../utils/migrateFunctionNodes";
@@ -90,18 +94,7 @@ export const NodeConfigPanel = ({
 
   // Read per-parameter error state from diagnostics store
   const nodeDiags = useDiagnosticsStore((s) => s.byNodeId[selectedNode.id]);
-  const paramErrors = useMemo(() => {
-    const map = new Map<string, string[]>();
-    if (!nodeDiags) return map;
-    for (const d of nodeDiags) {
-      if (d.paramId && d.severity === "error") {
-        const arr = map.get(d.paramId);
-        if (arr) arr.push(d.message);
-        else map.set(d.paramId, [d.message]);
-      }
-    }
-    return map;
-  }, [nodeDiags]);
+  const paramErrors = useParamErrors(nodeDiags);
 
   if (!nodeDefinition) {
     return (
@@ -154,11 +147,7 @@ export const NodeConfigPanel = ({
           </Button>
         </div>
 
-        {readOnly && (
-          <div className="text-xs font-medium text-muted-foreground bg-muted/50 rounded px-2 py-1">
-            {t("preview.viewOnly")}
-          </div>
-        )}
+        {readOnly && <ReadOnlyBanner />}
 
         {parameters.length > 0 && (
           <>
@@ -219,10 +208,7 @@ export const NodeConfigPanel = ({
         {!readOnly && !cannotDelete && (
           <>
             <Separator />
-            <Button variant="destructive" className="w-full" onClick={() => onNodeDelete(selectedNode.id)}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              {t("deleteNode")}
-            </Button>
+            <DeleteButton onClick={() => onNodeDelete(selectedNode.id)}>{t("deleteNode")}</DeleteButton>
           </>
         )}
       </div>
@@ -372,7 +358,7 @@ function OutputsSection({
     return (
       <div
         key={key}
-        className={`rounded-lg bg-card shadow-sm p-2 space-y-2 transition-all hover:shadow-md ${hasError ? "border border-destructive ring-1 ring-destructive" : ""}`}
+        className={`rounded-lg bg-card shadow-sm border p-2 space-y-2 transition-all hover:shadow-md ${hasError ? "border-destructive ring-1 ring-destructive" : "border-border"}`}
       >
         <div className="flex items-center gap-2">
           <Checkbox
@@ -501,7 +487,7 @@ function OutputsSection({
     return (
       <div
         key={`${listId}-${entry.mode === "emit" ? entry.uid : `assign-${index}`}`}
-        className={`rounded-lg bg-card shadow-sm p-2 space-y-2 transition-all hover:shadow-md ${hasError ? "border border-destructive ring-1 ring-destructive" : ""}`}
+        className={`rounded-lg bg-card shadow-sm border p-2 space-y-2 transition-all hover:shadow-md ${hasError ? "border-destructive ring-1 ring-destructive" : "border-border"}`}
       >
         <div className="flex items-center gap-2">
           {/* Row 1 mirrors OutputBinding's header: leading control (trash↔checkbox),
@@ -633,14 +619,9 @@ function OutputsSection({
                 <div className="flex-1 h-px bg-border/60" />
               </div>
               {entries.map((_, index) => renderListEntryRow(out.id, entries, index))}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs w-full justify-start text-muted-foreground hover:text-foreground"
-                onClick={() => addListEntry(out.id, entries)}
-              >
-                + {t("addOutput", { label: out.label, defaultValue: `Add ${out.label.toLowerCase()}` })}
-              </Button>
+              <AddButton onClick={() => addListEntry(out.id, entries)}>
+                {t("addOutput", { label: out.label, defaultValue: `Add ${out.label.toLowerCase()}` })}
+              </AddButton>
             </Fragment>
           );
         })}

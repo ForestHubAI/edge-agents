@@ -155,12 +155,15 @@ function createCanvasStore(): CanvasStore {
         }),
 
       setFunctionInfo: (updater) => {
-        const state = baseStore.getState();
-        const next = updater(state.functionInfo);
-        if (next === state.functionInfo) return;
-        set({ functionInfo: next, mutationCount: state.mutationCount + 1 });
-        // Notify registry of function info change after state is updated
-        notifyFunctionInfoListeners();
+        let changed = false;
+        set((state) => {
+          const next = updater(state.functionInfo);
+          if (next === state.functionInfo) return state;
+          changed = true;
+          return { functionInfo: next, mutationCount: state.mutationCount + 1 };
+        });
+        // Notify registry of the change, but only when functionInfo actually moved.
+        if (changed) notifyFunctionInfoListeners();
       },
 
       setOutputAssignments: (updater) =>

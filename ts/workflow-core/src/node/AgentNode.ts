@@ -28,6 +28,7 @@ export const AgentNodeDefinition: NodeDefinition = {
   label: "LLM Agent",
   category: NodeCategory.AI,
   description: "AI-powered agent for intelligent processing",
+  canBranch: true, // Control output may fan out to multiple branches (tool output is always multi-target).
   outputs: [
     { id: "answer", label: "Answer", type: "static", dataType: "string" },
     { id: "outputDeclarations", label: "Structured Output", type: "list" },

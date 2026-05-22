@@ -17,6 +17,7 @@ export interface NodeDefinition {
   tags?: NodeTag[]; // Cross-cutting subsystem labels (Network, Pin, Serial, ...)
   isUnremovable?: boolean; // Whether the node cannot be added or removed by a user
   isSingleton?: boolean; // Whether only one instance of this node can exist in a canvas
+  canBranch?: boolean; // Whether the control output port may fan out to multiple branches (tool output ports are always multi-target)
 }
 
 // =============================================================================

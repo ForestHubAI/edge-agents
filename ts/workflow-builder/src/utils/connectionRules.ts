@@ -7,7 +7,7 @@
 // on this side of the boundary.
 
 import { Edge, Node } from "@xyflow/react";
-import { getPorts, type NodeInstance, type NodeDefinition } from "@foresthub/workflow-core/node";
+import { getPorts, NodeRegistry, type NodeInstance, type NodeDefinition } from "@foresthub/workflow-core/node";
 import { type EdgeType } from "@foresthub/workflow-core/edge";
 
 /** Check whether a node already has tool-input edges (for mutual exclusion). */
@@ -42,8 +42,9 @@ export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<
   const port = ports.output.find((p) => p.id === handleId);
   if (!port) return false;
 
-  // Non-Agent nodes: only one outgoing edge per output port
-  if (node.data.type !== "Agent") {
+  // Tool output ports always accept multiple edges (an agent wires up many tools).
+  // A control output port accepts a single edge unless the node can branch.
+  if (port.type === "control" && !NodeRegistry.getByType(node.data.type)?.canBranch) {
     if (edges.some((e) => e.source === nodeId && e.sourceHandle === handleId)) return false;
   }
 

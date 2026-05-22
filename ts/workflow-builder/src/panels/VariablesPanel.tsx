@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../components/ui/button";
-import { Variable as VariableIcon, Hash, ToggleLeft, Type, List, FileJson, Plus } from "lucide-react";
+import { AddButton } from "../components/ui/add-button";
+import { Variable as VariableIcon, Hash, ToggleLeft, Type, List, FileJson } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
@@ -75,10 +75,9 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
         <p className="text-sm text-muted-foreground">{t("noVariables")}</p>
         <p className="text-xs text-muted-foreground/70 mt-1">{t("addNodesForVariables")}</p>
         {!readOnly && (
-          <Button variant="outline" size="sm" className="mt-3" onClick={handleAddVariable}>
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            {t("addVariable")}
-          </Button>
+          <div className="mt-3 w-full px-2">
+            <AddButton onClick={handleAddVariable}>{t("addVariable")}</AddButton>
+          </div>
         )}
       </div>
     );
@@ -101,7 +100,9 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
         onClick={onClick}
         className={cn(
           "p-3 rounded-lg transition-all",
-          isSelected ? "bg-primary/10 shadow-md border border-primary/40 ring-1 ring-primary/40" : "bg-card shadow-sm",
+          isSelected
+            ? "bg-accent shadow-md border border-primary/40 ring-1 ring-primary/40"
+            : "bg-card shadow-sm border border-border",
           clickable ? "hover:shadow-md cursor-pointer" : "cursor-default",
         )}
       >
@@ -155,12 +156,7 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
               selectedVariableUid === uid,
             ),
           )}
-          {!readOnly && (
-            <Button variant="outline" size="sm" className="w-full text-xs border-dashed" onClick={handleAddVariable}>
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              {t("addVariable")}
-            </Button>
-          )}
+          {!readOnly && <AddButton onClick={handleAddVariable}>{t("addVariable")}</AddButton>}
         </div>
       </div>
     </div>

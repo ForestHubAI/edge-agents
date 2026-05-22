@@ -5,8 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from "../components/ui/switch";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { AddButton } from "../components/ui/add-button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
-import { AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import { DataType, Expression, Reference } from "@foresthub/workflow-core/node";
 import type {
   ExpressionParam,
@@ -155,7 +156,7 @@ const ParameterEditor = ({
         const exprParam = parameter as ExpressionParam;
         // Resolve expressionType — static, args-only lambda, or derived from a referenced variable
         const resolvedType: DataType = resolveExpressionType(exprParam, allArguments, variables);
-        // Ensure we have a valid expression object (create empty one if undefined)
+        // Ensure we have a valid expression object (create empty one if undefined for safety)
         const exprValue: Expression =
           currentValue && typeof currentValue === "object" && "expression" in currentValue
             ? (currentValue as Expression)
@@ -398,7 +399,7 @@ const ParameterEditor = ({
               const selectableFiles = allFiles.filter((m) => m.id === ref.id || !usedByOthers.has(m.id));
 
               return (
-                <div key={index} className="rounded-lg bg-card shadow-sm p-2 space-y-2 transition-all hover:shadow-md">
+                <div key={index} className="rounded-lg bg-card shadow-sm border border-border p-2 space-y-2 transition-all hover:shadow-md">
                   <div className="flex items-center gap-2">
                     <Select value={ref.id || undefined} onValueChange={(id) => replace(index, { ...ref, id })}>
                       <SelectTrigger className="h-7 text-xs flex-1">
@@ -451,17 +452,7 @@ const ParameterEditor = ({
                 </div>
               );
             })}
-            {canAdd && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs w-full justify-start text-muted-foreground hover:text-foreground"
-                onClick={add}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" />
-                {t("addMemoryRef", "Add memory ref")}
-              </Button>
-            )}
+            {canAdd && <AddButton onClick={add}>{t("addMemoryRef", "Add memory ref")}</AddButton>}
           </div>
         );
       }

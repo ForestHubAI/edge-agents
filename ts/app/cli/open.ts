@@ -31,7 +31,11 @@ export async function openCommand(filePath?: string): Promise<void> {
     : `http://localhost:${port}/`;
 
   const viteBin = locateViteBin(appRoot);
-  const vite = spawn(viteBin, ["--port", String(port), "--host", "127.0.0.1", "--strictPort"], {
+  // --no-open: this CLI is the sole opener — it builds the `?file=` URL and
+  // opens it below. Without this, vite.config's `server.open: true` would also
+  // open a tab, at the bare URL (no ?file=), so you'd get two tabs and the
+  // wrong one focused. (CLI flag overrides config; `dev` still auto-opens.)
+  const vite = spawn(viteBin, ["--port", String(port), "--host", "127.0.0.1", "--strictPort", "--no-open"], {
     cwd: appRoot,
     env,
     stdio: "inherit",

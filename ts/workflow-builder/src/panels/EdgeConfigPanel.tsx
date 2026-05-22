@@ -1,13 +1,16 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { getEdgeDefinition } from "@foresthub/workflow-core/edge";
 import type { EdgeInstance, EdgeType } from "@foresthub/workflow-core/edge";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
+import { useParamErrors } from "../hooks/useParamErrors";
+import { ReadOnlyBanner } from "../components/ui/readonly-banner";
+import { DeleteButton } from "../components/ui/delete-button";
 import { getEdgeDescription } from "../utils/translation";
 
 interface EdgeConfigPanelProps {
@@ -37,18 +40,7 @@ export const EdgeConfigPanel = ({
 
   // Read per-parameter error state from diagnostics store
   const edgeDiags = useDiagnosticsStore((s) => s.byEdgeId[edgeId]);
-  const paramErrors = useMemo(() => {
-    const map = new Map<string, string[]>();
-    if (!edgeDiags) return map;
-    for (const d of edgeDiags) {
-      if (d.paramId && d.severity === "error") {
-        const arr = map.get(d.paramId);
-        if (arr) arr.push(d.message);
-        else map.set(d.paramId, [d.message]);
-      }
-    }
-    return map;
-  }, [edgeDiags]);
+  const paramErrors = useParamErrors(edgeDiags);
 
   const handleParamChange = useCallback(
     (paramId: string, value: unknown) => {
@@ -69,11 +61,7 @@ export const EdgeConfigPanel = ({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      {readOnly && (
-        <div className="text-xs font-medium text-muted-foreground bg-muted/50 rounded px-2 py-1">
-          {t("preview.viewOnly")}
-        </div>
-      )}
+      {readOnly && <ReadOnlyBanner />}
 
       <Separator />
 
@@ -107,10 +95,7 @@ export const EdgeConfigPanel = ({
       {!readOnly && (
         <>
           <Separator />
-          <Button variant="destructive" className="w-full" onClick={() => onEdgeDelete(edgeId)}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            {t("deleteEdge")}
-          </Button>
+          <DeleteButton onClick={() => onEdgeDelete(edgeId)}>{t("deleteEdge")}</DeleteButton>
         </>
       )}
     </div>
