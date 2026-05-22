@@ -155,7 +155,7 @@ All colors MUST be HSL.
 
     /* Edge/connection color — ALSO the node OUTLINE color, so edges and node
        borders share one graph-line color. */
-    --edge-default: 40 8% 58%;
+    --edge-default: 40 5% 58%;
 
     /* Builder panel chrome (inspectors/sidebars inside the editor). */
     --panel-background: 40 2% 18%;

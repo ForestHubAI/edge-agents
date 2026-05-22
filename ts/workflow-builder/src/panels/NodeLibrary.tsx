@@ -1,27 +1,16 @@
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible";
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { FunctionInfo, NodeCategory } from "@foresthub/workflow-core/node";
-import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  ChevronDown as DropdownIcon,
-  Hash,
-  Search,
-  ToggleLeft,
-  Type,
-} from "lucide-react";
+import { ChevronDown, ChevronDown as DropdownIcon, Hash, Search, ToggleLeft, Type } from "lucide-react";
 import type { TFunction } from "i18next";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { NodeDefinition } from "@foresthub/workflow-core/node";
-import { categoryIcons } from "../utils/categoryConstants";
+import { categoryIcons, categoryColors } from "../utils/categoryConstants";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { FunctionNodeDefinition } from "@foresthub/workflow-core/node";
 import { Parameter } from "@foresthub/workflow-core/parameter";
@@ -168,75 +157,64 @@ const NodeLibrary = ({
     return expandedCategories.has(category);
   };
 
+  const hasResults = filteredNodes.length > 0;
+
   return (
     <div className="h-full flex flex-col">
-      {/* Search Only */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Search */}
+      <div className="relative shrink-0">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <Input
           placeholder={t("searchBlocks")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-9 border-border/50 focus:border-primary/50 transition-colors rounded-lg"
+          className="pl-10 h-9 rounded-lg"
         />
       </div>
 
       <ScrollArea className="flex-1 mt-3">
-        <TooltipProvider>
-          <div className="space-y-1 py-4">
+        {/* disableHoverableContent: close the tooltip as soon as the cursor
+            leaves the tile, instead of keeping it open when the pointer moves
+            onto the description itself. */}
+        <TooltipProvider disableHoverableContent>
+          {/* px-1 keeps tile hover borders off the scroll-clip edge */}
+          <div className="flex flex-col gap-0.5 px-1 pb-4">
+            {!hasResults && (
+              <p className="text-sm text-muted-foreground text-center py-10">{t("noResults", "No matching nodes")}</p>
+            )}
             {getAllCategories().map((category) => {
               const categoryNodes = filteredNodes.filter((node) => node.category === category);
-
               if (categoryNodes.length === 0) return null;
 
               const isExpanded = isCategoryExpanded(category);
+              const CategoryIcon = categoryIcons[category];
+              const iconChipClass = categoryColors[category] ?? "bg-muted text-muted-foreground border-border";
 
               return (
-                <div key={category} className="animate-fade-in">
-                  <Collapsible open={isExpanded} onOpenChange={() => toggleCategory(category)}>
-                    <CollapsibleTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start p-3 h-auto hover:bg-accent/50 transition-all duration-200 group"
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="flex items-center gap-2">
-                            {isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4 text-muted-foreground transition-transform duration-200" />
-                            )}
-                            {(() => {
-                              const CategoryIcon = categoryIcons[category];
-                              return CategoryIcon ? <CategoryIcon className="w-4 h-4 text-muted-foreground" /> : null;
-                            })()}
-                          </div>
-                          <div className="flex-1 text-left">
-                            <span className="font-medium text-sm group-hover:text-primary transition-colors">
-                              {category}
-                            </span>
-                          </div>
-                          <Badge
-                            variant="secondary"
-                            className="text-xs h-5 px-2 bg-muted/50 hover:bg-muted transition-colors"
-                          >
-                            {categoryNodes.length}
-                          </Badge>
-                        </div>
-                      </Button>
-                    </CollapsibleTrigger>
+                <Collapsible key={category} open={isExpanded} onOpenChange={() => toggleCategory(category)}>
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-left hover:bg-muted/50 transition-colors group">
+                    <ChevronDown
+                      className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
+                        isExpanded ? "" : "-rotate-90"
+                      }`}
+                    />
+                    {CategoryIcon && <CategoryIcon className="w-4 h-4 text-muted-foreground shrink-0" />}
+                    <span className="flex-1 font-medium text-sm truncate">{category}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{categoryNodes.length}</span>
+                  </CollapsibleTrigger>
 
-                    <CollapsibleContent className="space-y-1 mt-1 ml-2">
+                  <CollapsibleContent>
+                    <div className="grid grid-cols-2 gap-1.5 px-1 pt-1.5 pb-2">
                       {categoryNodes.map((nodedef) => {
-                        // Get static parameters (no node instance)
                         const staticParams = nodedef.parameters;
                         const nodeKey = `${nodedef.type}-${"functionInfo" in nodedef ? (nodedef as FunctionNodeDefinition).functionInfo.id : ""}`;
                         const hasParams = staticParams.length > 0;
-
                         const description = getNodeDescription(t, nodedef);
+                        const firstTag = nodedef.tags?.[0];
 
-                        const card = (
-                          <Card
+                        const tile = (
+                          <button
+                            type="button"
                             draggable={!readOnly}
                             onDragStart={
                               readOnly
@@ -247,40 +225,41 @@ const NodeLibrary = ({
                                     e.dataTransfer.effectAllowed = "copy";
                                   }
                             }
-                            className={`px-3 py-2 transition-all duration-150 border-border/50 group ${
+                            onClick={readOnly ? undefined : () => onAddNode(nodedef)}
+                            disabled={readOnly}
+                            className={`relative flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-2.5 text-center transition-colors duration-150 ${
                               readOnly
                                 ? "opacity-60 cursor-default"
-                                : "hover:bg-accent/10 cursor-grab active:cursor-grabbing hover:shadow-sm hover:border-primary/20"
+                                : "cursor-grab active:cursor-grabbing hover:border-primary/50 hover:bg-accent/40"
                             }`}
-                            onClick={readOnly ? undefined : () => onAddNode(nodedef)}
                           >
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium text-[13px] truncate flex-1 group-hover:text-primary transition-colors">
-                                {nodedef.label}
-                              </h4>
-                              {nodedef.tags && nodedef.tags.length > 0 && (
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {nodedef.tags.map((tag) => (
-                                    <Badge key={tag} variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                              <CheckCircle className="w-3 h-3 text-success opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            <div
+                              className={`flex items-center justify-center w-9 h-9 rounded-lg border ${iconChipClass}`}
+                            >
+                              {CategoryIcon && <CategoryIcon className="w-4 h-4" />}
                             </div>
-                          </Card>
+                            <span className="text-[11px] font-medium leading-tight line-clamp-2 w-full">
+                              {nodedef.label}
+                            </span>
+                            {firstTag && (
+                              <Badge
+                                variant="secondary"
+                                className="absolute top-1 right-1 text-[9px] h-3.5 px-1 font-normal leading-none"
+                              >
+                                {firstTag}
+                              </Badge>
+                            )}
+                          </button>
                         );
 
                         const hasTooltipContent = description || hasParams;
-
                         if (!hasTooltipContent) {
-                          return <React.Fragment key={nodeKey}>{card}</React.Fragment>;
+                          return <React.Fragment key={nodeKey}>{tile}</React.Fragment>;
                         }
 
                         return (
                           <Tooltip key={nodeKey} delayDuration={300}>
-                            <TooltipTrigger asChild>{card}</TooltipTrigger>
+                            <TooltipTrigger asChild>{tile}</TooltipTrigger>
                             <TooltipContent side="right" className="max-w-sm pointer-events-none">
                               <div className="space-y-2">
                                 {description && (
@@ -292,9 +271,9 @@ const NodeLibrary = ({
                           </Tooltip>
                         );
                       })}
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               );
             })}
           </div>

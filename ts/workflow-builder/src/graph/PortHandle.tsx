@@ -172,7 +172,7 @@ export const PortHandle = ({
         <button
           type="button"
           title="Add port"
-          className={`nodrag absolute flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-primary-foreground hover:bg-primary hover:scale-110 transition-all cursor-pointer ${getPlusPositionClass()}`}
+          className={`nodrag absolute flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-card hover:bg-primary hover:scale-110 transition-all cursor-pointer ${getPlusPositionClass()}`}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();

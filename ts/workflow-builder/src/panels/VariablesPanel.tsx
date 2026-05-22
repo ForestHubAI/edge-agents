@@ -89,7 +89,9 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
             <VariableIcon className="w-4 h-4 text-muted-foreground" />
             <span className="font-mono text-sm text-foreground">{ref.name}</span>
           </div>
-          <span className="text-xs text-muted-foreground">{ref.dataType}</span>
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground shrink-0">
+            {ref.dataType}
+          </span>
         </div>
       </div>
     );
