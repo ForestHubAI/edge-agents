@@ -1,4 +1,4 @@
-// Public surface of the edge module. The base contract (EdgeInstance) lives in
+// Public surface of the edge module. The base type (EdgeInstance) lives in
 // ./Edge; this file is a barrel only. Mirrors channel/memory/model.
 
 export type { EdgeInstance, GraphEdge } from "./Edge";

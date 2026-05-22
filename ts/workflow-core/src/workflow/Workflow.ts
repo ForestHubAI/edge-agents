@@ -17,19 +17,15 @@ export type ApiWorkflow = Schemas["Workflow"];
 export const MAIN_CANVAS_ID = "main" as const;
 
 /**
- * In-memory domain workflow state — the shape the headless validator consumes.
- *
- * NOT a persistence format: this lives only in memory. Persisted JSON uses the
- * contract `Schemas["Workflow"]`; `serialize(state)`/`deserialize(workflow)` in
- * `./serialization` convert between the two. Two producers feed this
- * shape: the editor reads it from live Zustand stores; the CLI calls
- * `deserialize(contractWorkflow)` after parsing JSON.
+ * In-memory domain state for a workflow, which the headless validator consumes.
+ * NOT a persistence format, NOT the format the editor uses internally (Zustand stores).
+ * This format is used as intermediary when importing/exporting to api format and to run validation
  */
 export interface Workflow {
   canvases: Record<string, Canvas>;
-  channels?: Record<string, ChannelInstance>;
-  memory?: Record<string, MemoryInstance>;
-  models?: Record<string, ModelInstance>;
+  channels: Record<string, ChannelInstance>;
+  memory: Record<string, MemoryInstance>;
+  models: Record<string, ModelInstance>;
 }
 
 /**

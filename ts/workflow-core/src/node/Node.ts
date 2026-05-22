@@ -1,8 +1,8 @@
-// Domain Node — the base contract every node variant builds on. NodeBase is the
+// Domain Node — the base shape every node variant builds on. NodeBase is the
 // generic, untyped-parameters shape used wherever a node is handled generically
 // (e.g. React Flow nodes); NodeInstance is the discriminated union over the
 // per-variant interfaces (InputNode, AgentNode, …) for strongly-typed work.
-// Mirrors how channel/memory/model keep their contract in a same-named file and
+// Mirrors how channel/memory/model keep their base shape in a same-named file and
 // leave index.ts as a pure barrel. The per-variant interfaces import NodeBase
 // from here directly, not via the barrel.
 
@@ -17,10 +17,6 @@ import { ToolNode, ToolNodeType } from "./ToolNode";
 import { FunctionCallNode, FunctionCallNodeType } from "./FunctionNode";
 import { MqttNode, MqttNodeType } from "./MqttNode";
 
-// =============================================================================
-// TYPE DEFINITIONS (from API schema)
-// =============================================================================
-export type ApiVariable = Schemas["Variable"]; // Differentiate from domain variable type
 export type DataType = Schemas["DataType"];
 export type Reference = Schemas["Reference"];
 export type Expression = Schemas["Expression"];

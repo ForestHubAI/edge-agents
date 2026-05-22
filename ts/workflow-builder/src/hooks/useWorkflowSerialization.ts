@@ -15,16 +15,9 @@ import { getReactFlowType } from "../utils/graphOperations";
  * `@foresthub/workflow-core/workflow`. All conversion logic lives in core;
  * this hook only mediates Zustand I/O.
  *
- * Two translation responsibilities the editor owns:
- *  - Core sets each node's outer `type` to the domain node type (e.g.
- *    "Agent"); React Flow needs the *display* type — `getReactFlowType`
- *    handles that on import.
- *
- * Channels/memory/models are keyed by plain `id` on both sides now, so they
- * pass through untouched — no rekeying.
- *
- * Used for code generation, template loading, and (in the future) the
- * auto-save / version paths — one persistence format throughout.
+ * Core sets each node's outer `type` to the domain node type (e.g.
+ * "Agent"); React Flow needs the *display* type — `getReactFlowType`
+ * handles that on import.
  */
 export function useWorkflowSerialization() {
   const importProject = useCallback((workflow: ApiWorkflow): void => {
@@ -121,8 +114,8 @@ export function readStateFromStores(): Workflow {
 
   return {
     canvases,
-    ...(Object.keys(channels).length > 0 ? { channels } : {}),
-    ...(Object.keys(memory).length > 0 ? { memory } : {}),
-    ...(Object.keys(models).length > 0 ? { models } : {}),
+    channels,
+    memory,
+    models,
   };
 }

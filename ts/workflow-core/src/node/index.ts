@@ -1,5 +1,15 @@
-// Base contract
-export * from "./Node";
+// Base domain node types
+export type {
+  ApiVariable,
+  DataType,
+  Reference,
+  Expression,
+  FunctionInfo,
+  NodeOutput,
+  NodeType,
+  NodeInstance,
+  NodeBase,
+} from "./Node";
 
 // Constants & registry
 export { NodeCategory, NodeTag } from "./constants";

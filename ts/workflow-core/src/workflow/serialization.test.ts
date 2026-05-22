@@ -5,7 +5,7 @@ import type { Schemas } from "../api";
 import type { NodeInstance } from "../node";
 
 // ============================================================================
-// Reverse roundtrip: contract JSON → deserialize → serialize → deep-equal JSON
+// Reverse roundtrip: api JSON → deserialize → serialize → deep-equal JSON
 //
 // This direction is the strongest invariant — deserialize is the function
 // that reconstructs derivable state (variable records); if it gets the rest

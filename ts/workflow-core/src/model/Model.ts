@@ -10,7 +10,7 @@
 // A node's `model` field is always just a ModelID string either way; static ids
 // resolve via the catalog (no mapping), custom ids via a declared ModelInstance.
 //
-// `type` is the wire discriminator; new model families (e.g. future YOLO/ONNX
+// `type` is the api discriminator; new model families (e.g. future YOLO/ONNX
 // variants) register their own definition in ModelRegistry, mirroring nodes.
 
 import type { Schemas } from "../api";
@@ -26,7 +26,7 @@ export interface ModelInstance {
   arguments: Record<string, unknown>;
 }
 
-/** A capability a model supports (chat, embedding, vision, ...). From the contract. */
+/** A capability a model supports (chat, embedding, vision, ...). From the api. */
 export type ModelCapability = Schemas["ModelCapability"];
 
 /**

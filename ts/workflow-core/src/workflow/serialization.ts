@@ -1,11 +1,7 @@
-// Pure conversion between the contract on-wire format (Schemas["Workflow"])
-// and the in-memory domain shape (WorkflowState). No Zustand, no React, no
-// DOM. Two producers feed serialize: the editor reads its live stores into
-// a WorkflowState literal; the CLI calls deserialize on parsed JSON.
-//
-// Channels/memory files are keyed by plain id/uid in WorkflowState — editor
-// store keying conventions (e.g. `ch:${id}` prefixes) are workflow-builder's
-// internal concern and live in its wrapper.
+// Pure conversion between the api format (Schemas["Workflow"])
+// and the domain shape (Workflow).
+// Two producers feed serialize: the editor reads its live stores into
+// a Workflow literal; the CLI calls deserialize on parsed JSON.
 
 import type { Schemas } from "../api";
 import type { NodeInstance, FunctionInfo } from "../node";
@@ -24,24 +20,20 @@ import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
 
 const KNOWN_CHANNEL_TYPES = new Set<ChannelType>(ALL_CHANNEL_TYPES);
 
-// ============================================================================
-// serialize: WorkflowState (in-memory) → Schemas["Workflow"] (on-wire)
-// ============================================================================
-
 /**
- * Pure serializer: in-memory domain state → contract Workflow. Multi-canvas
+ * Serialize domain → api Workflow. Multi-canvas
  * mapping: the `main` canvas's nodes/edges/declaredVariables land at the
  * root of `Workflow`; every other canvas becomes a `Function` entry in
  * `Workflow.functions[]`, carrying its own functionInfo + outputAssignments.
  */
 export function serialize(state: Workflow): Schemas["Workflow"] {
   const mainCanvas = state.canvases[MAIN_CANVAS_ID];
-
-  const mainNodes = mainCanvas
-    ? mainCanvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, mainCanvas.edges)))
-    : [];
-  const mainEdges = mainCanvas ? mainCanvas.edges.map(toApiEdge) : [];
-  const mainDeclared = mainCanvas ? extractDeclaredVariables(mainCanvas.variables) : [];
+  if (!mainCanvas) {
+    throw new Error("Main canvas missing");
+  }
+  const mainNodes = mainCanvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, mainCanvas.edges)));
+  const mainEdges = mainCanvas.edges.map(toApiEdge);
+  const mainDeclared = extractDeclaredVariables(mainCanvas.variables);
 
   const functions: Schemas["Function"][] = [];
   for (const [canvasId, canvas] of Object.entries(state.canvases)) {
@@ -51,37 +43,32 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
     }
     functions.push({
       functionInfo: canvas.functionInfo,
-      outputAssignments: canvas.outputAssignments ?? {},
+      outputAssignments: canvas.outputAssignments,
       nodes: canvas.nodes.map((n) => serializeNode(n.data, n.position, isNodeUsedAsTool(n.id, n.data, canvas.edges))),
       edges: canvas.edges.map(toApiEdge),
       declaredVariables: extractDeclaredVariables(canvas.variables),
     });
   }
 
-  const channels = Object.values(state.channels ?? {}).map(serializeChannel);
-  const memory = Object.values(state.memory ?? {}).map(serializeMemory);
-  const models = Object.values(state.models ?? {}).map(serializeModel);
-
+  const channels = Object.values(state.channels).map(serializeChannel);
+  const memory = Object.values(state.memory).map(serializeMemory);
+  const models = Object.values(state.models).map(serializeModel);
   return {
     nodes: mainNodes,
     edges: mainEdges,
     functions,
     declaredVariables: mainDeclared,
     channels,
-    ...(memory.length > 0 ? { memory } : {}),
-    ...(models.length > 0 ? { models } : {}),
+    memory,
+    models,
   };
 }
 
-// ============================================================================
-// deserialize: Schemas["Workflow"] (on-wire) → WorkflowState (in-memory)
-// ============================================================================
-
 /**
- * Pure deserializer: contract Workflow → in-memory domain state. Variable
- * records are reconstructed per canvas (declared from the contract; fnarg
+ * Deserialize api → domain Workflow. Variable
+ * records are reconstructed per canvas (declared from the api; fnarg
  * from `functionInfo.arguments`; node-output via {@link computeVariablesFromNodes})
- * since the contract intentionally carries only `declaredVariables` to avoid
+ * since the api intentionally carries only `declaredVariables` to avoid
  * redundancy.
  *
  * The outer `type` field on each CanvasData node is set to the domain node
@@ -91,7 +78,7 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
 export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   const canvases: Record<string, Canvas> = {};
 
-  // Main canvas: data at the contract root; no functionInfo, empty outputAssignments.
+  // Main canvas: data at the api root; no functionInfo, empty outputAssignments.
   const mainNodes = workflow.nodes.map(toCanvasNode);
   const mainEdges = workflow.edges.map(toCanvasEdge);
   const mainDeclared = workflow.declaredVariables ?? [];
@@ -150,9 +137,9 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
 
   return {
     canvases,
-    ...(Object.keys(channels).length > 0 ? { channels } : {}),
-    ...(Object.keys(memory).length > 0 ? { memory } : {}),
-    ...(Object.keys(models).length > 0 ? { models } : {}),
+    channels,
+    memory,
+    models,
   };
 }
 
@@ -186,7 +173,7 @@ export function computeVariablesFromNodes(nodes: NodeInstance[]): Record<string,
 
 /**
  * Merge the three variable sources into a single per-canvas record:
- *   declared (from contract)
+ *   declared (from api)
  * + fnarg    (derived from functionInfo.arguments — only present on function canvases)
  * + nodeOutput (derived from nodes via {@link computeVariablesFromNodes})
  *
@@ -228,10 +215,10 @@ export function buildCanvasVariables(
 
 /**
  * Filter a canvas's variables down to the declared-kind entries (the only
- * variety the contract persists). Node-output and fnarg variables are
+ * variety the api persists). Node-output and fnarg variables are
  * reconstructed on deserialize from nodes + functionInfo.
  */
-export function extractDeclaredVariables(variables: Record<string, Variable>): Schemas["Variable"][] {
+function extractDeclaredVariables(variables: Record<string, Variable>): Schemas["Variable"][] {
   const result: Schemas["Variable"][] = [];
   for (const v of Object.values(variables)) {
     if (v.kind === "declared") {
@@ -247,7 +234,7 @@ export function extractDeclaredVariables(variables: Record<string, Variable>): S
 }
 
 /**
- * Convert a contract `Node` into a `CanvasData` node (the in-memory wrapper
+ * Convert an api `Node` into a `CanvasData` node (the in-memory wrapper
  * the validator + editor consume). The outer `type` is the domain node type
  * (e.g. "Agent"); workflow-builder's wrapper rewrites it to a React Flow
  * display type during store hydration.
@@ -263,7 +250,7 @@ function toCanvasNode(apiNode: Schemas["Node"]): Canvas["nodes"][number] {
 }
 
 /**
- * Convert a contract `Edge` into a `CanvasData` edge. Critical: the contract's
+ * Convert an api `Edge` into a `CanvasData` edge. Critical: the api's
  * `id` field is preserved verbatim — earlier code synthesized `e${index+1}`,
  * which broke roundtrip identity. Edge type-conditional metadata (`prompt`
  * on agentTask/agentDelegate; `description` on agentChoice/agentDelegate)
@@ -289,8 +276,8 @@ function toCanvasEdge(apiEdge: Schemas["Edge"]): Canvas["edges"][number] {
 }
 
 /**
- * Convert a `CanvasData` edge into a contract `Edge`. Edge `id` is preserved
- * (contract now requires it). Edge-type-conditional metadata is reattached
+ * Convert a `CanvasData` edge into an api `Edge`. Edge `id` is preserved
+ * (the api now requires it). Edge-type-conditional metadata is reattached
  * from the edge's `data` payload.
  */
 function toApiEdge(edge: Canvas["edges"][number]): Schemas["Edge"] {

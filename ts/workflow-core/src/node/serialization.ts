@@ -18,9 +18,9 @@ export function serialize(node: NodeInstance, position: { x: number; y: number }
 
   // Single source of truth for activation-gated params (e.g. toolDescription):
   // serializeNode emits them uniformly, then this pass drops any that are
-  // inactive for this instance, or active but unset — keeping the wire free of
+  // inactive for this instance, or active but unset — keeping the api free of
   // e.g. `toolDescription: undefined`. FunctionCall gates its own params inline
-  // (its bindings have a different wire shape), so it's excluded here.
+  // (its bindings have a different api shape), so it's excluded here.
   if ("arguments" in result && result.arguments) {
     const def = node.type !== "FunctionCall" ? NodeRegistry.getByType(node.type) : undefined;
     if (def) {
@@ -223,8 +223,8 @@ function serializeNode(node: NodeInstance, position: { x: number; y: number }, i
     case "FunctionCall": {
       // Frontend stores FunctionCall args flat (unified with every other node), but
       // the API schema keeps the nested { inputBindings, outputBindings } shape.
-      // Translate here so the wire format stays stable. `toolDescription` sits
-      // alongside the bindings at the wire level and is only emitted when the
+      // Translate here so the api format stays stable. `toolDescription` sits
+      // alongside the bindings at the api level and is only emitted when the
       // node is currently wired as a tool (exec-mode calls don't need it).
       const inputBindings: Record<string, Expression> = {};
       const outputBindings: Record<string, OutputBinding> = {};
@@ -476,10 +476,10 @@ export function deserialize(apiNode: Schemas["Node"]): NodeInstance {
         },
       };
     case "FunctionCall": {
-      // Lift the wire's nested { inputBindings, outputBindings } into the flat
+      // Lift the api's nested { inputBindings, outputBindings } into the flat
       // domain arguments record. Uid collisions are impossible within a single
       // function (one namespace across args + returns). `toolDescription`
-      // sits at the same level on the wire and is folded into the flat bag
+      // sits at the same level in the api and is folded into the flat bag
       // under the reserved `toolDescription` key.
       const flat: Record<string, Expression | OutputBinding | string> = {
         ...((apiNode.arguments.inputBindings ?? {}) as Record<string, Expression>),

@@ -217,9 +217,9 @@ Each domain node has a corresponding schema in `contract/workflow.yaml`; `npm ru
 | `$ref: ".../OutputBinding"` (single field)                                       | `static`      | Declare on `NodeDefinition.outputs` with a stable `id` matching the API field name |
 | `type: array` of `$ref: ".../OutputDeclaration"` (e.g. Agent's `outputDeclarations`) | `list`    | UI CRUDs entries directly; each entry is already a valid API `OutputDeclaration`   |
 
-`OutputBinding` and `OutputDeclaration` correspond 1:1 with their domain types on the wire, but the contract schemas are looser (a single object with optional `name`/`target`, vs. the domain's discriminated union), so `deserialize()` casts them to the domain shape. There's no value coercion.
+`OutputBinding` and `OutputDeclaration` correspond 1:1 with their domain types in the api, but the api schemas are looser (a single object with optional `name`/`target`, vs. the domain's discriminated union), so `deserialize()` casts them to the domain shape. There's no value coercion.
 
-<a id="functioncall"></a>`FunctionCall` follows the same "output = flat field on args" rule as every other node. Its `NodeDefinition` is built dynamically per-instance by `buildFunctionNodeDef(fn)` from the stored `functionInfo` snapshot — input args become `expression` parameters (each with a seeded empty-expression `default`), returns become `StaticOutput` entries, and bindings live at `arguments[uid]` like any other node. On the wire, FunctionCall keeps a nested `{ inputBindings, outputBindings }` shape; the flat↔nested split happens only at the serialize/deserialize boundary.
+<a id="functioncall"></a>`FunctionCall` follows the same "output = flat field on args" rule as every other node. Its `NodeDefinition` is built dynamically per-instance by `buildFunctionNodeDef(fn)` from the stored `functionInfo` snapshot — input args become `expression` parameters (each with a seeded empty-expression `default`), returns become `StaticOutput` entries, and bindings live at `arguments[uid]` like any other node. In the api, FunctionCall keeps a nested `{ inputBindings, outputBindings }` shape; the flat↔nested split happens only at the serialize/deserialize boundary.
 
 ### When is a field in the API `required` array?
 
@@ -238,7 +238,7 @@ The governing question is **whether the field's key is always present in well-fo
 
 > Why this is safe for "save incomplete states": marking an always-present field `required` does **not** block saving an in-progress workflow. For these types the *key* is always present (seeded at creation / no unset affordance) — incompleteness lives in the *value* (an empty expression, an empty binding name, an unselected selection), which diagnostics flag as `missing-required-param`. A field needs to be optional only when its *key* can genuinely be absent, which is exactly the clearable/None types above.
 
-> Historical note: an earlier rule ("required iff neither `optional` nor `activationRules`") ignored axis 3 and wrongly marked clearable types required, so the contract was over-loosened to make *every* argument optional. The rule above is the corrected version — tighten the always-present set, leave the clearable set optional.
+> Historical note: an earlier rule ("required iff neither `optional` nor `activationRules`") ignored axis 3 and wrongly marked clearable types required, so the api schema was over-loosened to make *every* argument optional. The rule above is the corrected version — tighten the always-present set, leave the clearable set optional.
 
 `deserialize()` reads schema-validated input, so it reads `required` fields straight off `arguments` with no fallback. Optional fields are coerced at the boundary (strings → `""`, numbers left `undefined`) so the editor renders an empty field instead of throwing.
 
@@ -263,7 +263,7 @@ Output parameters have no `default` field — their initial shape is fixed by th
 **Serialization rules:**
 
 - `serialize()` uses `!` assertions on input fields validated as present by the diagnostics gate.
-- `serialize()` emits every field uniformly, then a single post-pass strips activation-gated params (e.g. `toolDescription`) that are inactive for this instance or active-but-unset. This post-pass is the single source of truth for activation-gated presence; per-node cases don't gate them inline. `FunctionCall` is excluded (it gates its own params, having a different wire shape).
+- `serialize()` emits every field uniformly, then a single post-pass strips activation-gated params (e.g. `toolDescription`) that are inactive for this instance or active-but-unset. This post-pass is the single source of truth for activation-gated presence; per-node cases don't gate them inline. `FunctionCall` is excluded (it gates its own params, having a different api shape).
 - `deserialize()` reads `required` fields directly (no sentinel default), and coerces only genuinely-optional fields (e.g. `apiNode.arguments.prompt ?? ""` for optional strings) to satisfy the "string params are never `undefined`" contract.
-- `OutputBinding` / `OutputDeclaration[]` are cast (not coerced) from the looser contract shape to the domain union; their values pass through verbatim.
-- `FunctionCall` stores arguments flat in the domain but serializes to a nested `{ inputBindings, outputBindings }` record on the wire — the split is driven by `functionInfo.arguments` vs `functionInfo.returns`, applied at the serialize/deserialize boundary only.
+- `OutputBinding` / `OutputDeclaration[]` are cast (not coerced) from the looser api shape to the domain union; their values pass through verbatim.
+- `FunctionCall` stores arguments flat in the domain but serializes to a nested `{ inputBindings, outputBindings }` record in the api — the split is driven by `functionInfo.arguments` vs `functionInfo.returns`, applied at the serialize/deserialize boundary only.

@@ -722,8 +722,8 @@ function deriveFunctionRegistry(canvases: Record<string, Canvas>): Record<string
  * React, no DOM. Runnable in Node, a CLI, or a Claude Code skill.
  *
  * Two producers feed this: the editor reads its live stores into a
- * `Workflow` literal; the CLI calls `deserialize(contractWorkflow)` from
- * `../workflow/serialization` to convert on-wire JSON into this shape.
+ * `Workflow` literal; the CLI calls `deserialize(apiWorkflow)` from
+ * `../workflow/serialization` to convert the api JSON into this shape.
  */
 export function validateWorkflowState(state: Workflow): ValidationResult {
   const canvasData = state.canvases ?? {};
