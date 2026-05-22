@@ -92,7 +92,7 @@ function CanvasSection({ canvas }: { canvas: CanvasValidationResult }) {
           {canvas.errorCount > 0 && (
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-destructive/40 text-destructive bg-destructive/10"
+              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-destructive/40 text-destructive bg-card"
             >
               {canvas.errorCount}
             </Badge>
@@ -100,7 +100,7 @@ function CanvasSection({ canvas }: { canvas: CanvasValidationResult }) {
           {canvas.warningCount > 0 && (
             <Badge
               variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-warning/40 text-warning bg-warning/10"
+              className="text-[10px] px-1.5 py-0 h-4 leading-4 border-warning/40 text-warning bg-card"
             >
               {canvas.warningCount}
             </Badge>

@@ -83,7 +83,7 @@ export function getPorts(node: NodeInstance): PortDefinitions {
         ],
         output: [
           { id: "ctrl", type: "control" },
-          { id: "tools", type: "tool", label: "Tools" },
+          { id: "tools", type: "tool" },
         ],
       };
     case "SetVariable":

@@ -104,20 +104,9 @@ const config: Config = {
           data: "hsl(var(--node-data))",
           tool: "hsl(var(--node-tool))",
           function: "hsl(var(--node-function))",
-          border: "hsl(var(--node-border))",
           shadow: "hsl(var(--node-shadow))",
         },
 
-        // Type indicators
-        type: {
-          string: "hsl(var(--type-string))",
-          int: "hsl(var(--type-int))",
-          float: "hsl(var(--type-float))",
-          bool: "hsl(var(--type-bool))",
-          array: "hsl(var(--type-array))",
-          object: "hsl(var(--type-object))",
-          any: "hsl(var(--type-any))",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",

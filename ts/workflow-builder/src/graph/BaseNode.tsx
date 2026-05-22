@@ -341,7 +341,7 @@ export const BaseNode = memo(
                   ? "hsl(var(--destructive))"
                   : fancyBg
                     ? `hsl(var(${nodeColor})/0.5)`
-                    : "hsl(var(--node-border))"
+                    : "hsl(var(--edge-default))"
               }
               strokeWidth={strokeW}
             />
@@ -376,7 +376,7 @@ export const BaseNode = memo(
             ry="10"
             fill={fancyBg ? `url(#${gradientId})` : lightFill}
             stroke={
-              hasErrors ? "hsl(var(--destructive))" : fancyBg ? `hsl(var(${nodeColor})/0.5)` : "hsl(var(--node-border))"
+              hasErrors ? "hsl(var(--destructive))" : fancyBg ? `hsl(var(${nodeColor})/0.5)` : "hsl(var(--edge-default))"
             }
             strokeWidth={strokeW}
           />
@@ -429,7 +429,7 @@ export const BaseNode = memo(
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
               <div className="absolute -top-4 -left-4 z-30 cursor-help">
-                <AlertTriangle className="h-8 w-8 text-destructive fill-background" strokeWidth={2} />
+                <AlertTriangle className="h-8 w-8 text-destructive fill-card" strokeWidth={2} />
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="bg-destructive text-destructive-foreground text-xs px-2 py-1">
@@ -443,7 +443,7 @@ export const BaseNode = memo(
           <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
               <div className="absolute -top-4 -left-4 z-30 cursor-help">
-                <AlertCircle className="h-8 w-8 text-warning fill-background" strokeWidth={2} />
+                <AlertCircle className="h-8 w-8 text-warning fill-card" strokeWidth={2} />
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="bg-warning text-warning-foreground text-xs px-2 py-1">

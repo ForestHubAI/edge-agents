@@ -36,7 +36,8 @@ export const PortHandle = ({
     const baseStyle: React.CSSProperties = {
       width: "12px",
       height: "12px",
-      border: "2px solid white",
+      // Outline matches the canonical graph-line color (same as edges + node borders).
+      border: "2px solid hsl(var(--edge-default))",
     };
 
     if (disabled) {
@@ -53,30 +54,31 @@ export const PortHandle = ({
 
     switch (portType) {
       case "control":
-        // Square shape for execution/control ports
+        // Square shape for execution/control ports. Fill matches the node body
+        // (--card) so the port reads as a recessed hole outlined in the graph color.
         return {
           ...baseStyle,
-          backgroundColor: "hsl(var(--success))",
-          border: "2px solid hsl(var(--success-foreground))",
+          backgroundColor: "hsl(var(--card))",
           borderRadius: "2px",
         };
       case "tool":
-        // Diamond shape for tool ports via clip-path (no rotation offset).
-        // Carries the canonical tool signal color (--node-tool), the same hue
-        // the Tool node category uses.
+        // Diamond via clip-path so the handle stays anchored on the node edge
+        // (rotating it would override React Flow's centering transform). A
+        // clip-path can't show a border, so the handle background is the outline
+        // color and an inset inner diamond (rendered as a child below) paints the
+        // canonical tool fill (--node-tool), leaving a 2px edge-default outline.
         return {
           ...baseStyle,
-          backgroundColor: "hsl(var(--node-tool))",
+          backgroundColor: "hsl(var(--edge-default))",
           border: "none",
           borderRadius: "0",
           clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
         };
       default:
-        // Circle shape for data ports
+        // Circle shape as fallback
         return {
           ...baseStyle,
-          backgroundColor: "hsl(var(--primary))",
-          border: "2px solid hsl(var(--primary-foreground))",
+          backgroundColor: "white",
           borderRadius: "50%",
         };
     }
@@ -116,9 +118,44 @@ export const PortHandle = ({
     }
   };
 
+  // Nudge the *visible* dot 1px toward the node interior so it sits on the
+  // outline centerline (the SVG border is strokeW=2). The offset is on a child,
+  // NOT the Handle — React Flow anchors edges to the Handle's measured box, so
+  // keeping that on the node edge means edges still connect flush instead of
+  // stopping 1px short.
+  const dotOffset =
+    position === Position.Top
+      ? "translateY(1px)"
+      : position === Position.Bottom
+        ? "translateY(-1px)"
+        : position === Position.Left
+          ? "translateX(1px)"
+          : "translateX(-1px)";
+
   return (
     <div className="absolute z-20" style={style}>
-      <Handle id={id} type={type} position={position} style={getHandleStyle()} isConnectable={!disabled} />
+      <Handle
+        id={id}
+        type={type}
+        position={position}
+        isConnectable={!disabled}
+        style={{ width: "12px", height: "12px", background: "transparent", border: "none", minWidth: 0, minHeight: 0 }}
+      >
+        <div
+          style={{ ...getHandleStyle(), position: "absolute", inset: 0, transform: dotOffset, pointerEvents: "none" }}
+        >
+          {portType === "tool" && !disabled && (
+            <div
+              style={{
+                position: "absolute",
+                inset: "2px",
+                backgroundColor: "hsl(var(--node-tool))",
+                clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+              }}
+            />
+          )}
+        </div>
+      </Handle>
       {label && !disabled && (
         <div
           className={`absolute text-xs text-muted-foreground pointer-events-none select-none whitespace-nowrap ${getLabelPositionClass()}`}

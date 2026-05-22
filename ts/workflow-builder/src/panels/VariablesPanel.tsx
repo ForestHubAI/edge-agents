@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { AddButton } from "../components/ui/add-button";
-import { Variable as VariableIcon, Hash, ToggleLeft, Type, List, FileJson } from "lucide-react";
+import { Variable as VariableIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
@@ -13,26 +13,6 @@ interface VariablesPanelProps {
   canvasId: string;
   onSelectNode: (nodeId: string) => void;
 }
-
-const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  String: Type,
-  Int: Hash,
-  Float: Hash,
-  Bool: ToggleLeft,
-  array: List,
-  object: FileJson,
-  any: VariableIcon,
-};
-
-const typeColors: Record<string, string> = {
-  String: "text-type-string",
-  Int: "text-type-int",
-  Float: "text-type-float",
-  Bool: "text-type-bool",
-  array: "text-type-array",
-  object: "text-type-object",
-  any: "text-type-any",
-};
 
 export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) => {
   const readOnly = useEditorStore((s) => isReadOnly(s.builderMode));
@@ -84,8 +64,6 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
   }
 
   const renderVariableItem = (ref: Variable, onClick?: () => void, isSelected = false) => {
-    const TypeIcon = typeIcons[ref.dataType] || VariableIcon;
-    const typeColor = typeColors[ref.dataType] || typeColors.any;
     const clickable = !!onClick;
 
     return (
@@ -108,7 +86,7 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TypeIcon className={cn("w-4 h-4", typeColor)} />
+            <VariableIcon className="w-4 h-4 text-muted-foreground" />
             <span className="font-mono text-sm text-foreground">{ref.name}</span>
           </div>
           <span className="text-xs text-muted-foreground">{ref.dataType}</span>

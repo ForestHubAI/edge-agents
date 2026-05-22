@@ -15,7 +15,8 @@
       "Read(//tmp/**)",
       "Bash(npx vitest *)",
       "Bash(npx vite *)",
-      "Bash(grep -rn \"xyflow\" dist/)"
+      "Bash(grep -rn \"xyflow\" dist/)",
+      "Bash(npm run *)"
     ]
   }
 }

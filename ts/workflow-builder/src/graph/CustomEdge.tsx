@@ -90,20 +90,26 @@ export const CustomEdge = ({
 
   const getEdgePath = () => {
     if (isToolFlow(edgeType)) {
-      // Ends have vertical slope
+      // Tool ports are diamonds, and React Flow anchors the wire at the handle
+      // box's edge midpoint — i.e. the diamond's pointed tip — so a wire meeting
+      // it looks pinched/detached. Pull each end into its node (tool output sits
+      // on a node's bottom, tool input on the next node's top) so the wire
+      // overlaps the diamond body (hidden under the z-20 port) and reads solid.
+      const OVERLAP = 3;
       return getBezierPath({
         sourceX,
-        sourceY,
+        sourceY: sourceY - OVERLAP,
         targetX,
-        targetY,
+        targetY: targetY + OVERLAP,
       });
     }
     // Control flow: ends have horizontal slope
+    const OVERLAP = 2;
     return getBezierPath({
-      sourceX,
+      sourceX: sourceX - OVERLAP,
       sourceY,
       sourcePosition: Position.Right,
-      targetX,
+      targetX: targetX + OVERLAP,
       targetY,
       targetPosition: Position.Left,
     });

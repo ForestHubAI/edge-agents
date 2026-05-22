@@ -238,21 +238,6 @@ const ExpressionInput = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const getTypeColor = (dataType: DataType) => {
-    switch (dataType) {
-      case "int":
-        return "text-type-int";
-      case "float":
-        return "text-type-float";
-      case "bool":
-        return "text-type-bool";
-      case "string":
-        return "text-type-string";
-      default:
-        return "text-type-any";
-    }
-  };
-
   return (
     <div ref={containerRef}>
       <div className="relative">
@@ -293,7 +278,7 @@ const ExpressionInput = ({
                         : t("fnarg")}
                   </span>
                 </div>
-                <span className={cn("text-xs", getTypeColor(variable.dataType))}>{variable.dataType}</span>
+                <span className="text-xs text-muted-foreground">{variable.dataType}</span>
               </button>
             ))}
           </div>

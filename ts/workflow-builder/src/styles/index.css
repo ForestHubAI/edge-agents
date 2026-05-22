@@ -40,10 +40,10 @@ All colors MUST be HSL.
    *     These are *materials*: white card vs dark card aren't the same hue shifted,
    *     they're different identities. Defined separately in :root and .light.
    *
-   *  2. SIGNALS (canonical hue, per-mode lightness) — node categories, type
-   *     indicators, channel types, badge severity. These are *identity markers*:
+   *  2. SIGNALS (canonical hue, per-mode lightness) — node categories, channel
+   *     types, badge severity. These are *identity markers*:
    *     "logic" should be recognizably the same green in both modes. Hue/sat
-   *     stay fixed; only --signal-l / --signal-border-l change per mode.
+   *     stay fixed; only --signal-l changes per mode.
    *
    *  Consumers using opacity (hsl(var(--node-X) / 0.3)) automatically tint
    *  toward the surface behind them, so the same canonical color reads well
@@ -142,7 +142,6 @@ All colors MUST be HSL.
      * ============================================================ */
     --signal-s: 70%; /* default saturation for signals */
     --signal-l: 58%; /* default lightness in dark mode */
-    --signal-border-l: 50%; /* neutral signal border */
 
     /* ============================================================
      * NODE CATEGORY SIGNALS (canonical hue, mode-tuned lightness)
@@ -155,19 +154,7 @@ All colors MUST be HSL.
     --node-data: 42 85% var(--signal-l);
     --node-tool: 200 80% var(--signal-l);
     --node-function: 320 var(--signal-s) var(--signal-l);
-    --node-border: 220 10% var(--signal-border-l);
     --node-shadow: 40 2% 5%;
-
-    /* ============================================================
-     * TYPE INDICATOR SIGNALS (variables, expressions, ports)
-     * ============================================================ */
-    --type-string: 142 var(--signal-s) var(--signal-l);
-    --type-int: 210 var(--signal-s) var(--signal-l);
-    --type-float: 195 var(--signal-s) var(--signal-l);
-    --type-bool: 280 var(--signal-s) var(--signal-l);
-    --type-array: 25 85% var(--signal-l);
-    --type-object: 42 85% var(--signal-l);
-    --type-any: 220 10% 50%;
   }
 
   .light {
@@ -240,10 +227,6 @@ All colors MUST be HSL.
      * ============================================================ */
     --signal-s: 68%;
     --signal-l: 42%;
-    --signal-border-l: 45%;
-
-    /* Light-mode neutral type/any */
-    --type-any: 220 10% 38%;
   }
 
 }
