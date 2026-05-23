@@ -122,9 +122,7 @@ export interface MemoryRefsParam {
 export type ReferenceSelectParam = VariableSelectParam | ChannelSelectParam | MemorySelectParam | ModelSelectParam;
 
 export function isReferenceSelectParam(param: Parameter): param is ParameterBase & ReferenceSelectParam {
-  return (
-    param.type === "variableSelect" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "modelSelect"
-  );
+  return param.type === "variableSelect" || param.type === "channelSelect" || param.type === "memorySelect" || param.type === "modelSelect";
 }
 
 export type Parameter =
@@ -166,6 +164,30 @@ export function isParameterActive(param: Parameter, parameterValues: Record<stri
         return cond.values.includes(parameterValues[cond.parameterId]);
     }
   });
+}
+
+/**
+ * Strip activation-gated arguments at the domain→api boundary, shared by Node
+ * and Channel serialize. Mutates `args` in place, deleting any gated argument
+ * that is either inactive for the current context or active but `undefined`
+ * (so the api never carries explicit `undefined` values).
+ *
+ * Convention: the domain store is the SUPERSET — inactive parameters are kept
+ * there (so e.g. switching a channel's type away and back restores prior
+ * values), and stripping runs ONLY when serializing to the api. Do not strip on
+ * store-writes. Store readers (diagnostics, serialize) decide relevance via
+ * `isParameterActive` rather than trusting the stored shape.
+ *
+ * `args` must contain any discriminator referenced by `parameterIn` rules
+ * (e.g. a channel's `type`), since activation is evaluated against it.
+ */
+export function stripInactiveParameters(args: Record<string, unknown>, parameters: readonly Parameter[], isToolInput = false): void {
+  for (const param of parameters) {
+    if (!param.activationRules?.length) continue;
+    if (!isParameterActive(param, args, isToolInput) || args[param.id] === undefined) {
+      delete args[param.id];
+    }
+  }
 }
 
 // ============================================================================

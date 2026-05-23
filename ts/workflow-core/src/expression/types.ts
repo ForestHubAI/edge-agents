@@ -10,16 +10,6 @@ export interface ResolvedExpr {
   expectedType: DataType; // The expected data type of the expression result
 }
 
-// Formats the expression for display by replacing variable references with their names
-export function displayValue(expr: ResolvedExpr): string {
-  let result = expr.expression;
-  // Replace each variable reference placeholder with its name
-  expr.variables.forEach((variable) => {
-    result = result.replace(/\$\{\}/, variable?.name || "unknown");
-  });
-  return result;
-}
-
 // Resolve an expression by converting variable references to runtime variables
 export function resolveExpression(apiExpr: Expression, availableVars: Record<string, Variable>): ResolvedExpr {
   return {

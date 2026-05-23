@@ -20,3 +20,7 @@ export type { ExternalInput } from "./methods";
 // FunctionCall — special node whose definition is built from FunctionInfo
 export type { FunctionCallNode, FunctionCallNodeType, FunctionNodeDefinition } from "./FunctionNode";
 export { buildFunctionNodeDef } from "./FunctionNode";
+
+// Serialization — domain Node <-> api
+export { serialize, deserialize } from "./serialization";
+export type { ApiNode } from "./serialization";

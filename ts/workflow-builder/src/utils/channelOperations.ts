@@ -1,4 +1,4 @@
-import { CHANNEL_DEFINITION, type ChannelType, type Channel, stripInactiveArguments } from "@foresthub/workflow-core/channel";
+import { CHANNEL_DEFINITION, type ChannelType, type Channel } from "@foresthub/workflow-core/channel";
 import { isParameterActive } from "@foresthub/workflow-core/parameter";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthub/workflow-core/id";
@@ -38,9 +38,13 @@ export function addChannel(type: ChannelType = "GPIOIN"): Channel {
 }
 
 /**
- * Apply a partial patch to a channel. Re-strips inactive arguments after
- * the merge, so changing `type` immediately drops fields that are no longer
- * relevant. Top-level fields (label/type) are merged separately from arguments.
+ * Apply a partial patch to a channel. Inactive arguments are intentionally
+ * retained in the store: the domain store is the superset and stripping happens
+ * only at the api boundary (`serialize`), so switching `type` away and back
+ * restores previously-entered values rather than resetting them. On a type
+ * change we still seed defaults for params that are newly active and unset, so
+ * the config panel shows sensible initial values. Top-level fields (label/type)
+ * are merged separately from arguments.
  */
 export function updateChannel(id: string, patch: { label?: string; type?: ChannelType; arguments?: Record<string, unknown> }): void {
   const key = id;
@@ -49,17 +53,11 @@ export function updateChannel(id: string, patch: { label?: string; type?: Channe
     if (!existing) return vars;
 
     const nextType = patch.type ?? existing.type;
-    const mergedArgs = { ...existing.arguments, ...(patch.arguments ?? {}), type: nextType };
-    // stripInactiveArguments expects `type` inside the args record so it can
-    // evaluate activation rules; we drop it again afterwards since `type` is a
-    // top-level field on the instance.
-    const stripped = stripInactiveArguments(mergedArgs);
-    delete stripped.type;
+    const mergedArgs = { ...existing.arguments, ...(patch.arguments ?? {}) };
 
-    // Seed defaults for parameters that became active due to the type change.
     if (patch.type && patch.type !== existing.type) {
       for (const [k, v] of Object.entries(defaultArguments(nextType))) {
-        if (stripped[k] === undefined) stripped[k] = v;
+        if (mergedArgs[k] === undefined) mergedArgs[k] = v;
       }
     }
 
@@ -69,7 +67,7 @@ export function updateChannel(id: string, patch: { label?: string; type?: Channe
         ...existing,
         ...(patch.label !== undefined ? { label: patch.label } : {}),
         type: nextType,
-        arguments: stripped,
+        arguments: mergedArgs,
       },
     };
   });

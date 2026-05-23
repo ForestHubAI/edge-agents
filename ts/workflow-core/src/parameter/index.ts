@@ -21,6 +21,7 @@ export {
   unwrapFromArgs,
   isReferenceSelectParam,
   isParameterActive,
+  stripInactiveParameters,
   resolveExpressionType,
   resolveCapabilities,
   resolveChannelTypes,
@@ -29,5 +30,3 @@ export {
 } from "./Parameter";
 export type { OutputBinding, OutputDeclaration, StaticOutput, OutputList, OutputParameter } from "./Output";
 export { resolveStaticOutputDataType } from "./Output";
-export type { ParamDisplayResult } from "./display";
-export { formatParamDisplay } from "./display";

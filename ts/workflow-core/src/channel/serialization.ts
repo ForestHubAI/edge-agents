@@ -1,37 +1,25 @@
 import type { Schemas } from "../api";
-import { isParameterActive } from "../parameter";
+import { stripInactiveParameters } from "../parameter";
 import { CHANNEL_DEFINITION } from "./ChannelDefinition";
 import type { Channel } from "./Channel";
 
 export type ApiChannel = Schemas["Channel"];
 
 /**
- * Strip arguments belonging to inactive parameters (mirrors NodeSerialization).
- * Used both when writing into the store after a `type` change and when
- * serializing to the API, so the two stay consistent.
- */
-export function stripInactiveArguments(args: Record<string, unknown>): Record<string, unknown> {
-  const out = { ...args };
-  for (const param of CHANNEL_DEFINITION.parameters) {
-    if (param.activationRules?.length && !isParameterActive(param, args, false)) {
-      delete out[param.id];
-    }
-  }
-  return out;
-}
-
-/**
  * Serialize a domain Channel to the API discriminated-union shape.
  * Deploy-time bindings (`driverId` for hardware, `networkId` for MQTT) are
  * emitted as `""` — the deploy step fills them in against the target device's
  * manifest and network memberships.
+ *
+ * The domain store retains inactive parameters (non-destructive type switching),
+ * so this is the boundary that drops them. The `type` discriminator must be in
+ * the args record so `parameterIn` rules can evaluate — otherwise every gated
+ * field (line/channel/bias/debounceMs/frequency) is stripped as "inactive".
  */
 export function serialize(ch: Channel): ApiChannel {
   const { id, label, type } = ch;
-  // type-discriminator must be in the args record so stripInactiveArguments
-  // can evaluate `parameterIn` activation rules — otherwise every gated field
-  // (line/channel/bias/debounceMs/frequency) is stripped as "inactive".
-  const args = stripInactiveArguments({ ...ch.arguments, type });
+  const args: Record<string, unknown> = { ...ch.arguments, type };
+  stripInactiveParameters(args, CHANNEL_DEFINITION.parameters);
   switch (type) {
     case "GPIOIN":
       return {

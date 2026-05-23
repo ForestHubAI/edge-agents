@@ -4,17 +4,17 @@
 // a Workflow literal; the CLI calls deserialize on parsed JSON.
 
 import type { Schemas } from "../api";
-import type { NodeData, Node } from "../node";
+import type { NodeData } from "../node";
 import type { FunctionInfo } from "../api";
 import { getNodeOutput, isNodeUsedAsTool } from "../node/methods";
-import type { EdgeData, EdgeType, Edge } from "../edge";
 import { ALL_CHANNEL_TYPES, type ApiChannel, type Channel, type ChannelType } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
 import type { Memory } from "../memory";
 import { serialize as serializeMemory, deserialize as deserializeMemory } from "../memory";
 import type { Model } from "../model";
 import { serialize as serializeModel, deserialize as deserializeModel } from "../model";
-import { serialize as serializeNode, deserialize as deserializeNode } from "../node/serialization";
+import { serialize as serializeNode, deserialize as deserializeNode } from "../node";
+import { serialize as serializeEdge, deserialize as deserializeEdge } from "../edge";
 import type { Variable, NodeOutputVariable } from "../variable";
 import { declaredVarKey, fnargKey, nodeOutputVarKey, ensureUids } from "../variable";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
@@ -32,8 +32,8 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
   if (!mainCanvas) {
     throw new Error("Main canvas missing");
   }
-  const mainNodes = mainCanvas.nodes.map((n) => serializeNode(n, n.position, isNodeUsedAsTool(n.id, n, mainCanvas.edges)));
-  const mainEdges = mainCanvas.edges.map(toApiEdge);
+  const mainNodes = mainCanvas.nodes.map((n) => serializeNode(n, isNodeUsedAsTool(n.id, n, mainCanvas.edges)));
+  const mainEdges = mainCanvas.edges.map(serializeEdge);
   const mainDeclared = extractDeclaredVariables(mainCanvas.variables);
 
   const functions: Schemas["Function"][] = [];
@@ -45,8 +45,8 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
     functions.push({
       functionInfo: canvas.functionInfo,
       outputAssignments: canvas.outputAssignments,
-      nodes: canvas.nodes.map((n) => serializeNode(n, n.position, isNodeUsedAsTool(n.id, n, canvas.edges))),
-      edges: canvas.edges.map(toApiEdge),
+      nodes: canvas.nodes.map((n) => serializeNode(n, isNodeUsedAsTool(n.id, n, canvas.edges))),
+      edges: canvas.edges.map(serializeEdge),
       declaredVariables: extractDeclaredVariables(canvas.variables),
     });
   }
@@ -80,8 +80,8 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   const canvases: Record<string, Canvas> = {};
 
   // Main canvas: data at the api root; no functionInfo, empty outputAssignments.
-  const mainNodes = workflow.nodes.map(toDomainNode);
-  const mainEdges = workflow.edges.map(toDomainEdge);
+  const mainNodes = workflow.nodes.map(deserializeNode);
+  const mainEdges = workflow.edges.map(deserializeEdge);
   const mainDeclared = workflow.declaredVariables ?? [];
   canvases[MAIN_CANVAS_ID] = {
     nodes: mainNodes,
@@ -98,8 +98,8 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
       arguments: ensureUids(fn.functionInfo.arguments),
       returns: ensureUids(fn.functionInfo.returns),
     };
-    const fnNodes = fn.nodes.map(toDomainNode);
-    const fnEdges = fn.edges.map(toDomainEdge);
+    const fnNodes = fn.nodes.map(deserializeNode);
+    const fnEdges = fn.edges.map(deserializeEdge);
     canvases[functionInfo.id] = {
       nodes: fnNodes,
       edges: fnEdges,
@@ -203,7 +203,7 @@ export function buildCanvasVariables(
 }
 
 // ============================================================================
-// Helpers — declared variables, edge & node converters
+// Helpers — declared variables
 // ============================================================================
 
 /**
@@ -226,89 +226,3 @@ function extractDeclaredVariables(variables: Record<string, Variable>): Schemas[
   return result;
 }
 
-/**
- * Convert an api `Node` into a flat {@link Node} (the in-memory
- * domain node the validator + editor consume) by deserializing its payload
- * and attaching `position`.
- */
-function toDomainNode(apiNode: Schemas["Node"]): Node {
-  return { ...deserializeNode(apiNode), position: apiNode.position };
-}
-
-/**
- * Convert an api `Edge` into a `CanvasData` edge. Critical: the api's
- * `id` field is preserved verbatim — earlier code synthesized `e${index+1}`,
- * which broke roundtrip identity. Edge type-conditional metadata (`prompt`
- * on agentTask/agentDelegate; `description` on agentChoice/agentDelegate)
- * is folded into `data` as `EdgeData`.
- */
-function toDomainEdge(apiEdge: Schemas["Edge"]): Edge {
-  let data: EdgeData | undefined;
-  if ((apiEdge.type === "agentTask" || apiEdge.type === "agentDelegate") && apiEdge.prompt) {
-    data = { ...data, prompt: apiEdge.prompt };
-  }
-  if ((apiEdge.type === "agentChoice" || apiEdge.type === "agentDelegate") && apiEdge.description) {
-    data = { ...data, description: apiEdge.description };
-  }
-  return {
-    id: apiEdge.id,
-    type: apiEdge.type,
-    source: apiEdge.from.nodeId,
-    sourceHandle: apiEdge.from.port,
-    target: apiEdge.to.nodeId,
-    targetHandle: apiEdge.to.port,
-    ...(data ? { data } : {}),
-  };
-}
-
-/**
- * Convert a `CanvasData` edge into an api `Edge`. Edge `id` is preserved
- * (the api now requires it). Edge-type-conditional metadata is reattached
- * from the edge's `data` payload.
- */
-function toApiEdge(edge: Edge): Schemas["Edge"] {
-  const sourceHandle = edge.sourceHandle || "";
-  const targetHandle = edge.targetHandle || "";
-  const edgeType = edge.type as EdgeType | undefined;
-  const from = { nodeId: edge.source, port: sourceHandle };
-  const to = { nodeId: edge.target, port: targetHandle };
-
-  switch (edgeType) {
-    case "agentTask":
-      return {
-        id: edge.id,
-        type: "agentTask",
-        from,
-        to,
-        prompt: (edge.data?.prompt as Schemas["Expression"]) ?? { expression: "", references: [], dataType: "string" },
-      };
-    case "agentChoice":
-      return {
-        id: edge.id,
-        type: "agentChoice",
-        from,
-        to,
-        ...(edge.data?.description ? { description: edge.data.description as string } : {}),
-      };
-    case "agentDelegate":
-      return {
-        id: edge.id,
-        type: "agentDelegate",
-        from,
-        to,
-        ...(edge.data?.prompt ? { prompt: edge.data.prompt as Schemas["Expression"] } : {}),
-        ...(edge.data?.description ? { description: edge.data.description as string } : {}),
-      };
-    case "control":
-      return { id: edge.id, type: "control", from, to };
-    case "tool":
-      return { id: edge.id, type: "tool", from, to };
-    default:
-      return {
-        id: edge.id,
-        type: sourceHandle.startsWith("ctrl") || targetHandle.startsWith("ctrl") ? "control" : "tool",
-        from,
-        to,
-      };
-  }
-}

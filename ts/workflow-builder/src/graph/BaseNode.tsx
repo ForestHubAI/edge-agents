@@ -21,7 +21,6 @@ import { computeNodeDiagnostics } from "@foresthub/workflow-core/diagnostics";
 import {
   parseExpression,
   type ParseResult,
-  displayValue,
   isExpression,
   resolveExpression,
   type ResolvedExpr,
@@ -29,7 +28,8 @@ import {
 import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
 import { canPortAcceptEdge } from "../utils/connectionRules";
 import { PortHandle } from "./PortHandle";
-import { formatParamDisplay, isParameterActive } from "@foresthub/workflow-core/parameter";
+import { isParameterActive } from "@foresthub/workflow-core/parameter";
+import { formatParamDisplay, displayValue } from "../utils/paramDisplay";
 
 // Node shape variants
 type NodeShape = "rectangle" | "tapered-right";

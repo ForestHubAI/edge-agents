@@ -1,6 +1,10 @@
-import type { Reference } from "../api";
-import { refToLookupKey, type Variable } from "../variable";
-import type { Parameter } from "./Parameter";
+// Presentation-only formatters for inline node display. These render domain
+// values to human-readable text; they live in the builder (not headless
+// workflow-core) because formatting for display is an editor concern.
+import type { Parameter } from "@foresthub/workflow-core/parameter";
+import type { Reference } from "@foresthub/workflow-core";
+import { refToLookupKey, type Variable } from "@foresthub/workflow-core/variable";
+import type { ResolvedExpr } from "@foresthub/workflow-core/expression";
 
 export interface ParamDisplayResult {
   text: string;
@@ -54,4 +58,14 @@ export function formatParamDisplay(
     default:
       return { text: String(value ?? "") };
   }
+}
+
+/** Format an expression for display by replacing variable-reference placeholders with their names. */
+export function displayValue(expr: ResolvedExpr): string {
+  let result = expr.expression;
+  // Replace each variable reference placeholder with its name
+  expr.variables.forEach((variable) => {
+    result = result.replace(/\$\{\}/, variable?.name || "unknown");
+  });
+  return result;
 }

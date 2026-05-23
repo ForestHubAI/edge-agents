@@ -4,3 +4,5 @@
 export type { EdgeData, Edge } from "./Edge";
 export { type EdgeDefinition, getEdgeDefinition, EDGE_DEFINITIONS } from "./EdgeDefinition";
 export { type EdgeType, type ControlFlowType, type ToolFlowType, isControlFlow, isToolFlow } from "./EdgeType";
+export { serialize, deserialize } from "./serialization";
+export type { ApiEdge } from "./serialization";

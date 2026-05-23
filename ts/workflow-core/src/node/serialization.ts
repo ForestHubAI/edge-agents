@@ -1,87 +1,83 @@
 import type { Schemas } from "../api";
-import { NodeData } from "./Node";
+import type { NodeData, Node } from "./Node";
 import type { Expression } from "../api";
 import type { OutputBinding, OutputDeclaration } from "../parameter";
-import { isParameterActive } from "../parameter";
+import { stripInactiveParameters } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 
+export type ApiNode = Schemas["Node"];
+
 /**
- * Serialize a domain NodeData to the strict API format (Schemas["Node"]).
+ * Serialize a domain Node to the strict API format (Schemas["Node"]).
  * Strips hidden parameters (those whose activationRules are not met). The
  * `isToolInput` flag is threaded into activation evaluation so rules like
  * `isControlFlow` / `isToolInput` resolve correctly per-instance.
  */
-export function serialize(node: NodeData, position: { x: number; y: number }, isToolInput = false): Schemas["Node"] {
-  const result = serializeNode(node, position, isToolInput);
+export function serialize(node: Node, isToolInput: boolean): ApiNode {
+  const result = serializeNodeData(node, node.position, isToolInput);
   if (node.label) {
-    (result as Record<string, unknown>).label = node.label;
+    result.label = node.label;
   }
 
-  // Single source of truth for activation-gated params (e.g. toolDescription):
-  // serializeNode emits them uniformly, then this pass drops any that are
-  // inactive for this instance, or active but unset — keeping the api free of
-  // e.g. `toolDescription: undefined`. FunctionCall gates its own params inline
-  // (its bindings have a different api shape), so it's excluded here.
+  // Activation-gated params (e.g. toolDescription): serializeNode emits them
+  // uniformly, then this pass drops any that are inactive for this instance, or
+  // active but unset — keeping the api free of e.g. `toolDescription: undefined`.
+  // FunctionCall gates its own params inline (its bindings have a different api
+  // shape), so it's excluded here.
   if ("arguments" in result && result.arguments) {
     const def = node.type !== "FunctionCall" ? NodeRegistry.getByType(node.type) : undefined;
     if (def) {
-      const args = result.arguments as Record<string, unknown>;
-      for (const param of def.parameters) {
-        if (!param.activationRules?.length) continue;
-        if (!isParameterActive(param, node.arguments, isToolInput) || args[param.id] === undefined) {
-          delete args[param.id];
-        }
-      }
+      stripInactiveParameters(result.arguments as Record<string, unknown>, def.parameters, isToolInput);
     }
   }
 
   return result;
 }
 
-function serializeNode(node: NodeData, position: { x: number; y: number }, isToolInput: boolean): Schemas["Node"] {
-  switch (node.type) {
+function serializeNodeData(data: NodeData, position: { x: number; y: number }, isToolInput: boolean): Schemas["Node"] {
+  switch (data.type) {
     case "ReadPin":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          pinReference: node.arguments.pinReference!,
-          signalType: node.arguments.signalType,
-          output: node.arguments.output,
-          toolDescription: node.arguments.toolDescription,
+          pinReference: data.arguments.pinReference!,
+          signalType: data.arguments.signalType,
+          output: data.arguments.output,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     case "SerialRead":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          portReference: node.arguments.portReference!,
-          ...(node.arguments.prompt !== undefined ? { prompt: node.arguments.prompt } : {}),
-          output: node.arguments.output,
+          portReference: data.arguments.portReference!,
+          ...(data.arguments.prompt !== undefined ? { prompt: data.arguments.prompt } : {}),
+          output: data.arguments.output,
         },
       };
     case "WritePin":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          pinReference: node.arguments.pinReference!,
-          signalType: node.arguments.signalType,
-          value: node.arguments.value,
+          pinReference: data.arguments.pinReference!,
+          signalType: data.arguments.signalType,
+          value: data.arguments.value,
         },
       };
     case "SerialWrite":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          portReference: node.arguments.portReference!,
-          value: node.arguments.value,
+          portReference: data.arguments.portReference!,
+          value: data.arguments.value,
         },
       };
     case "Agent": {
@@ -90,135 +86,135 @@ function serializeNode(node: NodeData, position: { x: number; y: number }, isToo
       // by diagnostics, not the schema. memoryRefs is also a 1:1 list — domain
       // and API share the same MemoryRef shape.
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          name: node.arguments.name,
-          model: node.arguments.model,
-          instructions: node.arguments.instructions,
-          maxTurns: node.arguments.maxTurns,
-          outputDeclarations: node.arguments.outputDeclarations,
-          memoryRefs: node.arguments.memoryRefs ?? [],
-          answer: node.arguments.answer,
-          toolDescription: node.arguments.toolDescription,
+          name: data.arguments.name,
+          model: data.arguments.model,
+          instructions: data.arguments.instructions,
+          maxTurns: data.arguments.maxTurns,
+          outputDeclarations: data.arguments.outputDeclarations,
+          memoryRefs: data.arguments.memoryRefs ?? [],
+          answer: data.arguments.answer,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     }
     case "If":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          condition: node.arguments.condition,
+          condition: data.arguments.condition,
         },
       };
     case "OnFunctionCall":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
       };
     case "OnStartup":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
       };
     case "OnPinEdge":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          pinReference: node.arguments.pinReference!,
-          edge: node.arguments.edge,
+          pinReference: data.arguments.pinReference!,
+          edge: data.arguments.edge,
         },
       };
     case "OnSerialReceive":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          portReference: node.arguments.portReference!,
-          output: node.arguments.output,
+          portReference: data.arguments.portReference!,
+          output: data.arguments.output,
         },
       };
     case "OnThreshold":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          variable: node.arguments.variable!,
-          threshold: node.arguments.threshold!,
-          direction: node.arguments.direction,
-          deadband: node.arguments.deadband,
-          output: node.arguments.output,
+          variable: data.arguments.variable!,
+          threshold: data.arguments.threshold!,
+          direction: data.arguments.direction,
+          deadband: data.arguments.deadband,
+          output: data.arguments.output,
         },
       };
     case "Delay":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          delayMs: node.arguments.delayMs!,
+          delayMs: data.arguments.delayMs!,
         },
       };
     case "Ticker":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          intervalValue: node.arguments.intervalValue!,
-          intervalUnit: node.arguments.intervalUnit,
+          intervalValue: data.arguments.intervalValue!,
+          intervalUnit: data.arguments.intervalUnit,
         },
       };
     case "Alarm":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          time: node.arguments.time,
-          days: node.arguments.days,
+          time: data.arguments.time,
+          days: data.arguments.days,
         },
       };
     case "WebSearchTool":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          maxResults: node.arguments.maxResults,
+          maxResults: data.arguments.maxResults,
         },
       };
     case "Retriever":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          memoryReference: node.arguments.memoryReference,
-          topK: node.arguments.topK!,
-          query: node.arguments.query,
-          output: node.arguments.output,
-          toolDescription: node.arguments.toolDescription,
+          memoryReference: data.arguments.memoryReference,
+          topK: data.arguments.topK!,
+          query: data.arguments.query,
+          output: data.arguments.output,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     case "WebFetch":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          url: node.arguments.url,
-          maxChars: node.arguments.maxChars,
-          output: node.arguments.output,
+          url: data.arguments.url,
+          maxChars: data.arguments.maxChars,
+          output: data.arguments.output,
         },
       };
     case "FunctionCall": {
@@ -229,22 +225,22 @@ function serializeNode(node: NodeData, position: { x: number; y: number }, isToo
       // node is currently wired as a tool (exec-mode calls don't need it).
       const inputBindings: Record<string, Expression> = {};
       const outputBindings: Record<string, OutputBinding> = {};
-      const args = node.arguments as Record<string, unknown>;
-      for (const arg of node.functionInfo.arguments) {
+      const args = data.arguments as Record<string, unknown>;
+      for (const arg of data.functionInfo.arguments) {
         const key = arg.uid ?? arg.name;
         const v = args[key];
         if (v !== undefined) inputBindings[key] = v as Expression;
       }
-      for (const ret of node.functionInfo.returns) {
+      for (const ret of data.functionInfo.returns) {
         const key = ret.uid ?? ret.name;
         const v = args[key];
         if (v !== undefined) outputBindings[key] = v as OutputBinding;
       }
       const toolDescription = args.toolDescription as string | undefined;
       return {
-        id: node.id,
-        type: node.type,
-        functionInfo: node.functionInfo,
+        id: data.id,
+        type: data.type,
+        functionInfo: data.functionInfo,
         position: position,
         arguments: {
           inputBindings,
@@ -255,48 +251,52 @@ function serializeNode(node: NodeData, position: { x: number; y: number }, isToo
     }
     case "SetVariable":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          variable: node.arguments.variable!,
-          value: node.arguments.value,
+          variable: data.arguments.variable!,
+          value: data.arguments.value,
         },
       };
     case "MqttPublish":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          channelReference: node.arguments.channelReference ?? "",
-          topic: node.arguments.topic,
-          dataType: node.arguments.dataType,
-          value: node.arguments.value,
-          qos: node.arguments.qos,
-          retain: node.arguments.retain,
+          channelReference: data.arguments.channelReference ?? "",
+          topic: data.arguments.topic,
+          dataType: data.arguments.dataType,
+          value: data.arguments.value,
+          qos: data.arguments.qos,
+          retain: data.arguments.retain,
         },
       };
     case "OnMqttMessage":
       return {
-        id: node.id,
-        type: node.type,
+        id: data.id,
+        type: data.type,
         position: position,
         arguments: {
-          channelReference: node.arguments.channelReference ?? "",
-          topic: node.arguments.topic,
-          dataType: node.arguments.dataType,
-          output: node.arguments.output,
+          channelReference: data.arguments.channelReference ?? "",
+          topic: data.arguments.topic,
+          dataType: data.arguments.dataType,
+          output: data.arguments.output,
         },
       };
   }
 }
 
 /**
- * Convert a strict API Node (Schemas["Node"]) to a domain NodeData.
- * All required fields are expected to be present — no default injection.
+ * Convert a strict API Node to a domain Node (NodeData + position).
  */
-export function deserialize(apiNode: Schemas["Node"]): NodeData {
+export function deserialize(apiNode: ApiNode): Node {
+  return { ...deserializeNodeData(apiNode), position: apiNode.position };
+}
+
+/** Build the NodeData payload from an API Node (no position). */
+function deserializeNodeData(apiNode: Schemas["Node"]): NodeData {
   switch (apiNode.type) {
     case "ReadPin":
       return {
