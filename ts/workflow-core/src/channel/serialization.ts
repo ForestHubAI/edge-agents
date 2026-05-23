@@ -1,5 +1,5 @@
 import type { Schemas } from "../api";
-import { stripInactiveParameters } from "../parameter";
+import { pruneArguments } from "../parameter";
 import { CHANNEL_DEFINITION } from "./ChannelDefinition";
 import type { Channel } from "./Channel";
 
@@ -19,7 +19,7 @@ export type ApiChannel = Schemas["Channel"];
 export function serialize(ch: Channel): ApiChannel {
   const { id, label, type } = ch;
   const args: Record<string, unknown> = { ...ch.arguments, type };
-  stripInactiveParameters(args, CHANNEL_DEFINITION.parameters);
+  pruneArguments(args, CHANNEL_DEFINITION.parameters);
   switch (type) {
     case "GPIOIN":
       return {

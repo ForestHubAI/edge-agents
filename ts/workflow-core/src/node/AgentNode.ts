@@ -14,8 +14,7 @@ export interface AgentNode extends NodeBase {
     instructions: string;
     maxTurns: number | undefined;
     outputDeclarations: OutputDeclaration[];
-    /** Optional in-memory; serializer coerces `undefined` to `[]` so the API always sees the required array. */
-    memoryRefs: MemoryRef[] | undefined;
+    memoryRefs: MemoryRef[];
     answer: OutputBinding;
     toolDescription?: string;
   };
@@ -69,7 +68,7 @@ export const AgentNodeDefinition: NodeDefinition = {
       label: "Memory Files",
       description: "Project memory files this agent can access, with per-file read or read+write mode",
       type: "memory-refs",
-      optional: true,
+      default: [],
     },
     {
       id: "toolDescription",

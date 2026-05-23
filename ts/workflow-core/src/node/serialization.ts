@@ -2,7 +2,7 @@ import type { Schemas } from "../api";
 import type { NodeData, Node } from "./Node";
 import type { Expression } from "../api";
 import type { OutputBinding, OutputDeclaration } from "../parameter";
-import { stripInactiveParameters } from "../parameter";
+import { pruneArguments } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 
 export type ApiNode = Schemas["Node"];
@@ -19,15 +19,15 @@ export function serialize(node: Node, isToolInput: boolean): ApiNode {
     result.label = node.label;
   }
 
-  // Activation-gated params (e.g. toolDescription): serializeNode emits them
-  // uniformly, then this pass drops any that are inactive for this instance, or
-  // active but unset — keeping the api free of e.g. `toolDescription: undefined`.
+  // serializeNode emits gated/optional params uniformly; this pass prunes the
+  // ones that must not reach the api — inactive for this instance, or empty
+  // optionals (so the consumer's presence check sees absent, not `""`/`null`).
   // FunctionCall gates its own params inline (its bindings have a different api
   // shape), so it's excluded here.
   if ("arguments" in result && result.arguments) {
     const def = node.type !== "FunctionCall" ? NodeRegistry.getByType(node.type) : undefined;
     if (def) {
-      stripInactiveParameters(result.arguments as Record<string, unknown>, def.parameters, isToolInput);
+      pruneArguments(result.arguments, def.parameters, isToolInput);
     }
   }
 

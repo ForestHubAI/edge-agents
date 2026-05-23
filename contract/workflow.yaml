@@ -664,7 +664,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [answer, outputDeclarations]
+          required: [answer, outputDeclarations, memoryRefs]
           properties:
             name:
               type: string

@@ -101,8 +101,9 @@ export function addNodeToStore(store: CanvasStore, nodeDef: NodeDefinition, posi
   const nodeId = generateId();
 
   // Initialize parameters with default values. Clone so object/array defaults
-  // (Expression, weekdays `[]`) aren't shared by reference across instances or
-  // with the definition itself — a shared mutable default would alias on edit.
+  // (Expression, weekdays `[]`, memory-refs `[]`) aren't shared by reference
+  // across instances or with the definition itself — a shared mutable default
+  // would alias on edit.
   const args: Record<string, unknown> = {};
   nodeDef.parameters.forEach((param) => {
     if (param.default !== undefined) {

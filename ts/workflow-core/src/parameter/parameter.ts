@@ -112,10 +112,13 @@ export interface MemorySelectParam {
  * List parameter that binds an agent node to project-declared memory files,
  * each with an access mode (`r` = read-only, `rw` = read + write). The editor
  * holds the array directly; the API schema (`MemoryRef[]`) round-trips 1:1.
+ *
+ * `default` is required: a list param is always a
+ * concrete array, never unset — declare `default: []` for "starts empty".
  */
 export interface MemoryRefsParam {
   type: "memory-refs";
-  default?: never;
+  default: Schemas["MemoryRef"][];
 }
 
 /** Union of all reference-select parameter variants, used for type guards. */
@@ -167,24 +170,26 @@ export function isParameterActive(param: Parameter, parameterValues: Record<stri
 }
 
 /**
- * Strip activation-gated arguments at the domain→api boundary, shared by Node
- * and Channel serialize. Mutates `args` in place, deleting any gated argument
- * that is either inactive for the current context or active but `undefined`
- * (so the api never carries explicit `undefined` values).
- *
- * Convention: the domain store is the SUPERSET — inactive parameters are kept
- * there (so e.g. switching a channel's type away and back restores prior
- * values), and stripping runs ONLY when serializing to the api. Do not strip on
- * store-writes. Store readers (diagnostics, serialize) decide relevance via
- * `isParameterActive` rather than trusting the stored shape.
- *
- * `args` must contain any discriminator referenced by `parameterIn` rules
- * (e.g. a channel's `type`), since activation is evaluated against it.
+ * Whether a scalar argument value counts as "unset" for api purposes:
+ * `undefined`, `null`, or `""`. Deliberately NOT `false`/`0` (valid values) nor
+ * `[]` — an empty list is a real value, since list params are always
+ * materialized to a concrete array. Shared by required-param diagnostics and
+ * {@link pruneArguments} so "unset" has exactly one definition.
  */
-export function stripInactiveParameters(args: Record<string, unknown>, parameters: readonly Parameter[], isToolInput = false): void {
+export function isEmpty(value: unknown): boolean {
+  return value === undefined || value === null || value === "";
+}
+
+/**
+ * Prune arguments that must not appear in the api, at the domain→api boundary.
+ * Mutates `args` in place. Two reasons an arg is dropped:
+ *   1. inactive — its parameter's activation rules aren't met for this context.
+ *   2. the parameter {@link isEmpty}.
+ */
+export function pruneArguments(args: Record<string, unknown>, parameters: readonly Parameter[], isToolInput = false): void {
   for (const param of parameters) {
-    if (!param.activationRules?.length) continue;
-    if (!isParameterActive(param, args, isToolInput) || args[param.id] === undefined) {
+    const inactive = !!param.activationRules?.length && !isParameterActive(param, args, isToolInput);
+    if (inactive || isEmpty(args[param.id])) {
       delete args[param.id];
     }
   }

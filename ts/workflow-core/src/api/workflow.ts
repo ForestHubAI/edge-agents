@@ -417,7 +417,7 @@ export interface components {
                 /** @description Ordered list of structured-output declarations. Names must be unique within this list */
                 outputDeclarations: components["schemas"]["OutputDeclaration"][];
                 /** @description Memory files this agent can access, each with an access mode. */
-                memoryRefs?: components["schemas"]["MemoryRef"][];
+                memoryRefs: components["schemas"]["MemoryRef"][];
                 /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
                 toolDescription?: string;
             };

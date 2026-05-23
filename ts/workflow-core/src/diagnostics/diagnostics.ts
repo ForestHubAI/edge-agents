@@ -9,7 +9,7 @@ import type { Variable } from "../variable";
 import { computeAvailableVariables, refToLookupKey } from "../variable";
 import { isExpression, resolveExpression } from "../expression/types";
 import { parseExpression } from "../expression/parser";
-import { isParameterActive, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "../parameter";
+import { isParameterActive, isEmpty, resolveExpressionType, resolveChannelTypes, resolveMemoryTypes, resolveModelTypes } from "../parameter";
 import type { ExpressionParam, ChannelSelectParam, MemorySelectParam, ModelSelectParam, OutputDeclaration } from "../parameter";
 import type { Channel } from "../channel";
 import { CHANNEL_DEFINITION } from "../channel";
@@ -147,12 +147,11 @@ export function computeNodeDiagnostics(opts: {
 
     // missing-required-param
     if (!param.optional) {
-      const isEmpty = value === undefined || value === "" || value === null;
       const isEmptyExpression = isExpression(value) && !value.expression;
       const isEmptyReference =
         param.type === "variableSelect" &&
         (!value || (typeof value === "object" && value !== null && !(value as { varId?: string }).varId));
-      if (isEmpty || isEmptyExpression || isEmptyReference) {
+      if (isEmpty(value) || isEmptyExpression || isEmptyReference) {
         diags.push({
           severity: "error",
           category: "missing-required-param",
@@ -583,8 +582,7 @@ export function validateChannel(channel: Channel): Diagnostic[] {
     if (param.optional) continue;
 
     const value = channel.arguments[param.id];
-    const isEmpty = value === undefined || value === "" || value === null;
-    if (isEmpty) {
+    if (isEmpty(value)) {
       diags.push({
         severity: "error",
         category: "missing-required-param",
@@ -621,8 +619,7 @@ export function validateMemory(mem: Memory): Diagnostic[] {
     if (param.optional) continue;
 
     const value = mem.arguments[param.id];
-    const isEmpty = value === undefined || value === "" || value === null;
-    if (isEmpty) {
+    if (isEmpty(value)) {
       diags.push({
         severity: "error",
         category: "missing-required-param",
@@ -659,8 +656,7 @@ export function validateModel(model: Model): Diagnostic[] {
     if (param.optional) continue;
 
     const value = model.arguments[param.id];
-    const isEmpty = value === undefined || value === "" || value === null;
-    if (isEmpty) {
+    if (isEmpty(value)) {
       diags.push({
         severity: "error",
         category: "missing-required-param",
