@@ -138,13 +138,13 @@ func (e EdgeType) Valid() bool {
 
 // Defines values for FunctionCallNodeType.
 const (
-	FunctionCall FunctionCallNodeType = "FunctionCall"
+	FunctionCallNodeTypeFunctionCall FunctionCallNodeType = "FunctionCall"
 )
 
 // Valid indicates whether the value is a known member of the FunctionCallNodeType enum.
 func (e FunctionCallNodeType) Valid() bool {
 	switch e {
-	case FunctionCall:
+	case FunctionCallNodeTypeFunctionCall:
 		return true
 	default:
 		return false
@@ -217,6 +217,21 @@ func (e IfNodeType) Valid() bool {
 	}
 }
 
+// Defines values for LLMModelType.
+const (
+	LLMModelTypeLLMModel LLMModelType = "LLMModel"
+)
+
+// Valid indicates whether the value is a known member of the LLMModelType enum.
+func (e LLMModelType) Valid() bool {
+	switch e {
+	case LLMModelTypeLLMModel:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTChannelType.
 const (
 	MQTT MQTTChannelType = "MQTT"
@@ -226,6 +241,21 @@ const (
 func (e MQTTChannelType) Valid() bool {
 	switch e {
 	case MQTT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemoryFileType.
+const (
+	MemoryFileTypeMemoryFile MemoryFileType = "MemoryFile"
+)
+
+// Valid indicates whether the value is a known member of the MemoryFileType enum.
+func (e MemoryFileType) Valid() bool {
+	switch e {
+	case MemoryFileTypeMemoryFile:
 		return true
 	default:
 		return false
@@ -244,6 +274,42 @@ func (e MemoryRefMode) Valid() bool {
 	case R:
 		return true
 	case Rw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelCapability.
+const (
+	ModelCapabilityChat           ModelCapability = "chat"
+	ModelCapabilityClassification ModelCapability = "classification"
+	ModelCapabilityCode           ModelCapability = "code"
+	ModelCapabilityEmbedding      ModelCapability = "embedding"
+	ModelCapabilityFineTuning     ModelCapability = "fine_tuning"
+	ModelCapabilityFunctionCall   ModelCapability = "function_call"
+	ModelCapabilityReasoning      ModelCapability = "reasoning"
+	ModelCapabilityVision         ModelCapability = "vision"
+)
+
+// Valid indicates whether the value is a known member of the ModelCapability enum.
+func (e ModelCapability) Valid() bool {
+	switch e {
+	case ModelCapabilityChat:
+		return true
+	case ModelCapabilityClassification:
+		return true
+	case ModelCapabilityCode:
+		return true
+	case ModelCapabilityEmbedding:
+		return true
+	case ModelCapabilityFineTuning:
+		return true
+	case ModelCapabilityFunctionCall:
+		return true
+	case ModelCapabilityReasoning:
+		return true
+	case ModelCapabilityVision:
 		return true
 	default:
 		return false
@@ -616,6 +682,21 @@ func (e UARTChannelType) Valid() bool {
 	}
 }
 
+// Defines values for VectorDatabaseType.
+const (
+	VectorDatabaseTypeVectorDatabase VectorDatabaseType = "VectorDatabase"
+)
+
+// Valid indicates whether the value is a known member of the VectorDatabaseType enum.
+func (e VectorDatabaseType) Valid() bool {
+	switch e {
+	case VectorDatabaseTypeVectorDatabase:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebFetchNodeType.
 const (
 	WebFetch WebFetchNodeType = "WebFetch"
@@ -679,21 +760,21 @@ type ADCChannelType string
 // AgentNode defines model for AgentNode.
 type AgentNode struct {
 	Arguments struct {
-		Answer       *OutputBinding `json:"answer,omitempty"`
-		Instructions *string        `json:"instructions,omitempty"`
+		Answer       OutputBinding `json:"answer"`
+		Instructions *string       `json:"instructions,omitempty"`
 
 		// MaxTurns Maximum number of agent runner turns
 		MaxTurns *int `json:"maxTurns,omitempty"`
 
 		// MemoryRefs Memory files this agent can access, each with an access mode.
-		MemoryRefs *[]MemoryRef `json:"memoryRefs,omitempty"`
-		Model      *string      `json:"model,omitempty"`
+		MemoryRefs []MemoryRef `json:"memoryRefs"`
+		Model      *string     `json:"model,omitempty"`
 
 		// Name Name of the agent
 		Name *string `json:"name,omitempty"`
 
 		// OutputDeclarations Ordered list of structured-output declarations. Names must be unique within this list
-		OutputDeclarations *[]OutputDeclaration `json:"outputDeclarations,omitempty"`
+		OutputDeclarations []OutputDeclaration `json:"outputDeclarations"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -711,7 +792,7 @@ type AgentNodeType string
 type AlarmNode struct {
 	Arguments struct {
 		// Days Days of the week to fire on (empty = every day)
-		Days *[]string `json:"days,omitempty"`
+		Days []string `json:"days"`
 
 		// Time Time of day to fire (HH:MM, 24h format)
 		Time *string `json:"time,omitempty"`
@@ -766,14 +847,12 @@ type DelayNodeType string
 // Edge defines model for Edge.
 type Edge struct {
 	// Description LLM-readable explanation of when the edge should fire. Present on `agentChoice` and `agentDelegate`.
-	Description *string `json:"description,omitempty"`
-	From        Vertex  `json:"from"`
-
-	// Id Stable edge identifier. Preserved across save/load roundtrips so references by edge id (selection, diagnostics) stay valid.
-	Id     string      `json:"id"`
-	Prompt *Expression `json:"prompt,omitempty"`
-	To     Vertex      `json:"to"`
-	Type   EdgeType    `json:"type"`
+	Description *string     `json:"description,omitempty"`
+	From        Vertex      `json:"from"`
+	Id          string      `json:"id"`
+	Prompt      *Expression `json:"prompt,omitempty"`
+	To          Vertex      `json:"to"`
+	Type        EdgeType    `json:"type"`
 }
 
 // EdgeType defines model for EdgeType.
@@ -869,7 +948,7 @@ type GPIOOUTChannelType string
 // IfNode defines model for IfNode.
 type IfNode struct {
 	Arguments struct {
-		Condition *Expression `json:"condition,omitempty"`
+		Condition Expression `json:"condition"`
 	} `json:"arguments"`
 	Id       string       `json:"id"`
 	Label    *string      `json:"label,omitempty"`
@@ -879,6 +958,25 @@ type IfNode struct {
 
 // IfNodeType defines model for IfNode.Type.
 type IfNodeType string
+
+// LLMModel A custom or self-hosted language model that agent nodes can reference.
+type LLMModel struct {
+	// Capabilities Capabilities this model supports (used to filter model pickers).
+	Capabilities []ModelCapability `json:"capabilities"`
+
+	// Id Stable identifier; this is the ModelID nodes reference.
+	Id string `json:"id"`
+
+	// Label Display name.
+	Label string `json:"label"`
+
+	// ProviderBinding Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
+	ProviderBinding string       `json:"providerBinding"`
+	Type            LLMModelType `json:"type"`
+}
+
+// LLMModelType defines model for LLMModel.Type.
+type LLMModelType string
 
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
@@ -893,49 +991,66 @@ type MQTTChannel struct {
 // MQTTChannelType defines model for MQTTChannel.Type.
 type MQTTChannelType string
 
-// MemoryFile One memory file. On a workflow declaration `content` is the seed (existing rows keep their content on redeploy); on a snapshot read it's the current durable content.
+// Memory defines model for Memory.
+type Memory struct {
+	union json.RawMessage
+}
+
+// MemoryFile One .md file that agent nodes can read and write to.
 type MemoryFile struct {
 	Content     string `json:"content"`
 	Description string `json:"description"`
 
+	// Id Stable identifier that survives renames; referenced from MemoryRef.
+	Id string `json:"id"`
+
+	// Label Display name. Unique per agent (LLM tool enums use it).
+	Label string `json:"label"`
+
 	// MaxSizeBytes Byte cap; null means unlimited.
-	MaxSizeBytes *int `json:"maxSizeBytes,omitempty"`
-
-	// Name Display name. Unique per agent (LLM tool enums use it).
-	Name string `json:"name"`
-
-	// UID Stable identifier that survives renames; referenced from MemoryRef.
-	UID string `json:"uid"`
+	MaxSizeBytes *int           `json:"maxSizeBytes,omitempty"`
+	Type         MemoryFileType `json:"type"`
 }
 
-// MemoryRef Reference from an LLM agent node to a declared memory file with an access mode.
+// MemoryFileType defines model for MemoryFile.Type.
+type MemoryFileType string
+
+// MemoryRef Reference from an LLM agent node to a declared MemoryFile with an access mode.
 type MemoryRef struct {
+	// Id id of the referenced MemoryFile.
+	Id string `json:"id"`
+
 	// Mode r = read-only; rw = read + write.
 	Mode MemoryRefMode `json:"mode"`
-
-	// Uid UID of the referenced MemoryFile.
-	Uid string `json:"uid"`
 }
 
 // MemoryRefMode r = read-only; rw = read + write.
 type MemoryRefMode string
 
+// Model defines model for Model.
+type Model struct {
+	union json.RawMessage
+}
+
+// ModelCapability defines model for ModelCapability.
+type ModelCapability string
+
 // MqttPublishNode defines model for MqttPublishNode.
 type MqttPublishNode struct {
 	Arguments struct {
 		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-		ChannelReference *string   `json:"channelReference,omitempty"`
-		DataType         *DataType `json:"dataType,omitempty"`
+		ChannelReference *string  `json:"channelReference,omitempty"`
+		DataType         DataType `json:"dataType"`
 
 		// Qos MQTT Quality of Service level
-		Qos *MqttPublishNodeArgumentsQos `json:"qos,omitempty"`
+		Qos MqttPublishNodeArgumentsQos `json:"qos"`
 
 		// Retain Whether the broker should retain the message
-		Retain *bool `json:"retain,omitempty"`
+		Retain bool `json:"retain"`
 
 		// Topic Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime.
-		Topic *string     `json:"topic,omitempty"`
-		Value *Expression `json:"value,omitempty"`
+		Topic *string    `json:"topic,omitempty"`
+		Value Expression `json:"value"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -975,9 +1090,9 @@ type OnFunctionCallNodeType string
 type OnMqttMessageNode struct {
 	Arguments struct {
 		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-		ChannelReference *string        `json:"channelReference,omitempty"`
-		DataType         *DataType      `json:"dataType,omitempty"`
-		Output           *OutputBinding `json:"output,omitempty"`
+		ChannelReference *string       `json:"channelReference,omitempty"`
+		DataType         DataType      `json:"dataType"`
+		Output           OutputBinding `json:"output"`
 
 		// Topic Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime.
 		Topic *string `json:"topic,omitempty"`
@@ -995,7 +1110,7 @@ type OnMqttMessageNodeType string
 type OnPinEdgeNode struct {
 	Arguments struct {
 		// Edge Edge transition that fires the trigger
-		Edge *OnPinEdgeNodeArgumentsEdge `json:"edge,omitempty"`
+		Edge OnPinEdgeNodeArgumentsEdge `json:"edge"`
 
 		// PinReference IO variable ID of the digital pin to watch
 		PinReference *string `json:"pinReference,omitempty"`
@@ -1015,7 +1130,7 @@ type OnPinEdgeNodeType string
 // OnSerialReceiveNode defines model for OnSerialReceiveNode.
 type OnSerialReceiveNode struct {
 	Arguments struct {
-		Output *OutputBinding `json:"output,omitempty"`
+		Output OutputBinding `json:"output"`
 
 		// PortReference Reference to an IO variable ID (the serial port to listen on)
 		PortReference *string `json:"portReference,omitempty"`
@@ -1047,8 +1162,8 @@ type OnThresholdNode struct {
 		Deadband *float32 `json:"deadband,omitempty"`
 
 		// Direction Crossing direction to fire on (default both)
-		Direction *OnThresholdNodeArgumentsDirection `json:"direction,omitempty"`
-		Output    *OutputBinding                     `json:"output,omitempty"`
+		Direction OnThresholdNodeArgumentsDirection `json:"direction"`
+		Output    OutputBinding                     `json:"output"`
 
 		// Threshold Value the variable crosses to fire the trigger
 		Threshold *float32   `json:"threshold,omitempty"`
@@ -1117,11 +1232,11 @@ type PWMChannelType string
 // ReadPinNode defines model for ReadPinNode.
 type ReadPinNode struct {
 	Arguments struct {
-		Output *OutputBinding `json:"output,omitempty"`
+		Output OutputBinding `json:"output"`
 
 		// PinReference Reference to an IO variable ID
-		PinReference *string     `json:"pinReference,omitempty"`
-		SignalType   *SignalType `json:"signalType,omitempty"`
+		PinReference *string    `json:"pinReference,omitempty"`
+		SignalType   SignalType `json:"signalType"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -1144,10 +1259,10 @@ type Reference struct {
 // RetrieverNode defines model for RetrieverNode.
 type RetrieverNode struct {
 	Arguments struct {
-		// CollectionID RAG collection ID to query
-		CollectionID *string        `json:"collectionId,omitempty"`
-		Output       *OutputBinding `json:"output,omitempty"`
-		Query        *Expression    `json:"query,omitempty"`
+		// MemoryReference Reference to a declared VectorDatabase memory id
+		MemoryReference *string       `json:"memoryReference,omitempty"`
+		Output          OutputBinding `json:"output"`
+		Query           Expression    `json:"query"`
 
 		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -1167,7 +1282,7 @@ type RetrieverNodeType string
 // SerialReadNode defines model for SerialReadNode.
 type SerialReadNode struct {
 	Arguments struct {
-		Output *OutputBinding `json:"output,omitempty"`
+		Output OutputBinding `json:"output"`
 
 		// PortReference Reference to an UART ID (the serial port to read from)
 		PortReference *string `json:"portReference,omitempty"`
@@ -1186,8 +1301,8 @@ type SerialReadNodeType string
 type SerialWriteNode struct {
 	Arguments struct {
 		// PortReference Reference to a UART channel ID (the serial port to write to)
-		PortReference *string     `json:"portReference,omitempty"`
-		Value         *Expression `json:"value,omitempty"`
+		PortReference *string    `json:"portReference,omitempty"`
+		Value         Expression `json:"value"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1201,8 +1316,8 @@ type SerialWriteNodeType string
 // SetVariableNode defines model for SetVariableNode.
 type SetVariableNode struct {
 	Arguments struct {
-		Value    *Expression `json:"value,omitempty"`
-		Variable *Reference  `json:"variable,omitempty"`
+		Value    Expression `json:"value"`
+		Variable *Reference `json:"variable,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1220,7 +1335,7 @@ type SignalType string
 type TickerNode struct {
 	Arguments struct {
 		// IntervalUnit Time unit for the interval
-		IntervalUnit *TickerNodeArgumentsIntervalUnit `json:"intervalUnit,omitempty"`
+		IntervalUnit TickerNodeArgumentsIntervalUnit `json:"intervalUnit"`
 
 		// IntervalValue How many units between ticks
 		IntervalValue *int `json:"intervalValue,omitempty"`
@@ -1261,6 +1376,23 @@ type Variable struct {
 	Uid string `json:"uid"`
 }
 
+// VectorDatabase A vector database for retrieval-augmented generation (RAG).
+type VectorDatabase struct {
+	// CollectionID Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
+	CollectionID string  `json:"collectionId"`
+	Description  *string `json:"description,omitempty"`
+
+	// Id Stable identifier; referenced from Retriever nodes.
+	Id string `json:"id"`
+
+	// Label Display name.
+	Label string             `json:"label"`
+	Type  VectorDatabaseType `json:"type"`
+}
+
+// VectorDatabaseType defines model for VectorDatabase.Type.
+type VectorDatabaseType string
+
 // Vertex defines model for Vertex.
 type Vertex struct {
 	NodeId string `json:"nodeId"`
@@ -1271,9 +1403,9 @@ type Vertex struct {
 type WebFetchNode struct {
 	Arguments struct {
 		// MaxChars Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
-		MaxChars *int           `json:"maxChars,omitempty"`
-		Output   *OutputBinding `json:"output,omitempty"`
-		Url      *Expression    `json:"url,omitempty"`
+		MaxChars *int          `json:"maxChars,omitempty"`
+		Output   OutputBinding `json:"output"`
+		Url      Expression    `json:"url"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`
@@ -1286,10 +1418,10 @@ type WebFetchNodeType string
 
 // WebSearchToolNode defines model for WebSearchToolNode.
 type WebSearchToolNode struct {
-	Arguments *struct {
+	Arguments struct {
 		// MaxResults Maximum number of search results to return per call. Defaults to 5 when omitted or non-positive. Capped at 20.
 		MaxResults *int `json:"maxResults,omitempty"`
-	} `json:"arguments,omitempty"`
+	} `json:"arguments"`
 	Id       string                `json:"id"`
 	Label    *string               `json:"label,omitempty"`
 	Position NodePosition          `json:"position"`
@@ -1305,19 +1437,23 @@ type Workflow struct {
 	DeclaredVariables []Variable `json:"declaredVariables"`
 	Edges             []Edge     `json:"edges"`
 	Functions         []Function `json:"functions"`
+	Memory            *[]Memory  `json:"memory,omitempty"`
 
-	// MemoryFiles Declared memory files; referenced from agent nodes by uid.
-	MemoryFiles *[]MemoryFile `json:"memoryFiles,omitempty"`
-	Nodes       []Node        `json:"nodes"`
+	// Models Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
+	Models *[]Model `json:"models,omitempty"`
+	Nodes  []Node   `json:"nodes"`
+
+	// SchemaVersion Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
+	SchemaVersion int32 `json:"schemaVersion"`
 }
 
 // WritePinNode defines model for WritePinNode.
 type WritePinNode struct {
 	Arguments struct {
 		// PinReference Reference to an IO variable ID
-		PinReference *string     `json:"pinReference,omitempty"`
-		SignalType   *SignalType `json:"signalType,omitempty"`
-		Value        *Expression `json:"value,omitempty"`
+		PinReference *string    `json:"pinReference,omitempty"`
+		SignalType   SignalType `json:"signalType"`
+		Value        Expression `json:"value"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`
@@ -1563,6 +1699,154 @@ func (t Channel) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Channel) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMemoryFile returns the union data inside the Memory as a MemoryFile
+func (t Memory) AsMemoryFile() (MemoryFile, error) {
+	var body MemoryFile
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMemoryFile overwrites any union data inside the Memory as the provided MemoryFile
+func (t *Memory) FromMemoryFile(v MemoryFile) error {
+	v.Type = "MemoryFile"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMemoryFile performs a merge with any union data inside the Memory, using the provided MemoryFile
+func (t *Memory) MergeMemoryFile(v MemoryFile) error {
+	v.Type = "MemoryFile"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsVectorDatabase returns the union data inside the Memory as a VectorDatabase
+func (t Memory) AsVectorDatabase() (VectorDatabase, error) {
+	var body VectorDatabase
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVectorDatabase overwrites any union data inside the Memory as the provided VectorDatabase
+func (t *Memory) FromVectorDatabase(v VectorDatabase) error {
+	v.Type = "VectorDatabase"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVectorDatabase performs a merge with any union data inside the Memory, using the provided VectorDatabase
+func (t *Memory) MergeVectorDatabase(v VectorDatabase) error {
+	v.Type = "VectorDatabase"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Memory) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Memory) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "MemoryFile":
+		return t.AsMemoryFile()
+	case "VectorDatabase":
+		return t.AsVectorDatabase()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t Memory) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Memory) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsLLMModel returns the union data inside the Model as a LLMModel
+func (t Model) AsLLMModel() (LLMModel, error) {
+	var body LLMModel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLLMModel overwrites any union data inside the Model as the provided LLMModel
+func (t *Model) FromLLMModel(v LLMModel) error {
+	v.Type = "LLMModel"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLLMModel performs a merge with any union data inside the Model, using the provided LLMModel
+func (t *Model) MergeLLMModel(v LLMModel) error {
+	v.Type = "LLMModel"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Model) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Model) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "LLMModel":
+		return t.AsLLMModel()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t Model) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Model) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

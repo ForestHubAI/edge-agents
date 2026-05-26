@@ -53,6 +53,10 @@
     "./diagnostics": {
       "types": "./dist/diagnostics/index.d.ts",
       "import": "./dist/diagnostics/index.js"
+    },
+    "./migration": {
+      "types": "./dist/migration/index.d.ts",
+      "import": "./dist/migration/index.js"
     }
   },
   "files": ["dist", "src"],

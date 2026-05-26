@@ -1,9 +1,11 @@
 import { openCommand } from "./open";
+import { updateCommand } from "./update";
 import { validateCommand } from "./validate";
 
 const USAGE = `Usage:
-  fh-builder open [file.json]        Open the workflow builder; optionally pre-load a workflow.
-  fh-builder validate <file.json>    Validate a workflow JSON file. Exits non-zero on errors.
+  fh-builder open [file.json]          Open the workflow builder; optionally pre-load a workflow.
+  fh-builder validate <file.json>      Validate a workflow JSON file. Exits non-zero on errors.
+  fh-builder update <file.json> [out]  Migrate a workflow to the current schema version.
 `;
 
 const [, , command, ...args] = process.argv;
@@ -15,6 +17,9 @@ try {
       break;
     case "validate":
       await validateCommand(args[0]);
+      break;
+    case "update":
+      await updateCommand(args[0], args[1]);
       break;
     case undefined:
     case "--help":

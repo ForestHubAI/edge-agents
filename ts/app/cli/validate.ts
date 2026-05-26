@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { validateWorkflow } from "@foresthub/workflow-core";
+import { migrate, validateWorkflow } from "@foresthub/workflow-core";
 import type { ValidationResult, Diagnostic } from "@foresthub/workflow-core/diagnostics";
-import type { Workflow } from "@foresthub/workflow-core/workflow";
+import type { ApiWorkflow } from "@foresthub/workflow-core/workflow";
 
 /**
  * `fh-builder validate <file.json>`
@@ -30,11 +30,19 @@ export async function validateCommand(filePath?: string): Promise<void> {
     throw err;
   }
 
-  let workflow: Workflow;
+  let parsed: unknown;
   try {
-    workflow = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch (err) {
     process.stderr.write(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
+  let workflow: ApiWorkflow;
+  try {
+    workflow = migrate(parsed);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
   }
 

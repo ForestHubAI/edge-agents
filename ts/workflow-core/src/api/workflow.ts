@@ -19,6 +19,11 @@ export interface components {
         };
         /** @description Workflow represents the deployment format of a project, passed to agents. */
         Workflow: {
+            /**
+             * Format: int32
+             * @description Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
+             */
+            schemaVersion: number;
             nodes: components["schemas"]["Node"][];
             edges: components["schemas"]["Edge"][];
             functions: components["schemas"]["Function"][];
