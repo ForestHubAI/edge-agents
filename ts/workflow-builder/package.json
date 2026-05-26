@@ -1,13 +1,25 @@
 {
-  "name": "@foresthub/workflow-builder",
+  "name": "@foresthubai/workflow-builder",
   "version": "0.1.0",
   "description": "Reusable React component library: the workflow canvas/editor. Imports workflow-core for types and validation.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "src"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles/index.css": "./src/styles/index.css",
+    "./tailwind-preset": "./tailwind-preset.ts"
+  },
+  "files": ["dist", "src", "tailwind-preset.ts"],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -15,7 +27,7 @@
     "tailwindcss": "^3.4.0"
   },
   "dependencies": {
-    "@foresthub/workflow-core": "*",
+    "@foresthubai/workflow-core": "^0.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-collapsible": "^1.1.0",
@@ -36,7 +48,6 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "i18next": "^25.3.2",
-    "i18next-browser-languagedetector": "^8.2.0",
     "lucide-react": "^0.462.0",
     "react-i18next": "^15.6.1",
     "react-resizable-panels": "^2.1.3",

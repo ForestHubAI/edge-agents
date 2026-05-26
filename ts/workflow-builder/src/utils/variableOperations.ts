@@ -1,8 +1,8 @@
-import { declaredVarKey, type DeclaredVariable } from "@foresthub/workflow-core/variable";
-import type { DataType } from "@foresthub/workflow-core";
+import { declaredVarKey, type DeclaredVariable } from "@foresthubai/workflow-core/variable";
+import type { DataType } from "@foresthubai/workflow-core";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
-import { generateId } from "@foresthub/workflow-core/id";
+import { generateId } from "@foresthubai/workflow-core/id";
 
 /**
  * Per-canvas mutation helpers for declared variables. Mirrors

@@ -1,7 +1,7 @@
 import React from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Plus } from "lucide-react";
-import type { EdgeType } from "@foresthub/workflow-core/edge";
+import type { EdgeType } from "@foresthubai/workflow-core/edge";
 
 export interface PortActionDetail {
   nodeId: string;

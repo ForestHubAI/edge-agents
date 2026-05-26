@@ -1,7 +1,7 @@
-import { CHANNEL_DEFINITION, type ChannelType, type Channel } from "@foresthub/workflow-core/channel";
-import { isParameterActive } from "@foresthub/workflow-core/parameter";
+import { CHANNEL_DEFINITION, type ChannelType, type Channel } from "@foresthubai/workflow-core/channel";
+import { isParameterActive } from "@foresthubai/workflow-core/parameter";
 import { useEditorStore } from "../stores/editorStore";
-import { generateId } from "@foresthub/workflow-core/id";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { uniqueName } from "./resourceHelpers";
 
 /**

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { cn } from "../lib/utils";
-import type { CanvasValidationResult, ValidationResult } from "@foresthub/workflow-core/diagnostics";
+import type { CanvasValidationResult, ValidationResult } from "@foresthubai/workflow-core/diagnostics";
 
 interface ValidationDialogProps {
   open: boolean;

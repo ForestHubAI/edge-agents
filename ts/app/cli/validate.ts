@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { migrate, validateWorkflow } from "@foresthub/workflow-core";
-import type { ValidationResult, Diagnostic } from "@foresthub/workflow-core/diagnostics";
-import type { ApiWorkflow } from "@foresthub/workflow-core/workflow";
+import { migrate, validateWorkflow } from "@foresthubai/workflow-core";
+import type { ValidationResult, Diagnostic } from "@foresthubai/workflow-core/diagnostics";
+import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 
 /**
  * `fh-builder validate <file.json>`

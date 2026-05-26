@@ -1,7 +1,7 @@
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { cn } from "../lib/utils";
-import { NodeCategory, NodeDefinition } from "@foresthub/workflow-core/node";
+import { NodeCategory, NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useMemo } from "react";
 import { Blocks, BrainCircuit, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
-import type { FunctionInfo } from "@foresthub/workflow-core";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
 
 export type BuilderTab =
   | "nodes"

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { MemoryRegistry, type Memory } from "@foresthub/workflow-core/memory";
+import { MemoryRegistry, type Memory } from "@foresthubai/workflow-core/memory";
 import { useEditorStore } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { deleteMemory, updateMemory } from "../utils/memoryOperations";

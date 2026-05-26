@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useEditorStore } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
-import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
+import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 
 type EditorState = ReturnType<typeof useEditorStore.getState>;
 type DiagnosticsState = ReturnType<typeof useDiagnosticsStore.getState>;

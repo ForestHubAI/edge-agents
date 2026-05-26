@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from "react";
-import type { NodeData, NodeDefinition } from "@foresthub/workflow-core/node";
-import type { EdgeData, EdgeType } from "@foresthub/workflow-core/edge";
-import { isControlFlow } from "@foresthub/workflow-core/edge";
-import type { NodeCategory as NodeCategoryEnum } from "@foresthub/workflow-core/node";
+import type { NodeData, NodeDefinition } from "@foresthubai/workflow-core/node";
+import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";
+import { isControlFlow } from "@foresthubai/workflow-core/edge";
+import type { NodeCategory as NodeCategoryEnum } from "@foresthubai/workflow-core/node";
 
 import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
 import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
@@ -13,7 +13,7 @@ import { NodeConfigPanel } from "./panels/NodeConfigPanel";
 import { VariableConfigPanel } from "./panels/VariableConfigPanel";
 import { getOrCreateCanvasStore } from "./stores/canvasStore";
 import { useEditorStore } from "./stores/editorStore";
-import { declaredVarKey } from "@foresthub/workflow-core/variable";
+import { declaredVarKey } from "@foresthubai/workflow-core/variable";
 
 /**
  * Right-side selection-routed config panel.

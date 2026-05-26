@@ -1,12 +1,12 @@
 import { create, UseBoundStore, StoreApi } from "zustand";
 import { Node, Edge } from "@xyflow/react";
-import { NodeCategory, type NodeData } from "@foresthub/workflow-core/node";
-import type { FunctionInfo, Expression } from "@foresthub/workflow-core";
-import type { EdgeData } from "@foresthub/workflow-core/edge";
+import { NodeCategory, type NodeData } from "@foresthubai/workflow-core/node";
+import type { FunctionInfo, Expression } from "@foresthubai/workflow-core";
+import type { EdgeData } from "@foresthubai/workflow-core/edge";
 import { history, History, type HistoryData } from "../utils/history";
-import { generateId } from "@foresthub/workflow-core/id";
-import { fnargKey, type Variable } from "@foresthub/workflow-core/variable";
-import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
+import { generateId } from "@foresthubai/workflow-core/id";
+import { fnargKey, type Variable } from "@foresthubai/workflow-core/variable";
+import { computeVariablesFromNodes } from "@foresthubai/workflow-core/workflow";
 
 /**
  * OutputAssignments map return variable uid → Expression.
@@ -35,8 +35,8 @@ export function syncFunctionArgVariables(store: CanvasStore, newFunctionInfo: Fu
   });
 }
 
-export { MAIN_CANVAS_ID } from "@foresthub/workflow-core/workflow";
-import { MAIN_CANVAS_ID } from "@foresthub/workflow-core/workflow";
+export { MAIN_CANVAS_ID } from "@foresthubai/workflow-core/workflow";
+import { MAIN_CANVAS_ID } from "@foresthubai/workflow-core/workflow";
 const HISTORY_LIMIT = 50 as const;
 
 // ============================================================================

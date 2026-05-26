@@ -14,10 +14,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import type { NodeOutput } from "@foresthub/workflow-core/node";
-import type { Expression, FunctionInfo } from "@foresthub/workflow-core";
-import type { ApiVariable } from "@foresthub/workflow-core/variable";
-import { generateId } from "@foresthub/workflow-core/id";
+import type { NodeOutput } from "@foresthubai/workflow-core/node";
+import type { Expression, FunctionInfo } from "@foresthubai/workflow-core";
+import type { ApiVariable } from "@foresthubai/workflow-core/variable";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { getOrCreateCanvasStore, syncFunctionArgVariables } from "../stores/canvasStore";
 import type { OutputAssignments } from "../stores/canvasStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";

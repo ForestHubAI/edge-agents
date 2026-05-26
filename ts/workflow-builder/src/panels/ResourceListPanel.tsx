@@ -2,7 +2,7 @@ import { AlertTriangle, type LucideIcon } from "lucide-react";
 import { AddButton } from "../components/ui/add-button";
 import { cn } from "../lib/utils";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
-import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
+import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 
 interface ResourceListItem {
   id: string;

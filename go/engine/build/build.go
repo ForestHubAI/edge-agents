@@ -19,7 +19,6 @@ import (
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
 type Builder struct {
 	Drivers   *driver.Registry
-	Backend   *backend.Client
 	LLM       *llmproxy.Client
 	Memory    *memory.Manager
 	WebSearch websearch.Provider // optional; nil disables WebSearchTool nodes

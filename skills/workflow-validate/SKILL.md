@@ -6,7 +6,7 @@ description: Validate a ForestHub workflow JSON file and return structured diagn
 # workflow-validate
 
 SCAFFOLD. Thin wrapper over the `fh-workflow` CLI (TS, wraps
-`@foresthub/workflow-core`). The CLI — not this skill — is the substantive
+`@foresthubai/workflow-core`). The CLI — not this skill — is the substantive
 artifact; this is ~20 lines of glue.
 
 Intended loop (mirrors how Claude uses `tsc`/`eslint`):

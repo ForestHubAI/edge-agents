@@ -10,10 +10,10 @@ export { isReadOnly, isPreview } from "./WorkflowBuilder";
 export type { DebugSessionPhase } from "./stores/debugStore";
 
 // Validation types so the embedder can render its own dialog from handle.validate()
-export type { ValidationResult, Diagnostic, CanvasValidationResult } from "@foresthub/workflow-core/diagnostics";
+export type { ValidationResult, Diagnostic, CanvasValidationResult } from "@foresthubai/workflow-core/diagnostics";
 
 // Opt-in: pre-built validation dialog component
 export { default as ValidationDialog } from "./dialogs/ValidationDialog";
 
 // Workflow snapshot type that crosses the boundary via loadWorkflow / exportWorkflow
-export type { ApiWorkflow as Workflow } from "@foresthub/workflow-core/workflow";
+export type { ApiWorkflow as Workflow } from "@foresthubai/workflow-core/workflow";

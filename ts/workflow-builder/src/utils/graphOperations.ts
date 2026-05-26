@@ -11,17 +11,17 @@ import {
   FunctionNodeDefinition,
   getArguments,
   getNodeOutput,
-} from "@foresthub/workflow-core/node";
-import type { Expression, FunctionInfo } from "@foresthub/workflow-core";
-import type { OutputDeclaration } from "@foresthub/workflow-core/parameter";
+} from "@foresthubai/workflow-core/node";
+import type { Expression, FunctionInfo } from "@foresthubai/workflow-core";
+import type { OutputDeclaration } from "@foresthubai/workflow-core/parameter";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
-import type { EdgeData, EdgeType } from "@foresthub/workflow-core/edge";
+import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";
 import { CanvasStore } from "../stores/canvasStore";
-import { computeVariablesFromNodes } from "@foresthub/workflow-core/workflow";
-import { nodeOutputVarKey, paramKey } from "@foresthub/workflow-core/variable";
-import { isExpression } from "@foresthub/workflow-core/expression";
+import { computeVariablesFromNodes } from "@foresthubai/workflow-core/workflow";
+import { nodeOutputVarKey, paramKey } from "@foresthubai/workflow-core/variable";
+import { isExpression } from "@foresthubai/workflow-core/expression";
 import { isValidConnection } from "./connectionRules";
-import { generateId } from "@foresthub/workflow-core/id";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { uniqueName } from "./resourceHelpers";
 
 // ============================================================================

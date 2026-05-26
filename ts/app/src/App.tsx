@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   WorkflowBuilder,
   type WorkflowBuilderHandle,
-} from "@foresthub/workflow-builder";
-import type { Workflow } from "@foresthub/workflow-core/workflow";
-import type { ModelInfo } from "@foresthub/workflow-core/model";
+  // The builder re-exports the wire Workflow shape (ApiWorkflow) as `Workflow` —
+  // this is the type loadWorkflow/exportWorkflow speak. Import it from the builder,
+  // NOT from workflow-core/workflow (that's the in-memory domain type).
+  type Workflow,
+} from "@foresthubai/workflow-builder";
+import type { ModelInfo } from "@foresthubai/workflow-core/model";
 
 // Static model catalog — the models the llmproxy supports. The embedder owns
 // this list (the builder takes it via props); a real deployment would source it
@@ -19,8 +22,7 @@ const MODEL_CATALOG: ModelInfo[] = [
 // `?file=…` query param: if present, the SPA loads/saves through the dev
 // server's /api/file bridge (round-trip to disk) instead of using <input
 // type="file"> + <a download>. Set by the CLI via fh-builder open <path>.
-const filePathFromUrl: string | null =
-  new URLSearchParams(window.location.search).get("file");
+const filePathFromUrl: string | null = new URLSearchParams(window.location.search).get("file");
 
 // Standalone-mode "save back to disk" needs the File System Access API
 // (showSaveFilePicker). Available in Chrome/Edge/Opera; absent in Firefox
@@ -33,10 +35,11 @@ export default function App() {
   const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const [dirty, setDirty] = useState(false);
-  const [status, setStatus] = useState<string>(
-    filePathFromUrl ? `Loading ${filePathFromUrl}…` : "Ready",
-  );
+  const [status, setStatus] = useState<string>(filePathFromUrl ? `Loading ${filePathFromUrl}…` : "Ready");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  // The HOST owns locale. We pass it to the builder via the `language` prop;
+  // the builder follows it and never auto-detects. (en/de ship with the builder.)
+  const [lang, setLang] = useState<"en" | "de">("en");
   // If launched via CLI with ?file=…, this is the path we read/write through.
   const [boundPath] = useState<string | null>(filePathFromUrl);
   // Standalone-mode write-back handle (set by Save's first prompt; reused
@@ -45,7 +48,7 @@ export default function App() {
   // Displayed in the toolbar. Sourced from boundPath, fileHandle.name, or
   // the last `<input type="file">` selection.
   const [currentName, setCurrentName] = useState<string | null>(
-    filePathFromUrl ? filePathFromUrl.split(/[\\/]/).pop() ?? null : null,
+    filePathFromUrl ? (filePathFromUrl.split(/[\\/]/).pop() ?? null) : null,
   );
 
   // Sync the theme to <html> — workflow-builder reads this via its
@@ -236,10 +239,7 @@ export default function App() {
   return (
     <div className="h-full flex flex-col">
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
-        <strong
-          className="text-sm mr-3 font-mono"
-          title={boundPath ?? currentName ?? "no file"}
-        >
+        <strong className="text-sm mr-3 font-mono" title={boundPath ?? currentName ?? "no file"}>
           {currentName ?? "Untitled"}
           {dirty ? " •" : ""}
         </strong>
@@ -274,12 +274,20 @@ export default function App() {
         >
           {theme === "dark" ? "Light" : "Dark"}
         </button>
+        <button
+          onClick={() => setLang((l) => (l === "en" ? "de" : "en"))}
+          className="px-3 py-1 text-sm rounded border border-border bg-secondary text-secondary-foreground hover:bg-muted uppercase"
+          title="Toggle builder language"
+        >
+          {lang}
+        </button>
         <span className="ml-auto text-xs text-muted-foreground">{status}</span>
         <input
           ref={fileInputRef}
           type="file"
           accept="application/json,.json"
           className="hidden"
+          aria-label="Import workflow JSON file"
           onChange={handleFileChosen}
         />
       </header>
@@ -288,6 +296,7 @@ export default function App() {
         <WorkflowBuilder
           ref={builderRef}
           models={MODEL_CATALOG}
+          language={lang}
           onChange={handleChange}
           onError={handleError}
         />

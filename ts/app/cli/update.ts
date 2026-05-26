@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { CURRENT_SCHEMA_VERSION, migrate, readSchemaVersion } from "@foresthub/workflow-core/migration";
-import type { ApiWorkflow } from "@foresthub/workflow-core/workflow";
+import { CURRENT_SCHEMA_VERSION, migrate, readSchemaVersion } from "@foresthubai/workflow-core/migration";
+import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 
 /**
  * `fh-builder update <file.json> [out.json]`

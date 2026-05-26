@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
-import type { Channel } from "@foresthub/workflow-core/channel";
-import type { Memory } from "@foresthub/workflow-core/memory";
-import type { Model, ModelInfo } from "@foresthub/workflow-core/model";
+import type { Channel } from "@foresthubai/workflow-core/channel";
+import type { Memory } from "@foresthubai/workflow-core/memory";
+import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
 
 // ---------------------------------------------------------------------------
 // Default Channels — every workflow starts pre-initialized with a UART

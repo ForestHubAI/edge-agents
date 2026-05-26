@@ -6,7 +6,7 @@ import { cn } from "../lib/utils";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
-import { type Variable, type DeclaredVariable } from "@foresthub/workflow-core/variable";
+import { type Variable, type DeclaredVariable } from "@foresthubai/workflow-core/variable";
 import { addDeclaredVariable } from "../utils/variableOperations";
 
 interface VariablesPanelProps {

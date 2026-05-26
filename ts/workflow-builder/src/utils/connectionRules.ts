@@ -2,13 +2,13 @@
 // offered from a port, and whether a node can take another outgoing edge.
 //
 // These operate on React Flow `Node`/`Edge` and drive canvas interactions, so
-// they live here in the editor rather than in the headless @foresthub/workflow-core.
+// they live here in the editor rather than in the headless @foresthubai/workflow-core.
 // Core exposes the pure primitive (`getPorts`); the React Flow coupling stays
 // on this side of the boundary.
 
 import { Edge, Node } from "@xyflow/react";
-import { getPorts, NodeRegistry, type NodeData, type NodeDefinition } from "@foresthub/workflow-core/node";
-import { type EdgeType } from "@foresthub/workflow-core/edge";
+import { getPorts, NodeRegistry, type NodeData, type NodeDefinition } from "@foresthubai/workflow-core/node";
+import { type EdgeType } from "@foresthubai/workflow-core/edge";
 
 /** Check whether a node already has tool-input edges (for mutual exclusion). */
 function hasToolInputEdge(nodeId: string, nodeData: NodeData, edges: Edge[]): boolean {

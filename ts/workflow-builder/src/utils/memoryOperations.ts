@@ -1,6 +1,6 @@
-import { MemoryRegistry, type MemoryType, type Memory } from "@foresthub/workflow-core/memory";
+import { MemoryRegistry, type MemoryType, type Memory } from "@foresthubai/workflow-core/memory";
 import { useEditorStore } from "../stores/editorStore";
-import { generateId } from "@foresthub/workflow-core/id";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
 
 /** Default label prefix per memory type. */

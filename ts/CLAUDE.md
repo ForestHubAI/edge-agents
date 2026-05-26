@@ -6,12 +6,12 @@ the `contract/` being the source of truth applies here — see the root `CLAUDE.
 ## Packages
 
 ```
-workflow-core/     @foresthub/workflow-core — headless model: types,
+workflow-core/     @foresthubai/workflow-core — headless model: types,
                    serialization, pure validator. NO React, NO DOM. The key lib.
-workflow-builder/  @foresthub/workflow-builder — React canvas/editor component
+workflow-builder/  @foresthubai/workflow-builder — React canvas/editor component
                    library. Depends on workflow-core. Consumed by app AND the
                    closed FE.
-app/               @foresthub/app — reference SPA (Vite) + `fh-builder` CLI.
+app/               @foresthubai/app — reference SPA (Vite) + `fh-builder` CLI.
                    Private, not published. Depends on both packages above.
 ```
 
@@ -83,7 +83,7 @@ npm run dev         # vite dev server (app)
 
 ## Gotchas
 
-- Path aliases (`@foresthub/workflow-core`, `/node`, etc.) resolve to **`src/`**, not
+- Path aliases (`@foresthubai/workflow-core`, `/node`, etc.) resolve to **`src/`**, not
   `dist/`, in-repo (tsconfig.base.json + Vite alias). No build needed during dev;
   published packages ship `dist/` via their `exports` maps.
 - `tsconfig.base.json` is strict, including `noUncheckedIndexedAccess` — indexed

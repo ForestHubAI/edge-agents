@@ -1,5 +1,5 @@
 {
-  "name": "@foresthub/ts",
+  "name": "@foresthubai/ts",
   "private": true,
   "description": "TypeScript workspace for the ForestHub open platform (workflow-core, workflow-builder).",
   "workspaces": [
@@ -8,10 +8,11 @@
     "app"
   ],
   "scripts": {
-    "generate": "npm run generate --workspace @foresthub/workflow-core",
+    "generate": "npm run generate --workspace @foresthubai/workflow-core",
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint .",
-    "typecheck": "tsc -b workflow-core workflow-builder"
+    "typecheck": "tsc -b workflow-core workflow-builder && tsc --noEmit -p app/tsconfig.json",
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

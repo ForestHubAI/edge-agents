@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
 
 /**
- * Tailwind preset for @foresthub/workflow-builder.
+ * Tailwind preset for @foresthubai/workflow-builder.
  *
  * This is the single source of truth that binds the design-system tokens
  * defined in `src/styles/index.css` (raw HSL triplets like `--primary`) to the
@@ -13,9 +13,9 @@ import animate from "tailwindcss-animate";
  *
  * Any consumer embedding the builder must:
  *   1. spread this preset:  `presets: [workflowBuilderPreset]`
- *   2. import the tokens once:  `import "@foresthub/workflow-builder/styles/index.css"`
+ *   2. import the tokens once:  `import "@foresthubai/workflow-builder/styles/index.css"`
  *   3. add the builder to their Tailwind `content` so its classes are emitted
- *      (a glob over its built JS under node_modules/@foresthub/workflow-builder,
+ *      (a glob over its built JS under node_modules/@foresthubai/workflow-builder,
  *      or, when consuming source as this monorepo does, the builder's src tree).
  *
  * `content` is intentionally NOT part of the preset: its globs are
@@ -26,6 +26,14 @@ const preset: Omit<Config, "content"> = {
   darkMode: ["class"],
   theme: {
     extend: {
+      fontFamily: {
+        // The builder's base body face (applied on the .fh-workflow-builder root)
+        // and its display/heading face. Defined here so `font-sans`/`font-heading`
+        // resolve to the builder's type even in portaled content (dialogs, menus)
+        // that renders outside the root and can't inherit the root's font.
+        sans: ["Poppins", "system-ui", "sans-serif"],
+        heading: ["Inter", "system-ui", "sans-serif"],
+      },
       colors: {
         // ───────────────────────────────────────────────────────────
         // GENERAL UI — surfaces, text, controls. Reusable by host apps.

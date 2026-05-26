@@ -8,7 +8,7 @@ import { Button } from "../components/ui/button";
 import { AddButton } from "../components/ui/add-button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AlertTriangle, Trash2 } from "lucide-react";
-import type { DataType, Expression, Reference } from "@foresthub/workflow-core";
+import type { DataType, Expression, Reference } from "@foresthubai/workflow-core";
 import type {
   ExpressionParam,
   ChannelSelectParam,
@@ -16,21 +16,21 @@ import type {
   ModelSelectParam,
   Parameter,
   StringParam,
-} from "@foresthub/workflow-core/parameter";
+} from "@foresthubai/workflow-core/parameter";
 import {
   resolveCapabilities,
   resolveExpressionType,
   resolveChannelTypes,
   resolveMemoryTypes,
   resolveModelTypes,
-} from "@foresthub/workflow-core/parameter";
+} from "@foresthubai/workflow-core/parameter";
 import { useTranslation } from "react-i18next";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useEditorStore } from "../stores/editorStore";
-import { varKey, refToLookupKey } from "@foresthub/workflow-core/variable";
-import type { Channel } from "@foresthub/workflow-core/channel";
-import type { Memory, MemoryRef } from "@foresthub/workflow-core/memory";
-import type { ModelCapability } from "@foresthub/workflow-core/model";
+import { varKey, refToLookupKey } from "@foresthubai/workflow-core/variable";
+import type { Channel } from "@foresthubai/workflow-core/channel";
+import type { Memory, MemoryRef } from "@foresthubai/workflow-core/memory";
+import type { ModelCapability } from "@foresthubai/workflow-core/model";
 import ExpressionInput from "./ExpressionInput";
 import { getParamDescription } from "../utils/translation";
 

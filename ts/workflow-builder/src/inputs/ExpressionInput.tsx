@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { NodeRegistry } from "@foresthub/workflow-core/node";
-import type { DataType, Expression, Reference } from "@foresthub/workflow-core";
-import { ResolvedExpr, resolveExpression } from "@foresthub/workflow-core/expression";
-import { varKey, type Variable } from "@foresthub/workflow-core/variable";
+import { NodeRegistry } from "@foresthubai/workflow-core/node";
+import type { DataType, Expression, Reference } from "@foresthubai/workflow-core";
+import { ResolvedExpr, resolveExpression } from "@foresthubai/workflow-core/expression";
+import { varKey, type Variable } from "@foresthubai/workflow-core/variable";
 import { useEditorStore } from "../stores/editorStore";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { cn } from "../lib/utils";

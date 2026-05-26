@@ -1,9 +1,9 @@
 {
-  "name": "@foresthub/app",
+  "name": "@foresthubai/app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Reference SPA + fh-builder CLI for the @foresthub/workflow-builder package.",
+  "description": "Reference SPA + fh-builder CLI for the @foresthubai/workflow-builder package.",
   "bin": {
     "fh-builder": "./cli/fh-builder.mjs"
   },
@@ -16,8 +16,8 @@
     "validate": "node ./cli/fh-builder.mjs validate"
   },
   "dependencies": {
-    "@foresthub/workflow-builder": "*",
-    "@foresthub/workflow-core": "*",
+    "@foresthubai/workflow-builder": "*",
+    "@foresthubai/workflow-core": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
@@ -31,6 +31,6 @@
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vite": "^5.4.0"
+    "vite": "^7.3.3"
   }
 }

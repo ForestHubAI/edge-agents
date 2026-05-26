@@ -1,12 +1,12 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useEdges } from "@xyflow/react";
 import { AlertTriangle } from "lucide-react";
-import { EdgeData, isControlFlow, isToolFlow, type EdgeType } from "@foresthub/workflow-core/edge";
+import { EdgeData, isControlFlow, isToolFlow, type EdgeType } from "@foresthubai/workflow-core/edge";
 import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
-import { computeEdgeDiagnostics } from "@foresthub/workflow-core/diagnostics";
+import { computeEdgeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 
 const EDGE_BASE_COLOR = "hsl(var(--edge-default))";
 const AGENT_COLOR = "hsl(var(--node-agent))";
