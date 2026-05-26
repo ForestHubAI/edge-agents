@@ -1,0 +1,34 @@
+{
+  "toolbar": {
+    "new": "Neu",
+    "open": "Öffnen…",
+    "save": "Speichern",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "validate": "Validieren"
+  },
+  "a11y": {
+    "toggleTheme": "Design wechseln",
+    "changeLanguage": "Sprache ändern"
+  },
+  "confirm": {
+    "discard": "Nicht gespeicherte Änderungen verwerfen?"
+  },
+  "status": {
+    "ready": "Bereit",
+    "loadingFile": "Lade {{path}}…",
+    "newFile": "Neue Datei: {{path}} (leere Arbeitsfläche)",
+    "loaded": "{{name}} geladen",
+    "loadFailed": "Laden fehlgeschlagen: {{msg}}",
+    "saved": "Gespeichert in {{name}}",
+    "saveFailed": "Speichern fehlgeschlagen: {{msg}}",
+    "downloaded": "Heruntergeladen",
+    "new": "Neuer Workflow",
+    "valid": "Gültig ✓",
+    "invalid": "{{errors}} Fehler, {{warnings}} Warnungen",
+    "error": "Fehler: {{msg}}"
+  },
+  "error": {
+    "invalidJson": "Ungültiges JSON"
+  }
+}

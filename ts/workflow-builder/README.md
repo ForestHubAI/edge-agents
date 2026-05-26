@@ -68,12 +68,17 @@ language, but it never reaches into things the host owns.
 ### Translations
 
 - **The builder owns its strings** (ships `en` + `de`) in a **private** i18next
-  instance. It does not touch the host's i18next and won't collide with it.
+  instance, served only through its own `I18nextProvider`. It deliberately does
+  **not** register with react-i18next's global default (no `initReactI18next`, hence
+  no `setI18n`) — that default is a single library-wide pointer with last-init-wins
+  semantics, and a guest component must not own it. So the builder never collides
+  with the host's i18next.
+- **No host i18n setup is required.** A host with no i18next, or one using
+  react-i18next its own way (with or without an `<I18nextProvider>`), both work
+  unchanged — the builder's instance is reachable only inside its own subtree and
+  leaves the host's `useTranslation()` untouched.
 - **The host drives locale** via the `language` prop. The builder follows it and
   never auto-detects (no `LanguageDetector`, no localStorage writes).
-- If your host uses **react-i18next without its own provider**, mount one — the
-  builder always wraps its own `I18nextProvider`, so it's correct regardless, but a
-  provider-less host relying on the global default is fragile by its own design.
 
 ## What the builder relies on from the host
 

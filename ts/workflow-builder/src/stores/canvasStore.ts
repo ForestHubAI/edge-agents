@@ -3,7 +3,7 @@ import { Node, Edge } from "@xyflow/react";
 import { NodeCategory, type NodeData } from "@foresthubai/workflow-core/node";
 import type { FunctionInfo, Expression } from "@foresthubai/workflow-core";
 import type { EdgeData } from "@foresthubai/workflow-core/edge";
-import { history, History, type HistoryData } from "../utils/history";
+import { history, History, type HistoryData, type MutationCount } from "../utils/history";
 import { generateId } from "@foresthubai/workflow-core/id";
 import { fnargKey, type Variable } from "@foresthubai/workflow-core/variable";
 import { computeVariablesFromNodes } from "@foresthubai/workflow-core/workflow";
@@ -80,13 +80,6 @@ export interface CanvasState {
   functionInfo: FunctionInfo | null;
   // Output expression assignments - maps return variable uid → Expression
   outputAssignments: OutputAssignments;
-  /**
-   * Monotonic counter bumped only on domain-state mutations (nodes/edges/
-   * variables/functionInfo/outputAssignments + initialize). Selection-only
-   * actions (selectNodes/selectEdges) do NOT bump it. Subscribe to this to
-   * detect save-worthy changes.
-   */
-  mutationCount: number;
 
   setNodes: (updater: (nodes: Node<NodeData>[]) => Node<NodeData>[]) => void;
   setEdges: (updater: (edges: Edge<EdgeData>[]) => Edge<EdgeData>[]) => void;
@@ -105,8 +98,8 @@ export interface CanvasState {
   ) => void;
 }
 
-// Canvas store is a Zustand store + history (undo/redo) capabilities
-export type CanvasStore = UseBoundStore<StoreApi<CanvasState>> & History;
+// Canvas store is a Zustand store + history (undo/redo capabilities) + mutation count.
+export type CanvasStore = UseBoundStore<StoreApi<CanvasState & MutationCount>> & History;
 
 function createCanvasStore(): CanvasStore {
   // Create base store with history middleware
@@ -132,27 +125,26 @@ function createCanvasStore(): CanvasStore {
       variables: {},
       functionInfo: null,
       outputAssignments: {},
-      mutationCount: 0,
 
       setNodes: (updater) =>
         set((state) => {
           const next = updater(state.nodes);
           if (next === state.nodes) return state;
-          return { nodes: next, mutationCount: state.mutationCount + 1 };
+          return { nodes: next };
         }),
 
       setEdges: (updater) =>
         set((state) => {
           const next = updater(state.edges);
           if (next === state.edges) return state;
-          return { edges: next, mutationCount: state.mutationCount + 1 };
+          return { edges: next };
         }),
 
       setVariables: (updater) =>
         set((state) => {
           const next = updater(state.variables);
           if (next === state.variables) return state;
-          return { variables: next, mutationCount: state.mutationCount + 1 };
+          return { variables: next };
         }),
 
       setFunctionInfo: (updater) => {
@@ -161,7 +153,7 @@ function createCanvasStore(): CanvasStore {
           const next = updater(state.functionInfo);
           if (next === state.functionInfo) return state;
           changed = true;
-          return { functionInfo: next, mutationCount: state.mutationCount + 1 };
+          return { functionInfo: next };
         });
         // Notify registry of the change, but only when functionInfo actually moved.
         if (changed) notifyFunctionInfoListeners();
@@ -171,7 +163,7 @@ function createCanvasStore(): CanvasStore {
         set((state) => {
           const next = updater(state.outputAssignments);
           if (next === state.outputAssignments) return state;
-          return { outputAssignments: next, mutationCount: state.mutationCount + 1 };
+          return { outputAssignments: next };
         }),
 
       selectNodes: (nodeIds) => {
@@ -204,14 +196,13 @@ function createCanvasStore(): CanvasStore {
             vars[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
           }
         }
-        set((state) => ({
+        set({
           nodes,
           edges,
           variables: vars,
           functionInfo,
           outputAssignments,
-          mutationCount: state.mutationCount + 1,
-        }));
+        });
       },
     })),
   );

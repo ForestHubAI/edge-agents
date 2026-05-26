@@ -72,7 +72,7 @@ export interface WorkflowBuilderProps {
   onDebugStep?: (nodeId?: string) => void;
 
   // ── Lifecycle events ──
-  /** Fires after any save-worthy mutation. Pull current state via handle.exportWorkflow(). */
+  /** Fires after any domain-state mutation. Pull current state via handle.exportWorkflow(). */
   onChange?: () => void;
   /** Selection changed (nodes/edges on the active canvas). */
   onSelectionChange?: (selection: { nodeIds: string[]; edgeIds: string[] }) => void;
@@ -115,8 +115,17 @@ export interface WorkflowBuilderHandle {
 
 export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilderProps>(
   function WorkflowBuilder(props, ref) {
-    const { initialWorkflow, initialMode, models, language, onTestNode, onDebugStep, onChange, onSelectionChange, onError } =
-      props;
+    const {
+      initialWorkflow,
+      initialMode,
+      models,
+      language,
+      onTestNode,
+      onDebugStep,
+      onChange,
+      onSelectionChange,
+      onError,
+    } = props;
 
     // Host drives locale. useLayoutEffect (not useEffect) so the language is set
     // before paint — mounting with language="de" shows German on the first frame
@@ -156,7 +165,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
 
     // Push the embedder-supplied model catalog into the store so agent model
     // pickers can read it. Catalog is config (not workflow content), so this
-    // never bumps mutationCount / fires onChange.
+    // never fires onChange.
     useEffect(() => {
       useEditorStore.getState().setAvailableModels(models ?? []);
     }, [models]);
@@ -190,9 +199,13 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
     onChangeRef.current = onChange;
     onSelectionChangeRef.current = onSelectionChange;
 
-    // onChange fires on any domain mutation. We subscribe to canvasStore
-    // mutationCount (bumped only on real mutations, not selection) so
-    // selection changes don't trigger save-worthy events.
+    // onChange fires on any domain change. For canvas content we watch the
+    // history middleware's `mutationCount`, which bumps on checkpoints AND
+    // undo/redo but never on selection/drag (those go through setNodes without a
+    // checkpoint). That makes onChange honest for undo/redo and silent on
+    // view-state — the thing a raw store subscription can't do, since selection
+    // lives inside the nodes array. (editorStore exposes its own `mutationCount`
+    // for project-scoped channel/memory/model edits; watched separately below.)
     useEffect(() => {
       const subs: Array<() => void> = [];
       const subscribedStores = new WeakSet<CanvasStore>();
@@ -218,8 +231,15 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
 
       subscribeAllCanvases();
 
-      // Canvas stores come and go (function add/delete, project load).
-      const unsubRegistry = subscribeFunctionInfoChanges(subscribeAllCanvases);
+      // Canvas stores come and go (function add/delete/rename, project load).
+      // Re-subscribe to the new set AND fire onChange: adding, removing or
+      // renaming a function changes the exported workflow, so it's a domain
+      // mutation in its own right (it doesn't pass through any canvas checkpoint).
+      // Loads also notify here, but the host guards those via its loading flag.
+      const unsubRegistry = subscribeFunctionInfoChanges(() => {
+        subscribeAllCanvases();
+        onChangeRef.current?.();
+      });
       subs.push(unsubRegistry);
 
       // Project-scoped mutations (channels, memory files).

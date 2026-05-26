@@ -1,0 +1,34 @@
+{
+  "toolbar": {
+    "new": "New",
+    "open": "Open…",
+    "save": "Save",
+    "undo": "Undo",
+    "redo": "Redo",
+    "validate": "Validate"
+  },
+  "a11y": {
+    "toggleTheme": "Toggle theme",
+    "changeLanguage": "Change language"
+  },
+  "confirm": {
+    "discard": "Discard unsaved changes?"
+  },
+  "status": {
+    "ready": "Ready",
+    "loadingFile": "Loading {{path}}…",
+    "newFile": "New file: {{path}} (empty canvas)",
+    "loaded": "Loaded {{name}}",
+    "loadFailed": "Load failed: {{msg}}",
+    "saved": "Saved to {{name}}",
+    "saveFailed": "Save failed: {{msg}}",
+    "downloaded": "Downloaded",
+    "new": "New workflow",
+    "valid": "Valid ✓",
+    "invalid": "{{errors}} errors, {{warnings}} warnings",
+    "error": "Error: {{msg}}"
+  },
+  "error": {
+    "invalidJson": "Invalid JSON"
+  }
+}
