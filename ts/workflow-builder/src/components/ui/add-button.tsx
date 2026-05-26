@@ -15,12 +15,18 @@ interface AddButtonProps extends Omit<ButtonProps, "variant" | "size"> {
  * also be used as a dialog trigger via `asChild`.
  */
 const AddButton = React.forwardRef<HTMLButtonElement, AddButtonProps>(
-  ({ icon: Icon = Plus, className, children, ...props }, ref) => (
+  ({ icon: Icon = Plus, className, children, onClick, ...props }, ref) => (
     <Button
       ref={ref}
       variant="outline"
       size="sm"
       className={cn("w-full text-xs border-dashed", className)}
+      onClick={(e) => {
+        // Drop focus after a mouse click so a follow-up Enter doesn't re-fire the
+        // add action. Keyboard activation (detail 0) keeps focus.
+        if (e.detail !== 0) e.currentTarget.blur();
+        onClick?.(e);
+      }}
       {...props}
     >
       <Icon className="w-3.5 h-3.5 mr-1" />

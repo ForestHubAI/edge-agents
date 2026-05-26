@@ -209,6 +209,7 @@
   "functionOutputDesc": "Name der Ausgabevariable für {{name}} eingeben",
   "deleteFunctionDesc": "Diese Funktion und alle zugehörigen Knoten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
   "nodeLabel": "Knoten",
+  "validationPassed": "Keine Fehler oder Warnungen in Workflow",
   "validationIssues": "Validierungsprobleme",
   "validationErrorsDesc": "{{errorCount}} Fehler und {{warningCount}} Warnung(en) gefunden. Fehler müssen vor dem Export behoben werden.",
   "validationWarningsDesc": "{{warningCount}} Warnung(en) gefunden. Sie können trotzdem fortfahren.",

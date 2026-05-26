@@ -5,12 +5,15 @@ import {
   validateChannel,
   validateMemory,
   validateModel,
+  type Diagnostic,
   type ValidationResult,
 } from "@foresthubai/workflow-core/diagnostics";
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 
 import i18n from "./i18n";
+import { toast } from "./hooks/use-toast";
+import ValidationDialog from "./dialogs/ValidationDialog";
 import { BuilderLayout } from "./BuilderLayout";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/toaster";
@@ -24,6 +27,7 @@ import {
   getAllCanvasStores,
   getOrCreateCanvasStore,
   subscribeFunctionInfoChanges,
+  MAIN_CANVAS_ID,
   type CanvasStore,
 } from "./stores/canvasStore";
 import { useDebugStore, type DebugSessionPhase } from "./stores/debugStore";
@@ -48,7 +52,6 @@ export function isPreview(mode: BuilderMode): mode is Extract<BuilderMode, { typ
 // ============================================================================
 
 export interface WorkflowBuilderProps {
-  // ── Initial state (one-shot; subsequent updates go through the handle) ──
   /** Workflow loaded on mount. */
   initialWorkflow?: ApiWorkflow;
   /** Builder mode on mount. Defaults to { type: "edit" }. */
@@ -74,6 +77,12 @@ export interface WorkflowBuilderProps {
   // ── Lifecycle events ──
   /** Fires after any domain-state mutation. Pull current state via handle.exportWorkflow(). */
   onChange?: () => void;
+  /**
+   * Undo/redo availability for the ACTIVE canvas changed — on history mutation,
+   * undo/redo, or a tab switch (each canvas has its own history). For wiring host
+   * undo/redo buttons.
+   */
+  onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
   /** Selection changed (nodes/edges on the active canvas). */
   onSelectionChange?: (selection: { nodeIds: string[]; edgeIds: string[] }) => void;
   /** Unexpected error during builder operations (e.g. failed load). */
@@ -90,14 +99,14 @@ export interface WorkflowBuilderHandle {
   setMode: (mode: BuilderMode) => void;
   getMode: () => BuilderMode;
 
-  // Validation (embedder renders its own dialog from the result)
-  validate: () => ValidationResult;
+  // Validation — runs the validator and presents the result itself: a success
+  // toast when clean, otherwise the builder's ValidationDialog (whose entries are
+  // clickable to navigate to the offending node/edge/resource).
+  validate: () => void;
 
   // History (so embedder chrome can wire undo/redo buttons)
   undo: () => void;
   redo: () => void;
-  canUndo: () => boolean;
-  canRedo: () => boolean;
 
   // Selection
   selectNodes: (nodeIds: string[]) => void;
@@ -123,6 +132,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       onTestNode,
       onDebugStep,
       onChange,
+      onHistoryChange,
       onSelectionChange,
       onError,
     } = props;
@@ -178,6 +188,49 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       onRenameTab: canvasTabs.renameTab,
     });
 
+    // Built-in validation UX. validate() presents the result itself rather than
+    // returning it: a success toast when clean, else this dialog. Non-null = open.
+    const [validation, setValidation] = useState<ValidationResult | null>(null);
+
+    const runValidate = useCallback(() => {
+      const result = validateWorkflowState(readStateFromStores());
+      if (result.totalErrors === 0 && result.totalWarnings === 0) {
+        toast({ title: i18n.t("validationPassed") });
+      } else {
+        setValidation(result);
+      }
+    }, []);
+
+    // Jump to a diagnostic's target, then dismiss the dialog so it's visible.
+    const navigateToDiagnostic = useCallback(
+      (d: Diagnostic) => {
+        const editor = useEditorStore.getState();
+        // Project-scoped targets: open the matching sidebar tab AND select the item.
+        if (d.channelId) {
+          editor.setActiveSidebarTab("channels");
+          editor.setSelectedChannelId(d.channelId);
+        } else if (d.memoryId) {
+          editor.setActiveSidebarTab("memory");
+          editor.setSelectedMemoryId(d.memoryId);
+        } else if (d.modelId) {
+          editor.setActiveSidebarTab("models");
+          editor.setSelectedModelId(d.modelId);
+        } else if (d.canvasId) {
+          if (d.canvasId === MAIN_CANVAS_ID) editor.setActiveCanvas(MAIN_CANVAS_ID);
+          else functionsHook.openFunction(d.canvasId);
+          if (d.nodeId) {
+            editor.setSelection([d.nodeId], []);
+            getOrCreateCanvasStore(d.canvasId).getState().selectNodes([d.nodeId]);
+          } else if (d.edgeId) {
+            editor.setSelection([], [d.edgeId]);
+            getOrCreateCanvasStore(d.canvasId).getState().selectEdges([d.edgeId]);
+          }
+        }
+        setValidation(null);
+      },
+      [functionsHook],
+    );
+
     // Initial load (runs once, even under StrictMode double-mount).
     const initialLoadDone = useRef(false);
     useEffect(() => {
@@ -195,8 +248,10 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
     // ── Lifecycle subscriptions ────────────────────────────────────────────
     // Stash latest callbacks in refs so the subscription effect runs once.
     const onChangeRef = useRef(onChange);
+    const onHistoryChangeRef = useRef(onHistoryChange);
     const onSelectionChangeRef = useRef(onSelectionChange);
     onChangeRef.current = onChange;
+    onHistoryChangeRef.current = onHistoryChange;
     onSelectionChangeRef.current = onSelectionChange;
 
     // onChange fires on any domain change. For canvas content we watch the
@@ -273,6 +328,52 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       });
     }, []);
 
+    // History-affordance subscription — emits the ACTIVE canvas's canUndo/canRedo
+    // so host chrome can drive undo/redo buttons. Distinct from onChange: a tab
+    // switch changes which history is active without being a domain mutation, so
+    // it must update buttons without marking the document dirty.
+    useEffect(() => {
+      let prevCanUndo: boolean | null = null;
+      let prevCanRedo: boolean | null = null;
+      let unsubActive: (() => void) | null = null;
+
+      const emit = () => {
+        const store = getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId);
+        const canUndo = store.canUndo();
+        const canRedo = store.canRedo();
+        if (canUndo === prevCanUndo && canRedo === prevCanRedo) return;
+        prevCanUndo = canUndo;
+        prevCanRedo = canRedo;
+        onHistoryChangeRef.current?.({ canUndo, canRedo });
+      };
+
+      // Bind to the current active canvas (a) and emit. Re-run on tab switch (b)
+      // and on store-instance rebuilds from load/clear (c) — both can change which
+      // store, or store object, is active under us.
+      const bindActive = () => {
+        unsubActive?.();
+        unsubActive = getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).subscribe(emit);
+        emit();
+      };
+
+      bindActive();
+
+      let prevActive = useEditorStore.getState().activeCanvasId;
+      const unsubEditor = useEditorStore.subscribe((state) => {
+        if (state.activeCanvasId !== prevActive) {
+          prevActive = state.activeCanvasId;
+          bindActive(); // (b) tab switch
+        }
+      });
+      const unsubRegistry = subscribeFunctionInfoChanges(bindActive); // (c) load/clear rebuild
+
+      return () => {
+        unsubActive?.();
+        unsubEditor();
+        unsubRegistry();
+      };
+    }, []);
+
     // ── Imperative handle ─────────────────────────────────────────────────
     useImperativeHandle(
       ref,
@@ -291,11 +392,9 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         },
         setMode: (mode) => useEditorStore.getState().setBuilderMode(mode),
         getMode: () => useEditorStore.getState().builderMode,
-        validate: () => validateWorkflowState(readStateFromStores()),
+        validate: runValidate,
         undo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).undo(),
         redo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).redo(),
-        canUndo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canUndo(),
-        canRedo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).canRedo(),
         selectNodes: (nodeIds) => {
           useEditorStore.getState().setSelection(nodeIds, []);
           const canvasId = useEditorStore.getState().activeCanvasId;
@@ -315,7 +414,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         },
         setDebugPhase: (phase) => useDebugStore.getState().setPhase(phase),
       }),
-      [importProject, exportProject, onError],
+      [importProject, exportProject, onError, runValidate],
     );
 
     // I18nextProvider scopes the builder's PRIVATE i18n instance to this subtree,
@@ -345,6 +444,16 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
               onDebugStep={onDebugStep}
             />
             <Toaster />
+            {validation && (
+              <ValidationDialog
+                open
+                onOpenChange={(o) => {
+                  if (!o) setValidation(null);
+                }}
+                validation={validation}
+                onSelectDiagnostic={navigateToDiagnostic}
+              />
+            )}
           </div>
         </TooltipProvider>
       </I18nextProvider>

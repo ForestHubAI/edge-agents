@@ -14,19 +14,10 @@
   "confirm": {
     "discard": "Nicht gespeicherte Änderungen verwerfen?"
   },
-  "status": {
-    "ready": "Bereit",
-    "loadingFile": "Lade {{path}}…",
-    "newFile": "Neue Datei: {{path}} (leere Arbeitsfläche)",
-    "loaded": "{{name}} geladen",
-    "loadFailed": "Laden fehlgeschlagen: {{msg}}",
-    "saved": "Gespeichert in {{name}}",
-    "saveFailed": "Speichern fehlgeschlagen: {{msg}}",
-    "downloaded": "Heruntergeladen",
-    "new": "Neuer Workflow",
-    "valid": "Gültig ✓",
-    "invalid": "{{errors}} Fehler, {{warnings}} Warnungen",
-    "error": "Fehler: {{msg}}"
+  "toast": {
+    "saveFailed": "Speichern fehlgeschlagen",
+    "loadFailed": "Laden fehlgeschlagen",
+    "error": "Etwas ist schiefgelaufen"
   },
   "error": {
     "invalidJson": "Ungültiges JSON"

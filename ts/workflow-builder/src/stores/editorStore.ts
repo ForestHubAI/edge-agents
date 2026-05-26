@@ -25,6 +25,9 @@ export function createDefaultChannels(): Record<string, Channel> {
 // `import { isReadOnly } from "./stores/editorStore"` keep working unchanged.
 export { isReadOnly, isPreview, type BuilderMode } from "../WorkflowBuilder";
 import type { BuilderMode } from "../WorkflowBuilder";
+// Type-only (erased) — the active left-sidebar tab lives here so non-sidebar code
+// (e.g. validation navigation) can open a specific panel. No runtime cycle.
+import type { SidebarTab } from "../panels/BuilderSidebar";
 
 // ---------------------------------------------------------------------------
 // Store
@@ -32,6 +35,7 @@ import type { BuilderMode } from "../WorkflowBuilder";
 
 interface EditorState {
   activeCanvasId: string;
+  activeSidebarTab: SidebarTab;
   builderMode: BuilderMode;
   selectedNodeIds: string[];
   selectedEdgeIds: string[];
@@ -60,7 +64,7 @@ interface EditorState {
   availableModels: ModelInfo[];
   /**
    * Monotonic counter bumped on project-scoped domain mutations
-   * (channels/memory/models). Mirrors `canvasStore.mutationCount` so the
+   * (channels/memory/models). Mirrors canvasStores' history mutationCount so the
    * builder can fire a single onChange event from either source.
    */
   mutationCount: number;
@@ -72,6 +76,7 @@ interface EditorState {
   setSelectedMemoryId: (id: string | null) => void;
   setSelectedModelId: (id: string | null) => void;
   setSelectedVariableUid: (uid: string | null) => void;
+  setActiveSidebarTab: (tab: SidebarTab) => void;
   setChannels: (updater: (vars: Record<string, Channel>) => Record<string, Channel>) => void;
   setMemory: (updater: (mem: Record<string, Memory>) => Record<string, Memory>) => void;
   setModels: (updater: (models: Record<string, Model>) => Record<string, Model>) => void;
@@ -87,6 +92,7 @@ export const useEditorStore = create<EditorState>((set) => ({
   selectedMemoryId: null,
   selectedModelId: null,
   selectedVariableUid: null,
+  activeSidebarTab: "nodes",
   channels: createDefaultChannels(),
   memory: {},
   models: {},
@@ -190,6 +196,7 @@ export const useEditorStore = create<EditorState>((set) => ({
       };
     });
   },
+  setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
   setChannels: (updater) =>
     set((state) => {
       const next = updater(state.channels);

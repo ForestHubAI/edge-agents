@@ -6,6 +6,9 @@ import {
   // this is the type loadWorkflow/exportWorkflow speak. Import it from the builder,
   // NOT from workflow-core/workflow (that's the in-memory domain type).
   type Workflow,
+  // Post host-level notices (save/load failures) to the builder's own toaster, so
+  // they share the builder's toast style/surface instead of a second one.
+  toast,
 } from "@foresthubai/workflow-builder";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import { CheckCircle2, FileText, FolderOpen, Redo2, Save, Undo2 } from "lucide-react";
@@ -31,10 +34,6 @@ const MODEL_CATALOG: ModelInfo[] = [
 // `null` means "no home yet" → Save must establish one first.
 type FileTarget = { kind: "path"; path: string } | { kind: "handle"; handle: FileSystemFileHandle };
 
-// A status line is stored as a translation key + params, not pre-rendered text,
-// so switching language re-translates the current message live.
-type Status = { key: string; params?: Record<string, string | number> };
-
 // `?file=…` query param: if present, the SPA loads/saves through the dev
 // server's /api/file bridge (round-trip to disk). Set by `fh-builder open <path>`.
 const filePathFromUrl: string | null = new URLSearchParams(window.location.search).get("file");
@@ -59,15 +58,10 @@ export default function App() {
   const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const [dirty, setDirty] = useState(false);
-  // Mirror the builder's undo stack so the toolbar buttons can enable/disable.
-  // These are imperative getters on the handle, so we re-read them on every
-  // onChange (below) — which the builder fires for every mutation, including
-  // keyboard Ctrl+Z and load/clear.
+  // Undo/redo availability for the active canvas, pushed by the builder's
+  // onHistoryChange (history mutation, undo/redo, AND tab switch).
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const [status, setStatus] = useState<Status>(
-    filePathFromUrl ? { key: "loadingFile", params: { path: filePathFromUrl } } : { key: "ready" },
-  );
   // Theme + locale persist to localStorage so the toolbar toggles stick across
   // reloads. Dark / "en" are the defaults on first visit.
   const [theme, setTheme] = useState<"dark" | "light">(
@@ -81,14 +75,6 @@ export default function App() {
   // What the title shows; null → "Untitled.json". Distinct from fileTarget: a
   // file opened via <input type="file"> has a name but no writable target.
   const [fileName, setFileName] = useState<string | null>(initialName);
-
-  // Re-read the builder's undo/redo availability into local state. Called from
-  // onChange (fires on edits + undo/redo) and after load/clear/new — the latter
-  // reset history without firing onChange, so the buttons need an explicit nudge.
-  const refreshHistory = useCallback(() => {
-    setCanUndo(builderRef.current?.canUndo() ?? false);
-    setCanRedo(builderRef.current?.canRedo() ?? false);
-  }, []);
 
   // Sync the theme to <html> — workflow-builder reads this via its
   // useResolvedTheme hook so the canvas matches the chrome.
@@ -115,10 +101,8 @@ export default function App() {
     initialLoadDone.current = true;
     fetch(`/api/file?path=${encodeURIComponent(filePathFromUrl)}`)
       .then(async (res) => {
-        if (res.status === 404) {
-          setStatus({ key: "newFile", params: { path: filePathFromUrl } });
-          return null;
-        }
+        // 404 → the CLI named a not-yet-existing file; start on an empty canvas.
+        if (res.status === 404) return null;
         if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
         return res.json() as Promise<Workflow>;
       })
@@ -129,12 +113,10 @@ export default function App() {
         queueMicrotask(() => {
           loadingRef.current = false;
           setDirty(false);
-          refreshHistory();
-          setStatus({ key: "loaded", params: { name: initialName ?? filePathFromUrl } });
         });
       })
-      .catch((err) => setStatus({ key: "loadFailed", params: { msg: err.message } }));
-  }, [refreshHistory]);
+      .catch((err) => toast({ title: t("toast.loadFailed"), description: err.message, variant: "destructive" }));
+  }, [t]);
 
   // Parse JSON, hand it to the builder, and record where it came from. `target`
   // is the writable home (or null when we only know a display name).
@@ -144,7 +126,7 @@ export default function App() {
       try {
         workflow = JSON.parse(text) as Workflow;
       } catch {
-        setStatus({ key: "loadFailed", params: { msg: t("error.invalidJson") } });
+        toast({ title: t("toast.loadFailed"), description: t("error.invalidJson"), variant: "destructive" });
         return;
       }
       loadingRef.current = true;
@@ -156,11 +138,9 @@ export default function App() {
         setDirty(false);
         setFileName(name);
         setFileTarget(target);
-        refreshHistory();
-        setStatus({ key: "loaded", params: { name } });
       });
     },
-    [t, refreshHistory],
+    [t],
   );
 
   const handleOpen = useCallback(async () => {
@@ -176,7 +156,7 @@ export default function App() {
         applyLoadedWorkflow(await file.text(), handle.name, { kind: "handle", handle });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return; // user cancelled
-        setStatus({ key: "loadFailed", params: { msg: err instanceof Error ? err.message : String(err) } });
+        toast({ title: t("toast.loadFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       }
       return;
     }
@@ -192,10 +172,10 @@ export default function App() {
       file
         .text()
         .then((text) => applyLoadedWorkflow(text, file.name, null))
-        .catch((err) => setStatus({ key: "loadFailed", params: { msg: err.message } }));
+        .catch((err) => toast({ title: t("toast.loadFailed"), description: err.message, variant: "destructive" }));
       e.target.value = ""; // allow re-selecting the same file
     },
-    [applyLoadedWorkflow],
+    [applyLoadedWorkflow, t],
   );
 
   const handleSave = useCallback(async () => {
@@ -212,10 +192,9 @@ export default function App() {
           body,
         });
         if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-        setDirty(false);
-        setStatus({ key: "saved", params: { name: fileName ?? fileTarget.path } });
+        setDirty(false); // dot clears → that's the success confirmation
       } catch (err) {
-        setStatus({ key: "saveFailed", params: { msg: err instanceof Error ? err.message : String(err) } });
+        toast({ title: t("toast.saveFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       }
       return;
     }
@@ -227,9 +206,8 @@ export default function App() {
         await writable.write(body);
         await writable.close();
         setDirty(false);
-        setStatus({ key: "saved", params: { name: fileTarget.handle.name } });
       } catch (err) {
-        setStatus({ key: "saveFailed", params: { msg: err instanceof Error ? err.message : String(err) } });
+        toast({ title: t("toast.saveFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       }
       return;
     }
@@ -245,10 +223,9 @@ export default function App() {
         setFileTarget({ kind: "handle", handle });
         setFileName(handle.name);
         setDirty(false);
-        setStatus({ key: "saved", params: { name: handle.name } });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return; // user cancelled
-        setStatus({ key: "saveFailed", params: { msg: err instanceof Error ? err.message : String(err) } });
+        toast({ title: t("toast.saveFailed"), description: err instanceof Error ? err.message : String(err), variant: "destructive" });
       }
       return;
     }
@@ -262,8 +239,7 @@ export default function App() {
     a.click();
     URL.revokeObjectURL(url);
     setDirty(false);
-    setStatus({ key: "downloaded" });
-  }, [fileTarget, fileName]);
+  }, [fileTarget, fileName, t]);
 
   const handleNew = useCallback(() => {
     if (dirty && !window.confirm(t("confirm.discard"))) return;
@@ -279,42 +255,53 @@ export default function App() {
         setFileTarget(null);
         setFileName(null);
       }
-      refreshHistory();
-      setStatus({ key: "new" });
     });
-  }, [dirty, fileTarget, t, refreshHistory]);
+  }, [dirty, fileTarget, t]);
 
+  // The builder owns the validate UX (success toast / issues dialog), so this is
+  // just a trigger.
   const handleValidate = useCallback(() => {
-    const result = builderRef.current?.validate();
-    if (!result) return;
-    if (result.totalErrors === 0 && result.totalWarnings === 0) {
-      setStatus({ key: "valid" });
-    } else {
-      setStatus({ key: "invalid", params: { errors: result.totalErrors, warnings: result.totalWarnings } });
-    }
+    builderRef.current?.validate();
   }, []);
 
   const handleChange = useCallback(() => {
-    // onChange now fires on edits AND undo/redo, so refresh the buttons here too.
-    refreshHistory();
     if (loadingRef.current) return;
     setDirty(true);
-  }, [refreshHistory]);
-
-  const handleError = useCallback((err: Error) => {
-    setStatus({ key: "error", params: { msg: err.message } });
   }, []);
+
+  // Undo/redo availability for the active canvas — pushed by the builder on
+  // history mutation, undo/redo, AND tab switch (separate from onChange, so a tab
+  // switch updates the buttons without marking the document dirty).
+  const handleHistoryChange = useCallback((state: { canUndo: boolean; canRedo: boolean }) => {
+    setCanUndo(state.canUndo);
+    setCanRedo(state.canRedo);
+  }, []);
+
+  const handleError = useCallback(
+    (err: Error) => {
+      toast({ title: t("toast.error"), description: err.message, variant: "destructive" });
+    },
+    [t],
+  );
+
+  // Ctrl/Cmd+S saves through the same path as the toolbar button (writes to the
+  // open file when there is one). Without intercepting it, the browser's native
+  // "save page as" dialog hijacks the shortcut and prompts for a location.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void handleSave();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [handleSave]);
 
   return (
     <div className="h-full flex flex-col">
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card">
-        <strong
-          className="text-sm mr-3 font-mono"
-          title={fileTarget?.kind === "path" ? fileTarget.path : (fileName ?? "no file")}
-        >
-          {fileName ?? "Untitled.json"}
-          {dirty ? " •" : ""}
-        </strong>
+        {/* Left zone: workflow + canvas actions, pinned to the left edge. */}
         <ToolbarButton icon={FileText} onClick={handleNew}>
           {t("toolbar.new")}
         </ToolbarButton>
@@ -324,6 +311,10 @@ export default function App() {
         <ToolbarButton icon={Save} variant="primary" onClick={handleSave}>
           {t("toolbar.save")}
         </ToolbarButton>
+        <ToolbarButton icon={CheckCircle2} onClick={handleValidate}>
+          {t("toolbar.validate")}
+        </ToolbarButton>
+        {/* Workflow-scoped ops above | canvas-scoped undo/redo below. */}
         <div className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton icon={Undo2} onClick={() => builderRef.current?.undo()} disabled={!canUndo}>
           {t("toolbar.undo")}
@@ -331,11 +322,21 @@ export default function App() {
         <ToolbarButton icon={Redo2} onClick={() => builderRef.current?.redo()} disabled={!canRedo}>
           {t("toolbar.redo")}
         </ToolbarButton>
-        <div className="mx-1 h-5 w-px bg-border" aria-hidden />
-        <ToolbarButton icon={CheckCircle2} onClick={handleValidate}>
-          {t("toolbar.validate")}
-        </ToolbarButton>
-        <span className="ml-auto text-xs text-muted-foreground">{t(`status.${status.key}`, status.params)}</span>
+
+        {/* Center zone: document identity. flex-1 absorbs all width variability so
+            neither side group moves; the name truncates and the dirty dot has a
+            reserved, never-clipped slot, so toggling dirty causes no reflow. */}
+        <div
+          className="flex-1 min-w-0 flex items-center justify-center gap-1.5 text-sm font-mono text-muted-foreground"
+          title={fileTarget?.kind === "path" ? fileTarget.path : (fileName ?? "no file")}
+        >
+          <span className="truncate">{fileName ?? "Untitled.json"}</span>
+          <span className="shrink-0 w-2 text-center text-foreground" aria-hidden>
+            {dirty ? "•" : ""}
+          </span>
+        </div>
+
+        {/* Right zone: app chrome, pinned to the right edge. */}
         <ThemeToggle theme={theme} onToggle={() => setTheme((th) => (th === "dark" ? "light" : "dark"))} />
         <LanguageSwitcher language={lang} onChange={setLang} />
         <input
@@ -354,6 +355,7 @@ export default function App() {
           models={MODEL_CATALOG}
           language={lang}
           onChange={handleChange}
+          onHistoryChange={handleHistoryChange}
           onError={handleError}
         />
       </main>

@@ -224,6 +224,7 @@ export const BaseNode = memo(
       if (category === NodeCategory.Output) return "--node-output";
       if (category === NodeCategory.Logic) return "--node-logic";
       if (category === NodeCategory.Data) return "--node-data";
+      if (category === NodeCategory.Function) return "--node-function";
       return "--primary";
     }, [category]);
 

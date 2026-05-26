@@ -279,6 +279,12 @@ export function deleteCanvasStore(canvasId: string): void {
 // Clear all canvas stores, including the main canvas.
 export function clearAllCanvasStores(): void {
   canvasStores.clear();
+  // Re-seed an empty main canvas BEFORE notifying. Two reasons: it preserves the
+  // "main always exists" invariant, and — critically — subscribers re-subscribe to
+  // the live store set on this notification. If main were absent here, they'd
+  // snapshot an empty registry and never attach to the lazily-recreated main, so
+  // edits after New/clear wouldn't fire onChange (no dirty dot, stale undo state).
+  canvasStores.set(MAIN_CANVAS_ID, createCanvasStore());
   notifyFunctionInfoListeners();
 }
 
