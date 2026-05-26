@@ -269,7 +269,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           topic: data.arguments.topic,
           dataType: data.arguments.dataType,
           value: data.arguments.value,
-          qos: data.arguments.qos,
+          qos: Number(data.arguments.qos) as 0 | 1 | 2,
           retain: data.arguments.retain,
         },
       };
@@ -507,7 +507,7 @@ function deserializeNodeData(apiNode: Schemas["Node"]): NodeData {
           topic: apiNode.arguments.topic ?? "",
           dataType: apiNode.arguments.dataType,
           value: apiNode.arguments.value,
-          qos: apiNode.arguments.qos,
+          qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
           retain: apiNode.arguments.retain,
         },
       };

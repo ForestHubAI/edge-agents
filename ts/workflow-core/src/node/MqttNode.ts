@@ -12,7 +12,7 @@ export interface MqttPublishNode extends NodeBase {
     topic: string;
     dataType: "int" | "float" | "bool" | "string";
     value: Expression;
-    qos: 0 | 1 | 2;
+    qos: "0" | "1" | "2";
     retain: boolean;
   };
 }
