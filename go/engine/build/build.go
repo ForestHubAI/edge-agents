@@ -6,10 +6,7 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-
 	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/backend"
 	"github.com/ForestHubAI/fh-core/go/engine/driver"
 	"github.com/ForestHubAI/fh-core/go/engine/memory"
 	"github.com/ForestHubAI/fh-core/go/engine/transport"
@@ -19,9 +16,9 @@ import (
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
 type Builder struct {
 	Drivers   *driver.Registry
-	Backend   *backend.Client
-	LLM       *llmproxy.Client
+	LLM       engine.LlmClient
 	Memory    *memory.Manager
+	Retriever engine.Retriever
 	WebSearch websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
@@ -39,7 +36,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, nm *engine.N
 	if err != nil {
 		return nil, fmt.Errorf("creating transport registry: %w", err)
 	}
-	runner, err := buildRunner(ctx, wf, nm, transports, b.Drivers, b.Backend, b.LLM, b.Memory, b.WebSearch)
+	runner, err := buildRunner(ctx, wf, nm, transports, b.Drivers, b.LLM, b.Memory, b.Retriever, b.WebSearch)
 	if err != nil {
 		transports.CloseAll()
 		return nil, err
@@ -54,14 +51,14 @@ type buildContext struct {
 	functions map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
 	mainScope *engine.Scope
 	// clients for building nodes that rely on external services
-	backend   *backend.Client
-	llm       *llmproxy.Client
+	llm       engine.LlmClient
 	memory    *memory.Manager
+	retriever engine.Retriever
 	webSearch websearch.Provider
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, backend *backend.Client, llm *llmproxy.Client, mem *memory.Manager, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {
@@ -81,7 +78,7 @@ func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkM
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, channels: chs, functions: functions, mainScope: ms, backend: backend, llm: llm, memory: mem, webSearch: webSearch}
+	bc := &buildContext{ctx: ctx, channels: chs, functions: functions, mainScope: ms, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))

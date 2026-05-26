@@ -1,9 +1,10 @@
 // Package memory manages the engine's local working copy of an agent's
-// declared memory files. The backend holds the durable copy; this manager
-// pulls a snapshot at boot, exposes read/append/edit operations to LLM
-// agent nodes, and pushes every successful write back to the backend
-// synchronously. On Cloud Run, instances can be preempted without graceful
-// shutdown, so sync-on-write is the only safe v1 policy.
+// declared memory files. A configured store holds the durable copy; this
+// manager pulls a snapshot at boot, exposes read/append/edit operations
+// to LLM agent nodes, and pushes every successful write back through the
+// store synchronously. Sync-on-write keeps the durable copy ahead of
+// in-memory state in case the engine process is killed without graceful
+// shutdown.
 package memory
 
 import (
@@ -16,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/engine/backend"
+	"github.com/ForestHubAI/fh-core/go/engine"
 )
 
 // ErrFileNotFound is returned when the LLM references a memory file that
@@ -59,35 +60,35 @@ type entry struct {
 // process. Files are keyed internally by uid (stable across renames); the
 // LLM-facing tool layer resolves human names to uids via Card.
 type Manager struct {
-	dir     string
-	backend *backend.Client
-	mu      sync.Mutex
-	files   map[string]*entry // uid → entry
+	dir   string
+	store engine.MemoryStore
+	mu    sync.Mutex
+	files map[string]*entry // uid → entry
 }
 
 // NewManager constructs a manager that writes its working copy into dir
-// and syncs through the given backend client. The directory is created
-// lazily on Restore.
-func NewManager(dir string, backendClient *backend.Client) *Manager {
+// and syncs through the given store. The directory is created lazily on
+// Restore.
+func NewManager(dir string, store engine.MemoryStore) *Manager {
 	return &Manager{
-		dir:     dir,
-		backend: backendClient,
-		files:   make(map[string]*entry),
+		dir:   dir,
+		store: store,
+		files: make(map[string]*entry),
 	}
 }
 
-// Restore pulls the full memory snapshot from the backend and overwrites
+// Restore pulls the full memory snapshot from the store and overwrites
 // the local working copy. Called from Builder.Build, so each deploy
 // refreshes state (covers boot AND post-rename redeploy).
 func (m *Manager) Restore(ctx context.Context) error {
-	if m.backend == nil {
-		// No backend configured (local dev / debug). Treat as "no memory".
+	if m.store == nil {
+		// No store configured (local dev / debug). Treat as "no memory".
 		m.mu.Lock()
 		m.files = make(map[string]*entry)
 		m.mu.Unlock()
 		return nil
 	}
-	snapshot, err := m.backend.MemorySnapshot(ctx)
+	snapshot, err := m.store.Snapshot(ctx)
 	if err != nil {
 		return fmt.Errorf("memory: restore: %w", err)
 	}
@@ -100,17 +101,17 @@ func (m *Manager) Restore(ctx context.Context) error {
 	defer m.mu.Unlock()
 	m.files = make(map[string]*entry, len(snapshot))
 	for _, f := range snapshot {
-		if !validName.MatchString(f.Name) {
-			return fmt.Errorf("memory: invalid file name %q", f.Name)
+		if !validName.MatchString(f.Label) {
+			return fmt.Errorf("memory: invalid file name %q", f.Label)
 		}
-		m.files[f.UID] = &entry{
-			name:         f.Name,
+		m.files[f.Id] = &entry{
+			name:         f.Label,
 			description:  f.Description,
 			content:      f.Content,
 			maxSizeBytes: f.MaxSizeBytes,
 		}
-		if err := os.WriteFile(m.filePath(f.Name), []byte(f.Content), 0o644); err != nil {
-			return fmt.Errorf("memory: write %s: %w", f.Name, err)
+		if err := os.WriteFile(m.filePath(f.Label), []byte(f.Content), 0o644); err != nil {
+			return fmt.Errorf("memory: write %s: %w", f.Label, err)
 		}
 	}
 	return nil
@@ -145,7 +146,7 @@ func (m *Manager) Read(uid string) (string, error) {
 }
 
 // Append concatenates content to the file identified by uid, persists
-// locally, and pushes the new full content to the backend. Returns
+// locally, and pushes the new full content through the store. Returns
 // ErrSizeExceeded if the result would exceed the declared cap.
 func (m *Manager) Append(ctx context.Context, uid, content string) error {
 	return m.write(ctx, uid, func(cur string) (string, error) {
@@ -170,7 +171,7 @@ func (m *Manager) Edit(ctx context.Context, uid, oldStr, newStr string) error {
 }
 
 // write is the shared mutation path: lock, transform, size-check, push to
-// backend, commit local state. Backend push happens inside the lock so a
+// store, commit local state. Store push happens inside the lock so a
 // failed remote write doesn't leave the in-memory copy ahead of the
 // durable one.
 func (m *Manager) write(ctx context.Context, uid string, transform func(string) (string, error)) error {
@@ -188,8 +189,8 @@ func (m *Manager) write(ctx context.Context, uid string, transform func(string) 
 	if e.maxSizeBytes != nil && len(next) > *e.maxSizeBytes {
 		return ErrSizeExceeded
 	}
-	if m.backend != nil {
-		if err := m.backend.MemoryUpsert(ctx, uid, next); err != nil {
+	if m.store != nil {
+		if err := m.store.Upsert(ctx, uid, next); err != nil {
 			return fmt.Errorf("memory: push %s: %w", uid, err)
 		}
 	}

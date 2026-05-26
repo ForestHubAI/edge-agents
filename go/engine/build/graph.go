@@ -56,17 +56,16 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			onStartUpID = nd.Id
 
 		case workflow.TickerNode:
-			interval := engine.TickerInterval(nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
+			if nd.Arguments.IntervalValue == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "intervalValue"}
+			}
+			interval := engine.TickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
 			t := trigger.NewTicker(nd.Id, interval)
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
 		case workflow.AlarmNode:
-			var days []string
-			if nd.Arguments.Days != nil {
-				days = *nd.Arguments.Days
-			}
-			t, err := trigger.NewAlarm(nd.Id, nd.Arguments.Time, days)
+			t, err := trigger.NewAlarm(nd.Id, pointer.Val(nd.Arguments.Time), nd.Arguments.Days)
 			if err != nil {
 				return "", err
 			}
@@ -74,12 +73,15 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.triggers[nd.Id] = t
 
 		case workflow.DelayNode:
-			t := trigger.NewDelay(nd.Id, time.Duration(nd.Arguments.DelayMs)*time.Millisecond)
+			if nd.Arguments.DelayMs == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "delayMs"}
+			}
+			t := trigger.NewDelay(nd.Id, time.Duration(*nd.Arguments.DelayMs)*time.Millisecond)
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
 		case workflow.OnSerialReceiveNode:
-			uart, err := b.channels.uart(nd.Arguments.PortReference)
+			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -88,7 +90,10 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.triggers[nd.Id] = t
 
 		case workflow.OnPinEdgeNode:
-			gpioin, err := b.channels.gpioInput(nd.Arguments.PinReference)
+			if nd.Arguments.PinReference == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
+			}
+			gpioin, err := b.channels.gpioInput(*nd.Arguments.PinReference)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -97,28 +102,33 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.triggers[nd.Id] = t
 
 		case workflow.OnThresholdNode:
-			direction := trigger.DirBoth
-			if nd.Arguments.Direction != nil {
-				direction = trigger.Direction(*nd.Arguments.Direction)
+			if nd.Arguments.Variable == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "variable"}
 			}
-			deadband := 0.0
-			if nd.Arguments.Deadband != nil {
-				deadband = float64(*nd.Arguments.Deadband)
+			if nd.Arguments.Threshold == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "threshold"}
+			}
+			direction := trigger.DirBoth
+			if nd.Arguments.Direction != "" {
+				direction = trigger.Direction(nd.Arguments.Direction)
 			}
 			t := trigger.NewOnThreshold(
 				nd.Id,
-				nd.Arguments.Variable,
-				float64(nd.Arguments.Threshold),
+				*nd.Arguments.Variable,
+				float64(*nd.Arguments.Threshold),
 				direction,
-				deadband,
-				nd.Arguments.Output,
+				float64(pointer.Val(nd.Arguments.Deadband)),
+				pointer.Ptr(nd.Arguments.Output),
 				b.mainScope,
 			)
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
 		case workflow.SetVariableNode:
-			n := node.NewSetVariable(nd.Id, nd.Arguments.Variable, nd.Arguments.Value)
+			if nd.Arguments.Variable == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "variable"}
+			}
+			n := node.NewSetVariable(nd.Id, *nd.Arguments.Variable, nd.Arguments.Value)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
@@ -144,7 +154,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.SerialReadNode:
-			uart, err := b.channels.uart(nd.Arguments.PortReference)
+			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -157,7 +167,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.SerialWriteNode:
-			uart, err := b.channels.uart(nd.Arguments.PortReference)
+			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -166,20 +176,32 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.MqttPublishNode:
-			mq, err := b.channels.mqtt(nd.Arguments.ChannelReference)
+			if nd.Arguments.ChannelReference == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "channelReference"}
+			}
+			mq, err := b.channels.mqtt(*nd.Arguments.ChannelReference)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewMqttPublish(nd.Id, mq, nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
+			if nd.Arguments.Topic == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topic"}
+			}
+			n := node.NewMqttPublish(nd.Id, mq, *nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
 		case workflow.OnMqttMessageNode:
-			mq, err := b.channels.mqtt(nd.Arguments.ChannelReference)
+			if nd.Arguments.ChannelReference == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "channelReference"}
+			}
+			mq, err := b.channels.mqtt(*nd.Arguments.ChannelReference)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			t, err := trigger.NewOnMqttMessage(nd.Id, mq, nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Output, 0)
+			if nd.Arguments.Topic == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topic"}
+			}
+			t, err := trigger.NewOnMqttMessage(nd.Id, mq, *nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Output, 0)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -191,7 +213,13 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if !ok {
 				return "", fmt.Errorf("node %s: function %q not declared in workflow", nd.Id, nd.FunctionInfo.Id)
 			}
-			n, err := node.NewFunctionCall(nd.Id, fn, nd.Arguments.InputBindings, nd.Arguments.OutputBindings, pointer.Val(nd.Arguments.ToolDescription))
+			if nd.Arguments.InputBindings == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "inputBindings"}
+			}
+			if nd.Arguments.OutputBindings == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "outputBindings"}
+			}
+			n, err := node.NewFunctionCall(nd.Id, fn, *nd.Arguments.InputBindings, *nd.Arguments.OutputBindings, pointer.Val(nd.Arguments.ToolDescription))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
@@ -199,7 +227,13 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.RetrieverNode:
-			n := node.NewRetriever(nd.Id, nd.Arguments.CollectionID, nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), b.backend)
+			if nd.Arguments.MemoryReference == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "memoryReference"}
+			}
+			if nd.Arguments.TopK == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topK"}
+			}
+			n := node.NewRetriever(nd.Id, *nd.Arguments.MemoryReference, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), b.retriever)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
@@ -216,21 +250,20 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if b.webSearch == nil {
 				return "", fmt.Errorf("node %s: web search tool requires ENGINE_WEB_SEARCH_API_KEY to be configured", nd.Id)
 			}
-			maxResults := 0
-			if nd.Arguments != nil && nd.Arguments.MaxResults != nil {
-				maxResults = *nd.Arguments.MaxResults
-			}
-			n := node.NewWebSearchTool(nd.Id, b.webSearch, maxResults)
+			n := node.NewWebSearchTool(nd.Id, b.webSearch, pointer.Val(nd.Arguments.MaxResults))
 			b.allNodes[nd.Id] = n
 
 		case workflow.AgentNode:
 			if b.llm == nil {
 				return "", fmt.Errorf("node %s: agent node requires an llm client, none configured", nd.Id)
 			}
+			if nd.Arguments.Model == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "model"}
+			}
 			n := node.NewAgent(
 				nd.Id,
-				nd.Arguments.Name,
-				nd.Arguments.Model,
+				pointer.Val(nd.Arguments.Name),
+				*nd.Arguments.Model,
 				nd.Arguments.Instructions,
 				nd.Arguments.Answer,
 				nd.Arguments.OutputDeclarations,
@@ -257,13 +290,19 @@ func (b *graph) buildReadPin(nd workflow.ReadPinNode) (*node.ReadPin, error) {
 	desc := pointer.Val(nd.Arguments.ToolDescription)
 	switch nd.Arguments.SignalType {
 	case workflow.Digital:
-		v, err := b.channels.gpioInput(nd.Arguments.PinReference)
+		if nd.Arguments.PinReference == nil {
+			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
+		}
+		v, err := b.channels.gpioInput(*nd.Arguments.PinReference)
 		if err != nil {
 			return nil, err
 		}
 		return node.NewReadPinDigital(nd.Id, nd.Arguments.Output, desc, v), nil
 	case workflow.Analog:
-		v, err := b.channels.adc(nd.Arguments.PinReference)
+		if nd.Arguments.PinReference == nil {
+			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
+		}
+		v, err := b.channels.adc(*nd.Arguments.PinReference)
 		if err != nil {
 			return nil, err
 		}
@@ -279,7 +318,10 @@ func (b *graph) buildReadPin(nd workflow.ReadPinNode) (*node.ReadPin, error) {
 func (b *graph) buildWritePin(nd workflow.WritePinNode) (*node.WritePin, error) {
 	switch nd.Arguments.SignalType {
 	case workflow.Digital:
-		v, err := b.channels.gpioOutput(nd.Arguments.PinReference)
+		if nd.Arguments.PinReference == nil {
+			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
+		}
+		v, err := b.channels.gpioOutput(*nd.Arguments.PinReference)
 		if err != nil {
 			return nil, err
 		}
@@ -287,12 +329,15 @@ func (b *graph) buildWritePin(nd workflow.WritePinNode) (*node.WritePin, error) 
 	case workflow.Analog:
 		// Analog pin can be either a PWM or DAC channel. Try PWM first; if
 		// the id isn't in the PWM map, fall back to DAC.
-		if pwm, err := b.channels.pwm(nd.Arguments.PinReference); err == nil {
+		if nd.Arguments.PinReference == nil {
+			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
+		}
+		if pwm, err := b.channels.pwm(*nd.Arguments.PinReference); err == nil {
 			return node.NewWritePinPWM(nd.Id, nd.Arguments.Value, pwm), nil
 		}
-		dac, err := b.channels.dac(nd.Arguments.PinReference)
+		dac, err := b.channels.dac(*nd.Arguments.PinReference)
 		if err != nil {
-			return nil, fmt.Errorf("no PWM or DAC channel %q", nd.Arguments.PinReference)
+			return nil, fmt.Errorf("no PWM or DAC channel %q", *nd.Arguments.PinReference)
 		}
 		return node.NewWritePinDAC(nd.Id, nd.Arguments.Value, dac), nil
 	default:

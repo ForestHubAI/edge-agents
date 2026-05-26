@@ -32,13 +32,13 @@ func Tools(refs []workflow.MemoryRef, mgr *Manager) ([]llmproxy.Tool, error) {
 	readByName := map[string]string{} // name → uid
 	writeByName := map[string]string{}
 	for _, r := range refs {
-		card, err := mgr.Card(r.Uid)
+		card, err := mgr.Card(r.Id)
 		if err != nil {
-			return nil, fmt.Errorf("memory ref %q: %w", r.Uid, err)
+			return nil, fmt.Errorf("memory ref %q: %w", r.Id, err)
 		}
-		readByName[card.Name] = r.Uid
+		readByName[card.Name] = r.Id
 		if r.Mode == workflow.Rw {
-			writeByName[card.Name] = r.Uid
+			writeByName[card.Name] = r.Id
 		}
 	}
 
@@ -63,12 +63,12 @@ func IndexCard(refs []workflow.MemoryRef, mgr *Manager) (string, error) {
 	cards := make([]Card, 0, len(refs))
 	modes := make(map[string]workflow.MemoryRefMode, len(refs))
 	for _, r := range refs {
-		c, err := mgr.Card(r.Uid)
+		c, err := mgr.Card(r.Id)
 		if err != nil {
-			return "", fmt.Errorf("memory ref %q: %w", r.Uid, err)
+			return "", fmt.Errorf("memory ref %q: %w", r.Id, err)
 		}
 		cards = append(cards, c)
-		modes[r.Uid] = r.Mode
+		modes[r.Id] = r.Mode
 	}
 	sort.Slice(cards, func(i, j int) bool { return cards[i].Name < cards[j].Name })
 
@@ -101,8 +101,8 @@ func ValidateRefs(refs []workflow.MemoryRef, mgr *Manager) error {
 		known[u] = struct{}{}
 	}
 	for _, r := range refs {
-		if _, ok := known[r.Uid]; !ok {
-			return fmt.Errorf("memory ref %q: file is not declared on the workflow", r.Uid)
+		if _, ok := known[r.Id]; !ok {
+			return fmt.Errorf("memory ref %q: file is not declared on the workflow", r.Id)
 		}
 	}
 	return nil
