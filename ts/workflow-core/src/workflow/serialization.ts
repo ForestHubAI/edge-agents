@@ -18,6 +18,7 @@ import { serialize as serializeEdge, deserialize as deserializeEdge } from "../e
 import type { Variable, NodeOutputVariable } from "../variable";
 import { declaredVarKey, fnargKey, nodeOutputVarKey, ensureUids } from "../variable";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "./Workflow";
+import { CURRENT_SCHEMA_VERSION } from "../migration";
 
 const KNOWN_CHANNEL_TYPES = new Set<ChannelType>(ALL_CHANNEL_TYPES);
 
@@ -55,6 +56,7 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
   const memory = Object.values(state.memory).map(serializeMemory);
   const models = Object.values(state.models).map(serializeModel);
   return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
     nodes: mainNodes,
     edges: mainEdges,
     functions,

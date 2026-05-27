@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Database, FileText } from "lucide-react";
-import type { MemoryType } from "@foresthub/workflow-core/memory";
+import type { MemoryType } from "@foresthubai/workflow-core/memory";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore } from "../stores/editorStore";
 import { addMemory } from "../utils/memoryOperations";

@@ -1,9 +1,9 @@
-import type { OutputBinding, FunctionCallNode } from "@foresthub/workflow-core/node";
-import type { Expression, FunctionInfo } from "@foresthub/workflow-core";
+import type { OutputBinding, FunctionCallNode } from "@foresthubai/workflow-core/node";
+import type { Expression, FunctionInfo } from "@foresthubai/workflow-core";
 import { toast } from "../hooks/use-toast";
 import i18n from "../i18n";
 import { getAllCanvasStores, MAIN_CANVAS_ID, subscribeFunctionInfoChanges } from "../stores/canvasStore";
-import { paramKey } from "@foresthub/workflow-core/variable";
+import { paramKey } from "@foresthubai/workflow-core/variable";
 import { updateNodeInStore } from "./graphOperations";
 
 // ============================================================================

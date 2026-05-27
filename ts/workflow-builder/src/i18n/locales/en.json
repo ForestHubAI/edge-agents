@@ -256,6 +256,7 @@
   "functionOutputDesc": "Enter name of output variable for {{name}}",
   "deleteFunctionDesc": "This will permanently delete this function and all its nodes. This action cannot be undone.",
   "nodeLabel": "Node",
+  "validationPassed": "No errors or warnings in workflow",
   "validationIssues": "Validation Issues",
   "validationErrorsDesc": "{{errorCount}} error(s) and {{warningCount}} warning(s) found. Fix errors before exporting.",
   "validationWarningsDesc": "{{warningCount}} warning(s) found. You can still proceed.",

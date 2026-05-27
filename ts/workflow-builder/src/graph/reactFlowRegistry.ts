@@ -4,7 +4,7 @@
 // Lives in graph/ because it references sibling components, but is only consumed
 // by higher-level composing components — no graph/ component imports this file.
 
-import { NodeCategory } from "@foresthub/workflow-core/node";
+import { NodeCategory } from "@foresthubai/workflow-core/node";
 import { CustomNode } from "./CustomNode";
 import { FunctionCallNode } from "./FunctionCallNode";
 import CustomEdge from "./CustomEdge";

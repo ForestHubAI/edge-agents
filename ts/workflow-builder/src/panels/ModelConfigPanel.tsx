@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ModelRegistry, type Model } from "@foresthub/workflow-core/model";
+import { ModelRegistry, type Model } from "@foresthubai/workflow-core/model";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { deleteModel, updateModel } from "../utils/modelOperations";
 import { ResourceConfigPanel } from "./ResourceConfigPanel";

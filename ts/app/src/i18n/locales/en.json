@@ -1,0 +1,25 @@
+{
+  "toolbar": {
+    "new": "New",
+    "open": "Open…",
+    "save": "Save",
+    "undo": "Undo",
+    "redo": "Redo",
+    "validate": "Validate"
+  },
+  "a11y": {
+    "toggleTheme": "Toggle theme",
+    "changeLanguage": "Change language"
+  },
+  "confirm": {
+    "discard": "Discard unsaved changes?"
+  },
+  "toast": {
+    "saveFailed": "Save failed",
+    "loadFailed": "Load failed",
+    "error": "Something went wrong"
+  },
+  "error": {
+    "invalidJson": "Invalid JSON"
+  }
+}

@@ -1,6 +1,4 @@
-// Standard shadcn toast hook + dispatcher. The previous file was a
-// self-referential re-export stub — implementation was lost when this code
-// was ripped from the host frontend.
+// Standard shadcn toast hook + dispatcher
 import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "../components/ui/toast";

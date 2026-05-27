@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
+import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 
 /**
  * Build a per-parameter error map (`paramId → messages`) from a resource's

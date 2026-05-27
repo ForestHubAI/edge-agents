@@ -1,4 +1,4 @@
-import type { Parameter } from "@foresthub/workflow-core/parameter";
+import type { Parameter } from "@foresthubai/workflow-core/parameter";
 
 /**
  * Build the initial `arguments` record for a new resource instance: each

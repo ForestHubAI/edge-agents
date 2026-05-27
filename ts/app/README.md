@@ -1,6 +1,6 @@
-# @foresthub/app
+# @foresthubai/app
 
-Reference host for [`@foresthub/workflow-builder`](../workflow-builder): a small
+Reference host for [`@foresthubai/workflow-builder`](../workflow-builder): a small
 Vite SPA that embeds `<WorkflowBuilder>` behind a toolbar (Open / Save / Clear /
 Validate / theme), plus the **`fh-builder`** CLI that launches it against a file
 on disk. This package is for local development and testing — **it is not published**.
@@ -73,6 +73,6 @@ the CLI rather than to npm.
   polls the port and opens the browser.
 - The `/api/file` bridge is a Vite plugin (`plugins/filebridge.ts`) active only
   during dev: `GET` reads, `PUT` overwrites, both restricted to the allowed root.
-- The app resolves `@foresthub/workflow-builder` and `@foresthub/workflow-core` to
+- The app resolves `@foresthubai/workflow-builder` and `@foresthubai/workflow-core` to
   **source** via Vite aliases (mirrored in `tsconfig.json`), so editing either
   library hot-reloads here without a rebuild.

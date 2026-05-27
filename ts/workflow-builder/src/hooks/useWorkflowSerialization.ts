@@ -1,10 +1,10 @@
 import { useCallback } from "react";
-import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthub/workflow-core/workflow";
-import type { NodeData } from "@foresthub/workflow-core/node";
-import type { EdgeData } from "@foresthub/workflow-core/edge";
-import type { Channel } from "@foresthub/workflow-core/channel";
-import type { Memory } from "@foresthub/workflow-core/memory";
-import type { Model } from "@foresthub/workflow-core/model";
+import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthubai/workflow-core/workflow";
+import type { NodeData } from "@foresthubai/workflow-core/node";
+import type { EdgeData } from "@foresthubai/workflow-core/edge";
+import type { Channel } from "@foresthubai/workflow-core/channel";
+import type { Memory } from "@foresthubai/workflow-core/memory";
+import type { Model } from "@foresthubai/workflow-core/model";
 import { Edge, Node } from "@xyflow/react";
 import { clearAllCanvasStores, getOrCreateCanvasStore, getAllCanvasStores, notifyFunctionRegistryChange } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
@@ -12,7 +12,7 @@ import { getReactFlowType } from "../utils/graphOperations";
 
 /**
  * Store-bound wrapper around the headless `serialize`/`deserialize` in
- * `@foresthub/workflow-core/workflow`. All conversion logic lives in core;
+ * `@foresthubai/workflow-core/workflow`. All conversion logic lives in core;
  * this hook only mediates Zustand I/O.
  *
  * Core sets each node's outer `type` to the domain node type (e.g.

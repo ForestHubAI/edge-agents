@@ -1,10 +1,10 @@
 // Presentation-only formatters for inline node display. These render domain
 // values to human-readable text; they live in the builder (not headless
 // workflow-core) because formatting for display is an editor concern.
-import type { Parameter } from "@foresthub/workflow-core/parameter";
-import type { Reference } from "@foresthub/workflow-core";
-import { refToLookupKey, type Variable } from "@foresthub/workflow-core/variable";
-import type { ResolvedExpr } from "@foresthub/workflow-core/expression";
+import type { Parameter } from "@foresthubai/workflow-core/parameter";
+import type { Reference } from "@foresthubai/workflow-core";
+import { refToLookupKey, type Variable } from "@foresthubai/workflow-core/variable";
+import type { ResolvedExpr } from "@foresthubai/workflow-core/expression";
 
 export interface ParamDisplayResult {
   text: string;

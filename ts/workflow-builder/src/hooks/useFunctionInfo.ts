@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import type { NodeOutput } from "@foresthub/workflow-core/node";
-import type { FunctionInfo } from "@foresthub/workflow-core";
-import { ensureUid, type ApiVariable } from "@foresthub/workflow-core/variable";
+import type { NodeOutput } from "@foresthubai/workflow-core/node";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
+import { ensureUid, type ApiVariable } from "@foresthubai/workflow-core/variable";
 
 /**
  * Hook for managing function info.

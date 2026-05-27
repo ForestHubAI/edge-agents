@@ -30,8 +30,14 @@ components:
     Workflow:
       type: object
       description: Workflow represents the deployment format of a project, passed to agents.
-      required: [nodes, edges, functions, declaredVariables, channels]
+      required:
+        [schemaVersion, nodes, edges, functions, declaredVariables, channels]
       properties:
+        schemaVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
         nodes:
           type: array
           items:

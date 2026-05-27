@@ -1,0 +1,36 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * EXAMPLE: overriding the builder's color tokens (host rebrand)
+ *
+ * The builder ships its design tokens as DEFAULTS on :root / .light. A host can
+ * override any of them by redeclaring the CSS variable — that's the whole
+ * theming API. This file is imported AFTER the builder's stylesheet (see
+ * main.tsx) so these rules win by cascade order.
+ *
+ * Everything below is COMMENTED OUT so the reference app keeps the builder's
+ * stock look. Uncomment to watch the builder (and its portaled menus/dialogs)
+ * re-skin live.
+ *
+ * The override contract — get these wrong and it fails silently:
+ *   1. VALUES ARE HSL CHANNELS, not colors: `262 83% 58%`, never `#7c3aed` or
+ *      `hsl(...)`. The preset wraps them as `hsl(var(--token))` and also as
+ *      `hsl(var(--token) / <alpha>)`, so a full color or hex breaks both.
+ *   2. OVERRIDE BOTH MODES: :root is dark, .light is light. Skipping one leaves
+ *      that mode on the builder's default.
+ *   3. OVERRIDE AT :root / html, NOT a nested container. Radix dialogs, menus,
+ *      tooltips and selects portal to <body> — outside the builder root — so an
+ *      override scoped to a wrapper element won't reach them and they'll mismatch.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/*
+:root {
+  --primary: 262 83% 58%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 262 83% 58%;
+}
+
+.light {
+  --primary: 262 83% 52%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 262 83% 52%;
+}
+*/

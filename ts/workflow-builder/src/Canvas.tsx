@@ -18,7 +18,7 @@ import {
 import React, { useCallback } from "react";
 import { useResolvedTheme } from "./hooks/useResolvedTheme";
 
-import { NodeCategory, NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
+import { NodeCategory, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";
 import { isValidConnection as validateConnection } from "./utils/connectionRules";
 import { getOrCreateCanvasStore } from "./stores/canvasStore";
 import { useEditorStore, isReadOnly } from "./stores/editorStore";

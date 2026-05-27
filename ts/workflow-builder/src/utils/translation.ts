@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import type { NodeDefinition } from "@foresthub/workflow-core/node";
-import type { Parameter } from "@foresthub/workflow-core/parameter";
+import type { NodeDefinition } from "@foresthubai/workflow-core/node";
+import type { Parameter } from "@foresthubai/workflow-core/parameter";
 
 /**
  * Convention-based i18n helpers for description strings only.

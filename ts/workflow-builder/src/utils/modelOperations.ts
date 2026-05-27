@@ -1,6 +1,6 @@
-import { ModelRegistry, type ModelType, type Model } from "@foresthub/workflow-core/model";
+import { ModelRegistry, type ModelType, type Model } from "@foresthubai/workflow-core/model";
 import { useEditorStore } from "../stores/editorStore";
-import { generateId } from "@foresthub/workflow-core/id";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
 
 /** Default label prefix per model type. */

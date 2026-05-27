@@ -1,9 +1,9 @@
 import { useMemo, useCallback } from "react";
 import i18n from "../i18n";
-import { NodeCategory, NodeRegistry, NodeDefinition, NodeData } from "@foresthub/workflow-core/node";
-import type { FunctionInfo } from "@foresthub/workflow-core";
+import { NodeCategory, NodeRegistry, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
 import { useFunctionRegistry } from "./useFunctionRegistry";
-import { FunctionCallNode, FunctionNodeDefinition, buildFunctionNodeDef as coreBuildFunctionNodeDef } from "@foresthub/workflow-core/node";
+import { FunctionCallNode, FunctionNodeDefinition, buildFunctionNodeDef as coreBuildFunctionNodeDef } from "@foresthubai/workflow-core/node";
 
 /**
  * Workflow-builder binding for {@link coreBuildFunctionNodeDef} — passes

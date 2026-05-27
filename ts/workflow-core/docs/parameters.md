@@ -10,7 +10,7 @@ NodeDefinition.parameters   →   NodeData.arguments        →   API schema (co
 
 `arguments` is `unknown`-valued, so the compiler does **not** check that a `string` param holds a string, or that an always-present field is in the API `required` array. The invariants below are upheld by runtime code (seeding, `serialize`, diagnostics) + by-hand schema authoring — a change in one layer must be mirrored in the other two manually.
 
-Types/logic: `@foresthub/workflow-core` (`src/parameter/`, `src/node/`). Editor inputs: `@foresthub/workflow-builder`.
+Types/logic: `@foresthubai/workflow-core` (`src/parameter/`, `src/node/`). Editor inputs: `@foresthubai/workflow-builder`.
 
 ---
 

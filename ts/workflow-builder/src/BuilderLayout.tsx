@@ -1,11 +1,11 @@
-import type { FunctionInfo } from "@foresthub/workflow-core";
-import type { NodeDefinition } from "@foresthub/workflow-core/node";
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
+import type { NodeDefinition } from "@foresthubai/workflow-core/node";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Connection, OnSelectionChangeFunc } from "@xyflow/react";
 
 import { toast } from "./hooks/use-toast";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./components/ui/resizable";
-import { BuilderSidebar, type BuilderTab } from "./panels/BuilderSidebar";
+import { BuilderSidebar } from "./panels/BuilderSidebar";
 import { CanvasTabsToolbar } from "./toolbars/CanvasTabsToolbar";
 import { CanvasEditor } from "./CanvasEditor";
 import { RightConfigPanel } from "./RightConfigPanel";
@@ -87,7 +87,8 @@ export const BuilderLayout = ({
   const clearSelection = useEditorStore((s) => s.clearSelection);
 
   // Sidebar tab state + mode auto-switch.
-  const [activeSidebarTab, setActiveSidebarTab] = useState<BuilderTab>("nodes");
+  const activeSidebarTab = useEditorStore((s) => s.activeSidebarTab);
+  const setActiveSidebarTab = useEditorStore((s) => s.setActiveSidebarTab);
   useEffect(() => {
     const isDebugTab = activeSidebarTab === "debug-context";
     if (isDebugMode && !isDebugTab) {
@@ -97,7 +98,7 @@ export const BuilderLayout = ({
     } else if (!isDebugMode && activeCanvasId === MAIN_CANVAS_ID && activeSidebarTab === "function") {
       setActiveSidebarTab("nodes");
     }
-  }, [isDebugMode, activeCanvasId, activeSidebarTab]);
+  }, [isDebugMode, activeCanvasId, activeSidebarTab, setActiveSidebarTab]);
 
   // "New Function" dialog — co-located with sidebar tab state so the
   // post-save handoff (switch to "function" tab) stays in one place.
@@ -329,7 +330,7 @@ export const BuilderLayout = ({
         <BuilderSidebar
           canvasId={activeCanvasId}
           activeTab={activeSidebarTab}
-          onTabChange={setActiveSidebarTab as Dispatch<SetStateAction<BuilderTab>>}
+          onTabChange={setActiveSidebarTab}
           onAddNode={handleAddNode}
           nodeDefinitions={nodeDefinitions}
           getAllCategories={getAllCategories}

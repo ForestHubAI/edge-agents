@@ -73,6 +73,17 @@ interface HistoryState<T> {
   _history_future: HistoryFrame<T>[];
 }
 
+/**
+ * Public, opaque change signal: a monotonic counter the middleware bumps on every
+ * history transition (checkpoint, undo, redo, clear, import). Subscribe to it to
+ * detect domain mutations and undo/redo in O(1). It never ticks on selection or
+ * drag — those mutate state without a checkpoint. Mirrors editorStore's counter
+ * of the same name for project-scoped (channel/memory/model) mutations.
+ */
+export interface MutationCount {
+  readonly mutationCount: number;
+}
+
 // Configuration for history middleware
 interface HistoryConfig<T> {
   limit?: number;
@@ -84,7 +95,7 @@ export const history =
   <T>(config: HistoryConfig<T> = {}) =>
   <Mps extends [StoreMutatorIdentifier, unknown][] = [], Mcs extends [StoreMutatorIdentifier, unknown][] = []>(
     storeInitializer: StateCreator<T, Mps, Mcs>,
-  ): StateCreator<T & HistoryState<T> & History, Mps, Mcs> => {
+  ): StateCreator<T & HistoryState<T> & History & MutationCount, Mps, Mcs> => {
     const {
       limit = 50,
       partialize = (state) => state,
@@ -92,7 +103,7 @@ export const history =
     } = config;
 
     return (set, get, store) => {
-      type FullState = T & HistoryState<T> & History;
+      type FullState = T & HistoryState<T> & History & MutationCount;
 
       const initialState = storeInitializer(
         set as Parameters<StateCreator<T, Mps, Mcs>>[0],
@@ -104,6 +115,7 @@ export const history =
         ...initialState,
         _history_past: [],
         _history_future: [],
+        mutationCount: 0,
 
         takeCheckpoint: () => {
           const currentState = partialize(get() as T);
@@ -111,6 +123,7 @@ export const history =
             ...state,
             _history_past: [...state._history_past, { state: currentState as T, timestamp: Date.now() }].slice(-limit),
             _history_future: [],
+            mutationCount: state.mutationCount + 1,
           }));
         },
 
@@ -126,6 +139,7 @@ export const history =
               ...state,
               _history_past: [...state._history_past, { state: beforeState as T, timestamp: Date.now() }].slice(-limit),
               _history_future: [],
+              mutationCount: state.mutationCount + 1,
             }));
           }
           return result;
@@ -143,6 +157,7 @@ export const history =
             ...previousFrame.state,
             _history_past: past,
             _history_future: [...state._history_future, { state: currentState as T, timestamp: Date.now() }],
+            mutationCount: state.mutationCount + 1,
           } as FullState);
         },
 
@@ -158,6 +173,7 @@ export const history =
             ...nextFrame.state,
             _history_past: [...state._history_past, { state: currentState as T, timestamp: Date.now() }].slice(-limit),
             _history_future: future,
+            mutationCount: state.mutationCount + 1,
           } as FullState);
         },
 
@@ -166,6 +182,7 @@ export const history =
             ...state,
             _history_past: [],
             _history_future: [],
+            mutationCount: state.mutationCount + 1,
           }));
         },
 
@@ -182,6 +199,7 @@ export const history =
             ...state,
             _history_past: [...data.past] as HistoryFrame<T>[],
             _history_future: [...data.future] as HistoryFrame<T>[],
+            mutationCount: state.mutationCount + 1,
           }));
         },
       } as FullState;

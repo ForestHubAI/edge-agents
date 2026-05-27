@@ -1,4 +1,4 @@
-import { FunctionCallNode as DomainFunctionCallNode } from "@foresthub/workflow-core/node";
+import { FunctionCallNode as DomainFunctionCallNode } from "@foresthubai/workflow-core/node";
 import { NodeProps } from "@xyflow/react";
 import { memo, useMemo } from "react";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";

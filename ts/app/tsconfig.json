@@ -14,9 +14,9 @@
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@foresthub/workflow-builder": ["../workflow-builder/src/index.ts"],
-      "@foresthub/workflow-core": ["../workflow-core/src/index.ts"],
-      "@foresthub/workflow-core/*": ["../workflow-core/src/*/index.ts"]
+      "@foresthubai/workflow-builder": ["../workflow-builder/src/index.ts"],
+      "@foresthubai/workflow-core": ["../workflow-core/src/index.ts"],
+      "@foresthubai/workflow-core/*": ["../workflow-core/src/*/index.ts"]
     }
   },
   "include": ["src", "vite.config.ts"]

@@ -6,9 +6,9 @@ repo; the Go binding and the OpenAPI contract live in sibling `../go` and
 
 | Package | Role | Depends on | Public entry |
 | --- | --- | --- | --- |
-| [`@foresthub/workflow-core`](./workflow-core) | Headless workflow model: types, (de)serialization, pure validator. **No React, no DOM.** Runs in Node, a CLI, or the browser. | — | `import … from "@foresthub/workflow-core"` (+ subpaths) |
-| [`@foresthub/workflow-builder`](./workflow-builder) | Reusable React component: the visual canvas/editor. Imports core for types + validation. | `workflow-core` (dep), `react` (peer) | `import { WorkflowBuilder } from "@foresthub/workflow-builder"` |
-| [`@foresthub/app`](./app) | Reference host SPA + the `fh-builder` CLI. Embeds the builder for local dev/testing. **Not published.** | both, `react` | — (run via `fh-builder`) |
+| [`@foresthubai/workflow-core`](./workflow-core) | Headless workflow model: types, (de)serialization, pure validator. **No React, no DOM.** Runs in Node, a CLI, or the browser. | — | `import … from "@foresthubai/workflow-core"` (+ subpaths) |
+| [`@foresthubai/workflow-builder`](./workflow-builder) | Reusable React component: the visual canvas/editor. Imports core for types + validation. | `workflow-core` (dep), `react` (peer) | `import { WorkflowBuilder } from "@foresthubai/workflow-builder"` |
+| [`@foresthubai/app`](./app) | Reference host SPA + the `fh-builder` CLI. Embeds the builder for local dev/testing. **Not published.** | both, `react` | — (run via `fh-builder`) |
 
 Layering is strict and one-directional: `workflow-core ← workflow-builder ← app`.
 Core never imports the builder; the builder never imports the app.
@@ -17,17 +17,17 @@ Core never imports the builder; the builder never imports the app.
 ts/
 ├─ package.json            # workspace root: lists members, aggregate scripts
 ├─ tsconfig.base.json      # shared compiler options + path mappings (see below)
-├─ workflow-core/          # @foresthub/workflow-core
-├─ workflow-builder/       # @foresthub/workflow-builder
-├─ app/                    # @foresthub/app  (SPA + fh-builder CLI)
-└─ node_modules/           # hoisted deps + @foresthub/* symlinks (gitignored)
+├─ workflow-core/          # @foresthubai/workflow-core
+├─ workflow-builder/       # @foresthubai/workflow-builder
+├─ app/                    # @foresthubai/app  (SPA + fh-builder CLI)
+└─ node_modules/           # hoisted deps + @foresthubai/* symlinks (gitignored)
 ```
 
 ## Resolution model: source in-repo, `dist` for consumers
 
 This is the one thing to understand about the setup. There are two worlds:
 
-| | `@foresthub/*` resolves to | How |
+| | `@foresthubai/*` resolves to | How |
 | --- | --- | --- |
 | **Inside this repo** (typecheck, Vite dev, the CLI) | each package's **`src/`** | tsc `paths` (in `tsconfig.base.json`) + Vite `alias` (in `app/vite.config.ts`) |
 | **An external consumer** (your frontend, `npm i …`) | each package's **`dist/`** | the package's `"exports"` map in its `package.json` |
@@ -42,9 +42,9 @@ never collide.
 
 ```jsonc
 "paths": {
-  "@foresthub/workflow-core":   ["./workflow-core/src/index.ts"],
-  "@foresthub/workflow-core/*": ["./workflow-core/src/*/index.ts"],
-  "@foresthub/workflow-builder":["./workflow-builder/src/index.ts"]
+  "@foresthubai/workflow-core":   ["./workflow-core/src/index.ts"],
+  "@foresthubai/workflow-core/*": ["./workflow-core/src/*/index.ts"],
+  "@foresthubai/workflow-builder":["./workflow-builder/src/index.ts"]
 }
 // No `baseUrl` (deprecated). With paths and no baseUrl, values must be
 // relative; `extends` anchors them to this file's dir (ts/).
@@ -89,7 +89,7 @@ aggregate** — they are not duplicates.
 | `app` | `dev` | `vite` dev server |
 | | `open` / `validate` / `cli` | the `fh-builder` CLI (see below) |
 
-Run a package's script directly with `-w`, e.g. `npm run test -w @foresthub/workflow-core`.
+Run a package's script directly with `-w`, e.g. `npm run test -w @foresthubai/workflow-core`.
 
 ## Local development
 
@@ -112,31 +112,14 @@ Because the app resolves the libraries to **source**, editing `workflow-core` or
 
 ## Releasing (`workflow-core` + `workflow-builder`)
 
-Consumers install the built packages, so a release means building `dist/` and
-publishing. Core first (the builder depends on it):
+The two packages release **in lockstep** to GitHub Packages with one command from `ts/`:
 
 ```bash
-npm run build
-npm version <patch|minor|major> -w @foresthub/workflow-core
-npm version <patch|minor|major> -w @foresthub/workflow-builder
-npm publish -w @foresthub/workflow-core --access public
-npm publish -w @foresthub/workflow-builder --access public
-git push --follow-tags
+npm run release -- 0.2.0   # bumps both, pins builder→core, builds, publishes
 ```
 
-For coordinated versioning + changelogs across both packages, prefer
-[Changesets](https://github.com/changesets/changesets) (`npx changeset`,
-`changeset version`, `changeset publish`).
-
-**Prerequisites before the first real publish** (not yet wired):
-
-1. **Pin the internal dep** — set `workflow-builder`'s `"@foresthub/workflow-core"`
-   from `"*"` to a real range (e.g. `"^0.1.0"`). npm does not rewrite `*` on publish.
-2. **Ship the builder's assets** — `tsc -b` does not copy `styles/index.css` or the
-   i18n `*.json` into `dist/`. Add a copy step (or build the lib with `tsup`) and an
-   `"exports"` entry for `./styles/*`, or consumers' CSS import will 404.
-3. **Build green** — `workflow-core` must compile without errors to emit `dist/`.
-4. Add `"prepublishOnly": "npm run build"` to each package so `dist/` is never stale.
+The private `app` is skipped. Full flow, registry/auth setup, and the Go-module tag
+live in [`../RELEASING.md`](../RELEASING.md).
 
 ## Conventions
 

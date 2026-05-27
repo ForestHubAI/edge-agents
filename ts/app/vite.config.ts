@@ -23,10 +23,10 @@ export default defineConfig({
   resolve: {
     // Use source directly so we get HMR on workspace package edits and don't
     // depend on dist/ being built. Subpath imports (e.g.
-    // `@foresthub/workflow-core/diagnostics`) resolve into the same src/ tree.
+    // `@foresthubai/workflow-core/diagnostics`) resolve into the same src/ tree.
     alias: {
-      "@foresthub/workflow-builder": path.resolve(__dirname, "../workflow-builder/src"),
-      "@foresthub/workflow-core": path.resolve(__dirname, "../workflow-core/src"),
+      "@foresthubai/workflow-builder": path.resolve(__dirname, "../workflow-builder/src"),
+      "@foresthubai/workflow-core": path.resolve(__dirname, "../workflow-core/src"),
     },
   },
 });

@@ -6,6 +6,10 @@ import type { ApiWorkflow } from "./workflow/Workflow";
 // so they're available at the package root rather than via a domain subpath.
 export type { DataType, Reference, Expression, FunctionInfo } from "./api";
 
+// Format versioning: load persisted documents through `migrate` before
+// deserializing.
+export { migrate, CURRENT_SCHEMA_VERSION } from "./migration";
+
 /**
  * Validate a workflow against the headless validator.
  * Pure: no I/O, no Zustand, no React, no DOM. Runnable in Node, a CLI, or

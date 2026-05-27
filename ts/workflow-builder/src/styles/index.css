@@ -6,15 +6,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Sidebar layout fixes — header offset + instant toggle (no animation) */
-.group.peer > div:first-child {
-  height: calc(100svh - var(--header-height, 64px)) !important;
-  transition-duration: 0s !important;
-}
-.group.peer > div:nth-child(2) {
-  transition-duration: 0s !important;
-}
-
 /* Color-mode switch must snap, not fade. useSuppressThemeTransition adds
    `theme-changing` while the embedder flips the `light` class on <html> and
    removes it once React has committed the new colorMode, killing every
@@ -248,21 +239,11 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html,
-  body {
-    overscroll-behavior: none;
-  }
-
-  body {
-    @apply bg-gradient-to-br from-background via-background to-secondary/30 text-foreground font-[Poppins,system-ui,sans-serif] antialiased;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  /* Base look is scoped to the builder's own root — NOT <body>. The host owns
+     page chrome (background, page font, overscroll); the builder only dresses
+     itself. font-sans (Poppins) is inherited from the .fh-workflow-builder root;
+     headings get the Inter display face, scoped so it can't restyle host pages. */
+  .fh-workflow-builder :is(h1, h2, h3, h4, h5, h6) {
     font-family: Inter, system-ui, sans-serif;
   }
 }

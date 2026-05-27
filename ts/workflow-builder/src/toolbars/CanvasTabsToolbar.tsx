@@ -10,7 +10,7 @@ import { cn } from "../lib/utils";
 import { FunctionSquare, Plus, Workflow, X } from "lucide-react";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { FunctionInfo } from "@foresthub/workflow-core";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
 import { CanvasTab } from "../hooks/useCanvasTabs";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 

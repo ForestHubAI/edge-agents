@@ -1,58 +1,60 @@
 {
+  "schemaVersion": 1,
   "nodes": [
     {
-      "id": "Delay_5b0fe1f5_83fc_4d85_a70c_a46fd4ec2f0b",
+      "id": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
       "type": "Delay",
       "position": {
-        "x": 340,
-        "y": 214.60000610351562
+        "x": 518,
+        "y": 269.6000061035156
       },
       "arguments": {
         "delayMs": 1000
       }
     },
     {
-      "id": "ReadPin_3849d011_57c7_41da_a6c1_9e295945ba20",
-      "type": "ReadPin",
+      "id": "SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4c",
+      "type": "SerialRead",
       "position": {
-        "x": 223,
-        "y": -144.6999969482422
+        "x": 288.4534516045523,
+        "y": 49.08668493234259
       },
       "arguments": {
-        "pinReference": "",
-        "signalType": "digital",
         "output": {
-          "active": true,
+          "active": false,
           "mode": "emit",
           "name": "output"
         }
       }
     },
     {
-      "id": "Ticker_600ee610_798b_4480_994b_17f755a276be",
-      "type": "Ticker",
+      "id": "ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304",
+      "type": "ReadPin",
       "position": {
-        "x": 721,
-        "y": 129.45000457763672
+        "x": 773,
+        "y": 362.70001220703125
       },
       "arguments": {
-        "intervalValue": 1,
-        "intervalUnit": "seconds"
+        "signalType": "digital",
+        "output": {
+          "active": true,
+          "mode": "emit",
+          "name": "output2"
+        }
       }
     },
     {
-      "id": "a1a783b9-1a72-4ff4-bd2d-bd8440073751",
+      "id": "Agent_de2436f6_f8cb_4e1e_ae7d_70d82d2d4ddb",
       "type": "Agent",
       "position": {
-        "x": 475.5,
-        "y": -64.04999542236328
+        "x": 514.0674872253041,
+        "y": 489.2777310822554
       },
       "arguments": {
-        "model": "claude-opus-4-6",
         "outputDeclarations": [],
         "memoryRefs": [],
         "answer": {
-          "active": true,
+          "active": false,
           "mode": "emit",
           "name": "answer"
         }
@@ -61,14 +63,26 @@
   ],
   "edges": [
     {
-      "id": "xy-edge__Delay_5b0fe1f5_83fc_4d85_a70c_a46fd4ec2f0bctrl-ReadPin_3849d011_57c7_41da_a6c1_9e295945ba20ctrl",
+      "id": "xy-edge__SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4cctrl-Delay_b337a558_a2ac_40c5_a912_3622df025d72ctrl",
       "type": "control",
       "from": {
-        "nodeId": "Delay_5b0fe1f5_83fc_4d85_a70c_a46fd4ec2f0b",
+        "nodeId": "SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4c",
         "port": "ctrl"
       },
       "to": {
-        "nodeId": "ReadPin_3849d011_57c7_41da_a6c1_9e295945ba20",
+        "nodeId": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
+        "port": "ctrl"
+      }
+    },
+    {
+      "id": "xy-edge__Delay_b337a558_a2ac_40c5_a912_3622df025d72ctrl-ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304ctrl",
+      "type": "control",
+      "from": {
+        "nodeId": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
+        "port": "ctrl"
+      },
+      "to": {
+        "nodeId": "ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304",
         "port": "ctrl"
       }
     }
@@ -82,5 +96,7 @@
       "label": "Serial",
       "driverId": ""
     }
-  ]
+  ],
+  "memory": [],
+  "models": []
 }

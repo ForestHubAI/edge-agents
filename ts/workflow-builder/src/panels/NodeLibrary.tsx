@@ -3,18 +3,18 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../componen
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { NodeCategory } from "@foresthub/workflow-core/node";
-import type { FunctionInfo } from "@foresthub/workflow-core";
+import { NodeCategory } from "@foresthubai/workflow-core/node";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
 import { ChevronDown, ChevronDown as DropdownIcon, Hash, Search, ToggleLeft, Type } from "lucide-react";
 import type { TFunction } from "i18next";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { NodeDefinition } from "@foresthub/workflow-core/node";
+import { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { categoryIcons, categoryColors } from "../utils/categoryConstants";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
-import { FunctionNodeDefinition } from "@foresthub/workflow-core/node";
-import { Parameter } from "@foresthub/workflow-core/parameter";
+import { FunctionNodeDefinition } from "@foresthubai/workflow-core/node";
+import { Parameter } from "@foresthubai/workflow-core/parameter";
 import { getNodeDescription } from "../utils/translation";
 
 const getParameterIcon = (type: string) => {

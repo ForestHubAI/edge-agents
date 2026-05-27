@@ -15,16 +15,16 @@ import {
   getArguments,
   getNodeAvailableOutput,
   getOutputBinding,
-} from "@foresthub/workflow-core/node";
-import type { DataType, Reference } from "@foresthub/workflow-core";
-import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthub/workflow-core/parameter";
-import { isParameterActive, Parameter } from "@foresthub/workflow-core/parameter";
-import { generateId } from "@foresthub/workflow-core/id";
+} from "@foresthubai/workflow-core/node";
+import type { DataType, Reference } from "@foresthubai/workflow-core";
+import type { StaticOutput, OutputList, OutputDeclaration } from "@foresthubai/workflow-core/parameter";
+import { isParameterActive, Parameter } from "@foresthubai/workflow-core/parameter";
+import { generateId } from "@foresthubai/workflow-core/id";
 import { ArrowRight, ChevronRight, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
-import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
-import { varKey, refToLookupKey } from "@foresthub/workflow-core/variable";
-import type { Diagnostic } from "@foresthub/workflow-core/diagnostics";
+import { isNodeUsedAsTool } from "@foresthubai/workflow-core/node";
+import { varKey, refToLookupKey } from "@foresthubai/workflow-core/variable";
+import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ParameterEditor from "../inputs/ParameterEditor";

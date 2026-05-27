@@ -14,6 +14,7 @@ import type { NodeData } from "../node";
 // ============================================================================
 
 const empty: Schemas["Workflow"] = {
+  schemaVersion: 1,
   nodes: [],
   edges: [],
   functions: [],
@@ -24,6 +25,7 @@ const empty: Schemas["Workflow"] = {
 };
 
 const mainOnly: Schemas["Workflow"] = {
+  schemaVersion: 1,
   nodes: [
     {
       id: "n1",
@@ -51,6 +53,7 @@ const mainOnly: Schemas["Workflow"] = {
 };
 
 const allEdgeTypes: Schemas["Workflow"] = {
+  schemaVersion: 1,
   nodes: [],
   edges: [
     { id: "edge-control", type: "control", from: { nodeId: "a", port: "out" }, to: { nodeId: "b", port: "in" } },
@@ -86,6 +89,7 @@ const allEdgeTypes: Schemas["Workflow"] = {
 };
 
 const withFunctionCanvas: Schemas["Workflow"] = {
+  schemaVersion: 1,
   nodes: [
     {
       id: "fcall",

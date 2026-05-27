@@ -7,7 +7,7 @@ import {
   NodeData,
   getArguments,
   getPorts,
-} from "@foresthub/workflow-core/node";
+} from "@foresthubai/workflow-core/node";
 import { NodeProps, Position } from "@xyflow/react";
 import { AlertCircle, AlertTriangle } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
@@ -17,18 +17,18 @@ import { useDebugStore } from "../stores/debugStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore, isReadOnly } from "../stores/editorStore";
 import { categoryIcons } from "../utils/categoryConstants";
-import { computeNodeDiagnostics } from "@foresthub/workflow-core/diagnostics";
+import { computeNodeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 import {
   parseExpression,
   type ParseResult,
   isExpression,
   resolveExpression,
   type ResolvedExpr,
-} from "@foresthub/workflow-core/expression";
-import { isNodeUsedAsTool } from "@foresthub/workflow-core/node";
+} from "@foresthubai/workflow-core/expression";
+import { isNodeUsedAsTool } from "@foresthubai/workflow-core/node";
 import { canPortAcceptEdge } from "../utils/connectionRules";
 import { PortHandle } from "./PortHandle";
-import { isParameterActive } from "@foresthub/workflow-core/parameter";
+import { isParameterActive } from "@foresthubai/workflow-core/parameter";
 import { formatParamDisplay, displayValue } from "../utils/paramDisplay";
 
 // Node shape variants
@@ -224,6 +224,7 @@ export const BaseNode = memo(
       if (category === NodeCategory.Output) return "--node-output";
       if (category === NodeCategory.Logic) return "--node-logic";
       if (category === NodeCategory.Data) return "--node-data";
+      if (category === NodeCategory.Function) return "--node-function";
       return "--primary";
     }, [category]);
 

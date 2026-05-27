@@ -1,0 +1,25 @@
+{
+  "toolbar": {
+    "new": "Neu",
+    "open": "Öffnen…",
+    "save": "Speichern",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "validate": "Validieren"
+  },
+  "a11y": {
+    "toggleTheme": "Design wechseln",
+    "changeLanguage": "Sprache ändern"
+  },
+  "confirm": {
+    "discard": "Nicht gespeicherte Änderungen verwerfen?"
+  },
+  "toast": {
+    "saveFailed": "Speichern fehlgeschlagen",
+    "loadFailed": "Laden fehlgeschlagen",
+    "error": "Etwas ist schiefgelaufen"
+  },
+  "error": {
+    "invalidJson": "Ungültiges JSON"
+  }
+}

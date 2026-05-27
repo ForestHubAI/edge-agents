@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
-import { computeAvailableVariables } from "@foresthub/workflow-core/variable";
+import { computeAvailableVariables } from "@foresthubai/workflow-core/variable";
 
 // Re-export types for consumers
-export type { Variable as AvailableVariable } from "@foresthub/workflow-core/variable";
+export type { Variable as AvailableVariable } from "@foresthubai/workflow-core/variable";
 
 /**
  * Hook that provides access to all available variables for a specific canvas.

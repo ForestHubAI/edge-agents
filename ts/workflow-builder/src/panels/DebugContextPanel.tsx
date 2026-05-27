@@ -4,7 +4,7 @@ import { Switch } from "../components/ui/switch";
 import { useTranslation } from "react-i18next";
 import { useDebugStore } from "../stores/debugStore";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
-import type { DataType } from "@foresthub/workflow-core";
+import type { DataType } from "@foresthubai/workflow-core";
 
 interface VariableEntry {
   key: string;

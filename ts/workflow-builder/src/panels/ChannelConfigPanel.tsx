@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { CHANNEL_DEFINITION, type Channel, type ChannelType } from "@foresthub/workflow-core/channel";
-import { isParameterActive, type Parameter } from "@foresthub/workflow-core/parameter";
+import { CHANNEL_DEFINITION, type Channel, type ChannelType } from "@foresthubai/workflow-core/channel";
+import { isParameterActive, type Parameter } from "@foresthubai/workflow-core/parameter";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { deleteChannel, updateChannel } from "../utils/channelOperations";
 import { ResourceConfigPanel } from "./ResourceConfigPanel";

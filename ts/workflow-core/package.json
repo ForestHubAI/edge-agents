@@ -1,5 +1,5 @@
 {
-  "name": "@foresthub/workflow-core",
+  "name": "@foresthubai/workflow-core",
   "version": "0.1.0",
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
   "type": "module",
@@ -53,12 +53,20 @@
     "./diagnostics": {
       "types": "./dist/diagnostics/index.d.ts",
       "import": "./dist/diagnostics/index.js"
+    },
+    "./migration": {
+      "types": "./dist/migration/index.d.ts",
+      "import": "./dist/migration/index.js"
     }
   },
   "files": ["dist", "src"],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts",
     "build": "tsc -b",
+    "prepublishOnly": "npm run build",
     "test": "vitest run"
   },
   "dependencies": {

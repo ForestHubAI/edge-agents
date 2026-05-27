@@ -1,7 +1,7 @@
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { cn } from "../lib/utils";
-import { NodeCategory, NodeDefinition } from "@foresthub/workflow-core/node";
+import { NodeCategory, NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useMemo } from "react";
 import { Blocks, BrainCircuit, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,9 +14,9 @@ import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
-import type { FunctionInfo } from "@foresthub/workflow-core";
+import type { FunctionInfo } from "@foresthubai/workflow-core";
 
-export type BuilderTab =
+export type SidebarTab =
   | "nodes"
   | "function"
   | "variables"
@@ -29,8 +29,8 @@ export type BuilderTab =
 
 interface BuilderSidebarProps {
   canvasId: string;
-  activeTab: BuilderTab;
-  onTabChange: (tab: BuilderTab) => void;
+  activeTab: SidebarTab;
+  onTabChange: (tab: SidebarTab) => void;
   onAddNode: (nodeType: NodeDefinition, position?: { x: number; y: number }) => void;
   nodeDefinitions: NodeDefinition[];
   getAllCategories: () => NodeCategory[];
@@ -143,7 +143,7 @@ export const BuilderSidebar = ({
     return [nodesTab, functionTab, ...rest];
   }, [isDebugMode, debugTabs, isFunctionCanvas, staticTabs, functionTab]);
 
-  const handleTabClick = (tabId: BuilderTab) => {
+  const handleTabClick = (tabId: SidebarTab) => {
     onTabChange(activeTab === tabId ? null : tabId);
   };
 
@@ -184,7 +184,7 @@ export const BuilderSidebar = ({
     }
   };
 
-  const getTabLabel = (tabId: BuilderTab) => {
+  const getTabLabel = (tabId: SidebarTab) => {
     const tab = tabs.find((tab) => tab.id === tabId);
     return tab?.label ?? "";
   };
@@ -230,7 +230,12 @@ export const BuilderSidebar = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleTabClick(tab.id)}
+                  onClick={(e) => {
+                    // Drop focus after a mouse click so a follow-up Enter doesn't
+                    // re-fire (toggle) this tab. Keyboard activation (detail 0) keeps focus.
+                    if (e.detail !== 0) e.currentTarget.blur();
+                    handleTabClick(tab.id);
+                  }}
                   className={cn(
                     "w-10 h-10 transition-all duration-200 relative",
                     isActive
