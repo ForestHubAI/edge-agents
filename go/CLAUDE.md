@@ -10,7 +10,8 @@ cmd/engine/   main binary: loads config, wires deps, runs the HTTP server.
 api/          oapi-codegen output from ../contract/*.yaml (engineapi, workflow,
               llmapi, debugapi). GENERATED — never hand-edit; regen instead.
 engine/       core runtime. Sub-pkgs: runner (state machine), node, expr, build,
-              backend, driver, channel, memory, logging, transport, websearch.
+              backend, driver, channel, memory, transport, websearch.
+logging/      generic zerolog wrapper + pluggable HTTPWriter for log shipping.
 llmproxy/     unified LLM provider abstraction (anthropic/openai/gemini/mistral/
               selfhosted), provider dispatch by model id, agent loop.
 mapping/      generic slice helpers (Slice, SliceErr) + api<->domain mappers.
@@ -35,9 +36,8 @@ instantiation is a hand-written switch on the workflow `Node` discriminator in
 
 - **Errors:** wrap with `fmt.Errorf("context: %w", err)`. No custom error types or
   sentinel errors as a rule. Fatal-at-startup via the logger in `main`.
-- **Logging:** `zerolog` via `engine/logging`. Use the package `Logger`; structured
-  fields (`.Str/.Int/.Err`). `logging.Activity(action, summary)` tags entries for
-  the backend ledger.
+- **Logging:** `zerolog` via `logging`. Use the package `Logger`; structured
+  fields (`.Str/.Int/.Err`).
 - **Context:** every async boundary takes `ctx context.Context`. Runner lifecycle
   uses `WithCancel`; boot/config use `WithTimeout`. Honor `ctx.Done()`.
 - **Config:** `caarlos0/env` struct tags (`env:"ENGINE_ADDR" envDefault:"..."`),

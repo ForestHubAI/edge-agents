@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ForestHubAI/fh-core/go/engine/backend"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 

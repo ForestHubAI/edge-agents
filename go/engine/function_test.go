@@ -25,7 +25,7 @@ type fakeAction struct {
 
 func (a *fakeAction) ID() string                             { return a.id }
 func (a *fakeAction) AddTransition(string, Transition) error { return nil }
-func (a *fakeAction) Outputs() map[string]workflow.DataType       { return a.outputs }
+func (a *fakeAction) Outputs() map[string]workflow.DataType  { return a.outputs }
 func (a *fakeAction) Execute(_ context.Context, s *Scope) (string, error) {
 	if a.run != nil {
 		if err := a.run(s); err != nil {

@@ -1,7 +1,7 @@
 // Package local provides offline default adapters for the engine ports
-// (ControlPlane, Retriever, MemoryStore). They let the engine run with zero
-// ForestHub account (PLAN Invariant 1): no-op registration, no-op RAG, and
-// filesystem-backed durable memory.
+// (Lifecycle, Retriever, MemoryStore). They let the engine run with zero
+// ForestHub account: no-op registration, no-op RAG, and filesystem-backed
+// durable memory.
 package local
 
 import (
@@ -14,17 +14,14 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine"
 )
 
-// NoopControlPlane satisfies engine.controlPlane with no-ops — there is no
+// NoopLifecycle satisfies engine.Lifecycle with no-ops — there is no
 // control plane to register with offline.
-type NoopControlPlane struct{}
+type NoopLifecycle struct{}
 
-func (NoopControlPlane) BootCallback(context.Context, string, string, *engine.DeviceManifest, *string) error {
+func (NoopLifecycle) Register(context.Context, engine.AgentRegistration) error {
 	return nil
 }
-func (NoopControlPlane) BootCallbackWithRetry(context.Context, string, string, *engine.DeviceManifest, *string) {
-}
-func (NoopControlPlane) Heartbeat(context.Context, string) error { return nil }
-func (NoopControlPlane) HeartbeatLoop(context.Context, string)   {}
+func (NoopLifecycle) Heartbeat(context.Context, string) error { return nil }
 
 // NoopRetriever satisfies engine.Retriever with empty results — no RAG
 // backend offline. Retriever nodes degrade to "no context" instead of

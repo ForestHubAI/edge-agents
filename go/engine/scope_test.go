@@ -270,7 +270,7 @@ type fakeEmitter struct {
 
 func (f *fakeEmitter) ID() string                             { return f.id }
 func (f *fakeEmitter) AddTransition(string, Transition) error { return nil }
-func (f *fakeEmitter) Outputs() map[string]workflow.DataType       { return f.outputs }
+func (f *fakeEmitter) Outputs() map[string]workflow.DataType  { return f.outputs }
 
 func TestRegisterNodeOutputs(t *testing.T) {
 	s, err := NewMainScope(nil)

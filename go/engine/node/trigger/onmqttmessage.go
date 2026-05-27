@@ -10,8 +10,8 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/channel"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
 	"github.com/ForestHubAI/fh-core/go/engine/transport"
+	"github.com/ForestHubAI/fh-core/go/logging"
 )
 
 const onMqttMessageOutID = "output"

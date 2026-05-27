@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 
 	"github.com/rs/zerolog"
 	"github.com/warthog618/go-gpiocdev"
