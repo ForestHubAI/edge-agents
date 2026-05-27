@@ -7,6 +7,7 @@ import type { NodeCategory as NodeCategoryEnum } from "@foresthubai/workflow-cor
 import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
 import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
 import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
+import { FunctionConfigPanel } from "./panels/FunctionConfigPanel";
 import { MemoryConfigPanel } from "./panels/MemoryConfigPanel";
 import { ModelConfigPanel } from "./panels/ModelConfigPanel";
 import { NodeConfigPanel } from "./panels/NodeConfigPanel";
@@ -63,6 +64,7 @@ export const RightConfigPanel = ({
   const channels = useEditorStore((s) => s.channels);
   const memory = useEditorStore((s) => s.memory);
   const models = useEditorStore((s) => s.models);
+  const functions = useEditorStore((s) => s.functions);
 
   const useStore = getOrCreateCanvasStore(canvasId);
 
@@ -131,6 +133,11 @@ export const RightConfigPanel = ({
   const selectedModel = useMemo(
     () => (selection.kind === "model" ? (Object.values(models).find((m) => m.id === selection.id) ?? null) : null),
     [selection, models],
+  );
+
+  const selectedFunction = useMemo(
+    () => (selection.kind === "function" ? (functions[selection.id] ?? null) : null),
+    [selection, functions],
   );
 
   const getNodeCategory = useCallback(
@@ -220,6 +227,14 @@ export const RightConfigPanel = ({
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
         <ModelConfigPanel model={selectedModel} onClose={clearSelection} />
+      </div>
+    );
+  }
+
+  if (selectedFunction) {
+    return (
+      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+        <FunctionConfigPanel func={selectedFunction} onClose={clearSelection} />
       </div>
     );
   }

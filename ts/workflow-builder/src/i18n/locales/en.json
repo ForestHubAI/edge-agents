@@ -188,6 +188,7 @@
   "functionName": "Function Name",
   "functionNamePlaceholder": "Enter function name...",
   "functions": "Functions",
+  "openFunction": "Open function",
   "globalVariable": "Global Variable",
   "dataType": "Data type",
   "deleteVariable": "Delete variable",

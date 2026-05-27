@@ -1,24 +1,20 @@
 import { create, UseBoundStore, StoreApi } from "zustand";
 import { Node, Edge } from "@xyflow/react";
 import { NodeCategory, type NodeData } from "@foresthubai/workflow-core/node";
-import type { FunctionInfo, Expression } from "@foresthubai/workflow-core";
 import type { EdgeData } from "@foresthubai/workflow-core/edge";
 import { history, History, type HistoryData, type MutationCount } from "../utils/history";
 import { generateId } from "@foresthubai/workflow-core/id";
-import { fnargKey, type Variable } from "@foresthubai/workflow-core/variable";
+import { fnargKey, type Variable, type ApiVariable } from "@foresthubai/workflow-core/variable";
 import { computeVariablesFromNodes } from "@foresthubai/workflow-core/workflow";
 
 /**
- * OutputAssignments map return variable uid → Expression.
- * Keyed by the uid of the corresponding FunctionInfo.returns entry.
+ * Sync fnarg:* entries in a canvas's variables to match a function's arguments.
+ * fnarg variables are *derived* from the (project-scoped) function declaration —
+ * they are not authored canvas state, so the source of truth is `editorStore`;
+ * callers pass the declaration's argument list here. Removes stale fnarg entries
+ * and adds the current ones.
  */
-export type OutputAssignments = Record<string, Expression>;
-
-/**
- * Sync fnarg:* entries in variables to match the given functionInfo's arguments.
- * Removes stale fnarg entries and adds/updates current ones.
- */
-export function syncFunctionArgVariables(store: CanvasStore, newFunctionInfo: FunctionInfo | null): void {
+export function syncFunctionArgVariables(store: CanvasStore, args: readonly ApiVariable[]): void {
   store.getState().setVariables((vars) => {
     const updated = { ...vars };
     // Remove all existing fnarg entries
@@ -26,10 +22,8 @@ export function syncFunctionArgVariables(store: CanvasStore, newFunctionInfo: Fu
       if (key.startsWith("fnarg:")) delete updated[key];
     }
     // Add current args
-    if (newFunctionInfo?.arguments) {
-      for (const arg of newFunctionInfo.arguments) {
-        updated[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
-      }
+    for (const arg of args) {
+      updated[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
     }
     return updated;
   });
@@ -40,26 +34,25 @@ import { MAIN_CANVAS_ID } from "@foresthubai/workflow-core/workflow";
 const HISTORY_LIMIT = 50 as const;
 
 // ============================================================================
-// Function Info Change Notification System
+// Canvas Registry Change Notification System
 // ============================================================================
 
-// Listeners that get notified when any canvas's functionInfo changes
-const functionInfoListeners = new Set<() => void>();
+// Listeners notified when the *set* of canvas stores changes (a store is created,
+// deleted, or the whole registry is cleared/retained). This is decoupled from
+// function definitions — those now live in editorStore. Its sole consumer is
+// WorkflowBuilder, which re-subscribes to every live store's mutationCount/history
+// when the set changes so newly created (or dropped) canvases are watched.
+const canvasRegistryListeners = new Set<() => void>();
 
-// Notify all listeners that a function info changed
-function notifyFunctionInfoListeners(): void {
-  functionInfoListeners.forEach((listener) => listener());
+// Notify subscribers that the canvas store set changed.
+export function notifyCanvasRegistryChange(): void {
+  canvasRegistryListeners.forEach((listener) => listener());
 }
 
-// Subscribe to function info changes across all canvases
-export function subscribeFunctionInfoChanges(listener: () => void): () => void {
-  functionInfoListeners.add(listener);
-  return () => functionInfoListeners.delete(listener);
-}
-
-// Manually trigger notification (used after import, delete, etc.)
-export function notifyFunctionRegistryChange(): void {
-  notifyFunctionInfoListeners();
+// Subscribe to canvas registry (store set) changes.
+export function subscribeCanvasRegistryChanges(listener: () => void): () => void {
+  canvasRegistryListeners.add(listener);
+  return () => canvasRegistryListeners.delete(listener);
 }
 
 // ============================================================================
@@ -74,30 +67,21 @@ canvasStores.set(MAIN_CANVAS_ID, createCanvasStore()); // Always exists
 export interface CanvasState {
   nodes: Node<NodeData>[];
   edges: Edge<EdgeData>[];
-  // Unified variable record: node outputs (nodeId:outputId), declared (declared:uid), fn args (fnarg:uid)
+  // Unified variable record: node outputs (nodeId:outputId), declared (declared:uid), fn args (fnarg:uid).
+  // fnarg:* entries are derived from the project-scoped function declaration (editorStore) via
+  // syncFunctionArgVariables — they are not authored here.
   variables: Record<string, Variable>;
-  // Function definition - only present for function canvases (null for main canvas)
-  functionInfo: FunctionInfo | null;
-  // Output expression assignments - maps return variable uid → Expression
-  outputAssignments: OutputAssignments;
 
   setNodes: (updater: (nodes: Node<NodeData>[]) => Node<NodeData>[]) => void;
   setEdges: (updater: (edges: Edge<EdgeData>[]) => Edge<EdgeData>[]) => void;
   setVariables: (updater: (variables: Record<string, Variable>) => Record<string, Variable>) => void;
-  setFunctionInfo: (updater: (info: FunctionInfo | null) => FunctionInfo | null) => void;
-  setOutputAssignments: (updater: (assignments: OutputAssignments) => OutputAssignments) => void;
   /**
    * Visual-only: set ReactFlow selected flags on nodes AND edges in one atomic update.
    * This will call a single re-render and a single onSelectionChange callback.
    * Not an update of domain state, so it can be used in read-only mode.
    */
   setRFselect: (nodeIds: string[], edgeIds: string[]) => void;
-  initialize: (
-    nodes: Node<NodeData>[],
-    edges: Edge<EdgeData>[],
-    functionInfo?: FunctionInfo | null,
-    outputAssignments?: OutputAssignments,
-  ) => void;
+  initialize: (nodes: Node<NodeData>[], edges: Edge<EdgeData>[]) => void;
 }
 
 // Canvas store is a Zustand store + history (undo/redo capabilities) + mutation count.
@@ -112,21 +96,12 @@ function createCanvasStore(): CanvasStore {
         nodes: state.nodes,
         edges: state.edges,
         variables: state.variables,
-        functionInfo: state.functionInfo,
-        outputAssignments: state.outputAssignments,
       }),
-      equality: (before, after) =>
-        before.nodes === after.nodes &&
-        before.edges === after.edges &&
-        before.variables === after.variables &&
-        before.functionInfo === after.functionInfo &&
-        before.outputAssignments === after.outputAssignments,
+      equality: (before, after) => before.nodes === after.nodes && before.edges === after.edges && before.variables === after.variables,
     })((set) => ({
       nodes: [],
       edges: [],
       variables: {},
-      functionInfo: null,
-      outputAssignments: {},
 
       setNodes: (updater) =>
         set((state) => {
@@ -149,25 +124,6 @@ function createCanvasStore(): CanvasStore {
           return { variables: next };
         }),
 
-      setFunctionInfo: (updater) => {
-        let changed = false;
-        set((state) => {
-          const next = updater(state.functionInfo);
-          if (next === state.functionInfo) return state;
-          changed = true;
-          return { functionInfo: next };
-        });
-        // Notify registry of the change, but only when functionInfo actually moved.
-        if (changed) notifyFunctionInfoListeners();
-      },
-
-      setOutputAssignments: (updater) =>
-        set((state) => {
-          const next = updater(state.outputAssignments);
-          if (next === state.outputAssignments) return state;
-          return { outputAssignments: next };
-        }),
-
       setRFselect: (nodeIds, edgeIds) => {
         const nodeIdSet = new Set(nodeIds);
         const edgeIdSet = new Set(edgeIds);
@@ -183,23 +139,14 @@ function createCanvasStore(): CanvasStore {
         }));
       },
 
-      initialize: (nodes, edges, functionInfo = null, outputAssignments = {}) => {
-        // Build variables: node outputs + fnarg entries from functionInfo.
-        // computeVariablesFromNodes is the core (NodeData[]) variant; peel
-        // the React Flow wrapper at the call site.
+      initialize: (nodes, edges) => {
+        // Build node-output variables. fnarg entries (for function canvases) are
+        // seeded separately via syncFunctionArgVariables from the editorStore
+        // declaration, since the canvas store no longer owns the signature.
+        // computeVariablesFromNodes is the core (NodeData[]) variant; peel the
+        // React Flow wrapper at the call site.
         const vars: Record<string, Variable> = computeVariablesFromNodes(nodes.map((n) => n.data));
-        if (functionInfo?.arguments) {
-          for (const arg of functionInfo.arguments) {
-            vars[fnargKey(arg.uid)] = { kind: "fnarg", uid: arg.uid, name: arg.name, dataType: arg.dataType };
-          }
-        }
-        set({
-          nodes,
-          edges,
-          variables: vars,
-          functionInfo,
-          outputAssignments,
-        });
+        set({ nodes, edges, variables: vars });
       },
     })),
   );
@@ -270,7 +217,7 @@ export function getAllCanvasStores(): Record<string, CanvasStore> {
 export function deleteCanvasStore(canvasId: string): void {
   if (canvasId === MAIN_CANVAS_ID) return;
   canvasStores.delete(canvasId);
-  notifyFunctionInfoListeners();
+  notifyCanvasRegistryChange();
 }
 
 // Clear all canvas stores, including the main canvas.
@@ -282,18 +229,5 @@ export function clearAllCanvasStores(): void {
   // snapshot an empty registry and never attach to the lazily-recreated main, so
   // edits after New/clear wouldn't fire onChange (no dirty dot, stale undo state).
   canvasStores.set(MAIN_CANVAS_ID, createCanvasStore());
-  notifyFunctionInfoListeners();
-}
-
-/**
- * Remove canvas stores whose IDs are NOT in the given set.
- * Preserves existing store instances so that React components holding
- * references continue to receive updates via Zustand subscriptions.
- */
-export function retainCanvasStores(idsToKeep: Set<string>): void {
-  for (const id of [...canvasStores.keys()]) {
-    if (!idsToKeep.has(id)) {
-      canvasStores.delete(id);
-    }
-  }
+  notifyCanvasRegistryChange();
 }

@@ -1,8 +1,10 @@
 import type { OutputBinding, FunctionCallNode } from "@foresthubai/workflow-core/node";
-import type { Expression, FunctionInfo } from "@foresthubai/workflow-core";
+import type { Expression } from "@foresthubai/workflow-core";
 import { toast } from "../hooks/use-toast";
 import i18n from "../i18n";
-import { getAllCanvasStores, MAIN_CANVAS_ID, subscribeFunctionInfoChanges } from "../stores/canvasStore";
+import { getAllCanvasStores } from "../stores/canvasStore";
+import { useEditorStore } from "../stores/editorStore";
+import { toFunctionInfo, type FunctionInfo } from "@foresthubai/workflow-core/function";
 import { paramKey } from "@foresthubai/workflow-core/variable";
 import { updateNodeInStore } from "./graphOperations";
 
@@ -52,14 +54,11 @@ function buildMigrationUpdate(
 export function migrateFunctionCallNodes(): void {
   const allStores = getAllCanvasStores();
 
-  // Build lookup of latest function definitions directly from canvas stores
+  // Latest call-site signatures come from the project-scoped declarations, projected
+  // to the flat snapshot form a FunctionCall stores (expressions dropped).
   const latestFunctions: Record<string, FunctionInfo> = {};
-  for (const [id, store] of Object.entries(allStores)) {
-    if (id === MAIN_CANVAS_ID) continue;
-    const info = store.getState().functionInfo;
-    if (info) {
-      latestFunctions[info.id] = info;
-    }
+  for (const [id, def] of Object.entries(useEditorStore.getState().functions)) {
+    latestFunctions[id] = toFunctionInfo(def);
   }
 
   // Iterate all canvases and migrate stale FunctionCallNodes
@@ -97,7 +96,12 @@ export function migrateFunctionCallNodes(): void {
 // Module-Level Subscription
 // ============================================================================
 
-// Automatically migrate FunctionCallNodes whenever any function definition changes.
-subscribeFunctionInfoChanges(() => {
+// Automatically migrate FunctionCallNodes whenever a function declaration changes.
+// Declarations are non-undo-tracked editorStore edits, so this is a forward-only
+// reconcile — no undo can revert a definition out from under its call sites.
+let prevFunctions = useEditorStore.getState().functions;
+useEditorStore.subscribe((state) => {
+  if (state.functions === prevFunctions) return;
+  prevFunctions = state.functions;
   migrateFunctionCallNodes();
 });

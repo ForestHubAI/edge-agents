@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
 
@@ -18,6 +18,34 @@ export const useCanvasTabs = () => {
   // Get active canvas ID and setter from editor store
   const activeCanvasId = useEditorStore((state) => state.activeCanvasId);
   const setActiveCanvas = useEditorStore((state) => state.setActiveCanvas);
+
+  // Tabs are a projection of the function declarations: a deleted function drops its
+  // tab (falling back to Main if it was active), a renamed one relabels. Open/close
+  // of an existing function's tab is still explicit (openTab/closeTab) — this only
+  // reconciles against the source of truth so the strip can't show a stale function.
+  const functions = useEditorStore((state) => state.functions);
+  useEffect(() => {
+    setTabs((prev) => {
+      let changed = false;
+      const next = prev.flatMap<CanvasTab>((t) => {
+        if (t.id === MAIN_CANVAS_ID) return [t];
+        const fn = functions[t.id];
+        if (!fn) {
+          changed = true;
+          return [];
+        }
+        if (fn.name !== t.label) {
+          changed = true;
+          return [{ ...t, label: fn.name }];
+        }
+        return [t];
+      });
+      return changed ? next : prev;
+    });
+    if (activeCanvasId !== MAIN_CANVAS_ID && !functions[activeCanvasId]) {
+      setActiveCanvas(MAIN_CANVAS_ID);
+    }
+  }, [functions, activeCanvasId, setActiveCanvas]);
 
   // Set active tab switches to the corresponding canvas
   const setActiveTabId = useCallback(

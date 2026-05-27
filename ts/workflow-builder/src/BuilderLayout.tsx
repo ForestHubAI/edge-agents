@@ -1,4 +1,4 @@
-import type { FunctionInfo } from "@foresthubai/workflow-core";
+import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import type { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Connection, OnSelectionChangeFunc } from "@xyflow/react";
@@ -9,7 +9,6 @@ import { BuilderSidebar } from "./panels/BuilderSidebar";
 import { CanvasTabsToolbar } from "./toolbars/CanvasTabsToolbar";
 import { CanvasEditor } from "./CanvasEditor";
 import { RightConfigPanel } from "./RightConfigPanel";
-import { FunctionInfoDialog } from "./dialogs/FunctionInfoDialog";
 import { useCanvasHistory } from "./hooks/useCanvasHistory";
 import { useGraph } from "./hooks/useGraph";
 import { useNodeDefinitions } from "./hooks/useNodeDefinitions";
@@ -17,7 +16,6 @@ import { DebugConsolePanel } from "./panels/DebugConsolePanel";
 import type { CanvasTab } from "./hooks/useCanvasTabs";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./stores/canvasStore";
 import { useEditorStore } from "./stores/editorStore";
-import { migrateFunctionCallNodes } from "./utils/migrateFunctionNodes";
 import { isReadOnly } from "./WorkflowBuilder";
 
 /**
@@ -38,15 +36,11 @@ import { isReadOnly } from "./WorkflowBuilder";
  * {@link WorkflowBuilder} above (which owns long-lived editor state).
  */
 export interface BuilderLayoutProps {
-  functions: FunctionInfo[];
+  functions: FunctionDeclaration[];
+  /** Open (and select) an existing function — used by the sidebar list and tab dropdown. */
   onOpenFunction: (functionId: string) => void;
-  /**
-   * Called when the user confirms the "New Function" dialog. BuilderLayout
-   * owns the dialog itself; this callback only adds the function.
-   */
-  onCreateFunction: (name: string, args: FunctionInfo["arguments"], returns: FunctionInfo["returns"]) => void;
-  onDeleteFunction: (functionId: string) => void;
-  onRenameFunction: (functionId: string, newName: string) => void;
+  /** Create a new function and open it — the sidebar list's "Add" action. */
+  onCreateFunction: () => string;
 
   canvasTabs: CanvasTab[];
   onCanvasTabChange: (tabId: string) => void;
@@ -61,8 +55,6 @@ export const BuilderLayout = ({
   functions,
   onOpenFunction,
   onCreateFunction,
-  onDeleteFunction,
-  onRenameFunction,
   canvasTabs,
   onCanvasTabChange,
   onCanvasTabClose,
@@ -96,14 +88,8 @@ export const BuilderLayout = ({
       setActiveSidebarTab("debug-context");
     } else if (!isDebugMode && isDebugTab) {
       setActiveSidebarTab("nodes");
-    } else if (!isDebugMode && activeCanvasId === MAIN_CANVAS_ID && activeSidebarTab === "function") {
-      setActiveSidebarTab("nodes");
     }
-  }, [isDebugMode, activeCanvasId, activeSidebarTab, setActiveSidebarTab]);
-
-  // "New Function" dialog — co-located with sidebar tab state so the
-  // post-save handoff (switch to "function" tab) stays in one place.
-  const [showNewFunctionDialog, setShowNewFunctionDialog] = useState(false);
+  }, [isDebugMode, activeSidebarTab, setActiveSidebarTab]);
 
   // Selection-drag flag (used by RightConfigPanel to suppress during drag).
   const [selectionDrag, setSelectionDrag] = useState(false);
@@ -111,12 +97,6 @@ export const BuilderLayout = ({
   // ViewportCenter ref (populated by ReactFlow inside CanvasEditor, consumed
   // here for sidebar's click-to-add path).
   const viewportCenterRef = useRef<(() => { x: number; y: number }) | null>(null);
-
-  // Safety net: run function-call migration on canvas mount (e.g. after an
-  // undo on a function canvas restored stale node shapes).
-  useEffect(() => {
-    migrateFunctionCallNodes();
-  }, [activeCanvasId]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -294,7 +274,6 @@ export const BuilderLayout = ({
         onTabReorder={onCanvasTabReorder}
         functions={functions}
         onOpenFunction={onOpenFunction}
-        onAddNewFunction={() => setShowNewFunctionDialog(true)}
       />
       <div className="flex-1 relative">
         <CanvasEditor
@@ -329,8 +308,7 @@ export const BuilderLayout = ({
           isFunctionCanvas={isFunctionCanvas}
           functions={functions}
           onOpenFunction={onOpenFunction}
-          onDeleteFunction={() => onDeleteFunction(activeCanvasId)}
-          onRenameFunction={(newName) => onRenameFunction(activeCanvasId, newName)}
+          onCreateFunction={onCreateFunction}
           isDebugMode={isDebugMode}
         />
 
@@ -364,16 +342,6 @@ export const BuilderLayout = ({
           onDebugStep={onDebugStep}
         />
       </div>
-
-      <FunctionInfoDialog
-        open={showNewFunctionDialog}
-        onClose={() => setShowNewFunctionDialog(false)}
-        onSave={(name, fn) => {
-          onCreateFunction(name, fn.arguments, fn.returns);
-          setShowNewFunctionDialog(false);
-          setActiveSidebarTab("function");
-        }}
-      />
     </div>
   );
 };

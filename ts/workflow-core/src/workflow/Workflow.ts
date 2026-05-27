@@ -2,7 +2,7 @@ import type { Channel } from "../channel";
 import type { Memory } from "../memory";
 import type { Model } from "../model";
 import type { Node } from "../node";
-import type { FunctionInfo, Expression } from "../api";
+import type { FunctionDeclaration } from "../function";
 import type { Edge } from "../edge";
 import type { Variable } from "../variable";
 import type { Schemas } from "../api";
@@ -24,18 +24,18 @@ export const MAIN_CANVAS_ID = "main" as const;
  */
 export interface Workflow {
   canvases: Record<string, Canvas>;
+  functions: Record<string, FunctionDeclaration>;
   channels: Record<string, Channel>;
   memory: Record<string, Memory>;
   models: Record<string, Model>;
 }
 
 /**
- * One canvas's worth of in-memory domain state.
+ * One canvas's worth of in-memory domain state — the body of either the main canvas
+ * or a function.
  */
 export interface Canvas {
   nodes: Node[];
   edges: Edge[];
   variables: Record<string, Variable>;
-  functionInfo: FunctionInfo | null;
-  outputAssignments: Record<string, Expression>;
 }

@@ -4,7 +4,6 @@ export type { WorkflowBuilderProps, WorkflowBuilderHandle } from "./WorkflowBuil
 
 // Editor mode the embedder constructs and passes via setMode / initialMode
 export type { BuilderMode } from "./WorkflowBuilder";
-export { isReadOnly, isPreview } from "./WorkflowBuilder";
 
 // Debug phase the embedder pushes from the engine via setDebugPhase
 export type { DebugSessionPhase } from "./stores/debugStore";

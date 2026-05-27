@@ -29,5 +29,5 @@ export {
   resolveMemoryTypes,
   resolveModelTypes,
 } from "./Parameter";
-export type { OutputBinding, OutputDeclaration, StaticOutput, OutputList, OutputParameter } from "./Output";
-export { resolveStaticOutputDataType } from "./Output";
+export type { OutputBinding, OutputDeclaration, StaticOutput, OutputList, OutputParameter } from "./OutputParameter";
+export { resolveStaticOutputDataType } from "./OutputParameter";

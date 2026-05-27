@@ -46,12 +46,22 @@ Two stores carry workflow state; both are **module-level singletons**, not React
 context.
 
 - **`editorStore`** — one instance. Holds project-scoped declarations shared across
-  all canvases (`channels`, `memory`, `models`) and the centralized **`selection`**.
-  Also: `activeCanvasId`, `activeSidebarTab`, `builderMode`.
+  all canvases (`channels`, `memory`, `models`, `functions`) and the centralized
+  **`selection`**. Also: `activeCanvasId`, `activeSidebarTab`, `builderMode`.
+  Functions are a resource here: each `functions[id]` is a `FunctionDeclaration`
+  (`workflow-core/function`) — the domain declaration with its outputs bundled
+  (`outputs: OutputAssignment[]`, each declaration + its return expression). They are
+  **not** undo-tracked — a signature change forward-reconciles call sites
+  (`utils/migrateFunctionNodes`). Selecting a function (`selectFunction`) also switches
+  `activeCanvasId` to its body. The flat api `FunctionInfo` is only the call-site
+  snapshot; cross to it via `toFunctionInfo`, and split to the wire via
+  `function/serialize`.
 - **`canvasStore`** — a **registry** of independent stores keyed by canvas id
-  (`getOrCreateCanvasStore(id)`). `MAIN_CANVAS_ID` always exists; each function gets
-  its own. A canvas store holds that canvas's ReactFlow `nodes`/`edges`, `variables`,
-  `functionInfo`, and **its own undo/redo history** (`useCanvasHistory`). Selection of
+  (`getOrCreateCanvasStore(id)`). `MAIN_CANVAS_ID` always exists; each function's
+  **body** gets its own. A canvas store holds that canvas's ReactFlow `nodes`/`edges`,
+  `variables`, and **its own undo/redo history** (`useCanvasHistory`). It does **not**
+  hold the function signature (that's `editorStore.functions`); `fnarg:*` variables
+  are derived from the declaration via `syncFunctionArgVariables`. Selection of
   nodes/edges lives here as ReactFlow's `selected` flags **and** is mirrored into
   `editorStore.selection` — see `docs/selection.md` for the two-way sync and the echo.
 

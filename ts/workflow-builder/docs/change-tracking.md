@@ -35,8 +35,15 @@ its own history.
 `editorStore` carries its own `mutationCount`, bumped only by the project-scoped
 declaration edits that don't pass through any canvas history:
 
-- `setChannels`, `setMemory`, `setModels` — and only when the record reference
-  actually changes (each guards `if (next === prev) return state`).
+- `setChannels`, `setMemory`, `setModels`, `setFunctions` — and only when the
+  record reference actually changes (each guards `if (next === prev) return state`).
+
+Functions are a project-scoped resource: their declaration (signature + return
+expressions) lives in `editorStore.functions`, so **adding, deleting, renaming, or
+editing a function** is a `setFunctions` reference change that bumps this counter —
+the same path as channels/memory/models. There is no separate function-registry
+change signal anymore. (The function *body* edits are ordinary canvas-history
+mutations on the function's own canvas store.)
 
 It deliberately does **not** bump on `selection` changes, `setActiveCanvas`,
 `setBuilderMode`, or `setAvailableModels` (the model catalog is host-supplied
@@ -56,12 +63,14 @@ effect mounts **once** (callbacks are stashed in refs, `onChangeRef`):
 
 - Subscribes to **every** canvas store, each tracking its own previous count (a
   `WeakSet` prevents double-subscribing the same instance).
-- Subscribes to `editorStore.mutationCount` for project-scoped edits.
-- Subscribes to the **function registry** (`subscribeFunctionInfoChanges`): adding,
-  deleting, or renaming a function changes the exported workflow without passing
-  through any canvas checkpoint, so that listener fires `onChange` *directly* — and
-  re-runs `subscribeAllCanvases()` so newly created canvas stores get watched (and
-  dropped ones fall away).
+- Subscribes to `editorStore.mutationCount` for project-scoped edits (channels,
+  memory, models, **and functions** — see above).
+- Subscribes to the **canvas registry** (`subscribeCanvasRegistryChanges`): when the
+  *set* of canvas stores changes (a function body is created/deleted, or a project
+  load rebuilds them), it re-runs `subscribeAllCanvases()` so newly created stores
+  get watched and dropped ones fall away. It does **not** fire `onChange` itself —
+  the function declaration change that accompanies a create/delete already flows
+  through `editorStore.mutationCount`, so firing here too would double-count.
 
 **Baseline / no fire on load:** each subscription captures the current count as its
 starting `prev`, so initial mount doesn't fire. `onChange` carries **no payload** —

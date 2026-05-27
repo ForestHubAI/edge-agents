@@ -3,14 +3,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { cn } from "../lib/utils";
-import { FunctionSquare, Plus, Workflow, X } from "lucide-react";
+import { FunctionSquare, PanelRightOpen, Workflow, X } from "lucide-react";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { FunctionInfo } from "@foresthubai/workflow-core";
+import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import { CanvasTab } from "../hooks/useCanvasTabs";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 
@@ -20,9 +19,8 @@ interface CanvasTabsToolbarProps {
   onTabChange: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onTabReorder: (fromIndex: number, toIndex: number) => void;
-  functions: FunctionInfo[];
+  functions: FunctionDeclaration[];
   onOpenFunction: (id: string) => void;
-  onAddNewFunction: () => void;
 }
 
 export const CanvasTabsToolbar = ({
@@ -33,7 +31,6 @@ export const CanvasTabsToolbar = ({
   onTabReorder,
   functions,
   onOpenFunction,
-  onAddNewFunction,
 }: CanvasTabsToolbarProps) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -161,31 +158,33 @@ export const CanvasTabsToolbar = ({
         );
       })}
 
-      {/* Function dropdown button */}
+      {/* Function navigation dropdown — opens a tab for an existing function.
+          Creation lives in the Functions sidebar; this is view-only. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
             className="w-7 h-7 shrink-0 text-muted-foreground hover:text-foreground"
-            title={t("functions")}
+            title={t("openFunction")}
           >
-            <Plus className="w-4 h-4" />
+            <PanelRightOpen className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
-          {functions.map((fn) => (
-            <DropdownMenuItem key={fn.id} onClick={() => onOpenFunction(fn.id)} className="gap-2">
-              <FunctionSquare className="w-4 h-4 shrink-0" />
-              <span className="truncate">{fn.name}</span>
-              {openTabIds.has(fn.id) && <span className="ml-auto text-xs text-muted-foreground">open</span>}
+          {functions.length === 0 ? (
+            <DropdownMenuItem disabled className="gap-2">
+              {t("noFunctions")}
             </DropdownMenuItem>
-          ))}
-          {functions.length > 0 && <DropdownMenuSeparator />}
-          <DropdownMenuItem onClick={onAddNewFunction} className="gap-2">
-            <Plus className="w-4 h-4 shrink-0" />
-            {t("newFunction")}
-          </DropdownMenuItem>
+          ) : (
+            functions.map((fn) => (
+              <DropdownMenuItem key={fn.id} onClick={() => onOpenFunction(fn.id)} className="gap-2">
+                <FunctionSquare className="w-4 h-4 shrink-0" />
+                <span className="truncate">{fn.name}</span>
+                {openTabIds.has(fn.id) && <span className="ml-auto text-xs text-muted-foreground">open</span>}
+              </DropdownMenuItem>
+            ))
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

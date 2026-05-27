@@ -12,7 +12,8 @@ import {
   getArguments,
   getNodeOutput,
 } from "@foresthubai/workflow-core/node";
-import type { Expression, FunctionInfo } from "@foresthubai/workflow-core";
+import type { Expression } from "@foresthubai/workflow-core";
+import type { FunctionInfo } from "@foresthubai/workflow-core/function";
 import type { OutputDeclaration } from "@foresthubai/workflow-core/parameter";
 import { addEdge, Connection, Edge, Node } from "@xyflow/react";
 import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";

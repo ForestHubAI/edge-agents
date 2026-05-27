@@ -1,5 +1,5 @@
 import type { NodeDefinition, NodeData } from "../node";
-import type { Expression, FunctionInfo } from "../api";
+import type { Expression } from "../api";
 import { NodeCategory, NodeRegistry } from "../node";
 import type { EdgeData, EdgeType } from "../edge";
 import { getEdgeDefinition, isControlFlow } from "../edge";
@@ -20,6 +20,8 @@ import { ModelRegistry } from "../model";
 import type { Schemas } from "../api";
 import type { Reference } from "../api";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
+import type { FunctionDeclaration, FunctionInfo } from "../function";
+import { toFunctionInfo } from "../function";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow/Workflow";
 
 // ============================================================================
@@ -55,6 +57,8 @@ export interface Diagnostic {
   memoryId?: string;
   /** Set when the diagnostic targets a project-scoped declared model. */
   modelId?: string;
+  /** Set when the diagnostic targets a project-scoped function declaration. */
+  functionId?: string;
   paramId?: string;
   outputId?: string; // For output binding diagnostics
 }
@@ -670,6 +674,40 @@ export function validateModel(model: Model): Diagnostic[] {
   return diags;
 }
 
+/**
+ * Compute diagnostics for a single function declaration (the project-scoped
+ * signature + bundled output assignments, independent of the body canvas). Flags an
+ * empty name and any output without an assigned expression — the latter mirrors the
+ * engine invariant that every declared return must be assigned. Expression
+ * *validity* (which needs the body's variable scope) is left to
+ * validateWorkflowState, keyed by the function's canvas.
+ */
+export function validateFunction(fn: FunctionDeclaration): Diagnostic[] {
+  const diags: Diagnostic[] = [];
+
+  if (!fn.name || fn.name.trim() === "") {
+    diags.push({
+      severity: "error",
+      category: "missing-required-param",
+      functionId: fn.id,
+      message: `Function has no name`,
+    });
+  }
+
+  for (const out of fn.outputs) {
+    if (!out.expression?.expression || out.expression.expression.trim() === "") {
+      diags.push({
+        severity: "error",
+        category: "missing-output-assignment",
+        functionId: fn.id,
+        message: `Missing return value assignment for "${out.name}"`,
+      });
+    }
+  }
+
+  return diags;
+}
+
 // ============================================================================
 // Full-Project Validation Result Types
 // ============================================================================
@@ -704,13 +742,10 @@ export interface ValidationResult {
  * validation deterministic from its input alone — and removes the cache-lag
  * window the store-bound path had.
  */
-function deriveFunctionRegistry(canvases: Record<string, Canvas>): Record<string, FunctionInfo> {
-  const functions: Record<string, FunctionInfo> = {};
-  for (const [id, canvas] of Object.entries(canvases)) {
-    if (id === MAIN_CANVAS_ID) continue;
-    if (canvas.functionInfo) functions[id] = canvas.functionInfo;
-  }
-  return functions;
+function deriveFunctionRegistry(functions: Record<string, FunctionDeclaration>): Record<string, FunctionInfo> {
+  const out: Record<string, FunctionInfo> = {};
+  for (const [id, decl] of Object.entries(functions)) out[id] = toFunctionInfo(decl);
+  return out;
 }
 
 /**
@@ -724,7 +759,8 @@ function deriveFunctionRegistry(canvases: Record<string, Canvas>): Record<string
  */
 export function validateWorkflowState(state: Workflow): ValidationResult {
   const canvasData = state.canvases ?? {};
-  const allFunctions = deriveFunctionRegistry(canvasData);
+  const functionDecls = state.functions ?? {};
+  const allFunctions = deriveFunctionRegistry(functionDecls);
   const channels = state.channels ?? {};
   const memory = state.memory ?? {};
   const models = state.models ?? {};
@@ -803,26 +839,27 @@ export function validateWorkflowState(state: Workflow): ValidationResult {
       canvasDiags.push(...diags);
     }
 
-    // Compute output assignment diagnostics (function canvases only)
-    if (canvas.functionInfo && canvas.functionInfo.returns.length > 0) {
-      for (const returnVar of canvas.functionInfo.returns) {
-        const assignment = canvas.outputAssignments[returnVar.uid];
-        if (!assignment?.expression) {
+    // Output assignment diagnostics: the function's declaration (functions[canvasId])
+    // owns the bundled outputs; their expressions resolve against this body's scope.
+    const fnDecl = functionDecls[canvasId];
+    if (fnDecl) {
+      for (const out of fnDecl.outputs) {
+        if (!out.expression?.expression) {
           canvasDiags.push({
             severity: "error",
             category: "missing-output-assignment",
             canvasId,
-            message: `Missing return value assignment for "${returnVar.name}"`,
+            message: `Missing return value assignment for "${out.name}"`,
           });
         } else {
-          const expr = resolveExpression(assignment, availableVariables);
+          const expr = resolveExpression(out.expression, availableVariables);
           const parseRes = parseExpression(expr);
           if (!parseRes.isValid) {
             canvasDiags.push({
               severity: "error",
               category: "invalid-expression",
               canvasId,
-              message: `Invalid expression for return value "${returnVar.name}": ${parseRes.errors.join(", ")}`,
+              message: `Invalid expression for return value "${out.name}": ${parseRes.errors.join(", ")}`,
             });
           }
         }
@@ -835,7 +872,7 @@ export function validateWorkflowState(state: Workflow): ValidationResult {
       const warningCount = canvasDiags.filter((d) => d.severity === "warning").length;
 
       // Derive canvas label
-      const canvasLabel = canvasId === MAIN_CANVAS_ID ? "Main" : (canvas.functionInfo?.name ?? canvasId);
+      const canvasLabel = canvasId === MAIN_CANVAS_ID ? "Main" : (functionDecls[canvasId]?.name ?? canvasId);
 
       canvases.push({
         canvasId,

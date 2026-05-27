@@ -4,7 +4,7 @@ import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { NodeCategory } from "@foresthubai/workflow-core/node";
-import type { FunctionInfo } from "@foresthubai/workflow-core";
+import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import { ChevronDown, ChevronDown as DropdownIcon, Hash, Search, ToggleLeft, Type } from "lucide-react";
 import type { TFunction } from "i18next";
 import React, { useState } from "react";
@@ -111,7 +111,7 @@ interface NodeLibraryProps {
   onAddNode: (nodeType: NodeDefinition, position?: { x: number; y: number }) => void;
   nodeDefinitions: NodeDefinition[];
   getAllCategories: () => NodeCategory[];
-  functions: FunctionInfo[];
+  functions: FunctionDeclaration[];
   isFunctionCanvas: boolean;
 }
 

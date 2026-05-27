@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { Blocks, BrainCircuit, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
-import { FunctionDefinitionPanel } from "./FunctionDefinitionPanel";
+import { FunctionListPanel } from "./FunctionListPanel";
 import NodeLibrary from "./NodeLibrary";
 import { ChannelsPanel } from "./ChannelsPanel";
 import { MemoryPanel } from "./MemoryPanel";
@@ -14,15 +14,15 @@ import { ModelsPanel } from "./ModelsPanel";
 import { VariablesPanel } from "./VariablesPanel";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { DebugContextPanel } from "./DebugContextPanel";
-import type { FunctionInfo } from "@foresthubai/workflow-core";
+import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 
 export type SidebarTab =
   | "nodes"
-  | "function"
   | "variables"
   | "channels"
   | "memory"
   | "models"
+  | "functions"
   | "diagnostics"
   | "debug-context"
   | null;
@@ -38,10 +38,9 @@ interface BuilderSidebarProps {
   onSelectEdge: (edgeId: string) => void;
   isFunctionCanvas: boolean;
   // Function management
-  functions: FunctionInfo[];
+  functions: FunctionDeclaration[];
   onOpenFunction: (functionId: string) => void;
-  onDeleteFunction: () => void;
-  onRenameFunction: (newName: string) => void;
+  onCreateFunction: () => string;
   // Debug mode
   isDebugMode?: boolean;
 }
@@ -58,8 +57,7 @@ export const BuilderSidebar = ({
   isFunctionCanvas,
   functions,
   onOpenFunction,
-  onDeleteFunction,
-  onRenameFunction,
+  onCreateFunction,
   isDebugMode,
 }: BuilderSidebarProps) => {
   const { t } = useTranslation();
@@ -71,12 +69,11 @@ export const BuilderSidebar = ({
       { id: "channels" as const, icon: Cpu, label: t("channels") },
       { id: "memory" as const, icon: Database, label: t("memoryFiles", "Memory") },
       { id: "models" as const, icon: BrainCircuit, label: t("models", "AI Models") },
+      { id: "functions" as const, icon: Braces, label: t("functions") },
       { id: "diagnostics" as const, icon: TriangleAlert, label: t("diagnostics") },
     ],
     [t],
   );
-
-  const functionTab = useMemo(() => ({ id: "function" as const, icon: Braces, label: t("functionDefinition") }), [t]);
 
   const debugTabs = useMemo(() => [{ id: "debug-context" as const, icon: Bug, label: t("debug.context") }], [t]);
 
@@ -132,16 +129,19 @@ export const BuilderSidebar = ({
     return count;
   });
 
-  const tabs = useMemo(() => {
-    if (isDebugMode) return debugTabs;
-    if (!isFunctionCanvas) return staticTabs;
-    // Function canvases insert the "function" tab right after "nodes" (the first
-    // static tab). The guard narrows away the `… | undefined` that
-    // noUncheckedIndexedAccess attaches to the destructured head.
-    const [nodesTab, ...rest] = staticTabs;
-    if (!nodesTab) return staticTabs;
-    return [nodesTab, functionTab, ...rest];
-  }, [isDebugMode, debugTabs, isFunctionCanvas, staticTabs, functionTab]);
+  // Functions are project-scoped too — counts drive the "functions" tab badge.
+  const functionErrors = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byFunctionId)) for (const d of diags) if (d.severity === "error") count++;
+    return count;
+  });
+  const functionWarnings = useDiagnosticsStore((s) => {
+    let count = 0;
+    for (const diags of Object.values(s.byFunctionId)) for (const d of diags) if (d.severity === "warning") count++;
+    return count;
+  });
+
+  const tabs = useMemo(() => (isDebugMode ? debugTabs : staticTabs), [isDebugMode, debugTabs, staticTabs]);
 
   const handleTabClick = (tabId: SidebarTab) => {
     onTabChange(activeTab === tabId ? null : tabId);
@@ -159,14 +159,6 @@ export const BuilderSidebar = ({
             isFunctionCanvas={!!isFunctionCanvas}
           />
         );
-      case "function":
-        return (
-          <FunctionDefinitionPanel
-            canvasId={canvasId}
-            onDeleteFunction={onDeleteFunction}
-            onRenameFunction={onRenameFunction}
-          />
-        );
       case "variables":
         return <VariablesPanel canvasId={canvasId} onSelectNode={onSelectNode} />;
       case "channels":
@@ -175,6 +167,8 @@ export const BuilderSidebar = ({
         return <MemoryPanel />;
       case "models":
         return <ModelsPanel />;
+      case "functions":
+        return <FunctionListPanel onOpenFunction={onOpenFunction} onCreateFunction={onCreateFunction} />;
       case "diagnostics":
         return <DiagnosticsPanel canvasId={canvasId} onSelectNode={onSelectNode} onSelectEdge={onSelectEdge} />;
       case "debug-context":
@@ -213,6 +207,9 @@ export const BuilderSidebar = ({
           } else if (tab.id === "models") {
             tabErrors = modelErrors;
             tabWarnings = modelWarnings;
+          } else if (tab.id === "functions") {
+            tabErrors = functionErrors;
+            tabWarnings = functionWarnings;
           }
           const tabIssueCount = tabErrors + tabWarnings;
           const showBadge = tabIssueCount > 0;

@@ -19,6 +19,7 @@ import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/toaster";
 import { useCanvasTabs } from "./hooks/useCanvasTabs";
 import { useResourceDiagnosticsSync } from "./hooks/useResourceDiagnosticsSync";
+import { useFunctionDiagnosticsSync } from "./hooks/useFunctionDiagnosticsSync";
 import { useSuppressThemeTransition } from "./hooks/useSuppressThemeTransition";
 import { useFunctions } from "./hooks/useFunctions";
 import { useWorkflowSerialization, readStateFromStores } from "./hooks/useWorkflowSerialization";
@@ -26,7 +27,7 @@ import {
   clearAllCanvasStores,
   getAllCanvasStores,
   getOrCreateCanvasStore,
-  subscribeFunctionInfoChanges,
+  subscribeCanvasRegistryChanges,
   MAIN_CANVAS_ID,
   type CanvasStore,
 } from "./stores/canvasStore";
@@ -161,6 +162,9 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       set: (d, id, diags) => d.setModelDiagnostics(id, diags),
       clear: (d, id) => d.clearModelDiagnostics(id),
     });
+    // Functions are a FunctionDeclaration (not a flat resource bag), so they use a
+    // dedicated diagnostics sync.
+    useFunctionDiagnosticsSync();
 
     // Push the embedder-supplied model catalog into the store so agent model
     // pickers can read it. Catalog is config (not workflow content), so this
@@ -171,11 +175,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
 
     // Canvas tabs + functions live here because they survive canvas switches.
     const canvasTabs = useCanvasTabs();
-    const functionsHook = useFunctions({
-      onOpenTab: canvasTabs.openTab,
-      onRemoveTab: canvasTabs.removeTab,
-      onRenameTab: canvasTabs.renameTab,
-    });
+    const functionsHook = useFunctions({ onOpenTab: canvasTabs.openTab });
 
     // Built-in validation UX. validate() presents the result itself rather than
     // returning it: a success toast when clean, else this dialog. Non-null = open.
@@ -269,18 +269,17 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
 
       subscribeAllCanvases();
 
-      // Canvas stores come and go (function add/delete/rename, project load).
-      // Re-subscribe to the new set AND fire onChange: adding, removing or
-      // renaming a function changes the exported workflow, so it's a domain
-      // mutation in its own right (it doesn't pass through any canvas checkpoint).
-      // Loads also notify here, but the host guards those via its loading flag.
-      const unsubRegistry = subscribeFunctionInfoChanges(() => {
+      // Canvas stores come and go (function add/delete, project load). Re-subscribe
+      // to the new set so newly created function bodies are watched. We do NOT fire
+      // onChange here: function add/delete/rename and all definition edits flow
+      // through editorStore.mutationCount (setFunctions), caught by the editor
+      // subscription below — so the change signal is covered without double-firing.
+      const unsubRegistry = subscribeCanvasRegistryChanges(() => {
         subscribeAllCanvases();
-        onChangeRef.current?.();
       });
       subs.push(unsubRegistry);
 
-      // Project-scoped mutations (channels, memory files).
+      // Project-scoped mutations (channels, memory, models, functions).
       let prevEditorCount = useEditorStore.getState().mutationCount;
       const unsubEditor = useEditorStore.subscribe((state) => {
         if (state.mutationCount !== prevEditorCount) {
@@ -332,7 +331,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
           bindActive(); // (b) tab switch
         }
       });
-      const unsubRegistry = subscribeFunctionInfoChanges(bindActive); // (c) load/clear rebuild
+      const unsubRegistry = subscribeCanvasRegistryChanges(bindActive); // (c) load/clear rebuild
 
       return () => {
         unsubActive?.();
@@ -355,6 +354,9 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         exportWorkflow: () => exportProject(),
         clear: () => {
           clearAllCanvasStores();
+          // Function declarations are project-scoped (not in canvas stores), so reset
+          // them explicitly alongside the cleared bodies.
+          useEditorStore.getState().setFunctions(() => ({}));
           useEditorStore.getState().clearSelection();
         },
         setMode: (mode) => useEditorStore.getState().setBuilderMode(mode),
@@ -383,9 +385,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
             <BuilderLayout
               functions={functionsHook.functions}
               onOpenFunction={functionsHook.openFunction}
-              onCreateFunction={functionsHook.addFunction}
-              onDeleteFunction={functionsHook.deleteFunction}
-              onRenameFunction={functionsHook.renameFunction}
+              onCreateFunction={functionsHook.createFunction}
               canvasTabs={canvasTabs.tabs}
               onCanvasTabChange={canvasTabs.setActiveTabId}
               onCanvasTabClose={canvasTabs.closeTab}

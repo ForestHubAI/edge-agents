@@ -3,6 +3,7 @@ import { getCanvasStore, getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvas
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Memory } from "@foresthubai/workflow-core/memory";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
+import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 
 // ---------------------------------------------------------------------------
 // Default Channels — every workflow starts pre-initialized with a UART
@@ -38,6 +39,7 @@ export type Selection =
   | { kind: "channel"; id: string }
   | { kind: "memory"; id: string }
   | { kind: "model"; id: string }
+  | { kind: "function"; id: string }
   | { kind: "variable"; uid: string };
 
 const NO_SELECTION: Selection = { kind: "none" };
@@ -66,6 +68,10 @@ interface EditorState {
   // Project-scoped declared custom/self-hosted models (channel-like) — referenced
   // from nodes by id, mapped to llmproxy providers at deploy.
   models: Record<string, Model>;
+  // Project-scoped function declarations (signature + bundled output assignments).
+  // The body of each lives in the matching canvas store (id === fn.id). Like the
+  // other resources above, edits here are NOT undo-tracked.
+  functions: Record<string, FunctionDeclaration>;
   // The static model catalog (what the llmproxy supports), supplied by the
   // embedder via WorkflowBuilderProps.models. Not workflow state — config only.
   availableModels: ModelInfo[];
@@ -84,12 +90,16 @@ interface EditorState {
   selectChannel: (id: string) => void;
   selectMemory: (id: string) => void;
   selectModel: (id: string) => void;
+  /** Select a function AND switch the active canvas to its body (id === canvasId), so
+   * the config panel's return-expression editors resolve against the body's scope. */
+  selectFunction: (id: string) => void;
   selectVariable: (uid: string) => void;
   clearSelection: () => void;
   setActiveSidebarTab: (tab: SidebarTab) => void;
   setChannels: (updater: (vars: Record<string, Channel>) => Record<string, Channel>) => void;
   setMemory: (updater: (mem: Record<string, Memory>) => Record<string, Memory>) => void;
   setModels: (updater: (models: Record<string, Model>) => Record<string, Model>) => void;
+  setFunctions: (updater: (funcs: Record<string, FunctionDeclaration>) => Record<string, FunctionDeclaration>) => void;
   setAvailableModels: (models: ModelInfo[]) => void;
 }
 
@@ -101,15 +111,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   channels: createDefaultChannels(),
   memory: {},
   models: {},
+  functions: {},
   availableModels: [],
   mutationCount: 0,
   // A `variable` selection is canvas-local; its uid would resolve to nothing (or,
-  // worse, a collision) on the new canvas, so drop it. Project-scoped selections
-  // (channel/memory/model) survive the switch.
+  // worse, a collision) on the new canvas, so drop it. A `function` selection is
+  // tied to being on that function's body canvas (selectFunction switches to it),
+  // so navigating away via a tab drops it too. Project-scoped channel/memory/model
+  // selections survive the switch.
   setActiveCanvas: (canvasId: string) =>
     set((state) => ({
       activeCanvasId: canvasId,
-      selection: state.selection.kind === "variable" ? NO_SELECTION : state.selection,
+      selection:
+        state.selection.kind === "variable" || state.selection.kind === "function" ? NO_SELECTION : state.selection,
     })),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
   selectGraph: (nodeIds, edgeIds) => {
@@ -142,6 +156,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ selection: { kind: "model", id } });
     clearRFselect(get().activeCanvasId);
   },
+  selectFunction: (id) => {
+    // Drop the outgoing canvas's RF selection, then focus the function: select it
+    // AND make its body the active canvas so the config panel's expression editors
+    // resolve against the function's local variable scope.
+    clearRFselect(get().activeCanvasId);
+    set({ selection: { kind: "function", id }, activeCanvasId: id });
+  },
   selectVariable: (uid) => {
     set({ selection: { kind: "variable", uid } });
     clearRFselect(get().activeCanvasId);
@@ -168,6 +189,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const next = updater(state.models);
       if (next === state.models) return state;
       return { models: next, mutationCount: state.mutationCount + 1 };
+    }),
+  setFunctions: (updater) =>
+    set((state) => {
+      const next = updater(state.functions);
+      if (next === state.functions) return state;
+      return { functions: next, mutationCount: state.mutationCount + 1 };
     }),
   // Catalog is config (from props), not workflow content — never bumps mutationCount.
   setAvailableModels: (models) => set({ availableModels: models }),

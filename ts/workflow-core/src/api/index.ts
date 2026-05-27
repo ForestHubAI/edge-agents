@@ -9,4 +9,3 @@ export type Schemas = components["schemas"];
 export type DataType = Schemas["DataType"];
 export type Reference = Schemas["Reference"];
 export type Expression = Schemas["Expression"];
-export type FunctionInfo = Schemas["FunctionInfo"];

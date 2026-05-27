@@ -28,7 +28,6 @@ import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ParameterEditor from "../inputs/ParameterEditor";
-import { PortSection } from "../dialogs/FunctionInfoDialog";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
 import { useParamErrors } from "../hooks/useParamErrors";

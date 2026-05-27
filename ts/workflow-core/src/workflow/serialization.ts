@@ -5,7 +5,8 @@
 
 import type { Schemas } from "../api";
 import type { NodeData } from "../node";
-import type { FunctionInfo } from "../api";
+import type { FunctionDeclaration } from "../function";
+import { serialize as serializeFunction, deserialize as deserializeFunction } from "../function";
 import { getNodeOutput, isNodeUsedAsTool } from "../node/methods";
 import { ALL_CHANNEL_TYPES, type ApiChannel, type Channel, type ChannelType } from "../channel";
 import { serialize as serializeChannel, deserialize as deserializeChannel } from "../channel";
@@ -37,18 +38,21 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
   const mainEdges = mainCanvas.edges.map(serializeEdge);
   const mainDeclared = extractDeclaredVariables(mainCanvas.variables);
 
+  // Each declaration + its body canvas (joined by id) becomes one wire Function.
+  // The declaration splits into functionInfo + outputAssignments via serializeFunction.
   const functions: Schemas["Function"][] = [];
-  for (const [canvasId, canvas] of Object.entries(state.canvases)) {
-    if (canvasId === MAIN_CANVAS_ID) continue;
-    if (!canvas.functionInfo) {
-      throw new Error(`[workflow-core] canvas ${canvasId} has no functionInfo — cannot serialize as a Function`);
+  for (const [id, decl] of Object.entries(state.functions)) {
+    const body = state.canvases[id];
+    if (!body) {
+      throw new Error(`[workflow-core] function ${id} has no body canvas — cannot serialize`);
     }
+    const { functionInfo, outputAssignments } = serializeFunction(decl);
     functions.push({
-      functionInfo: canvas.functionInfo,
-      outputAssignments: canvas.outputAssignments,
-      nodes: canvas.nodes.map((n) => serializeNode(n, isNodeUsedAsTool(n.id, n, canvas.edges))),
-      edges: canvas.edges.map(serializeEdge),
-      declaredVariables: extractDeclaredVariables(canvas.variables),
+      functionInfo,
+      outputAssignments,
+      nodes: body.nodes.map((n) => serializeNode(n, isNodeUsedAsTool(n.id, n, body.edges))),
+      edges: body.edges.map(serializeEdge),
+      declaredVariables: extractDeclaredVariables(body.variables),
     });
   }
 
@@ -80,34 +84,34 @@ export function serialize(state: Workflow): Schemas["Workflow"] {
  */
 export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   const canvases: Record<string, Canvas> = {};
+  const functions: Record<string, FunctionDeclaration> = {};
 
-  // Main canvas: data at the api root; no functionInfo, empty outputAssignments.
+  // Main canvas: data at the api root. No function declaration.
   const mainNodes = workflow.nodes.map(deserializeNode);
   const mainEdges = workflow.edges.map(deserializeEdge);
   const mainDeclared = workflow.declaredVariables ?? [];
   canvases[MAIN_CANVAS_ID] = {
     nodes: mainNodes,
     edges: mainEdges,
-    variables: buildCanvasVariables(mainNodes, null, mainDeclared),
-    functionInfo: null,
-    outputAssignments: {},
+    variables: buildCanvasVariables(mainNodes, [], mainDeclared),
   };
 
-  // Function canvases: one per Workflow.functions[] entry, keyed by functionInfo.id.
+  // Each wire Function splits into a project-scoped declaration (functions[id]) and
+  // its body canvas (canvases[id]), joined by the function id.
   for (const fn of workflow.functions ?? []) {
-    const functionInfo: FunctionInfo = {
+    const functionInfo = {
       ...fn.functionInfo,
       arguments: ensureUids(fn.functionInfo.arguments),
       returns: ensureUids(fn.functionInfo.returns),
     };
+    const decl = deserializeFunction(functionInfo, fn.outputAssignments ?? {});
+    functions[decl.id] = decl;
     const fnNodes = fn.nodes.map(deserializeNode);
     const fnEdges = fn.edges.map(deserializeEdge);
-    canvases[functionInfo.id] = {
+    canvases[decl.id] = {
       nodes: fnNodes,
       edges: fnEdges,
-      variables: buildCanvasVariables(fnNodes, functionInfo, fn.declaredVariables ?? []),
-      functionInfo,
-      outputAssignments: fn.outputAssignments ?? {},
+      variables: buildCanvasVariables(fnNodes, decl.arguments, fn.declaredVariables ?? []),
     };
   }
 
@@ -132,6 +136,7 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
 
   return {
     canvases,
+    functions,
     channels,
     memory,
     models,
@@ -169,28 +174,25 @@ export function computeVariablesFromNodes(nodes: NodeData[]): Record<string, Nod
 /**
  * Merge the three variable sources into a single per-canvas record:
  *   declared (from api)
- * + fnarg    (derived from functionInfo.arguments — only present on function canvases)
+ * + fnarg    (derived from the function's `arguments` — empty for the main canvas)
  * + nodeOutput (derived from nodes via {@link computeVariablesFromNodes})
  *
  * Disjoint key namespaces (`declared:`, `fnarg:`, `<nodeId>:<outputId>`) so
- * merge order is irrelevant. Used by both `deserialize` here and (via re-import)
- * by workflow-builder's `CanvasState.initialize`.
+ * merge order is irrelevant.
  */
 export function buildCanvasVariables(
   nodes: NodeData[],
-  functionInfo: FunctionInfo | null,
+  fnArgs: readonly Schemas["Variable"][],
   declaredVariables: readonly Schemas["Variable"][],
 ): Record<string, Variable> {
   const variables: Record<string, Variable> = computeVariablesFromNodes(nodes);
-  if (functionInfo) {
-    for (const arg of functionInfo.arguments) {
-      variables[fnargKey(arg.uid)] = {
-        kind: "fnarg",
-        uid: arg.uid,
-        name: arg.name,
-        dataType: arg.dataType,
-      };
-    }
+  for (const arg of fnArgs) {
+    variables[fnargKey(arg.uid)] = {
+      kind: "fnarg",
+      uid: arg.uid,
+      name: arg.name,
+      dataType: arg.dataType,
+    };
   }
   for (const dv of declaredVariables) {
     variables[declaredVarKey(dv.uid)] = {

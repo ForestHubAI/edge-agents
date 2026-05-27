@@ -35,6 +35,11 @@ interface DiagnosticsState {
    * ModelDiagnosticsSync, mounted once at the workflow builder root.
    */
   byModelId: Record<string, Diagnostic[]>;
+  /**
+   * Functions are project-scoped declarations. Keyed by function id. Written by
+   * the resource diagnostics sync, mounted once at the workflow builder root.
+   */
+  byFunctionId: Record<string, Diagnostic[]>;
   setNodeDiagnostics: (nodeId: string, diags: Diagnostic[]) => void;
   clearNodeDiagnostics: (nodeId: string) => void;
   setEdgeDiagnostics: (edgeId: string, diags: Diagnostic[]) => void;
@@ -45,6 +50,8 @@ interface DiagnosticsState {
   clearMemoryDiagnostics: (memoryId: string) => void;
   setModelDiagnostics: (modelId: string, diags: Diagnostic[]) => void;
   clearModelDiagnostics: (modelId: string) => void;
+  setFunctionDiagnostics: (functionId: string, diags: Diagnostic[]) => void;
+  clearFunctionDiagnostics: (functionId: string) => void;
 }
 
 export const useDiagnosticsStore = create<DiagnosticsState>((set) => ({
@@ -53,6 +60,7 @@ export const useDiagnosticsStore = create<DiagnosticsState>((set) => ({
   byChannelId: {},
   byMemoryId: {},
   byModelId: {},
+  byFunctionId: {},
 
   setNodeDiagnostics: (nodeId, diags) =>
     set((state) => ({
@@ -107,5 +115,16 @@ export const useDiagnosticsStore = create<DiagnosticsState>((set) => ({
     set((state) => {
       const { [modelId]: _, ...rest } = state.byModelId;
       return { byModelId: rest };
+    }),
+
+  setFunctionDiagnostics: (functionId, diags) =>
+    set((state) => ({
+      byFunctionId: { ...state.byFunctionId, [functionId]: diags },
+    })),
+
+  clearFunctionDiagnostics: (functionId) =>
+    set((state) => {
+      const { [functionId]: _, ...rest } = state.byFunctionId;
+      return { byFunctionId: rest };
     }),
 }));

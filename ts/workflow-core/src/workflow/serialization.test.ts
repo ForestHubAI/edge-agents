@@ -182,15 +182,13 @@ function makeMainCanvas(nodes: Canvas["nodes"] = [], edges: Canvas["edges"] = []
   return {
     nodes,
     edges,
-    variables: buildCanvasVariables(nodes, null, declared),
-    functionInfo: null,
-    outputAssignments: {},
+    variables: buildCanvasVariables(nodes, [], declared),
   };
 }
 
 describe("workflowSerialization — forward roundtrip (state → serialize → deserialize)", () => {
   it("empty state roundtrips to a state with an empty main canvas", () => {
-    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() }, channels: {}, memory: {}, models: {} };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas() }, functions: {}, channels: {}, memory: {}, models: {} };
     expect(deserialize(serialize(state))).toEqual(state);
   });
 
@@ -199,7 +197,7 @@ describe("workflowSerialization — forward roundtrip (state → serialize → d
       { id: "stable-id-A", type: "control", source: "n1", sourceHandle: "out", target: "n2", targetHandle: "in" },
       { id: "stable-id-B", type: "tool", source: "n1", sourceHandle: "tool", target: "n3", targetHandle: "in" },
     ];
-    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) }, channels: {}, memory: {}, models: {} };
+    const state: Workflow = { canvases: { [MAIN_CANVAS_ID]: makeMainCanvas([], edges) }, functions: {}, channels: {}, memory: {}, models: {} };
     const roundTripped = deserialize(serialize(state));
     expect(roundTripped.canvases[MAIN_CANVAS_ID]!.edges.map((e) => e.id)).toEqual(["stable-id-A", "stable-id-B"]);
   });
@@ -242,7 +240,7 @@ describe("buildCanvasVariables", () => {
       arguments: [{ uid: "a1", name: "arg1", dataType: "int" as const }],
       returns: [],
     };
-    const merged = buildCanvasVariables([], fnInfo, declared);
+    const merged = buildCanvasVariables([], fnInfo.arguments, declared);
     expect(merged["declared:d1"]).toMatchObject({ kind: "declared", uid: "d1" });
     expect(merged["fnarg:a1"]).toMatchObject({ kind: "fnarg", uid: "a1" });
   });

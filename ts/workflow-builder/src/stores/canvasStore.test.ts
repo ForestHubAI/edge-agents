@@ -4,7 +4,7 @@ import {
   getAllCanvasStores,
   getCanvasStore,
   getOrCreateCanvasStore,
-  subscribeFunctionInfoChanges,
+  subscribeCanvasRegistryChanges,
   MAIN_CANVAS_ID,
 } from "./canvasStore";
 
@@ -32,7 +32,7 @@ describe("clearAllCanvasStores", () => {
     // snapshot an empty set and never re-attach to the recreated main canvas, so
     // edits after New/clear wouldn't mark the workflow dirty.
     let mainPresentAtNotify = false;
-    const unsubscribe = subscribeFunctionInfoChanges(() => {
+    const unsubscribe = subscribeCanvasRegistryChanges(() => {
       mainPresentAtNotify = MAIN_CANVAS_ID in getAllCanvasStores();
     });
 

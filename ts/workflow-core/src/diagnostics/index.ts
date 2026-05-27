@@ -5,5 +5,6 @@ export {
   validateChannel,
   validateMemory,
   validateModel,
+  validateFunction,
   validateWorkflowState,
 } from "./diagnostics";

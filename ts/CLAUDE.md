@@ -27,9 +27,11 @@ canonical write-ups.
 1. **API layer** (`src/api/`): generated from `contract/workflow.yaml`. Wire format
    the Go backend produces/consumes. `src/api/workflow.ts` is GENERATED — never
    hand-edit; regenerate with `npm run generate`.
-2. **Domain layer** (`src/{node,edge,channel,memory,model,workflow,parameter,
-   variable,expression}/`): hand-written in-memory shape for validation and
-   import/export. Owned by workflow-core. Not a persistence format.
+2. **Domain layer** (`src/{node,edge,channel,memory,model,function,workflow,
+   parameter,variable,expression}/`): hand-written in-memory shape for validation and
+   import/export. Owned by workflow-core. Not a persistence format. (`function/` owns
+   the domain `FunctionDeclaration` — outputs bundled with their return expressions —
+   and the split to the flat api `FunctionInfo`/`outputAssignments` at the wire.)
 3. **Editor stores** (`workflow-builder/src/stores/`, Zustand + React Flow): live
    editor state. Owned by builder only; core never sees it.
 

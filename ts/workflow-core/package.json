@@ -38,6 +38,10 @@
       "types": "./dist/parameter/index.d.ts",
       "import": "./dist/parameter/index.js"
     },
+    "./function": {
+      "types": "./dist/function/index.d.ts",
+      "import": "./dist/function/index.js"
+    },
     "./variable": {
       "types": "./dist/variable/index.d.ts",
       "import": "./dist/variable/index.js"

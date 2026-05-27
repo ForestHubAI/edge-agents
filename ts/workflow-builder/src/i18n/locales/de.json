@@ -189,6 +189,7 @@
   "functionName": "Funktionsname",
   "functionNamePlaceholder": "Funktionsname eingeben...",
   "functions": "Funktionen",
+  "openFunction": "Funktion öffnen",
   "globalVariable": "Globale Variable",
   "initialValue": "Anfangswert",
   "inputs": "Eingaben",

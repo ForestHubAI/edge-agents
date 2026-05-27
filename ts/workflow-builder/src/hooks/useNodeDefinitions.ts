@@ -1,8 +1,8 @@
 import { useMemo, useCallback } from "react";
 import i18n from "../i18n";
 import { NodeCategory, NodeRegistry, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";
-import type { FunctionInfo } from "@foresthubai/workflow-core";
 import { useFunctionRegistry } from "./useFunctionRegistry";
+import { toFunctionInfo, type FunctionInfo } from "@foresthubai/workflow-core/function";
 import { FunctionCallNode, FunctionNodeDefinition, buildFunctionNodeDef as coreBuildFunctionNodeDef } from "@foresthubai/workflow-core/node";
 
 /**
@@ -23,9 +23,10 @@ export const useNodeDefinitions = () => {
   // Subscribe to function registry (derived from all canvas stores)
   const { functions } = useFunctionRegistry();
 
-  // Dynamically create node definitions for each function
+  // Dynamically create node definitions for each function. The call-site node def is
+  // built from the flat signature snapshot, so project the domain declaration here.
   const functionNodeDefs: FunctionNodeDefinition[] = useMemo(
-    () => Object.values(functions).map((fn) => buildFunctionNodeDef(fn)),
+    () => Object.values(functions).map((fn) => buildFunctionNodeDef(toFunctionInfo(fn))),
     [functions],
   );
 

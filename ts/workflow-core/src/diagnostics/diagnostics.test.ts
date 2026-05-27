@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { computeNodeDiagnostics, type Diagnostic } from "./diagnostics";
+import { computeNodeDiagnostics, validateFunction, type Diagnostic } from "./diagnostics";
+import type { Expression } from "../api";
+import type { FunctionDeclaration } from "../function";
 import { NodeCategory } from "../node";
 import { SetVariableNodeDefinition } from "../node/DataNode";
 import { RetrieverNodeDefinition } from "../node/InputNode";
@@ -842,5 +844,35 @@ describe("computeNodeDiagnostics — edge cases", () => {
       ],
     });
     expect(diags).toEqual([]);
+  });
+});
+
+describe("validateFunction", () => {
+  const expr = (s: string): Expression => ({ expression: s, references: [], dataType: "string" });
+  const fn = (over: Partial<FunctionDeclaration> = {}): FunctionDeclaration => ({
+    id: "fn1",
+    version: 1,
+    name: "doThing",
+    arguments: [],
+    outputs: [],
+    ...over,
+  });
+
+  it("passes for a named function whose outputs are all assigned", () => {
+    const def = fn({ outputs: [{ uid: "r1", name: "out", dataType: "string", expression: expr("${} + 1") }] });
+    expect(validateFunction(def)).toEqual([]);
+  });
+
+  it("flags an empty name", () => {
+    const diags = validateFunction(fn({ name: "  " }));
+    expect(diags).toHaveLength(1);
+    expect(diags[0]).toMatchObject({ severity: "error", functionId: "fn1" });
+  });
+
+  it("flags an output with no assigned expression (engine invariant)", () => {
+    const def = fn({ outputs: [{ uid: "r1", name: "out", dataType: "string", expression: expr("") }] });
+    expect(validateFunction(def)).toMatchObject([
+      { severity: "error", category: "missing-output-assignment", functionId: "fn1" },
+    ]);
   });
 });
