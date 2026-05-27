@@ -45,10 +45,8 @@ const NO_SELECTION: Selection = { kind: "none" };
 // Drop ReactFlow's visual selection on a canvas so previously-glowing nodes/edges
 // stop glowing. Peek (never create) — clearing selection must not resurrect a
 // canvas store that was just dropped (e.g. after clearAllCanvasStores).
-function clearCanvasVisualSelection(canvasId: string): void {
-  const canvas = getCanvasStore(canvasId)?.getState();
-  canvas?.selectNodes([]);
-  canvas?.selectEdges([]);
+function clearRFselect(canvasId: string): void {
+  getCanvasStore(canvasId)?.getState().setRFselect([], []);
 }
 
 // ---------------------------------------------------------------------------
@@ -79,10 +77,10 @@ interface EditorState {
   mutationCount: number;
   setActiveCanvas: (canvasId: string) => void;
   setBuilderMode: (mode: BuilderMode) => void;
-  /** Programmatic graph selection (sidebar/diagnostics): also pushes into ReactFlow. */
+  /** Programmatic graph selection (change selection and pushes into ReactFlow). */
   selectGraph: (nodeIds: string[], edgeIds: string[]) => void;
-  /** ReactFlow-origin graph selection (onSelectionChange): never pushes back. */
-  syncGraphFromCanvas: (nodeIds: string[], edgeIds: string[]) => void;
+  /** ReactFlow-origin graph selection fires onSelectionChange which needs to update the editor state without pushing back to ReactFlow. */
+  syncSelectionFromRF: (nodeIds: string[], edgeIds: string[]) => void;
   selectChannel: (id: string) => void;
   selectMemory: (id: string) => void;
   selectModel: (id: string) => void;
@@ -117,39 +115,40 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   selectGraph: (nodeIds, edgeIds) => {
     set({ selection: nodeIds.length || edgeIds.length ? { kind: "graph", nodeIds, edgeIds } : NO_SELECTION });
     // Programmatic pick — mirror it into ReactFlow so the canvas reflects it.
-    const canvas = getOrCreateCanvasStore(get().activeCanvasId).getState();
-    canvas.selectNodes(nodeIds);
-    canvas.selectEdges(edgeIds);
+    getOrCreateCanvasStore(get().activeCanvasId).getState().setRFselect(nodeIds, edgeIds);
   },
-  syncGraphFromCanvas: (nodeIds, edgeIds) => {
+  syncSelectionFromRF: (nodeIds, edgeIds) => {
     if (nodeIds.length || edgeIds.length) {
+      // A selection made on the canvas (click, box-drag) is hoisted into the editor state.
+      // A programmatic selectGraph also round-trips here via onSelectionChange; that just re-sets an
+      // equal value (one benign re-render), so it needs no special-casing.
       set({ selection: { kind: "graph", nodeIds, edgeIds } });
     } else if (get().selection.kind === "graph") {
-      // Empty + currently graph = user deselected on the canvas → clear.
-      // Empty + any other kind = echo of the canvas-clear we triggered when
-      // picking a channel/memory/etc → ignore, or it would wipe that pick.
+      // Empty while a graph selection was active = user deselected on the canvas.
       set({ selection: NO_SELECTION });
     }
+    // Empty + non-graph kind = echo of the canvas-clear we triggered when picking
+    // a channel/memory/etc; ignore it, or it would wipe that pick.
   },
   selectChannel: (id) => {
     set({ selection: { kind: "channel", id } });
-    clearCanvasVisualSelection(get().activeCanvasId);
+    clearRFselect(get().activeCanvasId);
   },
   selectMemory: (id) => {
     set({ selection: { kind: "memory", id } });
-    clearCanvasVisualSelection(get().activeCanvasId);
+    clearRFselect(get().activeCanvasId);
   },
   selectModel: (id) => {
     set({ selection: { kind: "model", id } });
-    clearCanvasVisualSelection(get().activeCanvasId);
+    clearRFselect(get().activeCanvasId);
   },
   selectVariable: (uid) => {
     set({ selection: { kind: "variable", uid } });
-    clearCanvasVisualSelection(get().activeCanvasId);
+    clearRFselect(get().activeCanvasId);
   },
   clearSelection: () => {
     set({ selection: NO_SELECTION });
-    clearCanvasVisualSelection(get().activeCanvasId);
+    clearRFselect(get().activeCanvasId);
   },
   setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
   setChannels: (updater) =>

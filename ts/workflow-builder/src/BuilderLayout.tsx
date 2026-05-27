@@ -84,7 +84,7 @@ export const BuilderLayout = ({
   // Selection (project-wide in editorStore, mirrored to canvas store for RF visual)
   const selection = useEditorStore((s) => s.selection);
   const selectGraph = useEditorStore((s) => s.selectGraph);
-  const syncGraphFromCanvas = useEditorStore((s) => s.syncGraphFromCanvas);
+  const syncSelectionFromRF = useEditorStore((s) => s.syncSelectionFromRF);
   const clearSelection = useEditorStore((s) => s.clearSelection);
 
   // Sidebar tab state + mode auto-switch.
@@ -175,12 +175,12 @@ export const BuilderLayout = ({
 
   const handleSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selNodes, edges: selEdges }) => {
-      syncGraphFromCanvas(
+      syncSelectionFromRF(
         selNodes.map((n) => n.id),
         selEdges.map((e) => e.id),
       );
     },
-    [syncGraphFromCanvas],
+    [syncSelectionFromRF],
   );
 
   const handleDeleteEdge = useCallback(

@@ -86,10 +86,12 @@ export interface CanvasState {
   setVariables: (updater: (variables: Record<string, Variable>) => Record<string, Variable>) => void;
   setFunctionInfo: (updater: (info: FunctionInfo | null) => FunctionInfo | null) => void;
   setOutputAssignments: (updater: (assignments: OutputAssignments) => OutputAssignments) => void;
-  /** Visual-only: set ReactFlow selected flag on nodes. No history, safe in read-only mode. */
-  selectNodes: (nodeIds: string[]) => void;
-  /** Visual-only: set ReactFlow selected flag on edges. No history, safe in read-only mode. */
-  selectEdges: (edgeIds: string[]) => void;
+  /**
+   * Visual-only: set ReactFlow selected flags on nodes AND edges in one atomic update.
+   * This will call a single re-render and a single onSelectionChange callback.
+   * Not an update of domain state, so it can be used in read-only mode.
+   */
+  setRFselect: (nodeIds: string[], edgeIds: string[]) => void;
   initialize: (
     nodes: Node<NodeData>[],
     edges: Edge<EdgeData>[],
@@ -166,21 +168,16 @@ function createCanvasStore(): CanvasStore {
           return { outputAssignments: next };
         }),
 
-      selectNodes: (nodeIds) => {
-        const idSet = new Set(nodeIds);
+      setRFselect: (nodeIds, edgeIds) => {
+        const nodeIdSet = new Set(nodeIds);
+        const edgeIdSet = new Set(edgeIds);
         set((state) => ({
           nodes: state.nodes.map((n) => {
-            const shouldSelect = idSet.has(n.id);
+            const shouldSelect = nodeIdSet.has(n.id);
             return n.selected === shouldSelect ? n : { ...n, selected: shouldSelect };
           }),
-        }));
-      },
-
-      selectEdges: (edgeIds) => {
-        const idSet = new Set(edgeIds);
-        set((state) => ({
           edges: state.edges.map((e) => {
-            const shouldSelect = idSet.has(e.id);
+            const shouldSelect = edgeIdSet.has(e.id);
             return e.selected === shouldSelect ? e : { ...e, selected: shouldSelect };
           }),
         }));
