@@ -11,6 +11,7 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/node"
 	"github.com/ForestHubAI/fh-core/go/engine/node/trigger"
+	"github.com/ForestHubAI/fh-core/go/mapping"
 )
 
 // graph holds the per-build state for a single graph (main workflow or function).
@@ -59,7 +60,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if nd.Arguments.IntervalValue == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "intervalValue"}
 			}
-			interval := engine.TickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
+			interval := mapping.TickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
 			t := trigger.NewTicker(nd.Id, interval)
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t

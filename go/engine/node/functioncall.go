@@ -12,6 +12,7 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
+	"github.com/ForestHubAI/fh-core/go/mapping"
 )
 
 // Implementation guards
@@ -88,7 +89,7 @@ func (n *FunctionCall) Tools() ([]llmproxy.FunctionTool, error) {
 	properties := make(map[string]any, len(n.fn.Info.Arguments))
 	argByName := make(map[string]workflow.Variable, len(n.fn.Info.Arguments))
 	for _, a := range n.fn.Info.Arguments {
-		properties[a.Name] = map[string]any{"type": engine.JSONTypeFor(a.DataType)}
+		properties[a.Name] = map[string]any{"type": mapping.JSONTypeFor(a.DataType)}
 		argByName[a.Name] = a
 	}
 	returnByUid := make(map[string]workflow.Variable, len(n.fn.Info.Returns))
