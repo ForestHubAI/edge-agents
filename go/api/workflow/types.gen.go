@@ -1442,9 +1442,6 @@ type Workflow struct {
 	// Models Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
 	Models *[]Model `json:"models,omitempty"`
 	Nodes  []Node   `json:"nodes"`
-
-	// SchemaVersion Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
-	SchemaVersion int32 `json:"schemaVersion"`
 }
 
 // WritePinNode defines model for WritePinNode.

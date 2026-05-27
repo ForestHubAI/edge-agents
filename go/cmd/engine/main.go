@@ -81,10 +81,10 @@ func main() {
 	// Create builder and engine
 	builder := &build.Builder{
 		Drivers:   drivers,
-		Backend:   backendClient,
 		LLM:       llmClient,
 		Memory:    memoryManager,
 		WebSearch: webSearchProvider,
+		Retriever: backendClient,
 	}
 	eng := &engine.Engine{
 		Secret:  cfg.Secret,
@@ -177,21 +177,21 @@ func main() {
 // loadManifest reads a JSON DriverManifest from the given path. An empty path
 // returns a minimal default suitable for local dev and CI. A missing file at
 // an explicit path is a fatal misconfiguration.
-func loadManifest(path string) (domain.DeviceManifest, error) {
+func loadManifest(path string) (engine.DeviceManifest, error) {
 	if path == "" {
-		return domain.DeviceManifest{
-			GPIOs: map[string]domain.GPIOConfig{
+		return engine.DeviceManifest{
+			GPIOs: map[string]engine.GPIOConfig{
 				"gpiochip0": {Chip: "/dev/gpiochip0"},
 			},
 		}, nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return domain.DeviceManifest{}, err
+		return engine.DeviceManifest{}, err
 	}
-	var m domain.DeviceManifest
+	var m engine.DeviceManifest
 	if err := json.Unmarshal(data, &m); err != nil {
-		return domain.DeviceManifest{}, err
+		return engine.DeviceManifest{}, err
 	}
 	return m, nil
 }

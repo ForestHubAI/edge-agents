@@ -42,8 +42,8 @@ func snapshotServer(t *testing.T, snapshot []workflow.MemoryFile) (*httptest.Ser
 func TestManager_RestoreAndRead(t *testing.T) {
 	max := 2048
 	srv, _ := snapshotServer(t, []workflow.MemoryFile{
-		{UID: "uid-notes", Name: "notes", Description: "scratch pad", Content: "hello", MaxSizeBytes: &max},
-		{UID: "uid-log", Name: "log", Description: "session log", Content: ""},
+		{Id: "uid-notes", Label: "notes", Description: "scratch pad", Content: "hello", MaxSizeBytes: &max},
+		{Id: "uid-log", Label: "log", Description: "session log", Content: ""},
 	})
 	defer srv.Close()
 
@@ -66,7 +66,7 @@ func TestManager_RestoreAndRead(t *testing.T) {
 
 func TestManager_Append_PushesToBackend(t *testing.T) {
 	srv, puts := snapshotServer(t, []workflow.MemoryFile{
-		{UID: "uid-log", Name: "log", Description: "log file", Content: "first line\n"},
+		{Id: "uid-log", Label: "log", Description: "log file", Content: "first line\n"},
 	})
 	defer srv.Close()
 
@@ -82,7 +82,7 @@ func TestManager_Append_PushesToBackend(t *testing.T) {
 
 func TestManager_Edit_FoundAndMissing(t *testing.T) {
 	srv, _ := snapshotServer(t, []workflow.MemoryFile{
-		{UID: "uid-notes", Name: "notes", Description: "n", Content: "prefers tea"},
+		{Id: "uid-notes", Label: "notes", Description: "n", Content: "prefers tea"},
 	})
 	defer srv.Close()
 
@@ -100,7 +100,7 @@ func TestManager_Edit_FoundAndMissing(t *testing.T) {
 func TestManager_Append_SizeCap(t *testing.T) {
 	max := 5
 	srv, _ := snapshotServer(t, []workflow.MemoryFile{
-		{UID: "uid-tiny", Name: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max},
+		{Id: "uid-tiny", Label: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max},
 	})
 	defer srv.Close()
 
@@ -135,7 +135,7 @@ func TestManager_NoBackend_Restore(t *testing.T) {
 
 func TestManager_BackendDown_AppendFails(t *testing.T) {
 	srv, _ := snapshotServer(t, []workflow.MemoryFile{
-		{UID: "uid-notes", Name: "notes", Description: "n", Content: "x"},
+		{Id: "uid-notes", Label: "notes", Description: "n", Content: "x"},
 	})
 	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
 	require.NoError(t, mgr.Restore(context.Background()))
