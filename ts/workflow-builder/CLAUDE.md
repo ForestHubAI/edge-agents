@@ -31,12 +31,14 @@ hooks/     useGraph, useCanvasHistory, useFunctions, useWorkflowSerialization, �
 inputs/    Expression + parameter editors.
 utils/     *Operations.ts (channel/memory/model/variable CRUD), serialization helpers.
 i18n/      The builder's PRIVATE i18next instance (see gotcha below).
-docs/      Design notes — architecture.md (component tree/ownership), selection.md.
+docs/      Design notes — architecture.md, selection.md, change-tracking.md.
 ```
 
-For the component tree, what owns what, and prop/data flow, see
-`docs/architecture.md`. For the selection model and its ReactFlow sync, see
-`docs/selection.md`.
+Design notes in `docs/`:
+- `architecture.md` — component tree, what owns what, prop/data flow.
+- `selection.md` — the selection model and its two-way ReactFlow sync.
+- `change-tracking.md` — `mutationCount`, the `onChange` / `onHistoryChange` host
+  signals, and how dirty tracking is split between builder and host.
 
 ## Stores — the editor-state layer
 

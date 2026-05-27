@@ -1,6 +1,6 @@
 # Architecture & Conventions
 
-How the workflow types are layered, named, and split across packages. For the parameter-level contract (presence, `required`, pruning) see [parameters.md](./parameters.md).
+How the workflow types are layered, named, and split across packages. For the parameter-level contract (presence, `required`, pruning) see [parameters.md](./parameters.md); for the persisted save/export format and schema migration see [persistence.md](./persistence.md).
 
 ## Two layers: domain and api
 

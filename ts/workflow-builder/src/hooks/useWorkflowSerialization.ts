@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthubai/workflow-core/workflow";
+import { migrate } from "@foresthubai/workflow-core/migration";
 import type { NodeData } from "@foresthubai/workflow-core/node";
 import type { EdgeData } from "@foresthubai/workflow-core/edge";
 import type { Channel } from "@foresthubai/workflow-core/channel";
@@ -21,7 +22,9 @@ import { getReactFlowType } from "../utils/graphOperations";
  */
 export function useWorkflowSerialization() {
   const importProject = useCallback((workflow: ApiWorkflow): void => {
-    const state = deserialize(workflow);
+    // Migrate at the load boundary so an older saved document is brought current
+    // before deserialize ever sees it. A no-op on an already-current document.
+    const state = deserialize(migrate(workflow));
 
     clearAllCanvasStores();
 
