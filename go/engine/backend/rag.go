@@ -27,7 +27,7 @@ func (c *Client) QueryRAG(ctx context.Context, params engine.RAGQueryParams) ([]
 			ChunkID:    r.ChunkID,
 			DocumentID: r.DocumentID,
 			Content:    r.Content,
-			Score:      float64(r.Score),
+			Score:      r.Score,
 		}
 	}
 	return out, nil

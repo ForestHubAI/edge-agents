@@ -3,7 +3,7 @@ package engine
 // Ports: the engine-owned seams for everything it needs from "outside".
 // Each is an interface so the engine never depends on a concrete adapter.
 // The fh-backend HTTP client is one adapter; package local provides
-// offline defaults (filesystem memory, no-op control plane and retriever)
+// offline defaults (filesystem memory, no-op lifecycle and retriever)
 // so the engine is fully usable with zero account. Signatures speak the
 // engine's own domain types (RAGQueryParams, etc.) plus external package
 // types (llmproxy, api/workflow); adapters map to their own internal
@@ -20,13 +20,12 @@ import (
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 )
 
-// ControlPlane is the agent-registration seam (boot callback + heartbeat).
-// Local default: no-op. fh-backend adapter: POSTs to the control plane.
-type ControlPlane interface {
-	BootCallback(ctx context.Context, publicAddress, status string, loadedManifest *DeviceManifest, errorMsg *string) error
-	BootCallbackWithRetry(ctx context.Context, publicAddress, status string, loadedManifest *DeviceManifest, errorMsg *string)
-	Heartbeat(ctx context.Context, publicAddress string) error
-	HeartbeatLoop(ctx context.Context, publicAddress string)
+// Lifecycle is the agent-registration seam (registration + periodic
+// heartbeat). Local default: no-op. fh-backend adapter: POSTs to
+// /agents/bootCallback and /agents/heartbeat.
+type Lifecycle interface {
+	Register(ctx context.Context, reg AgentRegistration) error
+	Heartbeat(ctx context.Context, address string) error
 }
 
 // MemoryStore is the durable-memory seam. Snapshot pulls the agent's full

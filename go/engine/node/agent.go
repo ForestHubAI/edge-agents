@@ -17,8 +17,9 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
 	"github.com/ForestHubAI/fh-core/go/engine/memory"
+	"github.com/ForestHubAI/fh-core/go/logging"
+	"github.com/ForestHubAI/fh-core/go/mapping"
 )
 
 // Implementation guards
@@ -300,7 +301,7 @@ func (n *Agent) buildResponseFormat() *llmproxy.ResponseFormat {
 		"answer": map[string]any{"type": "string"},
 	}
 	for _, od := range n.outputDecl {
-		properties[od.Name] = map[string]any{"type": engine.JSONTypeFor(od.DataType)}
+		properties[od.Name] = map[string]any{"type": mapping.JSONTypeFor(od.DataType)}
 	}
 	branches := n.Transitions(engine.PortCtrl)
 	if len(branches) > 1 {

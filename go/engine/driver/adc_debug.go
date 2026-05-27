@@ -5,7 +5,7 @@ package driver
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 
 	"github.com/rs/zerolog"
 )
