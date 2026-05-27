@@ -79,7 +79,8 @@ export function deleteChannel(id: string): void {
     const { [key]: _drop, ...rest } = vars;
     return rest;
   });
-  if (useEditorStore.getState().selectedChannelId === id) {
-    useEditorStore.getState().setSelectedChannelId(null);
+  const sel = useEditorStore.getState().selection;
+  if (sel.kind === "channel" && sel.id === id) {
+    useEditorStore.getState().clearSelection();
   }
 }

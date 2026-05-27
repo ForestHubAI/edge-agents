@@ -5,7 +5,8 @@ import { EdgeData, isControlFlow, isToolFlow, type EdgeType } from "@foresthubai
 import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useEditorStore } from "../stores/editorStore";
+import { isReadOnly } from "../WorkflowBuilder";
 import { computeEdgeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 
 const EDGE_BASE_COLOR = "hsl(var(--edge-default))";

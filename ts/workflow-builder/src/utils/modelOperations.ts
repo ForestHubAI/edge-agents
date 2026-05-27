@@ -48,7 +48,8 @@ export function deleteModel(id: string): void {
     const { [key]: _drop, ...rest } = models;
     return rest;
   });
-  if (useEditorStore.getState().selectedModelId === id) {
-    useEditorStore.getState().setSelectedModelId(null);
+  const sel = useEditorStore.getState().selection;
+  if (sel.kind === "model" && sel.id === id) {
+    useEditorStore.getState().clearSelection();
   }
 }

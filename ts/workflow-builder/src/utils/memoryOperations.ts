@@ -50,7 +50,8 @@ export function deleteMemory(id: string): void {
     const { [key]: _drop, ...rest } = mem;
     return rest;
   });
-  if (useEditorStore.getState().selectedMemoryId === id) {
-    useEditorStore.getState().setSelectedMemoryId(null);
+  const sel = useEditorStore.getState().selection;
+  if (sel.kind === "memory" && sel.id === id) {
+    useEditorStore.getState().clearSelection();
   }
 }

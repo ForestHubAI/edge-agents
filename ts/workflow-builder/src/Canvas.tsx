@@ -21,8 +21,9 @@ import { useResolvedTheme } from "./hooks/useResolvedTheme";
 import { NodeCategory, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";
 import { isValidConnection as validateConnection } from "./utils/connectionRules";
 import { getOrCreateCanvasStore } from "./stores/canvasStore";
-import { useEditorStore, isReadOnly } from "./stores/editorStore";
+import { useEditorStore } from "./stores/editorStore";
 import { nodeTypes, edgeTypes } from "./graph/reactFlowRegistry";
+import { isReadOnly } from "./WorkflowBuilder";
 
 interface CanvasProps {
   canvasId: string;

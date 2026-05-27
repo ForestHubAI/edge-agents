@@ -68,7 +68,8 @@ export function deleteDeclaredVariable(canvasId: string, uid: string): void {
     const { [key]: _drop, ...rest } = vars;
     return rest;
   });
-  if (useEditorStore.getState().selectedVariableUid === uid) {
-    useEditorStore.getState().setSelectedVariableUid(null);
+  const sel = useEditorStore.getState().selection;
+  if (sel.kind === "variable" && sel.uid === uid) {
+    useEditorStore.getState().clearSelection();
   }
 }

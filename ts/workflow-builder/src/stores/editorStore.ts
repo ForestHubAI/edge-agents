@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
+import { getCanvasStore, getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./canvasStore";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Memory } from "@foresthubai/workflow-core/memory";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
@@ -16,18 +16,40 @@ export function createDefaultChannels(): Record<string, Channel> {
   return { [uart.id]: uart };
 }
 
-// BuilderMode + helpers live alongside Props/Handle in ../WorkflowBuilder.tsx
-// so the full public contract is in one place. The `import type` below is
-// type-only — TypeScript erases it at compile time, so no runtime cycle is
-// introduced even though WorkflowBuilder.tsx imports useEditorStore from here.
-//
-// Re-exported so the 14+ panels that already do
-// `import { isReadOnly } from "./stores/editorStore"` keep working unchanged.
-export { isReadOnly, isPreview, type BuilderMode } from "../WorkflowBuilder";
 import type { BuilderMode } from "../WorkflowBuilder";
 // Type-only (erased) — the active left-sidebar tab lives here so non-sidebar code
 // (e.g. validation navigation) can open a specific panel. No runtime cycle.
 import type { SidebarTab } from "../panels/BuilderSidebar";
+
+// ---------------------------------------------------------------------------
+// Selection
+// ---------------------------------------------------------------------------
+
+/**
+ * What the editor is focused on, driving right-side config-panel visibility.
+ * A discriminated union so exclusivity is structural: at most one primitive is
+ * ever selected, except nodes+edges which coexist under `graph` (box-select can
+ * grab both). The only way to mutate it is the select* / clearSelection actions,
+ * each of which replaces the whole value — no field can drift out of sync.
+ */
+export type Selection =
+  | { kind: "none" }
+  | { kind: "graph"; nodeIds: string[]; edgeIds: string[] }
+  | { kind: "channel"; id: string }
+  | { kind: "memory"; id: string }
+  | { kind: "model"; id: string }
+  | { kind: "variable"; uid: string };
+
+const NO_SELECTION: Selection = { kind: "none" };
+
+// Drop ReactFlow's visual selection on a canvas so previously-glowing nodes/edges
+// stop glowing. Peek (never create) — clearing selection must not resurrect a
+// canvas store that was just dropped (e.g. after clearAllCanvasStores).
+function clearCanvasVisualSelection(canvasId: string): void {
+  const canvas = getCanvasStore(canvasId)?.getState();
+  canvas?.selectNodes([]);
+  canvas?.selectEdges([]);
+}
 
 // ---------------------------------------------------------------------------
 // Store
@@ -37,20 +59,7 @@ interface EditorState {
   activeCanvasId: string;
   activeSidebarTab: SidebarTab;
   builderMode: BuilderMode;
-  selectedNodeIds: string[];
-  selectedEdgeIds: string[];
-  /** Currently selected channel for the right-side ChannelConfigPanel. */
-  selectedChannelId: string | null;
-  /** Currently selected memory primitive for the right-side MemoryConfigPanel. */
-  selectedMemoryId: string | null;
-  /** Currently selected declared model for the right-side ModelConfigPanel. */
-  selectedModelId: string | null;
-  /**
-   * Currently selected declared variable (uid) for the right-side
-   * VariableConfigPanel. Canvas-local — resolved against the active canvas
-   * store, so it is cleared whenever the active canvas changes.
-   */
-  selectedVariableUid: string | null;
+  selection: Selection;
   // Project-scoped channels (pins, buses) — shared across all canvases
   channels: Record<string, Channel>;
   // Project-scoped memory primitives (memory files + vector databases) — shared
@@ -70,12 +79,15 @@ interface EditorState {
   mutationCount: number;
   setActiveCanvas: (canvasId: string) => void;
   setBuilderMode: (mode: BuilderMode) => void;
-  setSelection: (nodeIds: string[], edgeIds: string[]) => void;
+  /** Programmatic graph selection (sidebar/diagnostics): also pushes into ReactFlow. */
+  selectGraph: (nodeIds: string[], edgeIds: string[]) => void;
+  /** ReactFlow-origin graph selection (onSelectionChange): never pushes back. */
+  syncGraphFromCanvas: (nodeIds: string[], edgeIds: string[]) => void;
+  selectChannel: (id: string) => void;
+  selectMemory: (id: string) => void;
+  selectModel: (id: string) => void;
+  selectVariable: (uid: string) => void;
   clearSelection: () => void;
-  setSelectedChannelId: (id: string | null) => void;
-  setSelectedMemoryId: (id: string | null) => void;
-  setSelectedModelId: (id: string | null) => void;
-  setSelectedVariableUid: (uid: string | null) => void;
   setActiveSidebarTab: (tab: SidebarTab) => void;
   setChannels: (updater: (vars: Record<string, Channel>) => Record<string, Channel>) => void;
   setMemory: (updater: (mem: Record<string, Memory>) => Record<string, Memory>) => void;
@@ -83,118 +95,61 @@ interface EditorState {
   setAvailableModels: (models: ModelInfo[]) => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   activeCanvasId: MAIN_CANVAS_ID,
   builderMode: { type: "edit" },
-  selectedNodeIds: [],
-  selectedEdgeIds: [],
-  selectedChannelId: null,
-  selectedMemoryId: null,
-  selectedModelId: null,
-  selectedVariableUid: null,
+  selection: NO_SELECTION,
   activeSidebarTab: "nodes",
   channels: createDefaultChannels(),
   memory: {},
   models: {},
   availableModels: [],
   mutationCount: 0,
-  // selectedVariableUid is canvas-local; a uid from the previous canvas would
-  // resolve to nothing (or, worse, a collision) on the new one, so drop it.
-  setActiveCanvas: (canvasId: string) => set({ activeCanvasId: canvasId, selectedVariableUid: null }),
+  // A `variable` selection is canvas-local; its uid would resolve to nothing (or,
+  // worse, a collision) on the new canvas, so drop it. Project-scoped selections
+  // (channel/memory/model) survive the switch.
+  setActiveCanvas: (canvasId: string) =>
+    set((state) => ({
+      activeCanvasId: canvasId,
+      selection: state.selection.kind === "variable" ? NO_SELECTION : state.selection,
+    })),
   setBuilderMode: (mode: BuilderMode) => set({ builderMode: mode }),
-  setSelection: (nodeIds, edgeIds) =>
-    // Empty selection from ReactFlow's onSelectionChange can fire as a side
-    // effect of clearing the canvas-store selection (e.g. when picking a
-    // channel/memory file). Only clobber sidebar selection when this call
-    // actually picks something — otherwise it would be wiped immediately.
-    set({
-      selectedNodeIds: nodeIds,
-      selectedEdgeIds: edgeIds,
-      ...(nodeIds.length > 0 || edgeIds.length > 0
-        ? { selectedChannelId: null, selectedMemoryId: null, selectedModelId: null, selectedVariableUid: null }
-        : {}),
-    }),
-  clearSelection: () =>
-    set({
-      selectedNodeIds: [],
-      selectedEdgeIds: [],
-      selectedChannelId: null,
-      selectedMemoryId: null,
-      selectedModelId: null,
-      selectedVariableUid: null,
-    }),
-  setSelectedChannelId: (id) => {
-    set((state) => {
-      // Drop ReactFlow's visual selection on the active canvas so a
-      // previously-selected node/edge no longer appears highlighted.
-      if (id !== null) {
-        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
-        canvas.selectNodes([]);
-        canvas.selectEdges([]);
-      }
-      return {
-        selectedChannelId: id,
-        selectedMemoryId: id !== null ? null : state.selectedMemoryId,
-        selectedModelId: id !== null ? null : state.selectedModelId,
-        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
-        selectedNodeIds: [],
-        selectedEdgeIds: [],
-      };
-    });
+  selectGraph: (nodeIds, edgeIds) => {
+    set({ selection: nodeIds.length || edgeIds.length ? { kind: "graph", nodeIds, edgeIds } : NO_SELECTION });
+    // Programmatic pick — mirror it into ReactFlow so the canvas reflects it.
+    const canvas = getOrCreateCanvasStore(get().activeCanvasId).getState();
+    canvas.selectNodes(nodeIds);
+    canvas.selectEdges(edgeIds);
   },
-  setSelectedMemoryId: (id) => {
-    set((state) => {
-      if (id !== null) {
-        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
-        canvas.selectNodes([]);
-        canvas.selectEdges([]);
-      }
-      return {
-        selectedMemoryId: id,
-        selectedChannelId: id !== null ? null : state.selectedChannelId,
-        selectedModelId: id !== null ? null : state.selectedModelId,
-        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
-        selectedNodeIds: [],
-        selectedEdgeIds: [],
-      };
-    });
+  syncGraphFromCanvas: (nodeIds, edgeIds) => {
+    if (nodeIds.length || edgeIds.length) {
+      set({ selection: { kind: "graph", nodeIds, edgeIds } });
+    } else if (get().selection.kind === "graph") {
+      // Empty + currently graph = user deselected on the canvas → clear.
+      // Empty + any other kind = echo of the canvas-clear we triggered when
+      // picking a channel/memory/etc → ignore, or it would wipe that pick.
+      set({ selection: NO_SELECTION });
+    }
   },
-  setSelectedModelId: (id) => {
-    set((state) => {
-      if (id !== null) {
-        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
-        canvas.selectNodes([]);
-        canvas.selectEdges([]);
-      }
-      return {
-        selectedModelId: id,
-        selectedChannelId: id !== null ? null : state.selectedChannelId,
-        selectedMemoryId: id !== null ? null : state.selectedMemoryId,
-        selectedVariableUid: id !== null ? null : state.selectedVariableUid,
-        selectedNodeIds: [],
-        selectedEdgeIds: [],
-      };
-    });
+  selectChannel: (id) => {
+    set({ selection: { kind: "channel", id } });
+    clearCanvasVisualSelection(get().activeCanvasId);
   },
-  setSelectedVariableUid: (uid) => {
-    set((state) => {
-      // Picking a variable behaves like picking a node/edge: drop ReactFlow's
-      // visual selection on the active canvas and clear the project-scoped
-      // sidebar selections so only the VariableConfigPanel is shown.
-      if (uid !== null) {
-        const canvas = getOrCreateCanvasStore(state.activeCanvasId).getState();
-        canvas.selectNodes([]);
-        canvas.selectEdges([]);
-      }
-      return {
-        selectedVariableUid: uid,
-        selectedChannelId: uid !== null ? null : state.selectedChannelId,
-        selectedMemoryId: uid !== null ? null : state.selectedMemoryId,
-        selectedModelId: uid !== null ? null : state.selectedModelId,
-        selectedNodeIds: [],
-        selectedEdgeIds: [],
-      };
-    });
+  selectMemory: (id) => {
+    set({ selection: { kind: "memory", id } });
+    clearCanvasVisualSelection(get().activeCanvasId);
+  },
+  selectModel: (id) => {
+    set({ selection: { kind: "model", id } });
+    clearCanvasVisualSelection(get().activeCanvasId);
+  },
+  selectVariable: (uid) => {
+    set({ selection: { kind: "variable", uid } });
+    clearCanvasVisualSelection(get().activeCanvasId);
+  },
+  clearSelection: () => {
+    set({ selection: NO_SELECTION });
+    clearCanvasVisualSelection(get().activeCanvasId);
   },
   setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
   setChannels: (updater) =>

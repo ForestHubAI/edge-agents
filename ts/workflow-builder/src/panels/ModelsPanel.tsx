@@ -14,22 +14,22 @@ import { ResourceListPanel } from "./ResourceListPanel";
 export const ModelsPanel = () => {
   const { t } = useTranslation();
   const models = useEditorStore((s) => s.models);
-  const selectedModelId = useEditorStore((s) => s.selectedModelId);
-  const setSelectedModelId = useEditorStore((s) => s.setSelectedModelId);
+  const selection = useEditorStore((s) => s.selection);
+  const selectModel = useEditorStore((s) => s.selectModel);
   const byModelId = useDiagnosticsStore((s) => s.byModelId);
 
   return (
     <ResourceListPanel
       items={Object.values(models)}
-      selectedId={selectedModelId}
-      onSelect={setSelectedModelId}
+      selectedId={selection.kind === "model" ? selection.id : null}
+      onSelect={selectModel}
       diagnosticsSlot={byModelId}
       badge={() => t("modelLLMBadge", "LLM")}
       emptyIcon={BrainCircuit}
       emptyText={t("noModels", "No custom models yet")}
       emptyHint={t("noModelsHint", "Built-in models are always available. Declare custom or self-hosted models here.")}
       addActions={[
-        { label: t("addCustomModel", "Add Custom Model"), icon: Plus, onAdd: () => setSelectedModelId(addModel("LLMModel").id) },
+        { label: t("addCustomModel", "Add Custom Model"), icon: Plus, onAdd: () => selectModel(addModel("LLMModel").id) },
       ]}
     />
   );

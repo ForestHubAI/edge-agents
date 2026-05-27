@@ -58,51 +58,44 @@ export const RightConfigPanel = ({
   onTestNode,
   onDebugStep,
 }: RightConfigPanelProps) => {
-  const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
-  const selectedEdgeIds = useEditorStore((s) => s.selectedEdgeIds);
-  const selectedChannelId = useEditorStore((s) => s.selectedChannelId);
+  const selection = useEditorStore((s) => s.selection);
+  const clearSelection = useEditorStore((s) => s.clearSelection);
   const channels = useEditorStore((s) => s.channels);
-  const setSelectedChannelId = useEditorStore((s) => s.setSelectedChannelId);
-  const selectedMemoryId = useEditorStore((s) => s.selectedMemoryId);
   const memory = useEditorStore((s) => s.memory);
-  const setSelectedMemoryId = useEditorStore((s) => s.setSelectedMemoryId);
-  const selectedModelId = useEditorStore((s) => s.selectedModelId);
   const models = useEditorStore((s) => s.models);
-  const setSelectedModelId = useEditorStore((s) => s.setSelectedModelId);
-  const selectedVariableUid = useEditorStore((s) => s.selectedVariableUid);
-  const setSelectedVariableUid = useEditorStore((s) => s.setSelectedVariableUid);
 
   const useStore = getOrCreateCanvasStore(canvasId);
 
   const selectedNode = useStore(
     useCallback(
       (s) => {
-        if (selectedNodeIds.length !== 1) return null;
-        const node = s.nodes.find((n) => n.id === selectedNodeIds[0]);
+        if (selection.kind !== "graph" || selection.nodeIds.length !== 1) return null;
+        const node = s.nodes.find((n) => n.id === selection.nodeIds[0]);
         return node?.data ?? null;
       },
-      [selectedNodeIds],
+      [selection],
     ),
   );
 
   const selectedVariable = useStore(
     useCallback(
       (s) => {
-        if (!selectedVariableUid) return null;
-        const v = s.variables[declaredVarKey(selectedVariableUid)];
+        if (selection.kind !== "variable") return null;
+        const v = s.variables[declaredVarKey(selection.uid)];
         return v && v.kind === "declared" ? v : null;
       },
-      [selectedVariableUid],
+      [selection],
     ),
   );
 
   const selectedEdgeRaw = useStore(
     useCallback(
       (s) => {
-        if (selectedEdgeIds.length !== 1 || selectedNodeIds.length > 0) return null;
-        return s.edges.find((e) => e.id === selectedEdgeIds[0]) ?? null;
+        // Edge panel shows only for a lone edge (a node selection takes priority).
+        if (selection.kind !== "graph" || selection.edgeIds.length !== 1 || selection.nodeIds.length > 0) return null;
+        return s.edges.find((e) => e.id === selection.edgeIds[0]) ?? null;
       },
-      [selectedEdgeIds, selectedNodeIds],
+      [selection],
     ),
   );
   const selectedEdge = selectedEdgeRaw
@@ -126,18 +119,18 @@ export const RightConfigPanel = ({
   );
 
   const selectedChannel = useMemo(
-    () => (selectedChannelId ? (Object.values(channels).find((v) => v.id === selectedChannelId) ?? null) : null),
-    [selectedChannelId, channels],
+    () => (selection.kind === "channel" ? (Object.values(channels).find((v) => v.id === selection.id) ?? null) : null),
+    [selection, channels],
   );
 
   const selectedMemory = useMemo(
-    () => (selectedMemoryId ? (Object.values(memory).find((m) => m.id === selectedMemoryId) ?? null) : null),
-    [selectedMemoryId, memory],
+    () => (selection.kind === "memory" ? (Object.values(memory).find((m) => m.id === selection.id) ?? null) : null),
+    [selection, memory],
   );
 
   const selectedModel = useMemo(
-    () => (selectedModelId ? (Object.values(models).find((m) => m.id === selectedModelId) ?? null) : null),
-    [selectedModelId, models],
+    () => (selection.kind === "model" ? (Object.values(models).find((m) => m.id === selection.id) ?? null) : null),
+    [selection, models],
   );
 
   const getNodeCategory = useCallback(
@@ -201,7 +194,7 @@ export const RightConfigPanel = ({
         <VariableConfigPanel
           canvasId={canvasId}
           variable={selectedVariable}
-          onClose={() => setSelectedVariableUid(null)}
+          onClose={clearSelection}
         />
       </div>
     );
@@ -210,7 +203,7 @@ export const RightConfigPanel = ({
   if (selectedChannel) {
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
-        <ChannelConfigPanel channel={selectedChannel} onClose={() => setSelectedChannelId(null)} />
+        <ChannelConfigPanel channel={selectedChannel} onClose={clearSelection} />
       </div>
     );
   }
@@ -218,7 +211,7 @@ export const RightConfigPanel = ({
   if (selectedMemory) {
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
-        <MemoryConfigPanel memory={selectedMemory} onClose={() => setSelectedMemoryId(null)} />
+        <MemoryConfigPanel memory={selectedMemory} onClose={clearSelection} />
       </div>
     );
   }
@@ -226,7 +219,7 @@ export const RightConfigPanel = ({
   if (selectedModel) {
     return (
       <div className="w-80 border-l border-border bg-card overflow-y-auto">
-        <ModelConfigPanel model={selectedModel} onClose={() => setSelectedModelId(null)} />
+        <ModelConfigPanel model={selectedModel} onClose={clearSelection} />
       </div>
     );
   }

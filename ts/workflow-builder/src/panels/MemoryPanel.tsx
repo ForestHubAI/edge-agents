@@ -15,17 +15,17 @@ const TYPE_BADGE: Record<MemoryType, string> = {
 export const MemoryPanel = () => {
   const { t } = useTranslation();
   const memory = useEditorStore((s) => s.memory);
-  const selectedMemoryId = useEditorStore((s) => s.selectedMemoryId);
-  const setSelectedMemoryId = useEditorStore((s) => s.setSelectedMemoryId);
+  const selection = useEditorStore((s) => s.selection);
+  const selectMemory = useEditorStore((s) => s.selectMemory);
   const byMemoryId = useDiagnosticsStore((s) => s.byMemoryId);
 
-  const add = (type: MemoryType) => setSelectedMemoryId(addMemory(type).id);
+  const add = (type: MemoryType) => selectMemory(addMemory(type).id);
 
   return (
     <ResourceListPanel
       items={Object.values(memory)}
-      selectedId={selectedMemoryId}
-      onSelect={setSelectedMemoryId}
+      selectedId={selection.kind === "memory" ? selection.id : null}
+      onSelect={selectMemory}
       diagnosticsSlot={byMemoryId}
       badge={(m) => TYPE_BADGE[m.type]}
       emptyIcon={Database}

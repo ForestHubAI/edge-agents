@@ -12,7 +12,8 @@ import { useTranslation } from "react-i18next";
 
 import { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { categoryIcons, categoryColors } from "../utils/categoryConstants";
-import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useEditorStore } from "../stores/editorStore";
+import { isReadOnly } from "../WorkflowBuilder";
 import { FunctionNodeDefinition } from "@foresthubai/workflow-core/node";
 import { Parameter } from "@foresthubai/workflow-core/parameter";
 import { getNodeDescription } from "../utils/translation";

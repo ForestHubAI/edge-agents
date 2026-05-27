@@ -1,7 +1,8 @@
 import { AlertTriangle, type LucideIcon } from "lucide-react";
 import { AddButton } from "../components/ui/add-button";
 import { cn } from "../lib/utils";
-import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useEditorStore } from "../stores/editorStore";
+import { isReadOnly } from "../WorkflowBuilder";
 import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 
 interface ResourceListItem {

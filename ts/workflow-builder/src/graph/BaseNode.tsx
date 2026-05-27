@@ -15,7 +15,8 @@ import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useDebugStore } from "../stores/debugStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
-import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useEditorStore } from "../stores/editorStore";
+import { isReadOnly } from "../WorkflowBuilder";
 import { categoryIcons } from "../utils/categoryConstants";
 import { computeNodeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 import {
@@ -377,7 +378,11 @@ export const BaseNode = memo(
             ry="10"
             fill={fancyBg ? `url(#${gradientId})` : lightFill}
             stroke={
-              hasErrors ? "hsl(var(--destructive))" : fancyBg ? `hsl(var(${nodeColor})/0.5)` : "hsl(var(--edge-default))"
+              hasErrors
+                ? "hsl(var(--destructive))"
+                : fancyBg
+                  ? `hsl(var(${nodeColor})/0.5)`
+                  : "hsl(var(--edge-default))"
             }
             strokeWidth={strokeW}
           />

@@ -41,9 +41,8 @@ export function isReadOnly(mode: BuilderMode): boolean {
   return mode.type !== "edit";
 }
 
-// TODO: remove?
 /** Type guard for preview mode. */
-export function isPreview(mode: BuilderMode): mode is Extract<BuilderMode, { type: "preview" }> {
+export function isPreview(mode: BuilderMode): boolean {
   return mode.type === "preview";
 }
 
@@ -83,8 +82,6 @@ export interface WorkflowBuilderProps {
    * undo/redo buttons.
    */
   onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
-  /** Selection changed (nodes/edges on the active canvas). */
-  onSelectionChange?: (selection: { nodeIds: string[]; edgeIds: string[] }) => void;
   /** Unexpected error during builder operations (e.g. failed load). */
   onError?: (error: Error) => void;
 }
@@ -99,19 +96,12 @@ export interface WorkflowBuilderHandle {
   setMode: (mode: BuilderMode) => void;
   getMode: () => BuilderMode;
 
-  // Validation — runs the validator and presents the result itself: a success
-  // toast when clean, otherwise the builder's ValidationDialog (whose entries are
-  // clickable to navigate to the offending node/edge/resource).
+  // Initiate the in-builder validation process which will either show the validation dialog or a toast if clean.
   validate: () => void;
 
   // History (so embedder chrome can wire undo/redo buttons)
   undo: () => void;
   redo: () => void;
-
-  // Selection
-  selectNodes: (nodeIds: string[]) => void;
-  selectEdges: (edgeIds: string[]) => void;
-  clearSelection: () => void;
 
   // Debug (embedder pushes engine events for visualization)
   setDebugPhase: (phase: DebugSessionPhase) => void;
@@ -133,7 +123,6 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       onDebugStep,
       onChange,
       onHistoryChange,
-      onSelectionChange,
       onError,
     } = props;
 
@@ -208,23 +197,19 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         // Project-scoped targets: open the matching sidebar tab AND select the item.
         if (d.channelId) {
           editor.setActiveSidebarTab("channels");
-          editor.setSelectedChannelId(d.channelId);
+          editor.selectChannel(d.channelId);
         } else if (d.memoryId) {
           editor.setActiveSidebarTab("memory");
-          editor.setSelectedMemoryId(d.memoryId);
+          editor.selectMemory(d.memoryId);
         } else if (d.modelId) {
           editor.setActiveSidebarTab("models");
-          editor.setSelectedModelId(d.modelId);
+          editor.selectModel(d.modelId);
         } else if (d.canvasId) {
+          // Switch first so selectGraph targets the right canvas, then select.
           if (d.canvasId === MAIN_CANVAS_ID) editor.setActiveCanvas(MAIN_CANVAS_ID);
           else functionsHook.openFunction(d.canvasId);
-          if (d.nodeId) {
-            editor.setSelection([d.nodeId], []);
-            getOrCreateCanvasStore(d.canvasId).getState().selectNodes([d.nodeId]);
-          } else if (d.edgeId) {
-            editor.setSelection([], [d.edgeId]);
-            getOrCreateCanvasStore(d.canvasId).getState().selectEdges([d.edgeId]);
-          }
+          if (d.nodeId) editor.selectGraph([d.nodeId], []);
+          else if (d.edgeId) editor.selectGraph([], [d.edgeId]);
         }
         setValidation(null);
       },
@@ -249,10 +234,8 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
     // Stash latest callbacks in refs so the subscription effect runs once.
     const onChangeRef = useRef(onChange);
     const onHistoryChangeRef = useRef(onHistoryChange);
-    const onSelectionChangeRef = useRef(onSelectionChange);
     onChangeRef.current = onChange;
     onHistoryChangeRef.current = onHistoryChange;
-    onSelectionChangeRef.current = onSelectionChange;
 
     // onChange fires on any domain change. For canvas content we watch the
     // history middleware's `mutationCount`, which bumps on checkpoints AND
@@ -310,22 +293,6 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       return () => {
         for (const u of subs) u();
       };
-    }, []);
-
-    // Selection subscription.
-    useEffect(() => {
-      let prevNodes = useEditorStore.getState().selectedNodeIds;
-      let prevEdges = useEditorStore.getState().selectedEdgeIds;
-      return useEditorStore.subscribe((state) => {
-        if (state.selectedNodeIds !== prevNodes || state.selectedEdgeIds !== prevEdges) {
-          prevNodes = state.selectedNodeIds;
-          prevEdges = state.selectedEdgeIds;
-          onSelectionChangeRef.current?.({
-            nodeIds: state.selectedNodeIds,
-            edgeIds: state.selectedEdgeIds,
-          });
-        }
-      });
     }, []);
 
     // History-affordance subscription — emits the ACTIVE canvas's canUndo/canRedo
@@ -395,30 +362,13 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         validate: runValidate,
         undo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).undo(),
         redo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).redo(),
-        selectNodes: (nodeIds) => {
-          useEditorStore.getState().setSelection(nodeIds, []);
-          const canvasId = useEditorStore.getState().activeCanvasId;
-          getOrCreateCanvasStore(canvasId).getState().selectNodes(nodeIds);
-        },
-        selectEdges: (edgeIds) => {
-          useEditorStore.getState().setSelection([], edgeIds);
-          const canvasId = useEditorStore.getState().activeCanvasId;
-          getOrCreateCanvasStore(canvasId).getState().selectEdges(edgeIds);
-        },
-        clearSelection: () => {
-          useEditorStore.getState().clearSelection();
-          const canvasId = useEditorStore.getState().activeCanvasId;
-          const store = getOrCreateCanvasStore(canvasId).getState();
-          store.selectNodes([]);
-          store.selectEdges([]);
-        },
         setDebugPhase: (phase) => useDebugStore.getState().setPhase(phase),
       }),
       [importProject, exportProject, onError, runValidate],
     );
 
     // I18nextProvider scopes the builder's PRIVATE i18n instance to this subtree,
-    // so the 27 useTranslation() consumers read it (never the host's i18next).
+    // so the useTranslation() consumers read it (never the host's i18next).
     //
     // The `fh-workflow-builder` root carries the builder's OWN base look (font,
     // text color, antialiasing) on its own element. The builder no longer styles

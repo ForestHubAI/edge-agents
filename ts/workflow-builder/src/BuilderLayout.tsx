@@ -16,9 +16,9 @@ import { useNodeDefinitions } from "./hooks/useNodeDefinitions";
 import { DebugConsolePanel } from "./panels/DebugConsolePanel";
 import type { CanvasTab } from "./hooks/useCanvasTabs";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./stores/canvasStore";
-import { useDebugStore } from "./stores/debugStore";
-import { useEditorStore, isReadOnly } from "./stores/editorStore";
+import { useEditorStore } from "./stores/editorStore";
 import { migrateFunctionCallNodes } from "./utils/migrateFunctionNodes";
+import { isReadOnly } from "./WorkflowBuilder";
 
 /**
  * Chrome composer. Stable across canvas switches — only the {@link CanvasEditor}
@@ -82,8 +82,9 @@ export const BuilderLayout = ({
   const { undo, redo, takeCheckpoint, canUndo, canRedo } = useCanvasHistory(activeCanvasId);
 
   // Selection (project-wide in editorStore, mirrored to canvas store for RF visual)
-  const selectedNodeIds = useEditorStore((s) => s.selectedNodeIds);
-  const setSelection = useEditorStore((s) => s.setSelection);
+  const selection = useEditorStore((s) => s.selection);
+  const selectGraph = useEditorStore((s) => s.selectGraph);
+  const syncGraphFromCanvas = useEditorStore((s) => s.syncGraphFromCanvas);
   const clearSelection = useEditorStore((s) => s.clearSelection);
 
   // Sidebar tab state + mode auto-switch.
@@ -120,24 +121,11 @@ export const BuilderLayout = ({
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const selectNodeById: (id: string) => void = useCallback(
-    (nodeId: string) => {
-      setSelection([nodeId], []);
-      const store = getOrCreateCanvasStore(activeCanvasId).getState();
-      store.selectNodes([nodeId]);
-      store.selectEdges([]);
-    },
-    [setSelection, activeCanvasId],
+    (nodeId: string) => selectGraph([nodeId], []),
+    [selectGraph],
   );
 
-  const selectEdgeById = useCallback(
-    (edgeId: string) => {
-      setSelection([], [edgeId]);
-      const store = getOrCreateCanvasStore(activeCanvasId).getState();
-      store.selectNodes([]);
-      store.selectEdges([edgeId]);
-    },
-    [setSelection, activeCanvasId],
-  );
+  const selectEdgeById = useCallback((edgeId: string) => selectGraph([], [edgeId]), [selectGraph]);
 
   const handleAddNode = useCallback(
     (nodeDef: NodeDefinition, position?: { x: number; y: number }) => {
@@ -187,12 +175,12 @@ export const BuilderLayout = ({
 
   const handleSelectionChange: OnSelectionChangeFunc = useCallback(
     ({ nodes: selNodes, edges: selEdges }) => {
-      setSelection(
+      syncGraphFromCanvas(
         selNodes.map((n) => n.id),
         selEdges.map((e) => e.id),
       );
     },
-    [setSelection],
+    [syncGraphFromCanvas],
   );
 
   const handleDeleteEdge = useCallback(
@@ -208,7 +196,9 @@ export const BuilderLayout = ({
   }, [takeCheckpoint]);
 
   const deleteSelected = useCallback(() => {
-    const { selectedNodeIds: nodeIds, selectedEdgeIds: edgeIds } = useEditorStore.getState();
+    const sel = useEditorStore.getState().selection;
+    const nodeIds = sel.kind === "graph" ? sel.nodeIds : [];
+    const edgeIds = sel.kind === "graph" ? sel.edgeIds : [];
     graph.deleteSelected(nodeIds, edgeIds);
     clearSelection();
   }, [graph, clearSelection]);
@@ -268,9 +258,9 @@ export const BuilderLayout = ({
         return;
       }
       if ((event.ctrlKey || event.metaKey) && event.key === "c") {
-        if (selectedNodeIds.length > 0) {
+        if (selection.kind === "graph" && selection.nodeIds.length > 0) {
           event.preventDefault();
-          graph.copySelection(selectedNodeIds);
+          graph.copySelection(selection.nodeIds);
         }
         return;
       }
@@ -288,7 +278,7 @@ export const BuilderLayout = ({
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [canUndo, canRedo, undo, redo, clearSelection, deleteSelected, selectedNodeIds, graph, handlePaste, readOnly]);
+  }, [canUndo, canRedo, undo, redo, clearSelection, deleteSelected, selection, graph, handlePaste, readOnly]);
 
   const isFunctionCanvas = activeCanvasId !== MAIN_CANVAS_ID;
 

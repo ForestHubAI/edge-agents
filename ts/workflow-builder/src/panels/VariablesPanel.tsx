@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { AddButton } from "../components/ui/add-button";
 import { Variable as VariableIcon } from "lucide-react";
 import { cn } from "../lib/utils";
-import { useEditorStore, isReadOnly } from "../stores/editorStore";
+import { useEditorStore } from "../stores/editorStore";
+import { isReadOnly } from "../WorkflowBuilder";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { type Variable, type DeclaredVariable } from "@foresthubai/workflow-core/variable";
@@ -18,8 +19,8 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
   const readOnly = useEditorStore((s) => isReadOnly(s.builderMode));
   const { t } = useTranslation();
   const { list: variables } = useAvailableVariables(canvasId);
-  const selectedVariableUid = useEditorStore((s) => s.selectedVariableUid);
-  const setSelectedVariableUid = useEditorStore((s) => s.setSelectedVariableUid);
+  const selection = useEditorStore((s) => s.selection);
+  const selectVariable = useEditorStore((s) => s.selectVariable);
 
   const store = getOrCreateCanvasStore(canvasId);
   const allVariables = store((s) => s.variables);
@@ -39,7 +40,7 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
   // Create a declared variable and immediately open its config panel.
   const handleAddVariable = () => {
     const uid = addDeclaredVariable(canvasId);
-    setSelectedVariableUid(uid);
+    selectVariable(uid);
   };
 
   // Filter variables into groups (each canvas is self-contained — no main-canvas leakage)
@@ -132,8 +133,8 @@ export const VariablesPanel = ({ canvasId, onSelectNode }: VariablesPanelProps) 
           {declaredVariables.map(({ uid, var: dv }) =>
             renderVariableItem(
               dv,
-              readOnly ? undefined : () => setSelectedVariableUid(uid),
-              selectedVariableUid === uid,
+              readOnly ? undefined : () => selectVariable(uid),
+              selection.kind === "variable" && selection.uid === uid,
             ),
           )}
           {!readOnly && <AddButton onClick={handleAddVariable}>{t("addVariable")}</AddButton>}
