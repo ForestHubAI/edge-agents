@@ -6,5 +6,6 @@ export {
   validateMemory,
   validateModel,
   validateFunction,
+  validateFunctionOutputs,
   validateWorkflowState,
 } from "./diagnostics";

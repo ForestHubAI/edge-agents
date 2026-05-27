@@ -123,11 +123,15 @@ export const CanvasTabsToolbar = ({
               onDragOver={(e) => handleTabDragOver(e, index)}
               onDragEnd={clearDrag}
               className={cn(
-                "group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all",
+                // border is always present (transparent when inactive) so toggling
+                // active state changes only color, not geometry — otherwise the 1px
+                // border appearing/disappearing reflows the tab and transition-all
+                // animates that shift into a visible twitch.
+                "group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all border",
                 "hover:bg-field/80",
                 activeTabId === tab.id
-                  ? "bg-field text-foreground shadow-sm border border-border/50"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-field text-foreground shadow-sm border-border/50"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
                 isDraggable ? "cursor-grab active:cursor-grabbing" : "select-none",
               )}
               onClick={() => onTabChange(tab.id)}

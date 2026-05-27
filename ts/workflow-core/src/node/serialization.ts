@@ -1,11 +1,21 @@
 import type { Schemas } from "../api";
 import type { NodeData, Node } from "./Node";
 import type { Expression } from "../api";
+import type { FunctionInfo } from "../function";
 import type { OutputBinding, OutputDeclaration } from "../parameter";
 import { pruneArguments } from "../parameter";
 import { NodeRegistry } from "./NodeRegistry";
 
 export type ApiNode = Schemas["Node"];
+
+/**
+ * Resolve a function's signature snapshot by id. A `FunctionCall` on the wire stores
+ * only `functionId`; deserialize rebuilds the in-memory `functionInfo` snapshot
+ * (which core's variable helpers + staleness read) from the workflow's function
+ * table via this. Unknown id (e.g. a call to a since-deleted function) → a minimal
+ * stub so the node still round-trips and surfaces as deleted.
+ */
+export type ResolveFunctionInfo = (functionId: string) => FunctionInfo | undefined;
 
 /**
  * Serialize a domain Node to the strict API format (Schemas["Node"]).
@@ -240,7 +250,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
       return {
         id: data.id,
         type: data.type,
-        functionInfo: data.functionInfo,
+        functionId: data.functionInfo.id,
         position: position,
         arguments: {
           inputBindings,
@@ -289,14 +299,15 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
 }
 
 /**
- * Convert a strict API Node to a domain Node (NodeData + position).
+ * Convert a strict API Node to a domain Node (NodeData + position). `resolveFunctionInfo`
+ * is required only for `FunctionCall` nodes — see {@link ResolveFunctionInfo}.
  */
-export function deserialize(apiNode: ApiNode): Node {
-  return { ...deserializeNodeData(apiNode), position: apiNode.position };
+export function deserialize(apiNode: ApiNode, resolveFunctionInfo?: ResolveFunctionInfo): Node {
+  return { ...deserializeNodeData(apiNode, resolveFunctionInfo), position: apiNode.position };
 }
 
 /** Build the NodeData payload from an API Node (no position). */
-function deserializeNodeData(apiNode: Schemas["Node"]): NodeData {
+function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: ResolveFunctionInfo): NodeData {
   switch (apiNode.type) {
     case "ReadPin":
       return {
@@ -489,11 +500,21 @@ function deserializeNodeData(apiNode: Schemas["Node"]): NodeData {
       if (apiNode.arguments.toolDescription !== undefined) {
         flat.toolDescription = apiNode.arguments.toolDescription;
       }
+      // The wire carries only `functionId`; rebuild the in-memory signature snapshot
+      // from the workflow's function table. A missing function (deleted/hand-edited)
+      // gets a minimal stub so the node still loads and surfaces as deleted.
+      const functionInfo: FunctionInfo = resolveFunctionInfo?.(apiNode.functionId) ?? {
+        id: apiNode.functionId,
+        version: 0,
+        name: "",
+        arguments: [],
+        returns: [],
+      };
       return {
         id: apiNode.id,
         type: apiNode.type,
         label: apiNode.label,
-        functionInfo: apiNode.functionInfo,
+        functionInfo,
         arguments: flat,
       };
     }

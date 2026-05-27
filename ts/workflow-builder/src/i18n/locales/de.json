@@ -186,6 +186,8 @@
   "fnarg": "Arg",
   "functionArguments": "Funktionsargumente",
   "functionDialogDesc": "Funktionsnamen, Eingaben und Ausgaben konfigurieren.",
+  "functionInputsDesc": "Argumente, die beim Aufruf der Funktion übergeben werden",
+  "functionOutputsDesc": "Werte, die die Funktion zurückgibt; jeder ist ein Ausdruck über ihre Eingaben und ihren Rumpf",
   "functionName": "Funktionsname",
   "functionNamePlaceholder": "Funktionsname eingeben...",
   "functions": "Funktionen",

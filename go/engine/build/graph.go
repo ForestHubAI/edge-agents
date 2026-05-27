@@ -210,9 +210,9 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.triggers[nd.Id] = t
 
 		case workflow.FunctionCallNode:
-			fn, ok := b.functions[nd.FunctionInfo.Id]
+			fn, ok := b.functions[nd.Id]
 			if !ok {
-				return "", fmt.Errorf("node %s: function %q not declared in workflow", nd.Id, nd.FunctionInfo.Id)
+				return "", fmt.Errorf("node %s: function %q not declared in workflow", nd.Id, nd.Id)
 			}
 			if nd.Arguments.InputBindings == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "inputBindings"}

@@ -887,11 +887,13 @@ type FunctionCallNode struct {
 		// ToolDescription Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 	} `json:"arguments"`
-	FunctionInfo FunctionInfo         `json:"functionInfo"`
-	Id           string               `json:"id"`
-	Label        *string              `json:"label,omitempty"`
-	Position     NodePosition         `json:"position"`
-	Type         FunctionCallNodeType `json:"type"`
+
+	// FunctionId Id of the function this node calls. The signature is resolved from the workflow's functions table.
+	FunctionId string               `json:"functionId"`
+	Id         string               `json:"id"`
+	Label      *string              `json:"label,omitempty"`
+	Position   NodePosition         `json:"position"`
+	Type       FunctionCallNodeType `json:"type"`
 }
 
 // FunctionCallNodeType defines model for FunctionCallNode.Type.
@@ -1442,6 +1444,9 @@ type Workflow struct {
 	// Models Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
 	Models *[]Model `json:"models,omitempty"`
 	Nodes  []Node   `json:"nodes"`
+
+	// SchemaVersion Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
+	SchemaVersion int32 `json:"schemaVersion"`
 }
 
 // WritePinNode defines model for WritePinNode.

@@ -239,7 +239,8 @@ export interface components {
             type: "FunctionCall";
             label?: string;
             position: components["schemas"]["NodePosition"];
-            functionInfo: components["schemas"]["FunctionInfo"];
+            /** @description Id of the function this node calls. The signature is resolved from the workflow's functions table. */
+            functionId: string;
             arguments: {
                 inputBindings?: {
                     [key: string]: components["schemas"]["Expression"];

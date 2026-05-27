@@ -5,7 +5,7 @@
 
 import type { Schemas } from "../api";
 import type { NodeData } from "../node";
-import type { FunctionDeclaration } from "../function";
+import type { FunctionDeclaration, FunctionInfo } from "../function";
 import { serialize as serializeFunction, deserialize as deserializeFunction } from "../function";
 import { getNodeOutput, isNodeUsedAsTool } from "../node/methods";
 import { ALL_CHANNEL_TYPES, type ApiChannel, type Channel, type ChannelType } from "../channel";
@@ -86,8 +86,22 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   const canvases: Record<string, Canvas> = {};
   const functions: Record<string, FunctionDeclaration> = {};
 
+  // Pre-build the function-info table so FunctionCall nodes — on the main canvas or
+  // in any function body — can rebuild their signature snapshot from the wire's
+  // `functionId`. (The wire stores only the reference; the engine likewise resolves
+  // by id, so the snapshot is editor-side state reconstructed here.)
+  const functionInfos: Record<string, FunctionInfo> = {};
+  for (const fn of workflow.functions ?? []) {
+    functionInfos[fn.functionInfo.id] = {
+      ...fn.functionInfo,
+      arguments: ensureUids(fn.functionInfo.arguments),
+      returns: ensureUids(fn.functionInfo.returns),
+    };
+  }
+  const resolveFunctionInfo = (id: string): FunctionInfo | undefined => functionInfos[id];
+
   // Main canvas: data at the api root. No function declaration.
-  const mainNodes = workflow.nodes.map(deserializeNode);
+  const mainNodes = workflow.nodes.map((n) => deserializeNode(n, resolveFunctionInfo));
   const mainEdges = workflow.edges.map(deserializeEdge);
   const mainDeclared = workflow.declaredVariables ?? [];
   canvases[MAIN_CANVAS_ID] = {
@@ -99,14 +113,10 @@ export function deserialize(workflow: Schemas["Workflow"]): Workflow {
   // Each wire Function splits into a project-scoped declaration (functions[id]) and
   // its body canvas (canvases[id]), joined by the function id.
   for (const fn of workflow.functions ?? []) {
-    const functionInfo = {
-      ...fn.functionInfo,
-      arguments: ensureUids(fn.functionInfo.arguments),
-      returns: ensureUids(fn.functionInfo.returns),
-    };
+    const functionInfo = functionInfos[fn.functionInfo.id]!;
     const decl = deserializeFunction(functionInfo, fn.outputAssignments ?? {});
     functions[decl.id] = decl;
-    const fnNodes = fn.nodes.map(deserializeNode);
+    const fnNodes = fn.nodes.map((n) => deserializeNode(n, resolveFunctionInfo));
     const fnEdges = fn.edges.map(deserializeEdge);
     canvases[decl.id] = {
       nodes: fnNodes,

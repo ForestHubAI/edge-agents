@@ -95,16 +95,9 @@ const withFunctionCanvas: Schemas["Workflow"] = {
       id: "fcall",
       type: "FunctionCall",
       position: { x: 0, y: 0 },
-      functionInfo: {
-        id: "fn-uuid",
-        version: 1,
-        name: "add",
-        arguments: [
-          { uid: "arg-x", name: "x", dataType: "int" },
-          { uid: "arg-y", name: "y", dataType: "int" },
-        ],
-        returns: [{ uid: "ret-sum", name: "sum", dataType: "int" }],
-      },
+      // The wire stores only the reference; the signature is resolved from
+      // `functions[]` and the snapshot rebuilt on deserialize.
+      functionId: "fn-uuid",
       arguments: {
         inputBindings: {
           "arg-x": { expression: "1", references: [], dataType: "int" },

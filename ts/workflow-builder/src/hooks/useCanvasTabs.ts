@@ -18,6 +18,7 @@ export const useCanvasTabs = () => {
   // Get active canvas ID and setter from editor store
   const activeCanvasId = useEditorStore((state) => state.activeCanvasId);
   const setActiveCanvas = useEditorStore((state) => state.setActiveCanvas);
+  const selectFunction = useEditorStore((state) => state.selectFunction);
 
   // Tabs are a projection of the function declarations: a deleted function drops its
   // tab (falling back to Main if it was active), a renamed one relabels. Open/close
@@ -47,12 +48,18 @@ export const useCanvasTabs = () => {
     }
   }, [functions, activeCanvasId, setActiveCanvas]);
 
-  // Set active tab switches to the corresponding canvas
+  // Switch to a tab's canvas. A function tab focuses its declaration (selectFunction
+  // switches the canvas AND selects the function so its config panel opens) — matching
+  // the dropdown/sidebar open path; any other tab just switches the canvas.
   const setActiveTabId = useCallback(
     (tabId: string) => {
-      setActiveCanvas(tabId);
+      if (tabId !== MAIN_CANVAS_ID && functions[tabId]) {
+        selectFunction(tabId);
+      } else {
+        setActiveCanvas(tabId);
+      }
     },
-    [setActiveCanvas],
+    [functions, selectFunction, setActiveCanvas],
   );
 
   // Open a tab for a function (add if not exists, switch to it)

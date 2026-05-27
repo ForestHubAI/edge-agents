@@ -1,5 +1,5 @@
 import { create, UseBoundStore, StoreApi } from "zustand";
-import { Node, Edge } from "@xyflow/react";
+import { Node, Edge, Viewport } from "@xyflow/react";
 import { NodeCategory, type NodeData } from "@foresthubai/workflow-core/node";
 import type { EdgeData } from "@foresthubai/workflow-core/edge";
 import { history, History, type HistoryData, type MutationCount } from "../utils/history";
@@ -71,10 +71,17 @@ export interface CanvasState {
   // fnarg:* entries are derived from the project-scoped function declaration (editorStore) via
   // syncFunctionArgVariables — they are not authored here.
   variables: Record<string, Variable>;
+  // Session-only pan/zoom of the canvas viewport. View state, NOT workflow content:
+  // kept out of partialize (no history/serialization) so it never enters the contract,
+  // and lost on reload like selection. Persisted across tab switches so re-entering a
+  // canvas restores its view via defaultViewport instead of a post-paint fitView jump.
+  // null until first visited (then fitView seeds it).
+  viewport: Viewport | null;
 
   setNodes: (updater: (nodes: Node<NodeData>[]) => Node<NodeData>[]) => void;
   setEdges: (updater: (edges: Edge<EdgeData>[]) => Edge<EdgeData>[]) => void;
   setVariables: (updater: (variables: Record<string, Variable>) => Record<string, Variable>) => void;
+  setViewport: (viewport: Viewport) => void;
   /**
    * Visual-only: set ReactFlow selected flags on nodes AND edges in one atomic update.
    * This will call a single re-render and a single onSelectionChange callback.
@@ -102,6 +109,7 @@ function createCanvasStore(): CanvasStore {
       nodes: [],
       edges: [],
       variables: {},
+      viewport: null,
 
       setNodes: (updater) =>
         set((state) => {
@@ -123,6 +131,10 @@ function createCanvasStore(): CanvasStore {
           if (next === state.variables) return state;
           return { variables: next };
         }),
+
+      // View-only — outside partialize, so it neither takes a checkpoint nor bumps
+      // mutationCount (no spurious dirty dot / onChange from panning).
+      setViewport: (viewport) => set({ viewport }),
 
       setRFselect: (nodeIds, edgeIds) => {
         const nodeIdSet = new Set(nodeIds);

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
-import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
 import {
   AlertDialog,
@@ -13,13 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import { useEditorStore } from "../stores/editorStore";
+import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { isReadOnly } from "../WorkflowBuilder";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";
-import { PortSection, VariableEditor } from "../inputs/PortSection";
+import { PortSection } from "../inputs/PortSection";
 import ExpressionInput from "../inputs/ExpressionInput";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import {
@@ -40,12 +40,12 @@ interface FunctionConfigPanelProps {
 }
 
 /**
- * Right-side editor for a project-scoped function declaration: name, the input
- * argument list, and the output list — each output bundling its declaration
- * (name/dataType) with the expression that produces it. The function's body lives on
- * its canvas, which is active (selectFunction switched to it), so the output
- * expressions resolve against the body's local variable scope. Edits are
- * non-undo-tracked (functionOperations write straight to editorStore).
+ * Right-side editor for a project-scoped function declaration, styled like the other
+ * config panels: an editable title, then Inputs and Outputs sections (strong label +
+ * description) whose rows are the same `bg-card` declaration cards the node Outputs
+ * section uses. Each output bundles its declaration with the expression that produces
+ * it; those expressions resolve against the function body's scope (the body canvas is
+ * active, since selectFunction switched to it). Edits are non-undo-tracked.
  */
 export const FunctionConfigPanel = ({ func, onClose }: FunctionConfigPanelProps) => {
   const { t } = useTranslation();
@@ -62,6 +62,20 @@ export const FunctionConfigPanel = ({ func, onClose }: FunctionConfigPanelProps)
 
   // Output expressions resolve against the function body's variable scope.
   const { lookup: availableVariables } = useAvailableVariables(id);
+
+  // Per-output error messages come from the same byFunctionId slot that rings the
+  // sidebar tab badge + list row, so panel, badge, and list always agree.
+  const fnDiags = useDiagnosticsStore((s) => s.byFunctionId[id]);
+  const outputErrors = useMemo(() => {
+    const byUid = new Map<string, string[]>();
+    for (const d of fnDiags ?? []) {
+      if (!d.outputId) continue;
+      const list = byUid.get(d.outputId);
+      if (list) list.push(d.message);
+      else byUid.set(d.outputId, [d.message]);
+    }
+    return byUid;
+  }, [fnDiags]);
 
   return (
     <div className="p-4">
@@ -91,57 +105,42 @@ export const FunctionConfigPanel = ({ func, onClose }: FunctionConfigPanelProps)
 
         {readOnly && <ReadOnlyBanner />}
 
-        <div className={readOnly ? "pointer-events-none opacity-60" : ""}>
+        <div className={`space-y-4 ${readOnly ? "pointer-events-none opacity-60" : ""}`}>
           <Separator />
 
-          {/* Inputs — plain declarations (name + dataType). */}
           <PortSection
+            title={t("inputs")}
+            description={t("functionInputsDesc")}
+            addLabel={t("add")}
+            emptyText={t("noInputs")}
             ports={fnArgs}
-            direction="input"
             onAdd={() => addArgument(id)}
             onUpdate={(index, patch) => updateArgument(id, index, patch)}
             onRemove={(index) => removeArgument(id, index)}
-            maxHeight="10rem"
           />
 
           <Separator />
 
-          {/* Outputs — each row bundles the declaration with its return expression. */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2 text-sm font-medium">
-                <ArrowLeft className="w-4 h-4 text-node-output" />
-                {t("outputs")}
-              </Label>
-              <Button variant="ghost" size="sm" onClick={() => addOutput(id)} className="h-7 px-2 text-xs">
-                <Plus className="w-3 h-3 mr-1" />
-                {t("add")}
-              </Button>
-            </div>
-
-            {outputs.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic py-2">{t("noOutputs")}</p>
-            ) : (
-              <div className="space-y-3">
-                {outputs.map((out, index) => (
-                  <div key={out.uid} className="space-y-1.5 rounded-lg border border-border/50 bg-accent/20 p-2">
-                    <VariableEditor
-                      variable={out}
-                      onUpdate={(patch) => updateOutput(id, index, patch)}
-                      onRemove={() => removeOutput(id, index)}
-                    />
-                    <ExpressionInput
-                      value={out.expression}
-                      onChange={(expr) => setOutputExpression(id, index, expr)}
-                      expressionType={out.dataType}
-                      availableVariables={availableVariables}
-                      placeholder={`${t("expressionFor")} ${out.name}...`}
-                    />
-                  </div>
-                ))}
-              </div>
+          <PortSection
+            title={t("outputs")}
+            description={t("functionOutputsDesc")}
+            addLabel={t("add")}
+            emptyText={t("noOutputs")}
+            ports={outputs}
+            onAdd={() => addOutput(id)}
+            onUpdate={(index, patch) => updateOutput(id, index, patch)}
+            onRemove={(index) => removeOutput(id, index)}
+            errorsFor={(out) => outputErrors.get(out.uid) ?? []}
+            renderExtra={(out, index) => (
+              <ExpressionInput
+                value={out.expression}
+                onChange={(expr) => setOutputExpression(id, index, expr)}
+                expressionType={out.dataType}
+                availableVariables={availableVariables}
+                placeholder={`${t("expressionFor")} ${out.name}...`}
+              />
             )}
-          </div>
+          />
         </div>
 
         {!readOnly && (

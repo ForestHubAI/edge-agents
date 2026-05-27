@@ -2,6 +2,13 @@ import type { Expression, Schemas } from "../api";
 import type { ApiVariable } from "../variable";
 import type { DataType } from "../parameter";
 
+/**
+ * The flat call-site signature of a function: identity + version + ports, with no
+ * expressions (the contract's `FunctionInfo`, used both inside `Function` on the wire
+ * and here in the domain). It is the snapshot a {@link FunctionCallNode} caches — to
+ * detect drift against the live declaration and render its ports without a registry
+ * lookup — and the shape {@link buildFunctionNodeDef} consumes.
+ */
 export type FunctionInfo = Schemas["FunctionInfo"];
 
 /**

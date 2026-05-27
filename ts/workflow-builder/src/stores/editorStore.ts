@@ -117,8 +117,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // A `variable` selection is canvas-local; its uid would resolve to nothing (or,
   // worse, a collision) on the new canvas, so drop it. A `function` selection is
   // tied to being on that function's body canvas (selectFunction switches to it),
-  // so navigating away via a tab drops it too. Project-scoped channel/memory/model
-  // selections survive the switch.
+  // so leaving that canvas drops it too — switching INTO a function tab instead
+  // routes through selectFunction (see useCanvasTabs.setActiveTabId), not here.
+  // Project-scoped channel/memory/model selections survive the switch.
   setActiveCanvas: (canvasId: string) =>
     set((state) => ({
       activeCanvasId: canvasId,

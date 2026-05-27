@@ -458,14 +458,15 @@ components:
 
     FunctionCallNode:
       type: object
-      required: [id, type, arguments, position, functionInfo]
+      required: [id, type, arguments, position, functionId]
       properties:
         id: { type: string }
         type: { type: string, enum: [FunctionCall] }
         label: { type: string }
         position: { $ref: "#/components/schemas/NodePosition" }
-        functionInfo:
-          $ref: "#/components/schemas/FunctionInfo"
+        functionId:
+          type: string
+          description: Id of the function this node calls. The signature is resolved from the workflow's functions table.
         arguments:
           type: object
           properties:

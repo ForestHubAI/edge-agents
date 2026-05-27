@@ -20,7 +20,7 @@ import { ModelRegistry } from "../model";
 import type { Schemas } from "../api";
 import type { Reference } from "../api";
 import { FunctionCallNode, buildFunctionNodeDef } from "../node/FunctionNode";
-import type { FunctionDeclaration, FunctionInfo } from "../function";
+import type { FunctionDeclaration, FunctionInfo, OutputAssignment } from "../function";
 import { toFunctionInfo } from "../function";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow/Workflow";
 
@@ -675,14 +675,53 @@ export function validateModel(model: Model): Diagnostic[] {
 }
 
 /**
+ * Validate a function's bundled output assignments, keyed by `outputId` so a caller
+ * can ring the specific row. The single home for this logic — shared by the live
+ * config panel, the project-scoped {@link validateFunction}, and the full
+ * {@link validateWorkflowState}.
+ *
+ * Without `availableVariables` (no body scope) it can only flag a *missing*
+ * expression (the engine-invariant check). Given the body's variables it also
+ * resolves + parses each expression, catching invalid references and type mismatches
+ * — the same `resolveExpression`/`parseExpression` path node expression params use.
+ */
+export function validateFunctionOutputs(
+  outputs: readonly OutputAssignment[],
+  availableVariables?: Record<string, Variable>,
+): Diagnostic[] {
+  const diags: Diagnostic[] = [];
+  for (const out of outputs) {
+    const text = out.expression?.expression;
+    if (!text || text.trim() === "") {
+      diags.push({
+        severity: "error",
+        category: "missing-output-assignment",
+        outputId: out.uid,
+        message: `Missing return value assignment for "${out.name}"`,
+      });
+    } else if (availableVariables) {
+      const parseRes = parseExpression(resolveExpression(out.expression, availableVariables));
+      if (!parseRes.isValid) {
+        diags.push({
+          severity: "error",
+          category: "invalid-expression",
+          outputId: out.uid,
+          message: `Invalid expression for "${out.name}": ${parseRes.errors.join(", ")}`,
+        });
+      }
+    }
+  }
+  return diags;
+}
+
+/**
  * Compute diagnostics for a single function declaration (the project-scoped
  * signature + bundled output assignments, independent of the body canvas). Flags an
- * empty name and any output without an assigned expression — the latter mirrors the
- * engine invariant that every declared return must be assigned. Expression
- * *validity* (which needs the body's variable scope) is left to
- * validateWorkflowState, keyed by the function's canvas.
+ * empty name and any output without an assigned expression. Expression *validity*
+ * (which needs the body's variable scope) is left to the scoped callers — the config
+ * panel and validateWorkflowState (keyed by the function's canvas).
  */
-export function validateFunction(fn: FunctionDeclaration): Diagnostic[] {
+export function validateFunction(fn: FunctionDeclaration, availableVariables?: Record<string, Variable>): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
   if (!fn.name || fn.name.trim() === "") {
@@ -694,16 +733,10 @@ export function validateFunction(fn: FunctionDeclaration): Diagnostic[] {
     });
   }
 
-  for (const out of fn.outputs) {
-    if (!out.expression?.expression || out.expression.expression.trim() === "") {
-      diags.push({
-        severity: "error",
-        category: "missing-output-assignment",
-        functionId: fn.id,
-        message: `Missing return value assignment for "${out.name}"`,
-      });
-    }
-  }
+  // Pass the body scope through when the caller has it (the sidebar sync supplies the
+  // function's canvas variables) so invalid/typed expressions surface too, not just
+  // missing ones. Tag with functionId for the sidebar list ring / tab badge.
+  for (const d of validateFunctionOutputs(fn.outputs, availableVariables)) diags.push({ ...d, functionId: fn.id });
 
   return diags;
 }
@@ -843,26 +876,8 @@ export function validateWorkflowState(state: Workflow): ValidationResult {
     // owns the bundled outputs; their expressions resolve against this body's scope.
     const fnDecl = functionDecls[canvasId];
     if (fnDecl) {
-      for (const out of fnDecl.outputs) {
-        if (!out.expression?.expression) {
-          canvasDiags.push({
-            severity: "error",
-            category: "missing-output-assignment",
-            canvasId,
-            message: `Missing return value assignment for "${out.name}"`,
-          });
-        } else {
-          const expr = resolveExpression(out.expression, availableVariables);
-          const parseRes = parseExpression(expr);
-          if (!parseRes.isValid) {
-            canvasDiags.push({
-              severity: "error",
-              category: "invalid-expression",
-              canvasId,
-              message: `Invalid expression for return value "${out.name}": ${parseRes.errors.join(", ")}`,
-            });
-          }
-        }
+      for (const d of validateFunctionOutputs(fnDecl.outputs, availableVariables)) {
+        canvasDiags.push({ ...d, canvasId });
       }
     }
 
