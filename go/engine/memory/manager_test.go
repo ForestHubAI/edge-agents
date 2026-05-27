@@ -2,52 +2,48 @@ package memory
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"sync/atomic"
+	"errors"
 	"testing"
 
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
-
-	"github.com/ForestHubAI/fh-core/go/engine/backend"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// snapshot helper: serve a static memory snapshot.
-func snapshotServer(t *testing.T, snapshot []workflow.MemoryFile) (*httptest.Server, *int32) {
-	t.Helper()
-	var puts int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/agents/memory":
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(snapshot)
-		case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/agents/memory/"):
-			atomic.AddInt32(&puts, 1)
-			_, _ = io.Copy(io.Discard, r.Body)
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			t.Logf("unexpected %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	return srv, &puts
+// stubMemoryStore is a hand-rolled engine.MemoryStore for exercising the
+// Manager without an HTTP adapter. Snapshot returns the configured slice;
+// Upsert records each call and optionally fails with upsertErr.
+type stubMemoryStore struct {
+	snapshot  []workflow.MemoryFile
+	upserts   []memoryUpsert
+	upsertErr error
+}
+
+type memoryUpsert struct {
+	uid     string
+	content string
+}
+
+func (s *stubMemoryStore) Snapshot(_ context.Context) ([]workflow.MemoryFile, error) {
+	return s.snapshot, nil
+}
+
+func (s *stubMemoryStore) Upsert(_ context.Context, uid, content string) error {
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	s.upserts = append(s.upserts, memoryUpsert{uid: uid, content: content})
+	return nil
 }
 
 func TestManager_RestoreAndRead(t *testing.T) {
 	max := 2048
-	srv, _ := snapshotServer(t, []workflow.MemoryFile{
+	store := &stubMemoryStore{snapshot: []workflow.MemoryFile{
 		{Id: "uid-notes", Label: "notes", Description: "scratch pad", Content: "hello", MaxSizeBytes: &max},
 		{Id: "uid-log", Label: "log", Description: "session log", Content: ""},
-	})
-	defer srv.Close()
+	}}
 
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+	mgr := NewManager(t.TempDir(), store)
 	require.NoError(t, mgr.Restore(context.Background()))
 
 	got, err := mgr.Read("uid-notes")
@@ -64,29 +60,29 @@ func TestManager_RestoreAndRead(t *testing.T) {
 	assert.ElementsMatch(t, []string{"uid-notes", "uid-log"}, uids)
 }
 
-func TestManager_Append_PushesToBackend(t *testing.T) {
-	srv, puts := snapshotServer(t, []workflow.MemoryFile{
+func TestManager_Append_PushesToStore(t *testing.T) {
+	store := &stubMemoryStore{snapshot: []workflow.MemoryFile{
 		{Id: "uid-log", Label: "log", Description: "log file", Content: "first line\n"},
-	})
-	defer srv.Close()
+	}}
 
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+	mgr := NewManager(t.TempDir(), store)
 	require.NoError(t, mgr.Restore(context.Background()))
 
 	require.NoError(t, mgr.Append(context.Background(), "uid-log", "second line\n"))
 	got, err := mgr.Read("uid-log")
 	require.NoError(t, err)
 	assert.Equal(t, "first line\nsecond line\n", got)
-	assert.Equal(t, int32(1), atomic.LoadInt32(puts))
+	require.Len(t, store.upserts, 1)
+	assert.Equal(t, "uid-log", store.upserts[0].uid)
+	assert.Equal(t, "first line\nsecond line\n", store.upserts[0].content)
 }
 
 func TestManager_Edit_FoundAndMissing(t *testing.T) {
-	srv, _ := snapshotServer(t, []workflow.MemoryFile{
+	store := &stubMemoryStore{snapshot: []workflow.MemoryFile{
 		{Id: "uid-notes", Label: "notes", Description: "n", Content: "prefers tea"},
-	})
-	defer srv.Close()
+	}}
 
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+	mgr := NewManager(t.TempDir(), store)
 	require.NoError(t, mgr.Restore(context.Background()))
 
 	require.NoError(t, mgr.Edit(context.Background(), "uid-notes", "tea", "coffee"))
@@ -99,12 +95,11 @@ func TestManager_Edit_FoundAndMissing(t *testing.T) {
 
 func TestManager_Append_SizeCap(t *testing.T) {
 	max := 5
-	srv, _ := snapshotServer(t, []workflow.MemoryFile{
+	store := &stubMemoryStore{snapshot: []workflow.MemoryFile{
 		{Id: "uid-tiny", Label: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max},
-	})
-	defer srv.Close()
+	}}
 
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+	mgr := NewManager(t.TempDir(), store)
 	require.NoError(t, mgr.Restore(context.Background()))
 
 	err := mgr.Append(context.Background(), "uid-tiny", "xyz") // "abcxyz" (6 > 5)
@@ -112,13 +107,11 @@ func TestManager_Append_SizeCap(t *testing.T) {
 
 	got, _ := mgr.Read("uid-tiny")
 	assert.Equal(t, "abc", got, "failed write must not mutate state")
+	assert.Empty(t, store.upserts, "size-capped write must not push to store")
 }
 
 func TestManager_UnknownFile(t *testing.T) {
-	srv, _ := snapshotServer(t, nil)
-	defer srv.Close()
-
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+	mgr := NewManager(t.TempDir(), &stubMemoryStore{})
 	require.NoError(t, mgr.Restore(context.Background()))
 
 	_, err := mgr.Read("uid-missing")
@@ -127,22 +120,24 @@ func TestManager_UnknownFile(t *testing.T) {
 	assert.ErrorIs(t, mgr.Edit(context.Background(), "uid-missing", "a", "b"), ErrFileNotFound)
 }
 
-func TestManager_NoBackend_Restore(t *testing.T) {
+func TestManager_NoStore_Restore(t *testing.T) {
 	mgr := NewManager(t.TempDir(), nil)
 	require.NoError(t, mgr.Restore(context.Background()))
 	assert.Empty(t, mgr.UIDs())
 }
 
-func TestManager_BackendDown_AppendFails(t *testing.T) {
-	srv, _ := snapshotServer(t, []workflow.MemoryFile{
-		{Id: "uid-notes", Label: "notes", Description: "n", Content: "x"},
-	})
-	mgr := NewManager(t.TempDir(), backend.NewClient(srv.URL, "secret"))
+func TestManager_StoreFails_AppendFails(t *testing.T) {
+	store := &stubMemoryStore{
+		snapshot: []workflow.MemoryFile{
+			{Id: "uid-notes", Label: "notes", Description: "n", Content: "x"},
+		},
+	}
+	mgr := NewManager(t.TempDir(), store)
 	require.NoError(t, mgr.Restore(context.Background()))
-	srv.Close()
+	store.upsertErr = errors.New("store unreachable")
 
 	err := mgr.Append(context.Background(), "uid-notes", "y")
-	assert.Error(t, err)
+	require.Error(t, err)
 	got, _ := mgr.Read("uid-notes")
 	assert.Equal(t, "x", got, "failed push must not commit in-memory state")
 }
