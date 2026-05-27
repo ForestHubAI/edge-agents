@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 )
 
 const StateIdle = ""

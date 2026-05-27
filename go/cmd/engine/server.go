@@ -6,7 +6,7 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/api/engineapi"
 	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 	"github.com/ForestHubAI/fh-core/go/mapping"
 )
 

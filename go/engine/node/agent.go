@@ -17,8 +17,8 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
 	"github.com/ForestHubAI/fh-core/go/engine/memory"
+	"github.com/ForestHubAI/fh-core/go/logging"
 )
 
 // Implementation guards

@@ -3,41 +3,44 @@ package logging
 import (
 	"bytes"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
 )
 
-// httpWriter posts log lines to <backendURL>/agents/logs. Implements
+// HTTPWriter posts log lines to a configured URL. Implements
 // zerolog.LevelWriter so Fatal events block until the POST completes
 // while everything else is fire-and-forget.
-type httpWriter struct {
-	url      string
-	agentKey string
-	client   *http.Client
-	wg       sync.WaitGroup
+type HTTPWriter struct {
+	url        string
+	headerName string
+	headerVal  string
+	client     *http.Client
+	wg         sync.WaitGroup
 }
 
-func newHTTPWriter(backendURL, agentKey string) *httpWriter {
-	return &httpWriter{
-		url:      strings.TrimRight(backendURL, "/") + "/agents/logs",
-		agentKey: agentKey,
-		client:   &http.Client{Timeout: 5 * time.Second},
+// NewHTTPWriter constructs a writer that POSTs each log line to url.
+// An empty headerName disables the auth header; otherwise headerValue
+// is sent as headerName on every request.
+func NewHTTPWriter(url, headerName, headerValue string) *HTTPWriter {
+	return &HTTPWriter{
+		url:        url,
+		headerName: headerName,
+		headerVal:  headerValue,
+		client:     &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
 // Write sends p in a detached goroutine. Errors are dropped; the only
 // contract is best-effort delivery.
-func (h *httpWriter) Write(p []byte) (int, error) {
+func (h *HTTPWriter) Write(p []byte) (int, error) {
 	return h.WriteLevel(zerolog.NoLevel, p)
 }
 
 // WriteLevel dispatches per level. Fatal sends synchronously so the
-// log line reaches the backend before os.Exit fires inside zerolog's
-// Fatal path.
-func (h *httpWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
+// log line lands before os.Exit fires inside zerolog's Fatal path.
+func (h *HTTPWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 	body := append([]byte(nil), bytes.TrimSpace(p)...)
 	if level == zerolog.FatalLevel {
 		h.send(body)
@@ -51,14 +54,14 @@ func (h *httpWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (h *httpWriter) send(body []byte) {
+func (h *HTTPWriter) send(body []byte) {
 	req, err := http.NewRequest(http.MethodPost, h.url, bytes.NewReader(body))
 	if err != nil {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if h.agentKey != "" {
-		req.Header.Set("Agent-Key", h.agentKey)
+	if h.headerName != "" {
+		req.Header.Set(h.headerName, h.headerVal)
 	}
 	resp, err := h.client.Do(req)
 	if err != nil {
@@ -68,7 +71,7 @@ func (h *httpWriter) send(body []byte) {
 }
 
 // Close waits for in-flight goroutines, bounded by httpCloseTimeout.
-func (h *httpWriter) Close() error {
+func (h *HTTPWriter) Close() error {
 	done := make(chan struct{})
 	go func() {
 		h.wg.Wait()

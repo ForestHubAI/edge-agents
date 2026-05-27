@@ -1,8 +1,9 @@
 package engine
 
 import (
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
 	"time"
+
+	"github.com/ForestHubAI/fh-core/go/api/workflow"
 )
 
 func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) time.Duration {

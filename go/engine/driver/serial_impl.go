@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 
 	"github.com/rs/zerolog"
 	"go.bug.st/serial"

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 )
 
 // BuildFunc builds a Runner from a workflow + the resolved network manifest.

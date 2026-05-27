@@ -11,7 +11,7 @@ import (
 
 	"github.com/ForestHubAI/fh-core/go/engine"
 	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 
 	"github.com/rs/zerolog"
 )
@@ -102,7 +102,8 @@ func (r *Retriever) retrieve(ctx context.Context, query string) (string, error) 
 		return "", err
 	}
 	r.logger.Info().
-		Func(logging.Activity("rag_query", fmt.Sprintf("%q · %d results", truncate(query, 50), len(results)))).
+		Str("action", "rag_query").
+		Str("summary", fmt.Sprintf("%q · %d results", truncate(query, 50), len(results))).
 		Str("query", query).
 		Int("resultCount", len(results)).
 		Msg("rag.query")

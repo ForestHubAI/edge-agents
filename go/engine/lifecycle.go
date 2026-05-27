@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine/logging"
+	"github.com/ForestHubAI/fh-core/go/logging"
 )
 
 // RegisterWithRetry calls lc.Register until success or ctx cancellation.
