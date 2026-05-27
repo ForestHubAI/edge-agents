@@ -14,7 +14,7 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine"
 )
 
-// NoopControlPlane satisfies engine.ControlPlane with no-ops — there is no
+// NoopControlPlane satisfies engine.controlPlane with no-ops — there is no
 // control plane to register with offline.
 type NoopControlPlane struct{}
 
@@ -35,7 +35,7 @@ func (NoopRetriever) QueryRAG(context.Context, engine.RAGQueryParams) ([]engine.
 	return nil, nil
 }
 
-// MemoryStore is a filesystem-backed engine.MemoryStore. The durable copy is
+// MemoryStore is a filesystem-backed engine.memoryStore. The durable copy is
 // a directory of <uid>.json files, so declared memory survives engine
 // restarts with no backend.
 type MemoryStore struct{ dir string }
@@ -76,7 +76,7 @@ func (s *MemoryStore) Upsert(_ context.Context, uid, content string) error {
 		return err
 	}
 	path := filepath.Join(s.dir, uid+".json")
-	mf := workflow.MemoryFile{UID: uid, Content: content}
+	mf := workflow.MemoryFile{Id: uid, Content: content}
 	if b, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(b, &mf)
 		mf.Content = content
@@ -87,9 +87,3 @@ func (s *MemoryStore) Upsert(_ context.Context, uid, content string) error {
 	}
 	return os.WriteFile(path, b, 0o644)
 }
-
-var (
-	_ engine.ControlPlane = NoopControlPlane{}
-	_ engine.Retriever    = NoopRetriever{}
-	_ engine.MemoryStore  = (*MemoryStore)(nil)
-)

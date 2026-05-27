@@ -38,11 +38,11 @@ type Agent struct {
 	answerBinding   workflow.OutputBinding       // binding for the agent's free-form "answer" slot
 	outputDecl      []workflow.OutputDeclaration // user-declared outputs (each carries its own routing via ApplyDeclaration)
 	memoryRefs      []workflow.MemoryRef         // memory files the LLM may read/write, with per-ref access mode
-	memory          *memory.Manager         // engine-scoped memory subsystem; may be nil if no refs are wired
-	runner          *agent.Runner           // pre-built (model + max_turns fixed)
-	options         *llmproxy.Options       // generation options; nil for provider defaults
-	toolDescription string                  // description used when this agent is wired as a tool to another agent
-	tools           []engine.ToolProvider   // tools wired to this agent at build time
+	memory          *memory.Manager              // engine-scoped memory subsystem; may be nil if no refs are wired
+	runner          *agent.Runner                // pre-built (model + max_turns fixed)
+	options         *llmproxy.Options            // generation options; nil for provider defaults
+	toolDescription string                       // description used when this agent is wired as a tool to another agent
+	tools           []engine.ToolProvider        // tools wired to this agent at build time
 	// Built once in Setup (after wiring)
 	agent              *agent.Agent
 	structuredResponse bool // Whether the agent needs to produce a structured JSON response (vs plain text)
@@ -67,7 +67,7 @@ func NewAgent(
 	memoryRefs []workflow.MemoryRef,
 	maxTurns *int,
 	toolDescription string,
-	client *llmproxy.Client,
+	client engine.LlmClient,
 	mem *memory.Manager,
 ) *Agent {
 	runnerOpts := []agent.RunnerOption{

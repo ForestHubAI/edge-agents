@@ -1,12 +1,13 @@
 package engine
 
 // Ports: the engine-owned seams for everything it needs from "outside".
-// Each is an interface so the engine never depends on a concrete fh-backend
-// client (PLAN guardrail 2). The fh-backend HTTP client is ONE adapter;
-// package local provides offline defaults so the engine is fully usable
-// with zero account (PLAN Invariant 1). Signatures speak engine DOMAIN
-// types, never generated wire structs — an adapter that crosses HTTP maps
-// domain<->wire privately; a local adapter needs no mapping.
+// Each is an interface so the engine never depends on a concrete adapter.
+// The fh-backend HTTP client is one adapter; package local provides
+// offline defaults (filesystem memory, no-op control plane and retriever)
+// so the engine is fully usable with zero account. Signatures speak the
+// engine's own domain types (RAGQueryParams, etc.) plus external package
+// types (llmproxy, api/workflow); adapters map to their own internal
+// wire forms privately.
 //
 // LogSink is intentionally not a port here: the engine already depends on
 // the logging package, and stderr logging is unconditional, so log shipping
@@ -16,6 +17,7 @@ import (
 	"context"
 
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/fh-core/go/llmproxy"
 )
 
 // ControlPlane is the agent-registration seam (boot callback + heartbeat).
@@ -33,6 +35,12 @@ type ControlPlane interface {
 type MemoryStore interface {
 	Snapshot(ctx context.Context) ([]workflow.MemoryFile, error)
 	Upsert(ctx context.Context, uid, content string) error
+}
+
+// LlmClient is the chat-completion seam. Implementation: *llmproxy.Client,
+// which dispatches by model id across configured providers.
+type LlmClient interface {
+	Chat(ctx context.Context, req *llmproxy.ChatRequest) (*llmproxy.ChatResponse, error)
 }
 
 // Retriever is the RAG seam. Local default: empty results. fh-backend
