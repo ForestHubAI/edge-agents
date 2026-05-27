@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ForestHubAI/fh-core/go/api/workflow"
 
@@ -70,4 +71,27 @@ type RAGQueryResult struct {
 	DocumentID string
 	Content    string
 	Score      float64
+}
+
+// AgentRegistration is the per-boot state passed to Lifecycle.Register.
+type AgentRegistration struct {
+	Address  string
+	Status   AgentStatus
+	Manifest *DeviceManifest
+	Error    *string
+}
+
+// AgentStatus is the boot outcome reported through Lifecycle.Register.
+type AgentStatus string
+
+const (
+	StatusOnline    AgentStatus = "online"
+	StatusBootError AgentStatus = "booterror"
+)
+
+// RetryConfig tunes RegisterWithRetry and HeartbeatLoop. Interval is the
+// wait between Register retries and the tick cadence for Heartbeat.
+type RetryConfig struct {
+	AttemptTimeout time.Duration
+	Interval       time.Duration
 }

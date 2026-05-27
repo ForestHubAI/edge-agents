@@ -122,30 +122,35 @@ func main() {
 
 	server := &http.Server{Addr: cfg.ListenAddr, Handler: r}
 
-	// Boot-time self-registration: BootCallbackWithRetry runs in its own
-	// goroutine so a cold-started backend does not delay the listen-port.
-	// Once the boot callback succeeds, HeartbeatLoop takes over for periodic
-	// liveness. Both share liveCtx, which is canceled on SIGTERM.
+	// Boot-time self-registration: RegisterWithRetry runs in its own goroutine
+	// so a cold-started backend does not delay the listen-port. Once Register
+	// succeeds, HeartbeatLoop takes over for periodic liveness. Both share
+	// liveCtx, which is canceled on SIGTERM.
 	liveCtx, cancelLive := context.WithCancel(context.Background())
 	defer cancelLive()
 	// PublicAddress is optional. Cloud-mode engines sit behind NAT and leave it
 	// empty; the backend then rejects push deploys for this agent but still
 	// tracks liveness through heartbeats and accepts bundle deploys.
 	if backendClient != nil {
+		reg := engine.AgentRegistration{
+			Address:  cfg.PublicAddress,
+			Status:   engine.StatusOnline,
+			Manifest: &manifest,
+		}
+		registerCfg := engine.RetryConfig{
+			AttemptTimeout: backend.BootCallbackTimeout,
+			Interval:       backend.RegisterRetryInterval,
+		}
+		heartbeatCfg := engine.RetryConfig{
+			AttemptTimeout: backend.HeartbeatTimeout,
+			Interval:       backend.HeartbeatInterval,
+		}
 		go func() {
-			// Manifest loading already succeeded above (otherwise main would
-			// have logged Fatal), so the boot status is unconditionally online.
-			// A future failure path that still wants to come up would call
-			// BootCallbackWithRetry with status="booterror" and an error
-			// description instead.
-			backendClient.BootCallbackWithRetry(liveCtx, cfg.PublicAddress, "online", &manifest, nil)
-			// BootCallbackWithRetry returns either on first success or on
-			// context cancel. If liveCtx is already canceled there is no
-			// point starting the heartbeat loop.
+			engine.RegisterWithRetry(liveCtx, backendClient, reg, registerCfg)
 			if liveCtx.Err() != nil {
 				return
 			}
-			backendClient.HeartbeatLoop(liveCtx, cfg.PublicAddress)
+			engine.HeartbeatLoop(liveCtx, backendClient, cfg.PublicAddress, heartbeatCfg)
 		}()
 	} else {
 		logging.Logger.Info().Msg("FH_BACKEND_URL or ENGINE_SECRET not set, skipping self-registration")

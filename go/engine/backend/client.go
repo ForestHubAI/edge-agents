@@ -14,6 +14,9 @@ const (
 	// BootCallbackTimeout caps the one-shot boot callback HTTP call so a
 	// single unreachable backend cannot wedge engine startup.
 	BootCallbackTimeout = 10 * time.Second
+	// RegisterRetryInterval is the wait between failed Register attempts
+	// when the backend is unreachable at engine startup.
+	RegisterRetryInterval = 30 * time.Second
 	// ProviderLoadTimeout caps the one-shot /llm/providers fetch used to
 	// discover backend-routed LLM fallbacks at engine startup.
 	ProviderLoadTimeout = 10 * time.Second
