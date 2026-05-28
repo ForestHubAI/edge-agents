@@ -16,6 +16,7 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine/backend"
 	"github.com/ForestHubAI/fh-core/go/engine/build"
 	"github.com/ForestHubAI/fh-core/go/engine/driver"
+	"github.com/ForestHubAI/fh-core/go/engine/local"
 	"github.com/ForestHubAI/fh-core/go/engine/memory"
 	"github.com/ForestHubAI/fh-core/go/engine/websearch"
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
@@ -53,8 +54,14 @@ func main() {
 		logging.Logger.Warn().Msg("FH_BACKEND_URL set but ENGINE_SECRET empty — HTTP log pushes will 401")
 	}
 
-	// Create backend client
-	backendClient := backend.NewClient(cfg.BackendURL, cfg.Secret)
+	// Create backend client only when an endpoint is actually configured.
+	// A nil client signals "standalone mode" to every downstream consumer
+	// (LLM provider discovery, memory store, retriever, lifecycle goroutine)
+	// so they fall back to the offline defaults in engine/local.
+	var backendClient *backend.Client
+	if cfg.BackendURL != "" {
+		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
+	}
 
 	// Create LLM provider registry and client. Locally-configured providers
 	// take precedence; any provider the backend exposes that the engine lacks
@@ -85,9 +92,17 @@ func main() {
 	}
 
 	// Memory subsystem: backed by the configured local dir, syncs through
-	// the same backend client used for RAG/logs/etc. Restore is invoked on
-	// every Build (deploy or initial), so no eager call here.
-	memoryManager := memory.NewManager(cfg.MemoryDir, backendClient)
+	// either the backend (cloud mode) or a filesystem-backed local store
+	// rooted at the same dir (standalone mode — declared memory survives
+	// engine restarts without a backend). Restore is invoked on every Build
+	// (deploy or initial), so no eager call here.
+	var memoryStore engine.MemoryStore
+	if backendClient != nil {
+		memoryStore = backendClient
+	} else {
+		memoryStore = local.NewMemoryStore(cfg.MemoryDir)
+	}
+	memoryManager := memory.NewManager(cfg.MemoryDir, memoryStore)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
@@ -102,13 +117,21 @@ func main() {
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
 	}
 
+	// Retriever: backend if cloud mode, NoopRetriever (empty results) in
+	// standalone mode so Retriever nodes degrade gracefully instead of
+	// panicking on a typed-nil interface.
+	var retriever engine.Retriever = local.NoopRetriever{}
+	if backendClient != nil {
+		retriever = backendClient
+	}
+
 	// Create builder and engine
 	builder := &build.Builder{
 		Drivers:   drivers,
 		LLM:       llmClient,
 		Memory:    memoryManager,
 		WebSearch: webSearchProvider,
-		Retriever: backendClient,
+		Retriever: retriever,
 	}
 	eng := &engine.Engine{
 		Secret:  cfg.Secret,
@@ -204,15 +227,12 @@ func main() {
 }
 
 // loadManifest reads a JSON DriverManifest from the given path. An empty path
-// returns a minimal default suitable for local dev and CI. A missing file at
-// an explicit path is a fatal misconfiguration.
+// returns an empty manifest; the workflow must then not declare any channels
+// (every channel needs a driverId that resolves into this manifest). A missing
+// file at an explicit path is a fatal misconfiguration.
 func loadManifest(path string) (engine.DeviceManifest, error) {
 	if path == "" {
-		return engine.DeviceManifest{
-			GPIOs: map[string]engine.GPIOConfig{
-				"gpiochip0": {Chip: "/dev/gpiochip0"},
-			},
-		}, nil
+		return engine.DeviceManifest{}, nil
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
