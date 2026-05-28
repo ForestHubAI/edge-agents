@@ -52,7 +52,7 @@ export function isPreview(mode: BuilderMode): boolean {
 // ============================================================================
 
 export interface WorkflowBuilderProps {
-  /** Workflow loaded on mount. */
+  /** Workflow loaded on mount. If none is provided, an empty workflow is created. */
   initialWorkflow?: ApiWorkflow;
   /** Builder mode on mount. Defaults to { type: "edit" }. */
   initialMode?: BuilderMode;
