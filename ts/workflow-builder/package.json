@@ -2,6 +2,11 @@
   "name": "@foresthubai/workflow-builder",
   "version": "0.1.0",
   "description": "Reusable React component library: the workflow canvas/editor. Imports workflow-core for types and validation.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForestHubAI/fh-core.git",
+    "directory": "ts/workflow-builder"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,7 +18,11 @@
     "./styles/index.css": "./src/styles/index.css",
     "./tailwind-preset": "./tailwind-preset.ts"
   },
-  "files": ["dist", "src", "tailwind-preset.ts"],
+  "files": [
+    "dist",
+    "src",
+    "tailwind-preset.ts"
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
@@ -28,7 +37,7 @@
     "tailwindcss": "^3.4.0"
   },
   "dependencies": {
-    "@foresthubai/workflow-core": "^0.1.0",
+    "@foresthubai/workflow-core": "0.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-collapsible": "^1.1.0",

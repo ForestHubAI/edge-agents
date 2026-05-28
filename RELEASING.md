@@ -47,14 +47,14 @@ Both packages carry `publishConfig.registry = https://npm.pkg.github.com`.
 (never commit it):
 
 ```
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+//npm.pkg.github.com/:_authToken=$[Token with write access]
 ```
 
-**To consume** (e.g. the private FE repo), add an `.npmrc` _there_:
+**To consume** (e.g. the private FE repo), add `FH_PACKAGES_TOKEN` as env variable and add an `.npmrc` in consumers' root folder:
 
 ```
 @foresthubai:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}   # token needs read:packages
+//npm.pkg.github.com/:_authToken=${FH_PACKAGES_TOKEN}
 ```
 
 then `npm i @foresthubai/workflow-builder@X.Y.Z` as normal. See

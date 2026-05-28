@@ -113,64 +113,63 @@ export const CanvasTabsToolbar = ({
           clearDrag();
         }}
       >
-      {/* Absolute drop indicator — no layout shift */}
-      {indicatorX !== null && (
-        <div
-          className="absolute top-0 bottom-0 bg-primary z-10 pointer-events-none"
-          style={{ left: 0, width: "2px", transform: `translateX(${indicatorX}px)` }}
-        />
-      )}
+        {/* Absolute drop indicator — no layout shift */}
+        {indicatorX !== null && (
+          <div
+            className="absolute top-0 bottom-0 bg-primary z-10 pointer-events-none"
+            style={{ left: 0, width: "2px", transform: `translateX(${indicatorX}px)` }}
+          />
+        )}
 
-      {tabs.map((tab, index) => {
-        const isDraggable = !isMainTab(index);
+        {tabs.map((tab, index) => {
+          const isDraggable = !isMainTab(index);
 
-        return (
-          <React.Fragment key={tab.id}>
-            {index > 0 && <div className="w-px bg-border/70 shrink-0" />}
-            <div
-              draggable={isDraggable}
-              onDragStart={(e) => {
-                if (!isDraggable) return;
-                dragIndex.current = index;
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              onDragOver={(e) => handleTabDragOver(e, index)}
-              onDragEnd={clearDrag}
-              className={cn(
-                "group flex items-center gap-1.5 pl-2 pr-1 text-sm font-medium cursor-pointer transition-colors",
-                "hover:bg-field/80",
-                activeTabId === tab.id
-                  ? "bg-field text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-                isDraggable ? "cursor-grab active:cursor-grabbing" : "select-none",
-              )}
-              onClick={() => onTabChange(tab.id)}
-            >
-              {isMainTab(index) ? (
-                <Workflow className="w-3.5 h-3.5 shrink-0" />
-              ) : (
-                <FunctionSquare className="w-3.5 h-3.5 shrink-0" />
-              )}
-              <span className="truncate max-w-[120px] py-1">{tab.label}</span>
-              {tab.id !== MAIN_CANVAS_ID ? (
-                <button
-                  type="button"
-                  className="flex items-center justify-center w-4 h-4 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/15 hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTabClose(tab.id);
-                  }}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <span className="w-1 shrink-0" />
-              )}
-            </div>
-          </React.Fragment>
-        );
-      })}
-
+          return (
+            <React.Fragment key={tab.id}>
+              {index > 0 && <div className="w-px bg-border/70 shrink-0" />}
+              <div
+                draggable={isDraggable}
+                onDragStart={(e) => {
+                  if (!isDraggable) return;
+                  dragIndex.current = index;
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => handleTabDragOver(e, index)}
+                onDragEnd={clearDrag}
+                className={cn(
+                  "group flex items-center gap-1.5 pl-2 pr-1 text-sm font-medium cursor-pointer transition-colors",
+                  "hover:bg-field/80",
+                  activeTabId === tab.id ? "bg-field text-foreground" : "text-muted-foreground hover:text-foreground",
+                  isDraggable ? "cursor-grab active:cursor-grabbing" : "select-none",
+                )}
+                onClick={() => onTabChange(tab.id)}
+              >
+                {isMainTab(index) ? (
+                  <Workflow className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <FunctionSquare className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span className="truncate max-w-[120px] py-1">{tab.label}</span>
+                {tab.id !== MAIN_CANVAS_ID ? (
+                  <button
+                    type="button"
+                    aria-label={`Close tab ${tab.label}`}
+                    title={`Close tab ${tab.label}`}
+                    className="flex items-center justify-center w-4 h-4 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/15 hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTabClose(tab.id);
+                    }}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <span className="w-1 shrink-0" />
+                )}
+              </div>
+            </React.Fragment>
+          );
+        })}
       </div>
     </ScrollArea>
   );

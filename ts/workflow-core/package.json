@@ -2,6 +2,11 @@
   "name": "@foresthubai/workflow-core",
   "version": "0.1.0",
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForestHubAI/fh-core.git",
+    "directory": "ts/workflow-core"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -63,7 +68,10 @@
       "import": "./dist/migration/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },

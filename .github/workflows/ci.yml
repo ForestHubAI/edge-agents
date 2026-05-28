@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  go:
+    name: Go (test + vet + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./... -race
+
+  ts:
+    name: TS (typecheck + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  drift:
+    name: Contract codegen drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Regenerate Go bindings
+        working-directory: go
+        run: go generate ./...
+      - name: Regenerate TS bindings
+        working-directory: ts
+        run: |
+          npm ci
+          npm run generate
+      - name: Fail if generated files differ from committed
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated bindings are out of sync with contract/. Run 'go generate ./...' in go/ and 'npm run generate' in ts/, then commit the result."
+            exit 1
+          fi
