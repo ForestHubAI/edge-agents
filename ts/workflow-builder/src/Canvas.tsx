@@ -13,9 +13,10 @@ import {
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
+  useNodesInitialized,
   useReactFlow,
 } from "@xyflow/react";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useResolvedTheme } from "./hooks/useResolvedTheme";
 
 import { NodeCategory, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";
@@ -51,10 +52,11 @@ const CanvasArea = ({
 }: CanvasProps) => {
   const readOnly = useEditorStore((s) => isReadOnly(s.builderMode));
   const resolvedTheme = useResolvedTheme();
-  const { screenToFlowPosition, getViewport } = useReactFlow();
+  const { screenToFlowPosition, getViewport, fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
 
-  // Expose viewport center calculation to parent via ref
-  React.useEffect(() => {
+  // Expose viewport center calculation to parent via ref so new nodes can be dropped there.
+  useEffect(() => {
     viewportCenterRef.current = () => {
       const container = document.querySelector(".react-flow");
       if (!container) return { x: 250, y: 100 };
@@ -74,6 +76,42 @@ const CanvasArea = ({
   const edges = useStore((s) => s.edges);
   const setNodes = useStore((s) => s.setNodes);
   const setEdges = useStore((s) => s.setEdges);
+  const setViewport = useStore((s) => s.setViewport);
+
+  // This component remounts per canvas (key={canvasId} in BuilderLayout), so ReactFlow
+  // starts cold on every tab switch. Read the stored viewport ONCE at mount, non-reactively
+  // (a reactive read would re-render on every pan). Present → restore via defaultViewport so
+  // the FIRST painted frame is already correct. Absent (first visit) → fit once nodes are
+  // measured (effect below).
+  const initialViewport = useRef(useStore.getState().viewport).current;
+
+  // A first visit has nothing to restore, so the fit must run post-mount and would otherwise
+  // paint the default {0,0,1} frame first and jump to the fit on the next frame. Keep the
+  // canvas hidden until that fit lands, then reveal the already-correct frame. A restored
+  // viewport is right on frame 1, so it starts visible — only the first-visit fit is gated.
+  const [ready, setReady] = useState(initialViewport != null);
+
+  useEffect(() => {
+    if (ready || initialViewport != null) return;
+    // An empty canvas has nothing to fit — and useNodesInitialized stays false forever with
+    // zero nodes — so reveal at the default viewport instead of staying hidden (which would
+    // blank the canvas: no background, can't drop nodes in).
+    if (nodes.length === 0) {
+      setReady(true);
+      return;
+    }
+    if (!nodesInitialized) return;
+    // fitView updates ReactFlow's viewport, but the transform paints ONE FRAME LATER than this
+    // call (measured). Revealing now would show one frame at the identity viewport before the
+    // fit lands — the twitch. So fit now, then reveal on the next frame, once the transform has
+    // painted. Seed the store so re-entering this canvas restores the view instead of refitting.
+    fitView({ padding: 0.15, maxZoom: 1 });
+    const raf = requestAnimationFrame(() => {
+      setViewport(getViewport());
+      setReady(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [ready, initialViewport, nodes.length, nodesInitialized, fitView, getViewport, setViewport]);
 
   // Function to determine node color for MiniMap (uses ReactFlow node types, not domain NodeType)
   const nodeColor = (node: Node) => {
@@ -146,55 +184,66 @@ const CanvasArea = ({
   };
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={onConnect}
-      isValidConnection={(c) => !!validateConnection(c.source, c.target, c.sourceHandle, c.targetHandle, nodes, edges)}
-      onPaneClick={onPaneClick}
-      onNodeDragStart={onNodeDragStart}
-      onSelectionChange={onSelectionChange}
-      onSelectionStart={onSelectionStart}
-      onSelectionEnd={onSelectionStop}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onInit={(instance) => instance.fitView({ padding: 0.15, maxZoom: 1 })}
-      selectionOnDrag={!readOnly}
-      panOnDrag={[1, 2]}
-      selectionMode={SelectionMode.Partial}
-      selectNodesOnDrag={false}
-      nodesConnectable={!readOnly}
-      nodesDraggable={!readOnly}
-      zoomOnScroll={true}
-      zoomOnPinch={true}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      deleteKeyCode={null} // Disable delete controlled by react flow itself
-      onContextMenu={(e) => e.preventDefault()}
-      onMouseDownCapture={handleMouseDownCapture}
-      onAuxClick={handleAuxClick}
-      colorMode={resolvedTheme}
-      style={{ "--xy-background-color": "hsl(var(--canvas-background))" } as React.CSSProperties}
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        color="hsl(var(--muted-foreground))"
-        gap={24}
-        size={1.5}
-        className="opacity-40"
-      />
-      <Controls className="glass-forest-panel !border !shadow-lg [&_button]:glass-forest-button [&_button]:!text-foreground hover:[&_button]:!scale-105" />
-      <MiniMap
-        nodeColor={nodeColor}
-        className="glass-forest-panel !border !shadow-lg"
-        maskColor="hsl(var(--primary) / 0.15)"
-        nodeBorderRadius={12}
-        nodeStrokeWidth={2}
-        style={{ width: 120, height: 80 }}
-      />
-    </ReactFlow>
+    // Gate the first-visit fit with opacity, NOT visibility/display:
+    //  - visibility:hidden is overridden by ReactFlow, which sets visibility:visible on each
+    //    measured node, so the nodes stay on screen and you still see the fit jump.
+    //  - display:none removes layout boxes, so nodes never measure and the fit can't compute.
+    // opacity applies to the whole subtree as a group (children can't override it) yet keeps
+    // layout intact, so measurement/fitView work while it's invisible.
+    <div className="w-full h-full" style={{ opacity: ready ? 1 : 0 }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        isValidConnection={(c) =>
+          !!validateConnection(c.source, c.target, c.sourceHandle, c.targetHandle, nodes, edges)
+        }
+        onPaneClick={onPaneClick}
+        onNodeDragStart={onNodeDragStart}
+        onSelectionChange={onSelectionChange}
+        onSelectionStart={onSelectionStart}
+        onSelectionEnd={onSelectionStop}
+        onMoveEnd={(_, vp) => setViewport(vp)}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultViewport={initialViewport ?? undefined}
+        selectionOnDrag={!readOnly}
+        panOnDrag={[1, 2]}
+        selectionMode={SelectionMode.Partial}
+        selectNodesOnDrag={false}
+        nodesConnectable={!readOnly}
+        nodesDraggable={!readOnly}
+        zoomOnScroll={true}
+        zoomOnPinch={true}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        deleteKeyCode={null} // Disable delete controlled by react flow itself
+        onContextMenu={(e) => e.preventDefault()}
+        onMouseDownCapture={handleMouseDownCapture}
+        onAuxClick={handleAuxClick}
+        colorMode={resolvedTheme}
+        style={{ "--xy-background-color": "hsl(var(--canvas-background))" } as React.CSSProperties}
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          color="hsl(var(--muted-foreground))"
+          gap={24}
+          size={1.5}
+          className="opacity-40"
+        />
+        <Controls className="glass-forest-panel !border !shadow-lg [&_button]:glass-forest-button [&_button]:!text-foreground hover:[&_button]:!scale-105" />
+        <MiniMap
+          nodeColor={nodeColor}
+          className="glass-forest-panel !border !shadow-lg"
+          maskColor="hsl(var(--primary) / 0.15)"
+          nodeBorderRadius={12}
+          nodeStrokeWidth={2}
+          style={{ width: 120, height: 80 }}
+        />
+      </ReactFlow>
+    </div>
   );
 };
 

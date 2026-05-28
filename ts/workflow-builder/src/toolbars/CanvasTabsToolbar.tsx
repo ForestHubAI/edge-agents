@@ -1,15 +1,7 @@
-import { Button } from "../components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+import { ScrollArea } from "../components/ui/scroll-area";
 import { cn } from "../lib/utils";
-import { FunctionSquare, PanelRightOpen, Workflow, X } from "lucide-react";
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
+import { FunctionSquare, Workflow, X } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasTab } from "../hooks/useCanvasTabs";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 
@@ -19,8 +11,6 @@ interface CanvasTabsToolbarProps {
   onTabChange: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
   onTabReorder: (fromIndex: number, toIndex: number) => void;
-  functions: FunctionDeclaration[];
-  onOpenFunction: (id: string) => void;
 }
 
 export const CanvasTabsToolbar = ({
@@ -29,14 +19,32 @@ export const CanvasTabsToolbar = ({
   onTabChange,
   onTabClose,
   onTabReorder,
-  functions,
-  onOpenFunction,
 }: CanvasTabsToolbarProps) => {
-  const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const dragIndex = useRef<number | null>(null);
 
-  const openTabIds = useMemo(() => new Set(tabs.map((t) => t.id)), [tabs]);
+  // Translate vertical mouse-wheel deltas into horizontal scroll on the tabs
+  // viewport. A non-passive native listener is required because React's
+  // synthetic onWheel is passive — preventDefault() there is a no-op, so the
+  // page would also scroll vertically alongside the toolbar shift. We leave
+  // genuine horizontal wheels (touchpads, tilt wheels) alone by gating on
+  // deltaY, and skip the override entirely when there's nothing to scroll
+  // so vertical-page scrolling still works when the pointer happens to
+  // hover an unfilled toolbar.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      if (el.scrollWidth <= el.clientWidth) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
+
   // dropSlot: insertion index (before which tab the dragged tab lands)
   const [dropSlot, setDropSlot] = useState<number | null>(null);
   // indicatorX: pixel offset from container left for the visual line
@@ -66,9 +74,8 @@ export const CanvasTabsToolbar = ({
 
       // Slot: insertion index
       const slot = isLeftHalf ? index : index + 1;
-      // Indicator position: center of the gap (gap-1 = 4px) between tabs
-      const GAP_HALF = 2;
-      const raw = isLeftHalf ? rect.left - containerRect.left - GAP_HALF : rect.right - containerRect.left + GAP_HALF;
+      // Tabs are now flush with a 1px separator between them — land the indicator on that seam.
+      const raw = isLeftHalf ? rect.left - containerRect.left : rect.right - containerRect.left;
       // Clamp so the indicator stays fully visible inside the container
       const x = Math.round(Math.max(0, Math.min(raw, containerRef.current.clientWidth - 2)));
 
@@ -79,31 +86,37 @@ export const CanvasTabsToolbar = ({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex items-center gap-1 px-2 py-2.5 bg-card/80 border-b border-border/50 min-h-[44px] overflow-x-auto"
-      onDragOver={(e) => {
-        // Fallback for empty area past last tab
-        if (dragIndex.current === null || !containerRef.current) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (dragIndex.current !== null && dropSlot !== null) {
-          const from = dragIndex.current;
-          const target = dropSlot > from ? dropSlot - 1 : dropSlot;
-          if (target > 0 && target !== from) {
-            onTabReorder(from, target);
+    // ScrollArea provides the horizontal overlay scrollbar (hover-only, in the
+    // panel gutter so the tab row doesn't shift). The Root carries the bg +
+    // bottom border; the inner div inside the Viewport stays the drag/drop
+    // container — containerRef points at it so the indicator's coordinates
+    // remain relative to the (scrollable) tab row, not the fixed Root.
+    <ScrollArea className="bg-card/80 border-b border-border/50" viewportRef={viewportRef}>
+      <div
+        ref={containerRef}
+        className="relative flex items-stretch"
+        onDragOver={(e) => {
+          // Fallback for empty area past last tab
+          if (dragIndex.current === null || !containerRef.current) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dragIndex.current !== null && dropSlot !== null) {
+            const from = dragIndex.current;
+            const target = dropSlot > from ? dropSlot - 1 : dropSlot;
+            if (target > 0 && target !== from) {
+              onTabReorder(from, target);
+            }
           }
-        }
-        clearDrag();
-      }}
-    >
+          clearDrag();
+        }}
+      >
       {/* Absolute drop indicator — no layout shift */}
       {indicatorX !== null && (
         <div
-          className="absolute top-1.5 bottom-1.5 bg-primary z-10 pointer-events-none"
+          className="absolute top-0 bottom-0 bg-primary z-10 pointer-events-none"
           style={{ left: 0, width: "2px", transform: `translateX(${indicatorX}px)` }}
         />
       )}
@@ -113,6 +126,7 @@ export const CanvasTabsToolbar = ({
 
         return (
           <React.Fragment key={tab.id}>
+            {index > 0 && <div className="w-px bg-border/70 shrink-0" />}
             <div
               draggable={isDraggable}
               onDragStart={(e) => {
@@ -123,74 +137,41 @@ export const CanvasTabsToolbar = ({
               onDragOver={(e) => handleTabDragOver(e, index)}
               onDragEnd={clearDrag}
               className={cn(
-                // border is always present (transparent when inactive) so toggling
-                // active state changes only color, not geometry — otherwise the 1px
-                // border appearing/disappearing reflows the tab and transition-all
-                // animates that shift into a visible twitch.
-                "group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all border",
+                "group flex items-center gap-1.5 pl-2 pr-1 text-sm font-medium cursor-pointer transition-colors",
                 "hover:bg-field/80",
                 activeTabId === tab.id
-                  ? "bg-field text-foreground shadow-sm border-border/50"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
+                  ? "bg-field text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
                 isDraggable ? "cursor-grab active:cursor-grabbing" : "select-none",
               )}
               onClick={() => onTabChange(tab.id)}
             >
-              <Workflow className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate max-w-[120px]">{tab.label}</span>
-              {tab.id !== MAIN_CANVAS_ID && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "w-4 h-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                    "hover:bg-destructive/10 hover:text-destructive",
-                  )}
+              {isMainTab(index) ? (
+                <Workflow className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <FunctionSquare className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span className="truncate max-w-[120px] py-1">{tab.label}</span>
+              {tab.id !== MAIN_CANVAS_ID ? (
+                <button
+                  type="button"
+                  className="flex items-center justify-center w-4 h-4 shrink-0 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/15 hover:text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
                     onTabClose(tab.id);
                   }}
                 >
-                  <X className="w-3 h-3" />
-                </Button>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <span className="w-1 shrink-0" />
               )}
             </div>
-
-            {/* Static separator after Main tab */}
-            {isMainTab(index) && tabs.length > 1 && <div className="w-px h-5 bg-border/70 mx-0.5 shrink-0" />}
           </React.Fragment>
         );
       })}
 
-      {/* Function navigation dropdown — opens a tab for an existing function.
-          Creation lives in the Functions sidebar; this is view-only. */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-7 h-7 shrink-0 text-muted-foreground hover:text-foreground"
-            title={t("openFunction")}
-          >
-            <PanelRightOpen className="w-4 h-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {functions.length === 0 ? (
-            <DropdownMenuItem disabled className="gap-2">
-              {t("noFunctions")}
-            </DropdownMenuItem>
-          ) : (
-            functions.map((fn) => (
-              <DropdownMenuItem key={fn.id} onClick={() => onOpenFunction(fn.id)} className="gap-2">
-                <FunctionSquare className="w-4 h-4 shrink-0" />
-                <span className="truncate">{fn.name}</span>
-                {openTabIds.has(fn.id) && <span className="ml-auto text-xs text-muted-foreground">open</span>}
-              </DropdownMenuItem>
-            ))
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+      </div>
+    </ScrollArea>
   );
 };

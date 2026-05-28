@@ -265,15 +265,13 @@ export const BuilderLayout = ({
   // ── Render ───────────────────────────────────────────────────────────────
 
   const canvasArea = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-w-0">
       <CanvasTabsToolbar
         tabs={canvasTabs}
         activeTabId={activeCanvasId}
         onTabChange={onCanvasTabChange}
         onTabClose={onCanvasTabClose}
         onTabReorder={onCanvasTabReorder}
-        functions={functions}
-        onOpenFunction={onOpenFunction}
       />
       <div className="flex-1 relative">
         <CanvasEditor
@@ -312,7 +310,7 @@ export const BuilderLayout = ({
           isDebugMode={isDebugMode}
         />
 
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col h-full min-w-0">
           {isDebugMode ? (
             <ResizablePanelGroup direction="vertical">
               <ResizablePanel defaultSize={75} minSize={30}>

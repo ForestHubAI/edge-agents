@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { ScrollArea } from "../components/ui/scroll-area";
 import { Trash2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,8 @@ export const DebugConsolePanel = () => {
   const { t } = useTranslation();
   const entries = useDebugStore((s) => s.console);
   const clearConsole = useDebugStore((s) => s.clearConsole);
+  // Ref points at the ScrollArea Viewport (the element with overflow:scroll),
+  // not the Root — the Root is overflow:hidden and won't scroll.
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom on new entries
@@ -35,14 +38,18 @@ export const DebugConsolePanel = () => {
         </Button>
       </div>
 
-      {/* Console output */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-0.5">
-        {entries.length === 0 ? (
-          <div className="text-muted-foreground text-center py-4">{t("debug.consoleEmpty")}</div>
-        ) : (
-          entries.map((entry) => <ConsoleRow key={entry.id} entry={entry} />)
-        )}
-      </div>
+      {/* Console output. Radix wraps Viewport children in its own div, so
+          row-spacing utilities (space-y-*) on the Viewport don't reach the
+          actual rows — apply them on an explicit wrapper instead. */}
+      <ScrollArea className="flex-1" viewportRef={scrollRef} viewportClassName="p-2">
+        <div className="font-mono text-xs space-y-0.5">
+          {entries.length === 0 ? (
+            <div className="text-muted-foreground text-center py-4">{t("debug.consoleEmpty")}</div>
+          ) : (
+            entries.map((entry) => <ConsoleRow key={entry.id} entry={entry} />)
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 };

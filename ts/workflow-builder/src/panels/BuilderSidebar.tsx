@@ -1,4 +1,5 @@
 import { Button } from "../components/ui/button";
+import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { cn } from "../lib/utils";
 import { NodeCategory, NodeDefinition } from "@foresthubai/workflow-core/node";
@@ -285,8 +286,13 @@ export const BuilderSidebar = ({
               </Button>
             </div>
 
-            {/* Panel Content */}
-            <div className="flex-1 overflow-auto p-3">{renderTabContent()}</div>
+            {/* Panel Content — ScrollArea overlays the scrollbar in the panel's
+                gutter so content width stays constant whether overflow is
+                present or not. Padding lives on the inner viewport because the
+                Root must clip cleanly for the absolute-positioned scrollbar. */}
+            <ScrollArea className="flex-1" viewportClassName="p-3">
+              {renderTabContent()}
+            </ScrollArea>
           </>
         )}
       </div>

@@ -448,6 +448,66 @@ All colors MUST be HSL.
   }
 }
 
+/* ════════════════════════════════════════════════════════════
+ * Themed thin scrollbars — uniform across every scrollable region
+ * inside the builder (sidebar, right panel, tabs toolbar, dropdowns,
+ * dialogs, debug console).
+ *
+ * Two scopes, both opt-in:
+ *  - `.fh-workflow-builder` covers everything rendered inside the
+ *    builder DOM subtree.
+ *  - `.fh-builder-portal` covers Radix Content nodes that portal to
+ *    <body> (DropdownMenu, Dialog, AlertDialog, Select, Tooltip), so
+ *    they don't drop back to the host's native scrollbar just because
+ *    they live outside the builder root in the DOM. Same marker used
+ *    to pin `font-sans` on those nodes.
+ *
+ * Host pages are never touched: every rule is anchored on one of these
+ * two classes; no `body`/`html`/universal selector escapes them. Thumb
+ * uses --muted-foreground at low opacity so it reads as a faint hint of
+ * the subtext color on both card and popover surfaces, in both modes.
+ *
+ * Width 6px: thin enough that the 6px reflow when it appears is barely
+ * perceptible, while still big enough to grab. We deliberately don't
+ * use `scrollbar-gutter: stable` (which would reserve the gutter even
+ * when nothing overflows) — most panels never need a scrollbar, and
+ * the permanent gap looks worse than the rare reflow.
+ * ════════════════════════════════════════════════════════════ */
+.fh-workflow-builder,
+.fh-workflow-builder *,
+.fh-builder-portal,
+.fh-builder-portal * {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+}
+.fh-workflow-builder ::-webkit-scrollbar,
+.fh-builder-portal::-webkit-scrollbar,
+.fh-builder-portal ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.fh-workflow-builder ::-webkit-scrollbar-track,
+.fh-builder-portal::-webkit-scrollbar-track,
+.fh-builder-portal ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fh-workflow-builder ::-webkit-scrollbar-thumb,
+.fh-builder-portal::-webkit-scrollbar-thumb,
+.fh-builder-portal ::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+}
+.fh-workflow-builder ::-webkit-scrollbar-thumb:hover,
+.fh-builder-portal::-webkit-scrollbar-thumb:hover,
+.fh-builder-portal ::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.55);
+}
+.fh-workflow-builder ::-webkit-scrollbar-corner,
+.fh-builder-portal::-webkit-scrollbar-corner,
+.fh-builder-portal ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Suppress ReactFlow's built-in selection outline — we use custom glow via editorStore */
 .react-flow__node.selected,
 .react-flow__edge.selected {

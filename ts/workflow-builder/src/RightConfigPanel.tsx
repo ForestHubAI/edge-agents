@@ -1,9 +1,11 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import type { NodeData, NodeDefinition } from "@foresthubai/workflow-core/node";
 import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";
 import { isControlFlow } from "@foresthubai/workflow-core/edge";
 import type { NodeCategory as NodeCategoryEnum } from "@foresthubai/workflow-core/node";
 
+import { ScrollArea } from "./components/ui/scroll-area";
+import { cn } from "./lib/utils";
 import { ChannelConfigPanel } from "./panels/ChannelConfigPanel";
 import { DebugExternalIOPanel } from "./panels/DebugExternalIOPanel";
 import { EdgeConfigPanel } from "./panels/EdgeConfigPanel";
@@ -152,19 +154,19 @@ export const RightConfigPanel = ({
   if (isDebugMode) {
     if (!selectedNode) return null;
     return (
-      <div className="w-80 border-l border-border bg-background overflow-y-auto p-3">
+      <Shell bg="bg-background" pad>
         <DebugExternalIOPanel
           canvasId={canvasId}
           onStep={onDebugStep ?? (() => {})}
           getNodeCategory={getNodeCategory}
         />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedNode) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <NodeConfigPanel
           canvasId={canvasId}
           selectedNode={selectedNode}
@@ -174,13 +176,13 @@ export const RightConfigPanel = ({
           onOpenTest={handleTestNode}
           getNodeDef={getNodeDef}
         />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedEdge) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <EdgeConfigPanel
           canvasId={canvasId}
           edgeId={selectedEdge.id}
@@ -191,53 +193,74 @@ export const RightConfigPanel = ({
           onEdgeDelete={onEdgeDelete}
           onClose={onClearSelection}
         />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedVariable) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <VariableConfigPanel
           canvasId={canvasId}
           variable={selectedVariable}
           onClose={clearSelection}
         />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedChannel) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <ChannelConfigPanel channel={selectedChannel} onClose={clearSelection} />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedMemory) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <MemoryConfigPanel memory={selectedMemory} onClose={clearSelection} />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedModel) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <ModelConfigPanel model={selectedModel} onClose={clearSelection} />
-      </div>
+      </Shell>
     );
   }
 
   if (selectedFunction) {
     return (
-      <div className="w-80 border-l border-border bg-card overflow-y-auto">
+      <Shell>
         <FunctionConfigPanel func={selectedFunction} onClose={clearSelection} />
-      </div>
+      </Shell>
     );
   }
 
   return null;
 };
+
+/**
+ * Right-panel chrome — fixed-width column with the bordered card background
+ * and an overlay scrollbar. Extracted because all eight selection branches
+ * render the same shell; keeping them in lockstep by hand was an obvious
+ * drift risk. The debug variant overrides the surface and adds inner padding
+ * (other variants pad inside their own ConfigPanel).
+ */
+const Shell = ({
+  bg = "bg-card",
+  pad = false,
+  children,
+}: {
+  bg?: string;
+  pad?: boolean;
+  children: ReactNode;
+}) => (
+  <ScrollArea className={cn("w-80 border-l border-border", bg)} viewportClassName={pad ? "p-3" : undefined}>
+    {children}
+  </ScrollArea>
+);

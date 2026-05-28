@@ -82,12 +82,17 @@ export function ResourceListPanel<I extends ResourceListItem>({
             key={item.id}
             onClick={() => onSelect(item.id)}
             className={cn(
-              "p-3 rounded-lg transition-all cursor-pointer",
-              isSelected
-                ? "bg-accent shadow-md border border-primary/40 ring-1 ring-primary/40"
-                : hasError
-                  ? "bg-card shadow-sm border border-destructive ring-1 ring-destructive"
-                  : "bg-card shadow-sm border border-border hover:shadow-md",
+              // Background/shadow come from selection; border/ring come from error
+              // status. Layered, not exclusive — so a selected row with an error
+              // keeps its red outline against the green selection tint instead of
+              // hiding the very signal the user is acting on.
+              "p-3 rounded-lg transition-all cursor-pointer border ring-1",
+              isSelected ? "bg-accent shadow-md" : "bg-card shadow-sm hover:shadow-md",
+              hasError
+                ? "border-destructive ring-destructive"
+                : isSelected
+                  ? "border-primary/40 ring-primary/40"
+                  : "border-border ring-transparent",
             )}
           >
             <div className="flex items-center justify-between gap-2">
