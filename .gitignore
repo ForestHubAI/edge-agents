@@ -9,6 +9,9 @@ ts/**/dist/
 *.test
 *.out
 
+# Engine deploy build artifacts (image tarball produced by `docker save`)
+*.tar
+
 # Env / local
 .env
 .env.*
