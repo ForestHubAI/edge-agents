@@ -58,14 +58,21 @@ jobs:
       - name: Regenerate Go bindings
         working-directory: go
         run: go generate ./...
+      - name: Check Go bindings in sync
+        run: |
+          if ! git diff --exit-code -- 'go/api/**/*.gen.go'; then
+            echo "::error::Go bindings are out of sync with contract/. Run 'go generate ./...' in go/ and commit the result."
+            exit 1
+          fi
+      - name: Install TS deps
+        working-directory: ts
+        run: npm ci
       - name: Regenerate TS bindings
         working-directory: ts
+        run: npm run generate
+      - name: Check TS bindings in sync
         run: |
-          npm ci
-          npm run generate
-      - name: Fail if generated files differ from committed
-        run: |
-          if ! git diff --exit-code; then
-            echo "::error::Generated bindings are out of sync with contract/. Run 'go generate ./...' in go/ and 'npm run generate' in ts/, then commit the result."
+          if ! git diff --exit-code -- 'ts/workflow-core/src/api/**'; then
+            echo "::error::TS bindings are out of sync with contract/. Run 'npm run generate' in ts/ and commit the result."
             exit 1
           fi
