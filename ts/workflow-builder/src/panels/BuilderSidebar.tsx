@@ -1,7 +1,7 @@
 import { Button } from "../components/ui/button";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
-import { cn } from "../lib/utils";
+import { cn } from "../cn";
 import { NodeCategory, NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useMemo } from "react";
 import { Blocks, BrainCircuit, Braces, Bug, Cpu, Database, TriangleAlert, Variable, X } from "lucide-react";

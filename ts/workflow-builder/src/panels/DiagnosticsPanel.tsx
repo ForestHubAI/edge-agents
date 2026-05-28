@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "../components/ui/badge";
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn } from "../cn";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useNodeDefinitions } from "../hooks/useNodeDefinitions";

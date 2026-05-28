@@ -6,7 +6,7 @@ import { ResolvedExpr, resolveExpression } from "@foresthubai/workflow-core/expr
 import { varKey, type Variable } from "@foresthubai/workflow-core/variable";
 import { useEditorStore } from "../stores/editorStore";
 import { getOrCreateCanvasStore } from "../stores/canvasStore";
-import { cn } from "../lib/utils";
+import { cn } from "../cn";
 
 interface ExpressionInputProps {
   value: Expression;

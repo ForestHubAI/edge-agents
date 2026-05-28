@@ -1,9 +1,9 @@
-import { ScrollArea } from "../components/ui/scroll-area";
-import { cn } from "../lib/utils";
+import { ScrollArea } from "./components/ui/scroll-area";
+import { cn } from "./cn";
 import { FunctionSquare, Workflow, X } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { CanvasTab } from "../hooks/useCanvasTabs";
-import { MAIN_CANVAS_ID } from "../stores/canvasStore";
+import { CanvasTab } from "./hooks/useCanvasTabs";
+import { MAIN_CANVAS_ID } from "./stores/canvasStore";
 
 interface CanvasTabsToolbarProps {
   tabs: CanvasTab[];

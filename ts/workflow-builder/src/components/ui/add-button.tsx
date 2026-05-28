@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Plus, type LucideIcon } from "lucide-react";
 import { Button, type ButtonProps } from "./button";
-import { cn } from "../../lib/utils";
+import { cn } from "../../cn";
 
 interface AddButtonProps extends Omit<ButtonProps, "variant" | "size"> {
   /** Leading icon. Defaults to a plus sign. */

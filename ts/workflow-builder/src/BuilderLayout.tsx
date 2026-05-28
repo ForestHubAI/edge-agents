@@ -6,7 +6,7 @@ import type { Connection, OnSelectionChangeFunc } from "@xyflow/react";
 import { toast } from "./hooks/use-toast";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./components/ui/resizable";
 import { BuilderSidebar } from "./panels/BuilderSidebar";
-import { CanvasTabsToolbar } from "./toolbars/CanvasTabsToolbar";
+import { CanvasTabsToolbar } from "./CanvasTabsToolbar";
 import { CanvasEditor } from "./CanvasEditor";
 import { RightConfigPanel } from "./RightConfigPanel";
 import { useCanvasHistory } from "./hooks/useCanvasHistory";

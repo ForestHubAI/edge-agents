@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { AddButton } from "../components/ui/add-button";
 import { Variable as VariableIcon } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn } from "../cn";
 import { useEditorStore } from "../stores/editorStore";
 import { isReadOnly } from "../WorkflowBuilder";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
