@@ -4,8 +4,7 @@
 //      A node simply stores the chosen catalog ModelID directly.
 //   2. DECLARED custom models (Model): self-hosted / custom models the
 //      llmproxy doesn't ship. These are channel-like — declared in the workflow,
-//      referenced by id from nodes, and mapped to an llmproxy provider at deploy
-//      (`providerBinding`, emitted "" by the editor like a Channel's driverId).
+//      referenced by id from nodes, and mapped to an llmproxy provider at deploy.
 //
 // A node's `model` field is always just a ModelID string either way; static ids
 // resolve via the catalog (no mapping), custom ids via a declared Model.

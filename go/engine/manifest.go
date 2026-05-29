@@ -31,6 +31,18 @@ type PWMConfig struct {
 	Chip string `json:"chip"`
 }
 
+// DeploymentMapping binds a binding-free workflow's logical resource ids to
+// concrete platform resource ids for one deploy, keyed by workflow id. The
+// engine reads Drivers (hardware channel id -> driver instance id) and Networks
+// (MQTT channel id -> network id); Memory and Models are resolved by the backend
+// and carried for completeness. Mirrors the engineapi wire shape.
+type DeploymentMapping struct {
+	Drivers  map[string]string `json:"drivers,omitempty"`
+	Networks map[string]string `json:"networks,omitempty"`
+	Memory   map[string]string `json:"memory,omitempty"`
+	Models   map[string]string `json:"models,omitempty"`
+}
+
 // NetworkManifest is the resolved MQTT transport set handed to the engine on
 // deploy, keyed by network ID.
 type NetworkManifest struct {

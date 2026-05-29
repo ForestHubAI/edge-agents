@@ -7,9 +7,6 @@ export type ApiChannel = Schemas["Channel"];
 
 /**
  * Serialize a domain Channel to the API discriminated-union shape.
- * Deploy-time bindings (`driverId` for hardware, `networkId` for MQTT) are
- * emitted as `""` — the deploy step fills them in against the target device's
- * manifest and network memberships.
  *
  * The domain store retains inactive parameters (non-destructive type switching),
  * so this is the boundary that drops them. The `type` discriminator must be in
@@ -26,37 +23,32 @@ export function serialize(ch: Channel): ApiChannel {
         type,
         id,
         label,
-        driverId: "",
         line: args.line as number,
         bias: args.bias as Schemas["GPIOINChannel"]["bias"],
         debounceMs: args.debounceMs as number,
       };
     case "GPIOOUT":
-      return { type, id, label, driverId: "", line: args.line as number };
+      return { type, id, label, line: args.line as number };
     case "ADC":
-      return { type, id, label, driverId: "", channel: args.channel as number };
+      return { type, id, label, channel: args.channel as number };
     case "PWM":
       return {
         type,
         id,
         label,
-        driverId: "",
         channel: args.channel as number,
         frequency: args.frequency as number,
       };
     case "DAC":
-      return { type, id, label, driverId: "", channel: args.channel as number };
+      return { type, id, label, channel: args.channel as number };
     case "UART":
-      return { type, id, label, driverId: "" };
+      return { type, id, label };
     case "MQTT":
-      return { type, id, label, networkId: "" };
+      return { type, id, label };
   }
 }
 
-/**
- * Convert an API Channel into a domain Channel. Deploy-time bindings
- * (`driverId`, `networkId`) are dropped — they aren't part of the editor state.
- */
+/** Convert an API Channel into a domain Channel. */
 export function deserialize(api: ApiChannel): Channel {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};

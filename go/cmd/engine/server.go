@@ -30,7 +30,7 @@ func (s *strictServer) Deploy(_ context.Context, request engineapi.DeployRequest
 	if request.Body == nil || request.Body.Workflow == nil {
 		return engineapi.Deploy400JSONResponse{Error: "workflow required"}, nil
 	}
-	if err := s.engine.Deploy(request.Body.Workflow, mapping.NetworkManifestToDomain(request.Body.NetworkManifest)); err != nil {
+	if err := s.engine.Deploy(request.Body.Workflow, mapping.DeploymentMappingToDomain(request.Body.Mapping), mapping.NetworkManifestToDomain(request.Body.NetworkManifest)); err != nil {
 		return engineapi.Deploy422JSONResponse{Error: "deploy failed: " + err.Error()}, nil
 	}
 	mqttCount := 0

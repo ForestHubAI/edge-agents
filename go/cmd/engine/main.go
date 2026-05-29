@@ -152,7 +152,11 @@ func main() {
 		if err != nil {
 			logging.Logger.Fatal().Err(err).Msg("loading network manifest")
 		}
-		if err := eng.Deploy(&wf, nm); err != nil {
+		dm, err := loadDeploymentMapping(cfg.DeploymentMappingFile)
+		if err != nil {
+			logging.Logger.Fatal().Err(err).Msg("loading deployment mapping")
+		}
+		if err := eng.Deploy(&wf, dm, nm); err != nil {
 			logging.Logger.Fatal().Err(err).Msg("deploying workflow from file")
 		}
 	}
@@ -264,4 +268,25 @@ func loadNetworkManifest(path string) (*engine.NetworkManifest, error) {
 		return nil, err
 	}
 	return &nm, nil
+}
+
+// loadDeploymentMapping reads the deploy mapping that binds a file-mounted
+// workflow's logical resource ids to this environment. An empty path yields a
+// nil mapping — fine for workflows with no channels; channel-bearing workflows
+// will then hard-fail at build with a clear "no driver/network binding" error.
+// A non-empty path pointing at a missing or malformed file is fatal, matching
+// loadNetworkManifest's strictness.
+func loadDeploymentMapping(path string) (*engine.DeploymentMapping, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var dm engine.DeploymentMapping
+	if err := json.Unmarshal(data, &dm); err != nil {
+		return nil, err
+	}
+	return &dm, nil
 }

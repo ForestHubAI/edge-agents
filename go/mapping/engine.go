@@ -38,6 +38,20 @@ func NetworkManifestToDomain(in *engineapi.NetworkManifest) *engine.NetworkManif
 	return out
 }
 
+// DeploymentMappingToDomain maps the wire DeploymentMapping (engineapi) onto
+// the engine domain type at the HTTP boundary.
+func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) *engine.DeploymentMapping {
+	if in == nil {
+		return nil
+	}
+	return &engine.DeploymentMapping{
+		Drivers:  pointer.Val(in.Drivers),
+		Networks: pointer.Val(in.Networks),
+		Memory:   pointer.Val(in.Memory),
+		Models:   pointer.Val(in.Models),
+	}
+}
+
 // StatusToAPI maps the engine domain Status onto the wire State enum.
 func StatusToAPI(running bool) engineapi.State {
 	if running {

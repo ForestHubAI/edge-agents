@@ -1,6 +1,6 @@
 {
   "name": "@foresthubai/workflow-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
   "repository": {
     "type": "git",
@@ -14,6 +14,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js"
     },
     "./id": {
       "types": "./dist/id/index.d.ts",

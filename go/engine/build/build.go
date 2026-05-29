@@ -26,7 +26,7 @@ type Builder struct {
 // nm may be nil. Refreshes the memory snapshot before assembling nodes so
 // agent nodes see the latest declared files (including any seeded by the
 // current deploy).
-func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkManifest) (*engine.Runner, error) {
+func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm *engine.DeploymentMapping, nm *engine.NetworkManifest) (*engine.Runner, error) {
 	if b.Memory != nil {
 		if err := b.Memory.Restore(ctx); err != nil {
 			return nil, fmt.Errorf("refreshing memory: %w", err)
@@ -36,7 +36,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, nm *engine.N
 	if err != nil {
 		return nil, fmt.Errorf("creating transport registry: %w", err)
 	}
-	runner, err := buildRunner(ctx, wf, nm, transports, b.Drivers, b.LLM, b.Memory, b.Retriever, b.WebSearch)
+	runner, err := buildRunner(ctx, wf, dm, nm, transports, b.Drivers, b.LLM, b.Memory, b.Retriever, b.WebSearch)
 	if err != nil {
 		transports.CloseAll()
 		return nil, err
@@ -58,7 +58,7 @@ type buildContext struct {
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflow.Workflow, dm *engine.DeploymentMapping, nm *engine.NetworkManifest, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {
@@ -66,7 +66,7 @@ func buildRunner(ctx context.Context, wf *workflow.Workflow, nm *engine.NetworkM
 	}
 
 	// Build channels first as they orchestrate hardware resources
-	chs, err := buildChannels(wf.Channels, drivers, transports, nm)
+	chs, err := buildChannels(wf.Channels, dm, drivers, transports, nm)
 	if err != nil {
 		return nil, fmt.Errorf("channels: %w", err)
 	}

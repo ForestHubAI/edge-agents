@@ -27,12 +27,14 @@ type channels struct {
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
-// Hardware channels resolve through drvs (driver instance ID → driver from
-// the device manifest). MQTT channels resolve through nm + transports
-// (network ID → MQTT config + open transport from the deploy network
-// manifest). Hard-fails when an MQTT channel references a network the
-// deploy doesn't carry — silent degradation hides config bugs.
-func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transports *transport.Registry, nm *engine.NetworkManifest) (*channels, error) {
+// The workflow itself is binding-free; the channel→driver and channel→network
+// bindings come from the deploy mapping dm. Hardware channels resolve through
+// dm.Drivers + drvs (driver instance ID → driver from the device manifest).
+// MQTT channels resolve through dm.Networks + nm + transports (network ID →
+// MQTT config + open transport from the deploy network manifest). Hard-fails
+// when a channel has no binding in the mapping, or an MQTT channel references a
+// network the deploy doesn't carry — silent degradation hides config bugs.
+func buildChannels(apiChannels []workflow.Channel, dm *engine.DeploymentMapping, drvs *driver.Registry, transports *transport.Registry, nm *engine.NetworkManifest) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -49,9 +51,13 @@ func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transp
 		}
 		switch x := val.(type) {
 		case workflow.GPIOINChannel:
-			d, err := drvs.GPIO(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.GPIO(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.gpioInputs[x.Id] = &channel.GPIOInput{
 				Driver:     d,
@@ -60,36 +66,52 @@ func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transp
 				DebounceMs: x.DebounceMs,
 			}
 		case workflow.GPIOOUTChannel:
-			d, err := drvs.GPIO(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.GPIO(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.gpioOutputs[x.Id] = &channel.GPIOOutput{
 				Driver: d,
 				Line:   x.Line,
 			}
 		case workflow.ADCChannel:
-			d, err := drvs.ADC(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.ADC(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.adcs[x.Id] = &channel.ADC{
 				Driver:  d,
 				Channel: x.Channel,
 			}
 		case workflow.DACChannel:
-			d, err := drvs.DAC(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.DAC(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.dacs[x.Id] = &channel.DAC{
 				Driver:  d,
 				Channel: x.Channel,
 			}
 		case workflow.PWMChannel:
-			d, err := drvs.PWM(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.PWM(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.pwms[x.Id] = &channel.PWM{
 				Driver:    d,
@@ -97,23 +119,31 @@ func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transp
 				Frequency: x.Frequency,
 			}
 		case workflow.UARTChannel:
-			d, err := drvs.Serial(x.DriverID)
+			driverID, err := driverFor(dm, x.Id)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", x.DriverID, x.Id, err)
+				return nil, err
+			}
+			d, err := drvs.Serial(driverID)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", driverID, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
 		case workflow.MQTTChannel:
+			networkID, err := networkFor(dm, x.Id)
+			if err != nil {
+				return nil, err
+			}
 			if nm == nil {
 				return nil, fmt.Errorf("channel %s: workflow references MQTT but no NetworkManifest provided", x.Id)
 			}
-			cfg, ok := nm.MQTTs[x.NetworkID]
+			cfg, ok := nm.MQTTs[networkID]
 			if !ok {
-				return nil, fmt.Errorf("channel %s: network %q not in deploy NetworkManifest", x.Id, x.NetworkID)
+				return nil, fmt.Errorf("channel %s: network %q not in deploy NetworkManifest", x.Id, networkID)
 			}
 			if transports == nil {
 				return nil, fmt.Errorf("channel %s: no transport registry", x.Id)
 			}
-			t, err := transports.MQTT(x.NetworkID)
+			t, err := transports.MQTT(networkID)
 			if err != nil {
 				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
 			}
@@ -127,6 +157,32 @@ func buildChannels(apiChannels []workflow.Channel, drvs *driver.Registry, transp
 		}
 	}
 	return ch, nil
+}
+
+// driverFor resolves a hardware channel's driver instance id from the deploy
+// mapping. The workflow no longer carries the binding, so a missing entry is a
+// deploy misconfiguration, not silent degradation.
+func driverFor(dm *engine.DeploymentMapping, channelID string) (string, error) {
+	if dm == nil {
+		return "", fmt.Errorf("channel %s: no deployment mapping provided", channelID)
+	}
+	id, ok := dm.Drivers[channelID]
+	if !ok || id == "" {
+		return "", fmt.Errorf("channel %s: no driver binding in deployment mapping", channelID)
+	}
+	return id, nil
+}
+
+// networkFor resolves an MQTT channel's network id from the deploy mapping.
+func networkFor(dm *engine.DeploymentMapping, channelID string) (string, error) {
+	if dm == nil {
+		return "", fmt.Errorf("channel %s: no deployment mapping provided", channelID)
+	}
+	id, ok := dm.Networks[channelID]
+	if !ok || id == "" {
+		return "", fmt.Errorf("channel %s: no network binding in deployment mapping", channelID)
+	}
+	return id, nil
 }
 
 // SetupAll runs Setup on every channel. Must run after all graph nodes are built.

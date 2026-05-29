@@ -745,13 +745,10 @@ func (e WritePinNodeType) Valid() bool {
 // ADCChannel defines model for ADCChannel.
 type ADCChannel struct {
 	// Channel Channel number on the ADC device
-	Channel int `json:"channel"`
-
-	// DriverID Driver instance ID from the device manifest
-	DriverID string         `json:"driverId"`
-	Id       string         `json:"id"`
-	Label    string         `json:"label"`
-	Type     ADCChannelType `json:"type"`
+	Channel int            `json:"channel"`
+	Id      string         `json:"id"`
+	Label   string         `json:"label"`
+	Type    ADCChannelType `json:"type"`
 }
 
 // ADCChannelType defines model for ADCChannel.Type.
@@ -814,13 +811,10 @@ type Channel struct {
 // DACChannel defines model for DACChannel.
 type DACChannel struct {
 	// Channel Channel number on the DAC device
-	Channel int `json:"channel"`
-
-	// DriverID Driver instance ID from the device manifest
-	DriverID string         `json:"driverId"`
-	Id       string         `json:"id"`
-	Label    string         `json:"label"`
-	Type     DACChannelType `json:"type"`
+	Channel int            `json:"channel"`
+	Id      string         `json:"id"`
+	Label   string         `json:"label"`
+	Type    DACChannelType `json:"type"`
 }
 
 // DACChannelType defines model for DACChannel.Type.
@@ -914,12 +908,9 @@ type GPIOINChannel struct {
 	Bias GPIOINChannelBias `json:"bias"`
 
 	// DebounceMs Debounce window in milliseconds
-	DebounceMs int `json:"debounceMs"`
-
-	// DriverID Driver instance ID from the device manifest
-	DriverID string `json:"driverId"`
-	Id       string `json:"id"`
-	Label    string `json:"label"`
+	DebounceMs int    `json:"debounceMs"`
+	Id         string `json:"id"`
+	Label      string `json:"label"`
 
 	// Line Line number on the GPIO chip
 	Line int               `json:"line"`
@@ -934,10 +925,8 @@ type GPIOINChannelType string
 
 // GPIOOUTChannel defines model for GPIOOUTChannel.
 type GPIOOUTChannel struct {
-	// DriverID Driver instance ID from the device manifest
-	DriverID string `json:"driverId"`
-	Id       string `json:"id"`
-	Label    string `json:"label"`
+	Id    string `json:"id"`
+	Label string `json:"label"`
 
 	// Line Line number on the GPIO chip
 	Line int                `json:"line"`
@@ -970,11 +959,8 @@ type LLMModel struct {
 	Id string `json:"id"`
 
 	// Label Display name.
-	Label string `json:"label"`
-
-	// ProviderBinding Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
-	ProviderBinding string       `json:"providerBinding"`
-	Type            LLMModelType `json:"type"`
+	Label string       `json:"label"`
+	Type  LLMModelType `json:"type"`
 }
 
 // LLMModelType defines model for LLMModel.Type.
@@ -982,12 +968,9 @@ type LLMModelType string
 
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
-	Id    string `json:"id"`
-	Label string `json:"label"`
-
-	// NetworkID ID of a network the agent's device must be a member of.
-	NetworkID string          `json:"networkId"`
-	Type      MQTTChannelType `json:"type"`
+	Id    string          `json:"id"`
+	Label string          `json:"label"`
+	Type  MQTTChannelType `json:"type"`
 }
 
 // MQTTChannelType defines model for MQTTChannel.Type.
@@ -1218,9 +1201,6 @@ type PWMChannel struct {
 	// Channel Channel number on the PWM chip
 	Channel int `json:"channel"`
 
-	// DriverID Driver instance ID from the device manifest
-	DriverID string `json:"driverId"`
-
 	// Frequency PWM frequency in Hz
 	Frequency int            `json:"frequency"`
 	Id        string         `json:"id"`
@@ -1356,11 +1336,9 @@ type TickerNodeType string
 
 // UARTChannel defines model for UARTChannel.
 type UARTChannel struct {
-	// DriverID Driver instance ID from the device manifest
-	DriverID string          `json:"driverId"`
-	Id       string          `json:"id"`
-	Label    string          `json:"label"`
-	Type     UARTChannelType `json:"type"`
+	Id    string          `json:"id"`
+	Label string          `json:"label"`
+	Type  UARTChannelType `json:"type"`
 }
 
 // UARTChannelType defines model for UARTChannel.Type.
@@ -1380,9 +1358,7 @@ type Variable struct {
 
 // VectorDatabase A vector database for retrieval-augmented generation (RAG).
 type VectorDatabase struct {
-	// CollectionID Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
-	CollectionID string  `json:"collectionId"`
-	Description  *string `json:"description,omitempty"`
+	Description *string `json:"description,omitempty"`
 
 	// Id Stable identifier; referenced from Retriever nodes.
 	Id string `json:"id"`
