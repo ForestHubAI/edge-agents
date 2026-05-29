@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 )
 
 // parseAndEval evaluates a simple expression string with literals

@@ -3,10 +3,10 @@ package config
 import (
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider/anthropic"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider/gemini"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider/mistral"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider/openai"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/anthropic"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/gemini"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/mistral"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/openai"
 
 	"github.com/caarlos0/env/v9"
 	"github.com/rs/zerolog/log"

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )

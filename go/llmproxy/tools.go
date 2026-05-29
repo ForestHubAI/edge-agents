@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 )
 
 // NoArgs is an empty struct type used as type for function tools that take no arguments.

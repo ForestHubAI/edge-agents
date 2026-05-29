@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // NoopLifecycle satisfies engine.Lifecycle with no-ops — there is no

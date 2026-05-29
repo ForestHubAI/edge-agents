@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/mapping"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // Implementation guards

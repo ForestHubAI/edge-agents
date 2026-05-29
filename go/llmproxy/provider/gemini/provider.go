@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider"
 
 	"google.golang.org/genai"
 )

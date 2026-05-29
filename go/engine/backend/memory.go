@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 )
 
 type memoryUpsertBody struct {

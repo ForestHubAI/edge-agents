@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/driver"
-	"github.com/ForestHubAI/fh-core/go/engine/memory"
-	"github.com/ForestHubAI/fh-core/go/engine/transport"
-	"github.com/ForestHubAI/fh-core/go/engine/websearch"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/memory"
+	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 )
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.

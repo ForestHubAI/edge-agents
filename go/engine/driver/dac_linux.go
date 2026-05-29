@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/ForestHubAI/fh-core/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/logging"
 
 	"github.com/rs/zerolog"
 )

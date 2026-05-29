@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
 	openai "github.com/openai/openai-go/v2"
 	"github.com/openai/openai-go/v2/packages/param"

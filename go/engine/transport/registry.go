@@ -3,7 +3,7 @@ package transport
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // Registry holds the per-deploy MQTT transport instances, keyed by network ID.

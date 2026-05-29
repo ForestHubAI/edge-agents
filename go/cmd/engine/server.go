@@ -4,10 +4,10 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/logging"
-	"github.com/ForestHubAI/fh-core/go/mapping"
+	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // strictServer adapts *engine.Engine to the oapi-codegen-generated SSI.

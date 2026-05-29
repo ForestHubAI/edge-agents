@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/node"
-	"github.com/ForestHubAI/fh-core/go/engine/node/trigger"
-	"github.com/ForestHubAI/fh-core/go/mapping"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/node"
+	"github.com/ForestHubAI/edge-agents/go/engine/node/trigger"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // graph holds the per-build state for a single graph (main workflow or function).

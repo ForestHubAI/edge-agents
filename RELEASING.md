@@ -6,7 +6,7 @@ never collide.
 
 | Artifact                            | Ecosystem             | Version source            | Consumer pins with                          |
 | ----------------------------------- | --------------------- | ------------------------- | ------------------------------------------- |
-| `github.com/ForestHubAI/fh-core/go` | Go modules            | **git tag** `go/vX.Y.Z`   | `go get ...@vX.Y.Z`                         |
+| `github.com/ForestHubAI/edge-agents/go` | Go modules            | **git tag** `go/vX.Y.Z`   | `go get ...@vX.Y.Z`                         |
 | `@foresthubai/workflow-core`        | npm (GitHub Packages) | `version` in package.json | `npm i @foresthubai/workflow-core@X.Y.Z`    |
 | `@foresthubai/workflow-builder`     | npm (GitHub Packages) | `version` in package.json | `npm i @foresthubai/workflow-builder@X.Y.Z` |
 
@@ -75,9 +75,9 @@ subdirectory prefix or the proxy won't associate it with the module:
 ```sh
 git tag go/v1.2.3
 git push origin go/v1.2.3
-# consumers: go get github.com/ForestHubAI/fh-core/go@v1.2.3
+# consumers: go get github.com/ForestHubAI/edge-agents/go@v1.2.3
 ```
 
 For a v2+ major, the module path itself must gain the suffix
-(`module github.com/ForestHubAI/fh-core/go/v2` in `go/go.mod`) and the tag becomes
+(`module github.com/ForestHubAI/edge-agents/go/v2` in `go/go.mod`) and the tag becomes
 `go/v2.0.0`. No registry push is needed — the Go proxy fetches on first request.

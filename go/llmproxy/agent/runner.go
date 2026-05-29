@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
 	"github.com/rs/zerolog"
 )

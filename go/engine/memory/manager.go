@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // ErrFileNotFound is returned when the LLM references a memory file that

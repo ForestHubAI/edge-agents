@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 )
 
 // Value is the runtime representation of a typed workflow variable.

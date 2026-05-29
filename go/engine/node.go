@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 const (

@@ -16,8 +16,8 @@ package engine
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 // Lifecycle is the agent-registration seam (registration + periodic

@@ -3,7 +3,7 @@ package llmproxy
 import (
 	"io"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 )
 
 // ContentType represents the MIME type of a file.

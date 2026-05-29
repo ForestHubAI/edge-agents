@@ -5,8 +5,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
 // BuildFunc builds a Runner from a binding-free workflow, the deploy mapping

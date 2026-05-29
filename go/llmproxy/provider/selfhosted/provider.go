@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/util/httpclient"
+	"github.com/ForestHubAI/edge-agents/go/util/httpclient"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider"
 
 	"github.com/rs/zerolog/log"
 )

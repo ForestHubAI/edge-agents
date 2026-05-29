@@ -3,7 +3,7 @@ package test
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 // testProvider defines the interface for LLM providers used in tests.

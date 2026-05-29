@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 // Agent represents an LLM agent with a set of tools and instructions.

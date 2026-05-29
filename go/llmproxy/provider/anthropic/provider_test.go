@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/test"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/test"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

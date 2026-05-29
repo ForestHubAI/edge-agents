@@ -7,7 +7,7 @@ package agent
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	mock "github.com/stretchr/testify/mock"
 )
 

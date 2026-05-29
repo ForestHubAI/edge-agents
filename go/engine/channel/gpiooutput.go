@@ -3,7 +3,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 )
 
 // GPIOOutput is a digital output pin.

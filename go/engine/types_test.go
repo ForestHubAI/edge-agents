@@ -3,11 +3,11 @@ package engine
 import (
 	"testing"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

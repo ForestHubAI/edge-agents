@@ -3,10 +3,10 @@ package mapping
 import (
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
 
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of

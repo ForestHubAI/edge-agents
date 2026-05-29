@@ -3,7 +3,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 )
 
 // MQTT is a workflow-level MQTT channel: a topic endpoint on a bound broker.

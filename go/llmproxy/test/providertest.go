@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

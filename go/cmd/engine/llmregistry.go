@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/engine/backend"
-	"github.com/ForestHubAI/fh-core/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/engine/backend"
+	"github.com/ForestHubAI/edge-agents/go/logging"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
-	llmcfg "github.com/ForestHubAI/fh-core/go/llmproxy/config"
+	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
 )
 
 // buildLLMProviders returns the engine's full provider set: every provider

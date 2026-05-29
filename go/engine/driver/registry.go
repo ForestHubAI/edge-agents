@@ -3,7 +3,7 @@ package driver
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // Registry owns the set of opened drivers for one Engine, keyed by instance

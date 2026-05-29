@@ -1,6 +1,6 @@
 # go/ — engine runtime + LLM proxy
 
-Go module `github.com/ForestHubAI/fh-core/go`, Go 1.25. The repo-wide rule about
+Go module `github.com/ForestHubAI/edge-agents/go`, Go 1.25. The repo-wide rule about
 the `contract/` being the source of truth applies here — see the root `CLAUDE.md`.
 
 ## Packages

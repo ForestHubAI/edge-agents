@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // Alarm fires at a specific local time of day, optionally restricted to

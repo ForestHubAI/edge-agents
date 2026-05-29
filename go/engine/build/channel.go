@@ -3,12 +3,12 @@ package build
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 
-	"github.com/ForestHubAI/fh-core/go/engine/channel"
-	"github.com/ForestHubAI/fh-core/go/engine/driver"
-	"github.com/ForestHubAI/fh-core/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/channel"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 )
 
 // channels is the per-build typed registry of channel instances. One

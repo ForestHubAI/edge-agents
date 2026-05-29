@@ -3,7 +3,7 @@ package channel
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 )
 
 // UART is a serial port channel wrapping a SerialDriver and the

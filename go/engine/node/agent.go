@@ -7,19 +7,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/agent"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/agent"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/engine/memory"
-	"github.com/ForestHubAI/fh-core/go/logging"
-	"github.com/ForestHubAI/fh-core/go/mapping"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
+	"github.com/ForestHubAI/edge-agents/go/engine/memory"
+	"github.com/ForestHubAI/edge-agents/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // Implementation guards

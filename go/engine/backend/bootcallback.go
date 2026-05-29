@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // bootCallbackBody mirrors workflow.AgentBootCallback. The JSON tags on

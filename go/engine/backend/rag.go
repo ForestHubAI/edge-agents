@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ForestHubAI/fh-core/go/api/engineapi"
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // QueryRAG forwards a similarity-search query through the backend's

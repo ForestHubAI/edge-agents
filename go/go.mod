@@ -1,4 +1,4 @@
-module github.com/ForestHubAI/fh-core/go
+module github.com/ForestHubAI/edge-agents/go
 
 go 1.25.0
 

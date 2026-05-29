@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
-	"github.com/ForestHubAI/fh-core/go/engine/expr"
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
 
 // SubBufSize is the buffer size used in subscription channels. Events are dropped when this buffer size is exceeded.

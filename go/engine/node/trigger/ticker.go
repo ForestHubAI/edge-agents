@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
 // Ticker fires periodically at a fixed interval.

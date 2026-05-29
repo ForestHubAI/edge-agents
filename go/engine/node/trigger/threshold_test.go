@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/engine"
-	"github.com/ForestHubAI/fh-core/go/engine/expr"
+	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

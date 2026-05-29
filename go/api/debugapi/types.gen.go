@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	externalRef0 "github.com/ForestHubAI/fh-core/go/api/workflow"
+	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/oapi-codegen/runtime"
 )
 

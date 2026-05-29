@@ -1,6 +1,6 @@
 package agent
 
-import "github.com/ForestHubAI/fh-core/go/llmproxy"
+import "github.com/ForestHubAI/edge-agents/go/llmproxy"
 
 var NoParamsSchema = map[string]any{
 	"type":       "object",

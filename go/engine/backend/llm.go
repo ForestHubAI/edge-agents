@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ForestHubAI/fh-core/go/api/llmapi"
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/provider"
-	"github.com/ForestHubAI/fh-core/go/mapping"
+	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // llmHealth is the response shape of GET /llm/health.

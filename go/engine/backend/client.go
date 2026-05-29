@@ -7,7 +7,7 @@ package backend
 import (
 	"time"
 
-	"github.com/ForestHubAI/fh-core/go/engine/backend/internal/httpclient"
+	"github.com/ForestHubAI/edge-agents/go/engine/backend/internal/httpclient"
 )
 
 const (

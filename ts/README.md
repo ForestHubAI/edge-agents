@@ -1,6 +1,6 @@
 # ForestHub — TypeScript workspace
 
-This directory is an **npm workspace** (the JS/TS half of the polyglot `fh-core`
+This directory is an **npm workspace** (the JS/TS half of the polyglot `edge-agents`
 repo; the Go binding and the OpenAPI contract live in sibling `../go` and
 `../contract`). It contains three packages that build on each other:
 

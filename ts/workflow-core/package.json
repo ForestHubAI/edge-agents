@@ -4,7 +4,7 @@
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ForestHubAI/fh-core.git",
+    "url": "git+https://github.com/ForestHubAI/edge-agents.git",
     "directory": "ts/workflow-core"
   },
   "type": "module",

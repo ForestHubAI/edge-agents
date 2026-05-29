@@ -3,10 +3,10 @@ package engine
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/fh-core/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
-	"github.com/ForestHubAI/fh-core/go/engine/expr"
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 // Well-known source IDs used in context variable lookups and expression references.

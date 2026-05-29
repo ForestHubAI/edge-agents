@@ -1,7 +1,7 @@
 package channel
 
 import (
-	"github.com/ForestHubAI/fh-core/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 )
 
 // DAC is a true analog output channel — sets a real voltage, in contrast

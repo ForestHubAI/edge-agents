@@ -1,7 +1,7 @@
 package main
 
 import (
-	llmcfg "github.com/ForestHubAI/fh-core/go/llmproxy/config"
+	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
 
 	"github.com/caarlos0/env/v9"
 )

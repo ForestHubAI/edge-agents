@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/test"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/test"
 
 	"github.com/stretchr/testify/assert"
 )

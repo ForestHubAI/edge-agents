@@ -6,10 +6,10 @@ import (
 	"io"
 	"mime/multipart"
 
-	"github.com/ForestHubAI/fh-core/go/api/llmapi"
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
-	"github.com/ForestHubAI/fh-core/go/llmproxy/schemautil"
-	"github.com/ForestHubAI/fh-core/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
 
 // OptionsToDomain converts API options to core options.

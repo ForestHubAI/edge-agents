@@ -4,7 +4,7 @@
   "description": "Reusable React component library: the workflow canvas/editor. Imports workflow-core for types and validation.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ForestHubAI/fh-core.git",
+    "url": "git+https://github.com/ForestHubAI/edge-agents.git",
     "directory": "ts/workflow-builder"
   },
   "type": "module",

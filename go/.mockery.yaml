@@ -3,5 +3,5 @@ all: true
 # currently not required, because "interfaces are defined where they're consumed, not where they're implemented"
 # filename: mock.go
 packages:
-  github.com/ForestHubAI/fh-core/go/llmproxy:
-  github.com/ForestHubAI/fh-core/go/llmproxy/agent:
+  github.com/ForestHubAI/edge-agents/go/llmproxy:
+  github.com/ForestHubAI/edge-agents/go/llmproxy/agent:

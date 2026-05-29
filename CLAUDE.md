@@ -1,4 +1,4 @@
-# fh-core
+# edge-agents
 
 Open ForestHub workflow platform: the runtime **engine**, the **LLM proxy**, the
 language-neutral **workflow contract**, and the visual **builder**. The closed
@@ -17,7 +17,7 @@ contract/        SOURCE OF TRUTH. Language-neutral OpenAPI 3.0.3 schemas.
 
 go/              Go module — go.mod lives HERE, not at repo root, so `go get`
                  consumers never receive the ts/ or contract/ trees.
-                 Module: github.com/ForestHubAI/fh-core/go. See go/CLAUDE.md.
+                 Module: github.com/ForestHubAI/edge-agents/go. See go/CLAUDE.md.
 
 ts/              npm workspace: workflow-core (headless model), workflow-builder
                  (React canvas), app (reference SPA + CLI). See ts/CLAUDE.md.

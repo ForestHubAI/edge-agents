@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/ForestHubAI/fh-core/go/llmproxy"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 type llmClient interface {
