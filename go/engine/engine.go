@@ -10,9 +10,9 @@ import (
 )
 
 // BuildFunc builds a Runner from a binding-free workflow, the deploy mapping
-// that binds its resources, and the resolved network manifest. Injected at
-// Engine construction to avoid import cycle
-type BuildFunc func(ctx context.Context, wf *workflow.Workflow, dm *DeploymentMapping, nm *NetworkManifest) (*Runner, error)
+// that binds its resources, and the resolved external-resource configs. Injected
+// at Engine construction to avoid import cycle
+type BuildFunc func(ctx context.Context, wf *workflow.Workflow, dm DeploymentMapping, ext *ExternalResources) (*Runner, error)
 
 // Engine is the long-lived host for one workflow Runner. It owns runner
 // lifecycle (start/stop/swap on /deploy and /stop) and the HTTP surface that
@@ -28,7 +28,7 @@ type Engine struct {
 }
 
 // Deploy stops any running workflow and starts the new one.
-func (e *Engine) Deploy(wf *workflow.Workflow, dm *DeploymentMapping, nm *NetworkManifest) error {
+func (e *Engine) Deploy(wf *workflow.Workflow, dm DeploymentMapping, ext *ExternalResources) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -37,7 +37,7 @@ func (e *Engine) Deploy(wf *workflow.Workflow, dm *DeploymentMapping, nm *Networ
 	// bug. Builder is responsible for closing any partially-allocated
 	// resources on failure.
 	ctx, cancel := context.WithCancel(context.Background())
-	r, err := e.Builder(ctx, wf, dm, nm)
+	r, err := e.Builder(ctx, wf, dm, ext)
 	if err != nil {
 		cancel()
 		return err

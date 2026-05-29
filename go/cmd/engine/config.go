@@ -20,8 +20,8 @@ type Config struct {
 	Secret string `env:"ENGINE_SECRET"`
 	// DeviceManifestFile is the path to a JSON file describing this engine's physical device and its drivers
 	DeviceManifestFile string `env:"ENGINE_DEVICE_MANIFEST_FILE"`
-	// NetworkManifestFile is the optional path to a pre-resolved network manifest the engine reads on boot. When set and the file exists, the engine starts its workflow with broker connections already established; absent or missing, the engine waits for the network manifest to arrive with the first /deploy push.
-	NetworkManifestFile string `env:"ENGINE_NETWORK_MANIFEST_FILE"`
+	// ExternalResourcesFile is the optional path to the deploy's resolved external-resource configs (wire shape) the engine reads on boot. When set and the file exists, the engine starts its workflow with transports already established; absent or missing, the engine waits for them to arrive with the first /deploy push.
+	ExternalResourcesFile string `env:"ENGINE_EXTERNAL_RESOURCES_FILE"`
 	// DeploymentMappingFile is the optional path to the deploy mapping that binds the file-mounted workflow's logical resource ids (channels/memory/models) to this environment. Required alongside WorkflowFile whenever the workflow declares hardware or MQTT channels, since the workflow itself is binding-free.
 	DeploymentMappingFile string `env:"ENGINE_DEPLOYMENT_MAPPING_FILE"`
 	// WorkflowFile is the optional path used to mount a workflow directly on engine start, skipping the need for a deploy API call.

@@ -21,6 +21,7 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine/websearch"
 	"github.com/ForestHubAI/fh-core/go/llmproxy"
 	"github.com/ForestHubAI/fh-core/go/logging"
+	"github.com/ForestHubAI/fh-core/go/mapping"
 	"github.com/rs/zerolog"
 
 	"github.com/go-chi/chi/v5"
@@ -148,15 +149,15 @@ func main() {
 		if err := json.Unmarshal(wfData, &wf); err != nil {
 			logging.Logger.Fatal().Err(err).Msg("parsing workflow file")
 		}
-		nm, err := loadNetworkManifest(cfg.NetworkManifestFile)
+		ext, err := loadExternalResources(cfg.ExternalResourcesFile)
 		if err != nil {
-			logging.Logger.Fatal().Err(err).Msg("loading network manifest")
+			logging.Logger.Fatal().Err(err).Msg("loading external resources")
 		}
 		dm, err := loadDeploymentMapping(cfg.DeploymentMappingFile)
 		if err != nil {
 			logging.Logger.Fatal().Err(err).Msg("loading deployment mapping")
 		}
-		if err := eng.Deploy(&wf, dm, nm); err != nil {
+		if err := eng.Deploy(&wf, dm, ext); err != nil {
 			logging.Logger.Fatal().Err(err).Msg("deploying workflow from file")
 		}
 	}
@@ -249,13 +250,13 @@ func loadManifest(path string) (engine.DeviceManifest, error) {
 	return m, nil
 }
 
-// loadNetworkManifest reads a pre-resolved network manifest from path. An
-// empty path is the only "optional" signal — the engine boots without broker
-// connections and waits for the next /deploy push to supply the manifest.
-// A non-empty path that points at a missing or malformed file is a fatal
-// misconfiguration (the compose file mounted nothing where something was
-// expected); matches the strictness of loadManifest above.
-func loadNetworkManifest(path string) (*engine.NetworkManifest, error) {
+// loadExternalResources reads the deploy's external-resource configs (wire
+// shape) from path and maps them to the engine domain. An empty path is the
+// only "optional" signal — the engine boots without transports and waits for
+// the next /deploy push to supply them. A non-empty path pointing at a missing
+// or malformed file is a fatal misconfiguration; matches loadManifest's
+// strictness.
+func loadExternalResources(path string) (*engine.ExternalResources, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -263,20 +264,19 @@ func loadNetworkManifest(path string) (*engine.NetworkManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var nm engine.NetworkManifest
-	if err := json.Unmarshal(data, &nm); err != nil {
+	var ext engineapi.ExternalResources
+	if err := json.Unmarshal(data, &ext); err != nil {
 		return nil, err
 	}
-	return &nm, nil
+	return mapping.ExternalResourcesToDomain(&ext), nil
 }
 
 // loadDeploymentMapping reads the deploy mapping that binds a file-mounted
 // workflow's logical resource ids to this environment. An empty path yields a
 // nil mapping — fine for workflows with no channels; channel-bearing workflows
-// will then hard-fail at build with a clear "no driver/network binding" error.
-// A non-empty path pointing at a missing or malformed file is fatal, matching
-// loadNetworkManifest's strictness.
-func loadDeploymentMapping(path string) (*engine.DeploymentMapping, error) {
+// will then hard-fail at build with a clear "no binding" error. A non-empty
+// path pointing at a missing or malformed file is fatal.
+func loadDeploymentMapping(path string) (engine.DeploymentMapping, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -288,5 +288,5 @@ func loadDeploymentMapping(path string) (*engine.DeploymentMapping, error) {
 	if err := json.Unmarshal(data, &dm); err != nil {
 		return nil, err
 	}
-	return &dm, nil
+	return dm, nil
 }

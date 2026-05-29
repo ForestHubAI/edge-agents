@@ -5,12 +5,12 @@ package engineapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	externalRef0 "github.com/ForestHubAI/fh-core/go/api/workflow"
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AgentBootCallbackStatus.
@@ -76,6 +76,36 @@ func (e LogEntryLevel) Valid() bool {
 	}
 }
 
+// Defines values for MQTTConnectionType.
+const (
+	Mqtt MQTTConnectionType = "mqtt"
+)
+
+// Valid indicates whether the value is a known member of the MQTTConnectionType enum.
+func (e MQTTConnectionType) Valid() bool {
+	switch e {
+	case Mqtt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderConfigType.
+const (
+	Selfhosted ProviderConfigType = "selfhosted"
+)
+
+// Valid indicates whether the value is a known member of the ProviderConfigType enum.
+func (e ProviderConfigType) Valid() bool {
+	switch e {
+	case Selfhosted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for State.
 const (
 	StateIdle    State = "idle"
@@ -102,38 +132,25 @@ type ADCConfig struct {
 
 // AgentBootCallback defines model for AgentBootCallback.
 type AgentBootCallback struct {
-	// Address Externally reachable HTTP(S) URL of the engine. Optional —
-	// Cloud-mode engines behind NAT may omit this; the backend then
-	// stores the address as SQL NULL and rejects push deploys for
-	// this agent, while bundle deploys and liveness still work.
+	// Address Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
 	Address *string `json:"address,omitempty"`
 
 	// Error Human-readable failure detail. Set when status='booterror', null otherwise.
 	Error *string `json:"error,omitempty"`
 
-	// LoadedDeviceManifest Hardware resources available on the device, keyed by driver instance ID.
-	// Drives runtime driver instantiation on the engine.
+	// LoadedDeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 	LoadedDeviceManifest *DeviceManifest `json:"loadedDeviceManifest,omitempty"`
 
-	// Status Boot result reported by the engine. 'online' when the manifest
-	// loaded cleanly and the engine is ready to accept deploy requests;
-	// 'booterror' when something blocked startup (missing driver,
-	// invalid manifest, etc.).
+	// Status Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
 	Status AgentBootCallbackStatus `json:"status"`
 }
 
-// AgentBootCallbackStatus Boot result reported by the engine. 'online' when the manifest
-// loaded cleanly and the engine is ready to accept deploy requests;
-// 'booterror' when something blocked startup (missing driver,
-// invalid manifest, etc.).
+// AgentBootCallbackStatus Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
 type AgentBootCallbackStatus string
 
 // AgentHeartbeatRequest defines model for AgentHeartbeatRequest.
 type AgentHeartbeatRequest struct {
-	// Address Externally reachable HTTP(S) URL of the engine. Optional —
-	// Cloud-mode engines behind NAT may omit this; the heartbeat
-	// then only refreshes liveness via the AgentKeyAuth middleware
-	// without writing the address column.
+	// Address Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column.
 	Address *string `json:"address,omitempty"`
 }
 
@@ -151,50 +168,22 @@ type DACConfig struct {
 	Device string `json:"device"`
 }
 
-// DeployRequest Engine-served POST /deploy body: a binding-free workflow plus the deploy mapping that binds its logical resource ids to this environment, plus the resolved network manifest. Distinct from the backend control-plane DeployRequestBody (DeploymentConfig/RedeployRequest). workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it).
+// DeployRequest Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it).
 type DeployRequest struct {
-	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resource ids for one deploy. Segmented by family, mirroring DeviceManifest. Values are thin id->id refs; the referenced configs live in their own manifests (driver ids in the boot DeviceManifest, network ids in the deploy NetworkManifest). The workflow document carries no bindings; this is the separate artifact that targets it at an environment.
-	Mapping *DeploymentMapping `json:"mapping,omitempty"`
+	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
 
-	// NetworkManifest Resolved MQTT transports keyed by network ID, handed to the engine on deploy.
-	NetworkManifest *NetworkManifest `json:"networkManifest,omitempty"`
+	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+	Mapping *DeploymentMapping `json:"mapping,omitempty"`
 
 	// Workflow Workflow represents the deployment format of a project, passed to agents.
 	Workflow *externalRef0.Workflow `json:"workflow,omitempty"`
 }
 
-// DeployRequestBody Body for /agents/{agentId}/deploy and /agents/{agentId}/deployments.
-// DeploymentConfig is a fresh deploy (workflow + projectId); RedeployRequest
-// reactivates a historical deployment by ID.
-type DeployRequestBody struct {
-	union json.RawMessage
-}
+// DeploymentMapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+type DeploymentMapping map[string]ResourceBinding
 
-// DeploymentConfig Snapshot of what's deployed to an agent
-type DeploymentConfig struct {
-	ProjectId string `json:"projectId"`
-
-	// Workflow Workflow represents the deployment format of a project, passed to agents.
-	Workflow externalRef0.Workflow `json:"workflow"`
-}
-
-// DeploymentMapping Binds a binding-free workflow's logical resource ids to concrete platform resource ids for one deploy. Segmented by family, mirroring DeviceManifest. Values are thin id->id refs; the referenced configs live in their own manifests (driver ids in the boot DeviceManifest, network ids in the deploy NetworkManifest). The workflow document carries no bindings; this is the separate artifact that targets it at an environment.
-type DeploymentMapping struct {
-	// Drivers Hardware channel id -> driver instance id in the device manifest.
-	Drivers *map[string]string `json:"drivers,omitempty"`
-
-	// Memory VectorDatabase memory id -> backend RAG collection id.
-	Memory *map[string]string `json:"memory,omitempty"`
-
-	// Models Custom model id -> llmproxy provider id.
-	Models *map[string]string `json:"models,omitempty"`
-
-	// Networks MQTT channel id -> network id resolved via the network manifest.
-	Networks *map[string]string `json:"networks,omitempty"`
-}
-
-// DeviceManifest Hardware resources available on the device, keyed by driver instance ID.
-// Drives runtime driver instantiation on the engine.
+// DeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 type DeviceManifest struct {
 	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
 	Dacs    *map[string]DACConfig    `json:"dacs,omitempty"`
@@ -208,6 +197,14 @@ type EngineError struct {
 	Error string `json:"error"`
 }
 
+// ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
+type ExternalResourceConfig struct {
+	union json.RawMessage
+}
+
+// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+type ExternalResources map[string]ExternalResourceConfig
+
 // GPIOConfig defines model for GPIOConfig.
 type GPIOConfig struct {
 	// Chip cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0"
@@ -220,10 +217,7 @@ type HealthzResponse struct {
 	Status State `json:"status"`
 }
 
-// LogEntry Single log event emitted by the engine. The reserved keys
-// (level/action/summary/msg/time) populate dedicated agent_activity
-// columns; any extra top-level keys are bucketed into the details
-// JSONB column on ingest.
+// LogEntry Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest.
 type LogEntry struct {
 	Action               string                 `json:"action"`
 	Level                LogEntryLevel          `json:"level"`
@@ -246,10 +240,14 @@ type MQTTConnection struct {
 	PublishPrefix *string `json:"publishPrefix,omitempty"`
 
 	// SubscribePrefix Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/).
-	SubscribePrefix *string   `json:"subscribePrefix,omitempty"`
-	Username        *string   `json:"username,omitempty"`
-	Will            *MQTTWill `json:"will,omitempty"`
+	SubscribePrefix *string            `json:"subscribePrefix,omitempty"`
+	Type            MQTTConnectionType `json:"type"`
+	Username        *string            `json:"username,omitempty"`
+	Will            *MQTTWill          `json:"will,omitempty"`
 }
+
+// MQTTConnectionType defines model for MQTTConnection.Type.
+type MQTTConnectionType string
 
 // MQTTWill defines model for MQTTWill.
 type MQTTWill struct {
@@ -266,17 +264,27 @@ type MemoryFileWrite struct {
 	Content string `json:"content"`
 }
 
-// NetworkManifest Resolved MQTT transports keyed by network ID, handed to the engine on deploy.
-type NetworkManifest struct {
-	// MQTTs Network ID -> resolved MQTT connection.
-	MQTTs map[string]MQTTConnection `json:"mqtts"`
-}
-
 // PWMConfig defines model for PWMConfig.
 type PWMConfig struct {
 	// Chip sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
 	Chip string `json:"chip"`
 }
+
+// ProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here.
+type ProviderConfig struct {
+	// ApiKey Optional bearer credential for the endpoint.
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
+	Model *string            `json:"model,omitempty"`
+	Type  ProviderConfigType `json:"type"`
+
+	// Url Base URL of the inference endpoint (http:// or https://).
+	Url string `json:"url"`
+}
+
+// ProviderConfigType defines model for ProviderConfig.Type.
+type ProviderConfigType string
 
 // RagQueryRequest defines model for RagQueryRequest.
 type RagQueryRequest struct {
@@ -298,11 +306,13 @@ type RagQueryResult struct {
 	Score      float64 `json:"score"`
 }
 
-// RedeployRequest Reactivate a historical deployment by ID. Backend loads the workflow
-// from agent_deployments.config and flips agents.active_deployment_id;
-// no new deployment row is written.
-type RedeployRequest struct {
-	DeploymentID openapi_types.UUID `json:"deploymentId"`
+// ResourceBinding How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models.
+type ResourceBinding struct {
+	// Index Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
+	Index *int `json:"index,omitempty"`
+
+	// Ref Shared platform resource id this binds to.
+	Ref string `json:"ref"`
 }
 
 // SerialConfig defines model for SerialConfig.
@@ -438,22 +448,24 @@ func (a LogEntry) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
-// AsDeploymentConfig returns the union data inside the DeployRequestBody as a DeploymentConfig
-func (t DeployRequestBody) AsDeploymentConfig() (DeploymentConfig, error) {
-	var body DeploymentConfig
+// AsMQTTConnection returns the union data inside the ExternalResourceConfig as a MQTTConnection
+func (t ExternalResourceConfig) AsMQTTConnection() (MQTTConnection, error) {
+	var body MQTTConnection
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDeploymentConfig overwrites any union data inside the DeployRequestBody as the provided DeploymentConfig
-func (t *DeployRequestBody) FromDeploymentConfig(v DeploymentConfig) error {
+// FromMQTTConnection overwrites any union data inside the ExternalResourceConfig as the provided MQTTConnection
+func (t *ExternalResourceConfig) FromMQTTConnection(v MQTTConnection) error {
+	v.Type = "mqtt"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDeploymentConfig performs a merge with any union data inside the DeployRequestBody, using the provided DeploymentConfig
-func (t *DeployRequestBody) MergeDeploymentConfig(v DeploymentConfig) error {
+// MergeMQTTConnection performs a merge with any union data inside the ExternalResourceConfig, using the provided MQTTConnection
+func (t *ExternalResourceConfig) MergeMQTTConnection(v MQTTConnection) error {
+	v.Type = "mqtt"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -464,22 +476,24 @@ func (t *DeployRequestBody) MergeDeploymentConfig(v DeploymentConfig) error {
 	return err
 }
 
-// AsRedeployRequest returns the union data inside the DeployRequestBody as a RedeployRequest
-func (t DeployRequestBody) AsRedeployRequest() (RedeployRequest, error) {
-	var body RedeployRequest
+// AsProviderConfig returns the union data inside the ExternalResourceConfig as a ProviderConfig
+func (t ExternalResourceConfig) AsProviderConfig() (ProviderConfig, error) {
+	var body ProviderConfig
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromRedeployRequest overwrites any union data inside the DeployRequestBody as the provided RedeployRequest
-func (t *DeployRequestBody) FromRedeployRequest(v RedeployRequest) error {
+// FromProviderConfig overwrites any union data inside the ExternalResourceConfig as the provided ProviderConfig
+func (t *ExternalResourceConfig) FromProviderConfig(v ProviderConfig) error {
+	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeRedeployRequest performs a merge with any union data inside the DeployRequestBody, using the provided RedeployRequest
-func (t *DeployRequestBody) MergeRedeployRequest(v RedeployRequest) error {
+// MergeProviderConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided ProviderConfig
+func (t *ExternalResourceConfig) MergeProviderConfig(v ProviderConfig) error {
+	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -490,12 +504,35 @@ func (t *DeployRequestBody) MergeRedeployRequest(v RedeployRequest) error {
 	return err
 }
 
-func (t DeployRequestBody) MarshalJSON() ([]byte, error) {
+func (t ExternalResourceConfig) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "mqtt":
+		return t.AsMQTTConnection()
+	case "selfhosted":
+		return t.AsProviderConfig()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ExternalResourceConfig) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *DeployRequestBody) UnmarshalJSON(b []byte) error {
+func (t *ExternalResourceConfig) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

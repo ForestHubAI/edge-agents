@@ -492,10 +492,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
+                /** @description Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time) */
                 channelReference?: string;
-                /** @description Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime. */
-                topic?: string;
                 dataType: components["schemas"]["DataType"];
                 value: components["schemas"]["Expression"];
                 /**
@@ -517,10 +515,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
+                /** @description Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time) */
                 channelReference?: string;
-                /** @description Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime. */
-                topic?: string;
                 dataType: components["schemas"]["DataType"];
                 output: components["schemas"]["OutputBinding"];
             };
@@ -534,8 +530,6 @@ export interface components {
             type: "GPIOIN";
             id: string;
             label: string;
-            /** @description Line number on the GPIO chip */
-            line: number;
             /**
              * @description Pin bias configuration
              * @enum {string}
@@ -552,8 +546,6 @@ export interface components {
             type: "GPIOOUT";
             id: string;
             label: string;
-            /** @description Line number on the GPIO chip */
-            line: number;
         };
         ADCChannel: {
             /**
@@ -563,8 +555,6 @@ export interface components {
             type: "ADC";
             id: string;
             label: string;
-            /** @description Channel number on the ADC device */
-            channel: number;
         };
         PWMChannel: {
             /**
@@ -574,8 +564,6 @@ export interface components {
             type: "PWM";
             id: string;
             label: string;
-            /** @description Channel number on the PWM chip */
-            channel: number;
             /** @description PWM frequency in Hz */
             frequency: number;
         };
@@ -587,8 +575,6 @@ export interface components {
             type: "DAC";
             id: string;
             label: string;
-            /** @description Channel number on the DAC device */
-            channel: number;
         };
         UARTChannel: {
             /**
@@ -607,6 +593,8 @@ export interface components {
             type: "MQTT";
             id: string;
             label: string;
+            /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
+            topic: string;
         };
     };
     responses: never;

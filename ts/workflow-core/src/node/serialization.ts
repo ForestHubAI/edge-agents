@@ -276,7 +276,6 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         position: position,
         arguments: {
           channelReference: data.arguments.channelReference ?? "",
-          topic: data.arguments.topic,
           dataType: data.arguments.dataType,
           value: data.arguments.value,
           qos: Number(data.arguments.qos) as 0 | 1 | 2,
@@ -290,7 +289,6 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         position: position,
         arguments: {
           channelReference: data.arguments.channelReference ?? "",
-          topic: data.arguments.topic,
           dataType: data.arguments.dataType,
           output: data.arguments.output,
         },
@@ -525,7 +523,6 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          topic: apiNode.arguments.topic ?? "",
           dataType: apiNode.arguments.dataType,
           value: apiNode.arguments.value,
           qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
@@ -539,7 +536,6 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          topic: apiNode.arguments.topic ?? "",
           dataType: apiNode.arguments.dataType,
           output: apiNode.arguments.output as OutputBinding,
         },

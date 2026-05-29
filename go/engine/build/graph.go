@@ -184,10 +184,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			if nd.Arguments.Topic == nil {
-				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topic"}
-			}
-			n := node.NewMqttPublish(nd.Id, mq, *nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
+			n := node.NewMqttPublish(nd.Id, mq, mq.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
@@ -199,10 +196,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			if nd.Arguments.Topic == nil {
-				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topic"}
-			}
-			t, err := trigger.NewOnMqttMessage(nd.Id, mq, *nd.Arguments.Topic, nd.Arguments.DataType, nd.Arguments.Output, 0)
+			t, err := trigger.NewOnMqttMessage(nd.Id, mq, mq.Topic, nd.Arguments.DataType, nd.Arguments.Output, 0)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}

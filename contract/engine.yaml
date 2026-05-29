@@ -73,72 +73,76 @@ components:
 
     DeployRequest:
       type: object
-      description: >
-        Engine-served POST /deploy body: a binding-free workflow plus the deploy
-        mapping that binds its logical resource ids to this environment, plus the
-        resolved network manifest. Distinct from the backend control-plane
-        DeployRequestBody (DeploymentConfig/RedeployRequest). workflow is
-        intentionally NOT required so it generates as a pointer (the handler
-        nil-checks it).
+      description: "Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it)."
       properties:
         workflow:
           $ref: "workflow.yaml#/components/schemas/Workflow"
         mapping:
           $ref: "#/components/schemas/DeploymentMapping"
-        networkManifest:
-          $ref: "#/components/schemas/NetworkManifest"
+        externalResources:
+          $ref: "#/components/schemas/ExternalResources"
 
     DeploymentMapping:
       type: object
-      description: >
-        Binds a binding-free workflow's logical resource ids to concrete platform
-        resource ids for one deploy. Segmented by family, mirroring DeviceManifest.
-        Values are thin id->id refs; the referenced configs live in their own
-        manifests (driver ids in the boot DeviceManifest, network ids in the deploy
-        NetworkManifest). The workflow document carries no bindings; this is the
-        separate artifact that targets it at an environment.
-      properties:
-        drivers:
-          type: object
-          x-go-name: Drivers
-          description: Hardware channel id -> driver instance id in the device manifest.
-          additionalProperties:
-            type: string
-        networks:
-          type: object
-          x-go-name: Networks
-          description: MQTT channel id -> network id resolved via the network manifest.
-          additionalProperties:
-            type: string
-        memory:
-          type: object
-          x-go-name: Memory
-          description: VectorDatabase memory id -> backend RAG collection id.
-          additionalProperties:
-            type: string
-        models:
-          type: object
-          x-go-name: Models
-          description: Custom model id -> llmproxy provider id.
-          additionalProperties:
-            type: string
+      description: "Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id)."
+      additionalProperties:
+        $ref: "#/components/schemas/ResourceBinding"
 
-    NetworkManifest:
+    ResourceBinding:
       type: object
-      description: Resolved MQTT transports keyed by network ID, handed to the engine on deploy.
-      required: [mqtts]
+      description: "How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models."
+      required: [ref]
       properties:
-        mqtts:
-          type: object
-          x-go-name: MQTTs
-          description: Network ID -> resolved MQTT connection.
-          additionalProperties:
-            $ref: "#/components/schemas/MQTTConnection"
+        ref:
+          type: string
+          description: Shared platform resource id this binds to.
+        index:
+          type: integer
+          description: Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
+
+    ExternalResources:
+      type: object
+      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs."
+      additionalProperties:
+        $ref: "#/components/schemas/ExternalResourceConfig"
+
+    ExternalResourceConfig:
+      description: "Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf."
+      oneOf:
+        - $ref: "#/components/schemas/MQTTConnection"
+        - $ref: "#/components/schemas/ProviderConfig"
+      discriminator:
+        propertyName: type
+        mapping:
+          mqtt: "#/components/schemas/MQTTConnection"
+          selfhosted: "#/components/schemas/ProviderConfig"
+
+    ProviderConfig:
+      type: object
+      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here."
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [selfhosted]
+        url:
+          type: string
+          description: Base URL of the inference endpoint (http:// or https://).
+        apiKey:
+          type: string
+          format: password
+          description: Optional bearer credential for the endpoint.
+        model:
+          type: string
+          description: Upstream model name the endpoint serves; defaults to the workflow model id when empty.
 
     MQTTConnection:
       type: object
-      required: [brokerUrl]
+      required: [type, brokerUrl]
       properties:
+        type:
+          type: string
+          enum: [mqtt]
         brokerUrl:
           type: string
           x-go-name: BrokerURL
@@ -177,9 +181,7 @@ components:
 
     DeviceManifest:
       type: object
-      description: |
-        Hardware resources available on the device, keyed by driver instance ID.
-        Drives runtime driver instantiation on the engine.
+      description: "Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine."
       properties:
         gpios:
           type: object
@@ -250,15 +252,13 @@ components:
           minLength: 1
           description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
 
+    # ===== Engine events =====
+
     LogEntry:
       type: object
       required: [level, action, summary, msg, time]
       additionalProperties: true
-      description: |
-        Single log event emitted by the engine. The reserved keys
-        (level/action/summary/msg/time) populate dedicated agent_activity
-        columns; any extra top-level keys are bucketed into the details
-        JSONB column on ingest.
+      description: "Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest."
       properties:
         level:
           type: string
@@ -281,26 +281,15 @@ components:
           type: string
           format: uri
           example: "http://10.0.1.50:8081"
-          description: |
-            Externally reachable HTTP(S) URL of the engine. Optional —
-            Cloud-mode engines behind NAT may omit this; the backend then
-            stores the address as SQL NULL and rejects push deploys for
-            this agent, while bundle deploys and liveness still work.
+          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work."
         status:
           type: string
           enum: [online, booterror]
-          description: |
-            Boot result reported by the engine. 'online' when the manifest
-            loaded cleanly and the engine is ready to accept deploy requests;
-            'booterror' when something blocked startup (missing driver,
-            invalid manifest, etc.).
+          description: "Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.)."
         loadedDeviceManifest:
           $ref: "#/components/schemas/DeviceManifest"
           nullable: true
-          description: |
-            The manifest the engine loaded into its driver registry at boot.
-            Set on a successful boot; may be null on booterror if the engine
-            could not even parse the manifest.
+          description: "The manifest the engine loaded into its driver registry at boot. Set on a successful boot; may be null on booterror if the engine could not even parse the manifest."
         error:
           type: string
           nullable: true
@@ -313,11 +302,7 @@ components:
           type: string
           format: uri
           example: "http://10.0.1.50:8081/"
-          description: |
-            Externally reachable HTTP(S) URL of the engine. Optional —
-            Cloud-mode engines behind NAT may omit this; the heartbeat
-            then only refreshes liveness via the AgentKeyAuth middleware
-            without writing the address column.
+          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column."
 
     MemoryFileWrite:
       type: object
@@ -326,38 +311,6 @@ components:
       properties:
         content:
           type: string
-
-    DeploymentConfig:
-      type: object
-      description: Snapshot of what's deployed to an agent
-      required: [workflow, projectId]
-      properties:
-        workflow:
-          $ref: "workflow.yaml#/components/schemas/Workflow"
-        projectId:
-          type: string
-
-    RedeployRequest:
-      type: object
-      description: |
-        Reactivate a historical deployment by ID. Backend loads the workflow
-        from agent_deployments.config and flips agents.active_deployment_id;
-        no new deployment row is written.
-      required: [deploymentId]
-      properties:
-        deploymentId:
-          type: string
-          format: uuid
-          x-go-name: DeploymentID
-
-    DeployRequestBody:
-      description: |
-        Body for /agents/{agentId}/deploy and /agents/{agentId}/deployments.
-        DeploymentConfig is a fresh deploy (workflow + projectId); RedeployRequest
-        reactivates a historical deployment by ID.
-      oneOf:
-        - $ref: "#/components/schemas/DeploymentConfig"
-        - $ref: "#/components/schemas/RedeployRequest"
 
     AgentRuntimeStatusResponse:
       type: object

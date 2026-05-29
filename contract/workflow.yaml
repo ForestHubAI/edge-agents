@@ -775,10 +775,7 @@ components:
           properties:
             channelReference:
               type: string
-              description: Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-            topic:
-              type: string
-              description: Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime.
+              description: Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time)
             dataType:
               $ref: "#/components/schemas/DataType"
             value:
@@ -805,10 +802,7 @@ components:
           properties:
             channelReference:
               type: string
-              description: Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-            topic:
-              type: string
-              description: Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime.
+              description: Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time)
             dataType:
               $ref: "#/components/schemas/DataType"
             output:
@@ -838,14 +832,11 @@ components:
 
     GPIOINChannel:
       type: object
-      required: [type, id, label, line, bias, debounceMs]
+      required: [type, id, label, bias, debounceMs]
       properties:
         type: { type: string, enum: [GPIOIN] }
         id: { type: string }
         label: { type: string }
-        line:
-          type: integer
-          description: Line number on the GPIO chip
         bias:
           type: string
           enum: [none, pullup, pulldown]
@@ -856,50 +847,38 @@ components:
 
     GPIOOUTChannel:
       type: object
-      required: [type, id, label, line]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [GPIOOUT] }
         id: { type: string }
         label: { type: string }
-        line:
-          type: integer
-          description: Line number on the GPIO chip
 
     ADCChannel:
       type: object
-      required: [type, id, label, channel]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [ADC] }
         id: { type: string }
         label: { type: string }
-        channel:
-          type: integer
-          description: Channel number on the ADC device
 
     PWMChannel:
       type: object
-      required: [type, id, label, channel, frequency]
+      required: [type, id, label, frequency]
       properties:
         type: { type: string, enum: [PWM] }
         id: { type: string }
         label: { type: string }
-        channel:
-          type: integer
-          description: Channel number on the PWM chip
         frequency:
           type: integer
           description: PWM frequency in Hz
 
     DACChannel:
       type: object
-      required: [type, id, label, channel]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [DAC] }
         id: { type: string }
         label: { type: string }
-        channel:
-          type: integer
-          description: Channel number on the DAC device
 
     UARTChannel:
       type: object
@@ -911,8 +890,11 @@ components:
 
     MQTTChannel:
       type: object
-      required: [type, id, label]
+      required: [type, id, label, topic]
       properties:
         type: { type: string, enum: [MQTT] }
         id: { type: string }
         label: { type: string }
+        topic:
+          type: string
+          description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.

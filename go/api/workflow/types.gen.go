@@ -744,11 +744,9 @@ func (e WritePinNodeType) Valid() bool {
 
 // ADCChannel defines model for ADCChannel.
 type ADCChannel struct {
-	// Channel Channel number on the ADC device
-	Channel int            `json:"channel"`
-	Id      string         `json:"id"`
-	Label   string         `json:"label"`
-	Type    ADCChannelType `json:"type"`
+	Id    string         `json:"id"`
+	Label string         `json:"label"`
+	Type  ADCChannelType `json:"type"`
 }
 
 // ADCChannelType defines model for ADCChannel.Type.
@@ -810,11 +808,9 @@ type Channel struct {
 
 // DACChannel defines model for DACChannel.
 type DACChannel struct {
-	// Channel Channel number on the DAC device
-	Channel int            `json:"channel"`
-	Id      string         `json:"id"`
-	Label   string         `json:"label"`
-	Type    DACChannelType `json:"type"`
+	Id    string         `json:"id"`
+	Label string         `json:"label"`
+	Type  DACChannelType `json:"type"`
 }
 
 // DACChannelType defines model for DACChannel.Type.
@@ -908,13 +904,10 @@ type GPIOINChannel struct {
 	Bias GPIOINChannelBias `json:"bias"`
 
 	// DebounceMs Debounce window in milliseconds
-	DebounceMs int    `json:"debounceMs"`
-	Id         string `json:"id"`
-	Label      string `json:"label"`
-
-	// Line Line number on the GPIO chip
-	Line int               `json:"line"`
-	Type GPIOINChannelType `json:"type"`
+	DebounceMs int               `json:"debounceMs"`
+	Id         string            `json:"id"`
+	Label      string            `json:"label"`
+	Type       GPIOINChannelType `json:"type"`
 }
 
 // GPIOINChannelBias Pin bias configuration
@@ -925,12 +918,9 @@ type GPIOINChannelType string
 
 // GPIOOUTChannel defines model for GPIOOUTChannel.
 type GPIOOUTChannel struct {
-	Id    string `json:"id"`
-	Label string `json:"label"`
-
-	// Line Line number on the GPIO chip
-	Line int                `json:"line"`
-	Type GPIOOUTChannelType `json:"type"`
+	Id    string             `json:"id"`
+	Label string             `json:"label"`
+	Type  GPIOOUTChannelType `json:"type"`
 }
 
 // GPIOOUTChannelType defines model for GPIOOUTChannel.Type.
@@ -968,8 +958,11 @@ type LLMModelType string
 
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
-	Id    string          `json:"id"`
-	Label string          `json:"label"`
+	Id    string `json:"id"`
+	Label string `json:"label"`
+
+	// Topic Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.
+	Topic string          `json:"topic"`
 	Type  MQTTChannelType `json:"type"`
 }
 
@@ -1023,7 +1016,7 @@ type ModelCapability string
 // MqttPublishNode defines model for MqttPublishNode.
 type MqttPublishNode struct {
 	Arguments struct {
-		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
+		// ChannelReference Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time)
 		ChannelReference *string  `json:"channelReference,omitempty"`
 		DataType         DataType `json:"dataType"`
 
@@ -1031,11 +1024,8 @@ type MqttPublishNode struct {
 		Qos MqttPublishNodeArgumentsQos `json:"qos"`
 
 		// Retain Whether the broker should retain the message
-		Retain bool `json:"retain"`
-
-		// Topic Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime.
-		Topic *string    `json:"topic,omitempty"`
-		Value Expression `json:"value"`
+		Retain bool       `json:"retain"`
+		Value  Expression `json:"value"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1074,13 +1064,10 @@ type OnFunctionCallNodeType string
 // OnMqttMessageNode defines model for OnMqttMessageNode.
 type OnMqttMessageNode struct {
 	Arguments struct {
-		// ChannelReference Reference to an MQTT channel ID (resolved to a network broker at deploy time)
+		// ChannelReference Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time)
 		ChannelReference *string       `json:"channelReference,omitempty"`
 		DataType         DataType      `json:"dataType"`
 		Output           OutputBinding `json:"output"`
-
-		// Topic Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime.
-		Topic *string `json:"topic,omitempty"`
 	} `json:"arguments"`
 	Id       string                `json:"id"`
 	Label    *string               `json:"label,omitempty"`
@@ -1198,9 +1185,6 @@ type OutputDeclarationMode string
 
 // PWMChannel defines model for PWMChannel.
 type PWMChannel struct {
-	// Channel Channel number on the PWM chip
-	Channel int `json:"channel"`
-
 	// Frequency PWM frequency in Hz
 	Frequency int            `json:"frequency"`
 	Id        string         `json:"id"`
