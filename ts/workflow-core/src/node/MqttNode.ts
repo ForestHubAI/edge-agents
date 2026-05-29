@@ -9,7 +9,6 @@ export interface MqttPublishNode extends NodeBase {
   type: "MqttPublish";
   arguments: {
     channelReference: string;
-    topic: string;
     dataType: "int" | "float" | "bool" | "string";
     value: Expression;
     qos: "0" | "1" | "2";
@@ -22,7 +21,6 @@ export interface OnMqttMessageNode extends NodeBase {
   type: "OnMqttMessage";
   arguments: {
     channelReference: string;
-    topic: string;
     dataType: "int" | "float" | "bool" | "string";
     output: OutputBinding;
   };
@@ -46,12 +44,6 @@ export const MqttPublishNodeDefinition: NodeDefinition = {
       description: "MQTT channel to publish through",
       type: "channelSelect",
       channelType: ["MQTT"],
-    },
-    {
-      id: "topic",
-      label: "Topic",
-      description: "MQTT topic path (e.g. sensors/temperature)",
-      type: "string",
     },
     {
       id: "dataType",
@@ -117,12 +109,6 @@ export const OnMqttMessageNodeDefinition: NodeDefinition = {
       description: "MQTT channel to subscribe through",
       type: "channelSelect",
       channelType: ["MQTT"],
-    },
-    {
-      id: "topic",
-      label: "Topic",
-      description: "MQTT topic path pattern to subscribe to (e.g. sensors/temperature)",
-      type: "string",
     },
     {
       id: "dataType",

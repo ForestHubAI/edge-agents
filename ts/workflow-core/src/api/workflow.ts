@@ -134,8 +134,6 @@ export interface components {
             /** @description Display name. */
             label: string;
             description?: string;
-            /** @description Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy. */
-            collectionId: string;
         };
         /** @description Reference from an LLM agent node to a declared MemoryFile with an access mode. */
         MemoryRef: {
@@ -163,8 +161,6 @@ export interface components {
             label: string;
             /** @description Capabilities this model supports (used to filter model pickers). */
             capabilities: components["schemas"]["ModelCapability"][];
-            /** @description Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy. */
-            providerBinding: string;
         };
         Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
@@ -496,10 +492,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
+                /** @description Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time) */
                 channelReference?: string;
-                /** @description Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime. */
-                topic?: string;
                 dataType: components["schemas"]["DataType"];
                 value: components["schemas"]["Expression"];
                 /**
@@ -521,10 +515,8 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to an MQTT channel ID (resolved to a network broker at deploy time) */
+                /** @description Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time) */
                 channelReference?: string;
-                /** @description Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime. */
-                topic?: string;
                 dataType: components["schemas"]["DataType"];
                 output: components["schemas"]["OutputBinding"];
             };
@@ -538,10 +530,6 @@ export interface components {
             type: "GPIOIN";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
-            /** @description Line number on the GPIO chip */
-            line: number;
             /**
              * @description Pin bias configuration
              * @enum {string}
@@ -558,10 +546,6 @@ export interface components {
             type: "GPIOOUT";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
-            /** @description Line number on the GPIO chip */
-            line: number;
         };
         ADCChannel: {
             /**
@@ -571,10 +555,6 @@ export interface components {
             type: "ADC";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
-            /** @description Channel number on the ADC device */
-            channel: number;
         };
         PWMChannel: {
             /**
@@ -584,10 +564,6 @@ export interface components {
             type: "PWM";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
-            /** @description Channel number on the PWM chip */
-            channel: number;
             /** @description PWM frequency in Hz */
             frequency: number;
         };
@@ -599,10 +575,6 @@ export interface components {
             type: "DAC";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
-            /** @description Channel number on the DAC device */
-            channel: number;
         };
         UARTChannel: {
             /**
@@ -612,8 +584,6 @@ export interface components {
             type: "UART";
             id: string;
             label: string;
-            /** @description Driver instance ID from the device manifest */
-            driverId: string;
         };
         MQTTChannel: {
             /**
@@ -623,8 +593,8 @@ export interface components {
             type: "MQTT";
             id: string;
             label: string;
-            /** @description ID of a network the agent's device must be a member of. */
-            networkId: string;
+            /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
+            topic: string;
         };
     };
     responses: never;

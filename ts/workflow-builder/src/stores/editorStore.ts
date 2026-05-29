@@ -8,8 +8,8 @@ import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 // ---------------------------------------------------------------------------
 // Default Channels — every workflow starts pre-initialized with a UART
 // port so nodes that need a serial port (SerialRead/Write, OnSerialReceive)
-// have something to bind to out of the box. Domain shape only — driverId is
-// bound at deploy time from the DeploymentConfig.
+// have something to bind to out of the box. Domain shape only — the driver
+// binding is supplied at deploy time via the DeploymentMapping, not here.
 // ---------------------------------------------------------------------------
 
 export function createDefaultChannels(): Record<string, Channel> {

@@ -259,7 +259,7 @@ components:
     VectorDatabase:
       type: object
       description: A vector database for retrieval-augmented generation (RAG).
-      required: [type, id, label, collectionId]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [VectorDatabase] }
         id:
@@ -270,10 +270,6 @@ components:
           description: Display name.
         description:
           type: string
-        collectionId:
-          type: string
-          x-go-name: CollectionID
-          description: Deploy-time binding to a backend RAG collection. Emitted as "" by the editor; resolved at deploy.
 
     MemoryRef:
       type: object
@@ -315,7 +311,7 @@ components:
     LLMModel:
       type: object
       description: A custom or self-hosted language model that agent nodes can reference.
-      required: [type, id, label, capabilities, providerBinding]
+      required: [type, id, label, capabilities]
       properties:
         type: { type: string, enum: [LLMModel] }
         id:
@@ -329,10 +325,6 @@ components:
           description: Capabilities this model supports (used to filter model pickers).
           items:
             $ref: "#/components/schemas/ModelCapability"
-        providerBinding:
-          type: string
-          x-go-name: ProviderBinding
-          description: Deploy-time binding to an llmproxy provider. Emitted as "" by the editor; resolved at deploy.
 
     # ====== Nodes ======
 
@@ -783,10 +775,7 @@ components:
           properties:
             channelReference:
               type: string
-              description: Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-            topic:
-              type: string
-              description: Workflow-level topic path. Engine wraps with the channel's bound {networkId}/{agentId}/ prefix at runtime.
+              description: Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time)
             dataType:
               $ref: "#/components/schemas/DataType"
             value:
@@ -813,10 +802,7 @@ components:
           properties:
             channelReference:
               type: string
-              description: Reference to an MQTT channel ID (resolved to a network broker at deploy time)
-            topic:
-              type: string
-              description: Workflow-level topic filter. Engine wraps with the channel's bound {networkId}/+/ prefix at runtime.
+              description: Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time)
             dataType:
               $ref: "#/components/schemas/DataType"
             output:
@@ -846,18 +832,11 @@ components:
 
     GPIOINChannel:
       type: object
-      required: [type, id, label, driverId, line, bias, debounceMs]
+      required: [type, id, label, bias, debounceMs]
       properties:
         type: { type: string, enum: [GPIOIN] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
-        line:
-          type: integer
-          description: Line number on the GPIO chip
         bias:
           type: string
           enum: [none, pullup, pulldown]
@@ -868,87 +847,54 @@ components:
 
     GPIOOUTChannel:
       type: object
-      required: [type, id, label, driverId, line]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [GPIOOUT] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
-        line:
-          type: integer
-          description: Line number on the GPIO chip
 
     ADCChannel:
       type: object
-      required: [type, id, label, driverId, channel]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [ADC] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
-        channel:
-          type: integer
-          description: Channel number on the ADC device
 
     PWMChannel:
       type: object
-      required: [type, id, label, driverId, channel, frequency]
+      required: [type, id, label, frequency]
       properties:
         type: { type: string, enum: [PWM] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
-        channel:
-          type: integer
-          description: Channel number on the PWM chip
         frequency:
           type: integer
           description: PWM frequency in Hz
 
     DACChannel:
       type: object
-      required: [type, id, label, driverId, channel]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [DAC] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
-        channel:
-          type: integer
-          description: Channel number on the DAC device
 
     UARTChannel:
       type: object
-      required: [type, id, label, driverId]
+      required: [type, id, label]
       properties:
         type: { type: string, enum: [UART] }
         id: { type: string }
         label: { type: string }
-        driverId:
-          type: string
-          description: Driver instance ID from the device manifest
-          x-go-name: DriverID
 
     MQTTChannel:
       type: object
-      required: [type, id, label, networkId]
+      required: [type, id, label, topic]
       properties:
         type: { type: string, enum: [MQTT] }
         id: { type: string }
         label: { type: string }
-        networkId:
+        topic:
           type: string
-          x-go-name: NetworkID
-          description: ID of a network the agent's device must be a member of.
+          description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.

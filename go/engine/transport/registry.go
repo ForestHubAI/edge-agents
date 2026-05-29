@@ -14,20 +14,21 @@ type Registry struct {
 	mqtts map[string]MQTTTransport
 }
 
-// NewRegistry opens every transport declared in the manifest. On any failure
-// transports opened so far are closed.
-func NewRegistry(nm *engine.NetworkManifest) (*Registry, error) {
-	if nm == nil {
+// NewRegistry opens every MQTT transport in the deploy's external resources,
+// keyed by external resource id. On any failure transports opened so far are
+// closed.
+func NewRegistry(ext *engine.ExternalResources) (*Registry, error) {
+	if ext == nil {
 		return &Registry{mqtts: make(map[string]MQTTTransport)}, nil
 	}
-	r := &Registry{mqtts: make(map[string]MQTTTransport, len(nm.MQTTs))}
-	for networkID, cfg := range nm.MQTTs {
+	r := &Registry{mqtts: make(map[string]MQTTTransport, len(ext.MQTTs))}
+	for id, cfg := range ext.MQTTs {
 		t, err := OpenMQTT(cfg.BrokerURL, cfg.ClientID, cfg.Username, cfg.Password, cfg.Will)
 		if err != nil {
 			r.CloseAll()
-			return nil, fmt.Errorf("mqtt %q: %w", networkID, err)
+			return nil, fmt.Errorf("mqtt %q: %w", id, err)
 		}
-		r.mqtts[networkID] = t
+		r.mqtts[id] = t
 	}
 	return r, nil
 }

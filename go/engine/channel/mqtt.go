@@ -6,9 +6,10 @@ import (
 	"github.com/ForestHubAI/fh-core/go/engine/transport"
 )
 
-// MQTT is a workflow-level MQTT channel.
+// MQTT is a workflow-level MQTT channel: a topic endpoint on a bound broker.
 type MQTT struct {
 	Transport       transport.MQTTTransport
+	Topic           string // the channel's topic (publish target / subscribe filter)
 	PublishPrefix   string // prepended on every Publish; "" = pass-through
 	SubscribePrefix string // prepended on every Subscribe; "" = pass-through
 }

@@ -7,14 +7,13 @@ export type ApiChannel = Schemas["Channel"];
 
 /**
  * Serialize a domain Channel to the API discriminated-union shape.
- * Deploy-time bindings (`driverId` for hardware, `networkId` for MQTT) are
- * emitted as `""` — the deploy step fills them in against the target device's
- * manifest and network memberships.
  *
  * The domain store retains inactive parameters (non-destructive type switching),
  * so this is the boundary that drops them. The `type` discriminator must be in
  * the args record so `parameterIn` rules can evaluate — otherwise every gated
- * field (line/channel/bias/debounceMs/frequency) is stripped as "inactive".
+ * field (bias/debounceMs/frequency) is stripped as "inactive". Physical
+ * addressing (GPIO line, ADC/PWM/DAC channel) is not here — it's a deploy
+ * binding, not workflow state.
  */
 export function serialize(ch: Channel): ApiChannel {
   const { id, label, type } = ch;
@@ -26,59 +25,43 @@ export function serialize(ch: Channel): ApiChannel {
         type,
         id,
         label,
-        driverId: "",
-        line: args.line as number,
         bias: args.bias as Schemas["GPIOINChannel"]["bias"],
         debounceMs: args.debounceMs as number,
       };
     case "GPIOOUT":
-      return { type, id, label, driverId: "", line: args.line as number };
+      return { type, id, label };
     case "ADC":
-      return { type, id, label, driverId: "", channel: args.channel as number };
+      return { type, id, label };
     case "PWM":
-      return {
-        type,
-        id,
-        label,
-        driverId: "",
-        channel: args.channel as number,
-        frequency: args.frequency as number,
-      };
+      return { type, id, label, frequency: args.frequency as number };
     case "DAC":
-      return { type, id, label, driverId: "", channel: args.channel as number };
+      return { type, id, label };
     case "UART":
-      return { type, id, label, driverId: "" };
+      return { type, id, label };
     case "MQTT":
-      return { type, id, label, networkId: "" };
+      return { type, id, label, topic: args.topic as string };
   }
 }
 
-/**
- * Convert an API Channel into a domain Channel. Deploy-time bindings
- * (`driverId`, `networkId`) are dropped — they aren't part of the editor state.
- */
+/** Convert an API Channel into a domain Channel. */
 export function deserialize(api: ApiChannel): Channel {
   const { id, label, type } = api;
   const args: Record<string, unknown> = {};
   switch (type) {
     case "GPIOIN":
-      args.line = api.line;
       args.bias = api.bias;
       args.debounceMs = api.debounceMs;
       break;
-    case "GPIOOUT":
-      args.line = api.line;
-      break;
-    case "ADC":
-    case "DAC":
-      args.channel = api.channel;
-      break;
     case "PWM":
-      args.channel = api.channel;
       args.frequency = api.frequency;
       break;
-    case "UART":
     case "MQTT":
+      args.topic = api.topic;
+      break;
+    case "GPIOOUT":
+    case "ADC":
+    case "DAC":
+    case "UART":
       break;
   }
   return { id, label, type, arguments: args };

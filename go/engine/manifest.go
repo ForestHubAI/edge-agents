@@ -31,10 +31,29 @@ type PWMConfig struct {
 	Chip string `json:"chip"`
 }
 
-// NetworkManifest is the resolved MQTT transport set handed to the engine on
-// deploy, keyed by network ID.
-type NetworkManifest struct {
-	MQTTs map[string]MQTTConnection `json:"mqtts"`
+// DeploymentMapping binds a binding-free workflow's logical resource ids to
+// concrete platform resources for one deploy, keyed by workflow resource id.
+// Mirrors the engineapi wire shape.
+type DeploymentMapping map[string]ResourceBinding
+
+// ResourceBinding is how one workflow resource binds to the environment. Ref is
+// the shared platform resource it points at (driver instance id in the boot
+// DeviceManifest, or external resource id in ExternalResources); the engine
+// picks the pool by the workflow resource's type. Index is the optional
+// per-channel physical sub-address within that resource (GPIO line, or ADC/PWM/
+// DAC channel number); nil for UART/MQTT/memory/model.
+type ResourceBinding struct {
+	Ref   string `json:"ref"`
+	Index *int   `json:"index,omitempty"`
+}
+
+// ExternalResources holds the resolved, deploy-delivered configs for a
+// workflow's non-device external resources, keyed by the platform resource id
+// the DeploymentMapping points at. The engine currently builds transports from
+// MQTTs; provider configs (custom models) are carried on the wire but not yet
+// consumed here.
+type ExternalResources struct {
+	MQTTs map[string]MQTTConnection
 }
 
 type MQTTConnection struct {

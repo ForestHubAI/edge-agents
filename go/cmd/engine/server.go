@@ -30,14 +30,14 @@ func (s *strictServer) Deploy(_ context.Context, request engineapi.DeployRequest
 	if request.Body == nil || request.Body.Workflow == nil {
 		return engineapi.Deploy400JSONResponse{Error: "workflow required"}, nil
 	}
-	if err := s.engine.Deploy(request.Body.Workflow, mapping.NetworkManifestToDomain(request.Body.NetworkManifest)); err != nil {
+	if err := s.engine.Deploy(request.Body.Workflow, mapping.DeploymentMappingToDomain(request.Body.Mapping), mapping.ExternalResourcesToDomain(request.Body.ExternalResources)); err != nil {
 		return engineapi.Deploy422JSONResponse{Error: "deploy failed: " + err.Error()}, nil
 	}
-	mqttCount := 0
-	if request.Body.NetworkManifest != nil {
-		mqttCount = len(request.Body.NetworkManifest.MQTTs)
+	resourceCount := 0
+	if request.Body.ExternalResources != nil {
+		resourceCount = len(*request.Body.ExternalResources)
 	}
-	logging.Logger.Info().Int("mqtt", mqttCount).Msg("workflow deployed")
+	logging.Logger.Info().Int("externalResources", resourceCount).Msg("workflow deployed")
 	return engineapi.Deploy204Response{}, nil
 }
 

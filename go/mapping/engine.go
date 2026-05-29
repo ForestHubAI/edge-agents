@@ -9,14 +9,20 @@ import (
 	"github.com/ForestHubAI/fh-core/go/util/pointer"
 )
 
-// NetworkManifestToDomain maps the wire NetworkManifest (engineapi) onto the
-// engine domain type at the HTTP boundary.
-func NetworkManifestToDomain(in *engineapi.NetworkManifest) *engine.NetworkManifest {
+// ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
+// deploy-time configs) onto the engine domain type at the HTTP boundary. Only
+// the MQTT arms are consumed today; provider arms (custom models) are skipped
+// until the engine builds providers from them.
+func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
-	out := &engine.NetworkManifest{MQTTs: make(map[string]engine.MQTTConnection, len(in.MQTTs))}
-	for id, c := range in.MQTTs {
+	out := &engine.ExternalResources{MQTTs: make(map[string]engine.MQTTConnection)}
+	for id, rc := range *in {
+		c, err := rc.AsMQTTConnection()
+		if err != nil || c.Type != engineapi.Mqtt {
+			continue // not an MQTT arm (e.g. a ProviderConfig) — not consumed yet
+		}
 		mc := engine.MQTTConnection{
 			BrokerURL:       c.BrokerURL,
 			ClientID:        pointer.Val(c.ClientID),
@@ -34,6 +40,19 @@ func NetworkManifestToDomain(in *engineapi.NetworkManifest) *engine.NetworkManif
 			}
 		}
 		out.MQTTs[id] = mc
+	}
+	return out
+}
+
+// DeploymentMappingToDomain maps the wire DeploymentMapping (workflow resource
+// id -> binding) onto the engine domain type at the HTTP boundary.
+func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) engine.DeploymentMapping {
+	if in == nil {
+		return nil
+	}
+	out := make(engine.DeploymentMapping, len(*in))
+	for k, v := range *in {
+		out[k] = engine.ResourceBinding{Ref: v.Ref, Index: v.Index}
 	}
 	return out
 }

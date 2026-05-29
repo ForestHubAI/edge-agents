@@ -93,8 +93,7 @@
     {
       "type": "UART",
       "id": "uart0",
-      "label": "Serial",
-      "driverId": ""
+      "label": "Serial"
     }
   ],
   "memory": [],

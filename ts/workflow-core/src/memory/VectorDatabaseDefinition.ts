@@ -1,10 +1,8 @@
 import type { MemoryDefinition } from "./MemoryDefinition";
 
 /**
- * RAG knowledge base referenced from Retriever nodes. The backend collection it
- * maps to is a deploy-time binding (see VectorDatabase.collectionId in the
- * api, emitted as "" by the editor), so it is not an editor parameter —
- * only descriptive config lives here.
+ * RAG knowledge base referenced from Retriever nodes. Only descriptive config
+ * lives here; the backend collection it binds to is supplied at deploy time.
  */
 export const VectorDatabaseDefinition: MemoryDefinition = {
   type: "VectorDatabase",
