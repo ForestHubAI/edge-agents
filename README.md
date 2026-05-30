@@ -1,7 +1,6 @@
 # edge-agents
 
-Workflow runtime and multi-provider LLM proxy for embedded and edge AI agents.
-Typed visual builder, OpenAPI contract, runs offline.
+**The open-source runtime for embedded and edge AI agents.**
 
 [![CI](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
@@ -16,6 +15,28 @@ not in this repository.
 
 > Status: `go/v1.0.1`. Runtime is in production use; contract and TypeScript
 > APIs may still move. Open an issue before larger changes.
+
+## Features
+
+- **Workflow engine** — graph runtime as a state machine; nodes for LLM
+  calls, hardware I/O, MQTT, web search, memory, control flow, and
+  expressions.
+- **Cloud LLM proxy** — Anthropic, OpenAI, Google Gemini, Mistral. Provider
+  dispatched implicitly from the model id.
+- **Local SLM provider** — typed multi-endpoint registry for on-device small
+  language models served by `llama.cpp`, `vLLM`, `Ollama`, or any
+  OpenAI-compatible endpoint, with capability-based routing
+  (`chat` / `embedding` / `classification` / …).
+- **Visual builder** — React Flow canvas with typed nodes, ports, and live
+  validation, embeddable as a component or runnable via the bundled SPA.
+- **Hardware nodes** — GPIO, ADC, DAC, PWM, UART/serial via native Linux
+  drivers; digital and analog signal types are first-class in the contract.
+- **Standalone mode** — engine boots and runs workflows with no backend,
+  no account, and no outbound calls beyond LLM provider APIs.
+- **Contract-typed wire format** — every API generated from `contract/*.yaml`
+  in both Go and TypeScript; CI fails on drift.
+- **Distroless multi-arch container** — `linux/amd64` and `linux/arm64`,
+  nonroot, ~15 MB.
 
 ## Contents
 
@@ -72,6 +93,30 @@ npm run validate -- path/to/file.workflow.json
 ```
 
 ## Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                       contract/  (OpenAPI 3.0.3)                       │
+│                       SOURCE OF TRUTH — Go and TS                      │
+│                       both regenerate from here.                       │
+└────────────────────────┬───────────────────────────────┬───────────────┘
+                         │                               │
+                  go generate                      npm run generate
+                         │                               │
+                         ▼                               ▼
+┌────────────────────────────────┐  ┌────────────────────────────────────┐
+│            go/                 │  │              ts/                   │
+│                                │  │                                    │
+│  cmd/engine    binary          │  │  workflow-core    headless model   │
+│  engine/       state machine   │  │  workflow-builder React canvas     │
+│  llmproxy/     cloud + local   │  │  app              reference SPA +  │
+│  driver/       GPIO/UART/...   │  │                   fh-builder CLI   │
+│  transport/    MQTT            │  │                                    │
+│                                │  │                                    │
+│  → engine binary (distroless)  │  │  → @foresthubai/workflow-core      │
+│  → multi-arch container        │  │  → @foresthubai/workflow-builder   │
+└────────────────────────────────┘  └────────────────────────────────────┘
+```
 
 A workflow is a directed graph of typed nodes — LLM call, hardware I/O, MQTT,
 web search, memory, control flow, expressions — connected by edges with one
@@ -219,4 +264,4 @@ Third-party components retain their own licenses; see
 
 ---
 
-Maintained by [ForestHub](https://foresthub.ai).
+Built by [ForestHub](https://foresthub.ai) — the platform for embedded and edge AI agents.
