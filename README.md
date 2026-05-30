@@ -10,9 +10,10 @@ edge devices — visually composed, contract-typed, runnable offline.
 [![Commercial license](https://img.shields.io/badge/Commercial-license_available-brightgreen.svg)](#license)
 
 `edge-agents` is the open core of the [ForestHub](https://foresthub.ai) platform:
-a workflow **engine**, a multi-provider **LLM proxy**, a language-neutral
-**OpenAPI contract**, and a visual **workflow builder** — all of which run
-**standalone and offline**, without any ForestHub-hosted service.
+a workflow **engine**, a multi-provider **LLM proxy** with first-class support
+for **on-device small language models (SLMs)**, a language-neutral **OpenAPI
+contract**, and a visual **workflow builder** — all of which run **standalone
+and offline**, without any ForestHub-hosted service.
 
 ---
 
@@ -53,18 +54,25 @@ one of those assumptions:
   thousand gateways across an industrial fleet.
 
 `edge-agents` is the runtime that closes that gap: a single small Go binary, a
-typed visual workflow format, and the option to call cloud LLMs **or** a
-self-hosted endpoint on the same device.
+typed visual workflow format, and the option to call cloud LLMs **or** a fleet
+of **small language models running on the device itself**.
 
 ## Features
 
 - **Visual workflow builder** — React Flow-based canvas with typed nodes, ports,
   channels, and live validation. Embeddable as a React component or runnable via
   the bundled SPA.
-- **Multi-provider LLM proxy** — one client, five providers: Anthropic, OpenAI,
-  Google Gemini, Mistral, and any **OpenAI-compatible self-hosted endpoint**
-  (Ollama, vLLM, llama.cpp server). Provider is dispatched implicitly from the
-  model id.
+- **Multi-provider LLM proxy** — one client, four cloud providers (Anthropic,
+  OpenAI, Google Gemini, Mistral). Provider is dispatched implicitly from the
+  model id; switching from cloud to on-device is a one-line change.
+- **On-device SLM registry (Local provider)** — a typed multi-endpoint
+  registry for **small language models** running on the same device as the
+  engine (llama.cpp server, vLLM, Ollama, any OpenAI-compatible endpoint).
+  Each model declares its capabilities (`chat`, `embedding`, `classification`,
+  `reasoning`, `vision`, `function_call`, `code`, `fine_tuning`) and, for
+  embedders, its output dimension. The proxy routes requests by capability,
+  so an agent can use a 600 MB classifier and a 4 GB chat model from the same
+  workflow without knowing where either is hosted.
 - **Agent loop with tool use** — first-class tool calling and the
   `agentDelegate` edge type for multi-agent handoff.
 - **Hardware I/O nodes** — GPIO, ADC, DAC, PWM, UART, serial. Native Linux
@@ -200,10 +208,7 @@ require any ForestHub-hosted service.
 | Linux `arm64` industrial gateway | Supported | Tested in field deployments. |
 | macOS (`arm64` / `amd64`) | Supported (dev) | For local development and the builder. |
 | Windows | Engine: untested; builder: works (web app). | Containers via Docker Desktop. |
-| Bare-metal MCU (Cortex-M) | Not supported by the Go engine. | See ForestHub roadmap for the planned MCU runtime; the workflow contract is portable. |
-
-For a full discussion of microcontroller targets and TinyML deployment, see
-[mcuagent.com](https://mcuagent.com).
+| Bare-metal MCU (Cortex-M) | Not supported by the Go engine. | A dedicated MCU runtime is on the ForestHub roadmap; the workflow contract is portable. |
 
 ## LLM providers
 
@@ -213,10 +218,60 @@ For a full discussion of microcontroller targets and TinyML deployment, see
 | **OpenAI** | GPT-4o, GPT-4 family, GPT-3.5 | `OPENAI_API_KEY` |
 | **Google Gemini** | Gemini 2.0/2.5 family (Vertex AI or AI Studio) | `GEMINI_API_KEY` / Vertex AI service account |
 | **Mistral** | Mistral Large, Mistral Small, Codestral | `MISTRAL_API_KEY` |
-| **Self-hosted / OpenAI-compatible** | Ollama, vLLM, llama.cpp server, LM Studio, any HTTP endpoint that speaks the OpenAI Chat Completions API | Base URL + optional bearer token |
+| **Local (on-device SLMs)** | Any model served by `llama.cpp` / `llama-server`, `vLLM`, `Ollama`, `LM Studio`, or any OpenAI-compatible endpoint — typically small specialized models (Llama 3 8B, Qwen 2.5, Phi-3.5, Gemma 2, `nomic-embed-text`, `bge-*`, classifiers, …) | Typed YAML registry (see below) |
 
 Provider routing is implicit from the model id — there is no manual provider
-field. Switching from cloud to self-hosted is a one-line model-id change.
+field. Switching from cloud to a local SLM is a one-line model-id change.
+
+## Small language models on-device
+
+Edge agents are SLM-shaped. A 70B model in a datacenter is overkill for "classify
+this sensor reading" or "summarize this maintenance log" — and unreachable from a
+basement service call anyway. `edge-agents` treats **on-device small language
+models as a first-class peer to cloud LLMs**, not as a fallback.
+
+The **Local provider** is a typed registry, not a single endpoint:
+
+```yaml
+# local-models.yaml
+endpoints:
+  - url: http://localhost:8080            # llama-server hosting a chat SLM
+    models:
+      - id: llama-3.1-8b-instruct
+        label: "Llama 3.1 8B (chat)"
+        capabilities: [chat, reasoning, function_call]
+        tokenModifier: 1.0
+  - url: http://localhost:8081            # llama-server hosting an embedder
+    models:
+      - id: nomic-embed-text-v1.5
+        label: "Nomic Embed v1.5"
+        capabilities: [embedding]
+        dimension: 768
+  - url: http://localhost:8082            # vLLM serving a small classifier
+    models:
+      - id: distil-classifier
+        capabilities: [classification]
+```
+
+What this buys you:
+
+- **Capability routing.** A workflow node that asks for `embedding` reaches the
+  embedder; an agent asking for `chat` reaches the chat SLM. No manual wiring
+  of endpoints in the workflow itself.
+- **One-process-per-model is the supported topology.** Most edge SLM stacks
+  (`llama.cpp`, `vLLM`) serve one model per process; the registry models this
+  directly rather than pretending a single endpoint hosts everything.
+- **Vector-DB compatibility.** Each embedding model declares its
+  `dimension` — surface a 384-dim and a 768-dim embedder side by side without
+  silently corrupting an index.
+- **Offline by construction.** Combined with the engine's local mode (no
+  control plane, filesystem-backed memory, no-op RAG fallback), a device can
+  boot, load a workflow, call its own SLMs, and run without ever touching the
+  network.
+
+This pattern — **a small fleet of narrow, specialized models on the device
+itself, orchestrated by a typed workflow** — is what we mean by *edge AI
+agents*.
 
 ## How does edge-agents compare?
 
@@ -263,20 +318,6 @@ runtime layer; the hosted control plane (multi-tenant governance, device
 fleets, deployment auditing, version management) is a separate commercial
 offering that consumes this repository.
 
-ForestHub maintains a network of category-focused knowledge sites:
-
-- **[foresthub.ai](https://foresthub.ai)** — the platform and product
-- **[embedded-agent.com](https://embedded-agent.com)** — concepts, patterns,
-  and references for embedded AI agents
-- **[edge-agent.ai](https://edge-agent.ai)** — edge AI agent architectures and
-  deployment patterns
-- **[mcuagent.com](https://mcuagent.com)** — microcontroller-class agent
-  research and TinyML
-- **[agenticedge.de](https://agenticedge.de)** — deutschsprachige Inhalte zu
-  agentischer Edge-Intelligenz für Industrie und Mittelstand
-
-Talk to the team: [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7).
-
 ## FAQ
 
 ### What is an edge AI agent?
@@ -313,15 +354,28 @@ dependencies beyond a Linux kernel.
 
 The Go-based engine does not run on bare-metal MCUs (Cortex-M class). The
 workflow contract itself is portable, and a dedicated MCU runtime is on the
-ForestHub roadmap. For current MCU-class agent research, see
-[mcuagent.com](https://mcuagent.com).
+ForestHub roadmap.
 
 ### Which LLM providers does edge-agents support?
 
-Five out of the box: Anthropic, OpenAI, Google Gemini, Mistral, and any
-**OpenAI-compatible self-hosted endpoint** (Ollama, vLLM, llama.cpp server,
-LM Studio). The provider is dispatched implicitly from the model id, so
-switching between cloud and on-device inference is a one-line change.
+Four cloud providers — Anthropic, OpenAI, Google Gemini, Mistral — plus a
+**Local provider** that fronts a typed registry of on-device small language
+models (any model served by `llama.cpp`, `vLLM`, `Ollama`, `LM Studio`, or any
+OpenAI-compatible endpoint). The provider is dispatched implicitly from the
+model id, so switching between a cloud LLM and a local SLM is a one-line
+change.
+
+### Can edge-agents run small language models (SLMs) on the device?
+
+Yes — this is a primary use case, not a fallback. The Local provider is a
+typed multi-endpoint registry: each model declares its capabilities
+(`chat`, `embedding`, `classification`, `reasoning`, `vision`,
+`function_call`, `code`, `fine_tuning`) and, for embedders, its output
+dimension. The proxy routes requests by capability, so an agent can use a
+small classifier, an embedder, and a chat SLM in the same workflow without
+knowing where each one is hosted. Combined with the engine's local mode
+(filesystem-backed memory, no-op control-plane lifecycle), this gives you a
+fully offline agent on a single device.
 
 ### How is edge-agents different from LangGraph or n8n?
 
@@ -355,16 +409,6 @@ Yes — see [CONTRIBUTING](.github/CONTRIBUTING.md). Bug reports, feature
 requests, and well-scoped pull requests are welcome. For larger changes, open
 an issue first to align on direction. Every contribution is accepted under a
 Contributor License Agreement that preserves the dual-licensing model.
-
-### What's the difference between embedded-agent.com, edge-agent.ai, and ForestHub?
-
-[ForestHub.ai](https://foresthub.ai) is the company and the product;
-`edge-agents` is its open runtime. [embedded-agent.com](https://embedded-agent.com),
-[edge-agent.ai](https://edge-agent.ai), [mcuagent.com](https://mcuagent.com),
-and [agenticedge.de](https://agenticedge.de) are category-focused knowledge
-hubs maintained by ForestHub on the broader topic of embedded and edge AI
-agents — definitions, patterns, comparisons, and references that are not
-specific to any one product.
 
 ## Releases
 
