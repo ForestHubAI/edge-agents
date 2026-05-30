@@ -8,6 +8,9 @@ ts/**/dist/
 # Go
 *.test
 *.out
+go/fh-agent
+go/build/
+go/dist/
 
 # Engine deploy build artifacts (image tarball produced by `docker save`)
 *.tar

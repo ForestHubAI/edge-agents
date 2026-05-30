@@ -1,0 +1,59 @@
+id: x86-nuc-16gb
+displayName: Intel NUC / x86 mini-PC (16 GB)
+arch: amd64
+os: linux
+runtime: docker
+cpu:
+  model: Intel Core i5-1340P class (12-core, P+E)
+  cores: 12
+  freqMHz: 4600
+ram:
+  totalMB: 16384
+  reservedMB: 2048
+accel:
+  type: igpu
+  device: intel-iris-xe
+  notes: Iris Xe iGPU. ipex-llm enables INT4 LLM inference; not NPU-class but capable.
+hardware:
+  gpios: []
+  serials:
+    - id: uart-usb-a
+      device: /dev/ttyUSB0
+      defaultBaud: 115200
+    - id: uart-usb-b
+      device: /dev/ttyUSB1
+      defaultBaud: 115200
+  pwms: []
+  adcs: []
+  dacs: []
+  i2c: []
+  spi: []
+notes_io: |
+  No on-board GPIO/I2C/SPI/ADC. Industrial IO via USB-CAN, USB-RS485,
+  Ethernet/Modbus, or USB-GPIO adapters (FT232H, MCP2221).
+slms:
+  - id: llama-3.2-3b-instruct-q4
+    capabilities: [chat, function_call, reasoning]
+    ramMB: 2800
+    estTokPerSec: 25
+  - id: llama-3.1-8b-instruct-q4
+    capabilities: [chat, function_call, reasoning]
+    ramMB: 5800
+    estTokPerSec: 12
+  - id: qwen2.5-7b-instruct-q5
+    capabilities: [chat, function_call, reasoning, code]
+    ramMB: 6500
+    estTokPerSec: 10
+  - id: nomic-embed-text-v1.5
+    capabilities: [embedding]
+    dimension: 768
+    ramMB: 350
+  - id: bge-reranker-base
+    capabilities: [classification, reasoning]
+    ramMB: 600
+slmRuntime:
+  image: ghcr.io/ggerganov/llama.cpp:server
+  servePort: 8080
+notes: |
+  Office-grade gateway. Most RAM-comfortable v1 target.
+  Best for content-heavy agents (RAG, document QA, vision-language).

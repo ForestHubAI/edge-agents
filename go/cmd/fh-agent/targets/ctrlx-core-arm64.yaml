@@ -1,0 +1,68 @@
+id: ctrlx-core-arm64
+displayName: Bosch Rexroth ctrlX CORE (ARM64, ctrlX OS)
+arch: arm64
+os: linux
+runtime: docker
+cpu:
+  model: NXP i.MX 8M Plus (Cortex-A53 quad-core)
+  cores: 4
+  freqMHz: 1600
+ram:
+  totalMB: 2048
+  reservedMB: 512
+accel:
+  type: npu
+  device: imx8mp-vpu
+  tops: 2.3
+  notes: |
+    NXP Neural Processing Unit on i.MX 8M Plus. Used via ONNX Runtime / NNAPI;
+    not OpenAI-API compatible. Best for classifier/vision side-tasks.
+hardware:
+  gpios:
+    - id: gpiochip0
+      chip: gpiochip0
+      lines: 24
+  serials:
+    - id: rs232
+      device: /dev/ttymxc0
+      defaultBaud: 115200
+    - id: rs485
+      device: /dev/ttymxc1
+      defaultBaud: 115200
+  pwms: []
+  adcs: []
+  dacs: []
+  i2c:
+    - /dev/i2c-1
+  spi:
+    - /dev/spidev0.0
+industrialBuses:
+  - ethercat
+  - profinet
+  - opc-ua
+  - modbus-tcp
+slms:
+  - id: llama-3.2-1b-instruct-q4
+    capabilities: [chat, function_call]
+    ramMB: 1200
+    estTokPerSec: 7
+  - id: tinyllama-1.1b-chat-q4
+    capabilities: [chat]
+    ramMB: 720
+    estTokPerSec: 9
+  - id: distil-bert-cls-q8
+    capabilities: [classification]
+    ramMB: 95
+  - id: nomic-embed-text-v1.5-q4
+    capabilities: [embedding]
+    dimension: 768
+    ramMB: 220
+slmRuntime:
+  image: ghcr.io/ggerganov/llama.cpp:server
+  servePort: 8080
+notes: |
+  Industrial controller running ctrlX OS (Ubuntu-Core based). Apps deploy as
+  Snap or Docker (Docker engine available via 'docker-cli' snap). Fieldbus
+  IO (EtherCAT, PROFINET, OPC-UA, Modbus-TCP) is reached via the ctrlX OS
+  Data Layer rather than direct GPIO — wire those to MQTT or HTTP channels
+  in the workflow and let a ctrlX Data-Layer bridge translate.

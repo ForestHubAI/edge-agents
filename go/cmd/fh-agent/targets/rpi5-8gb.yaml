@@ -1,0 +1,64 @@
+id: rpi5-8gb
+displayName: Raspberry Pi 5 (8 GB)
+arch: arm64
+os: linux
+runtime: docker
+cpu:
+  model: BCM2712 (Cortex-A76 quad-core)
+  cores: 4
+  freqMHz: 2400
+ram:
+  totalMB: 8192
+  reservedMB: 1024
+accel:
+  type: none
+  notes: VideoCore VII GPU present but not used for LLM inference (no mature CUDA/Metal path).
+hardware:
+  gpios:
+    - id: gpiochip0
+      chip: gpiochip0
+      lines: 28
+  serials:
+    - id: uart-onboard
+      device: /dev/ttyAMA0
+      defaultBaud: 115200
+    - id: uart-usb
+      device: /dev/ttyUSB0
+      defaultBaud: 115200
+  pwms:
+    - id: pwmchip0
+      chip: /sys/class/pwm/pwmchip0
+  adcs: []
+  dacs: []
+  i2c:
+    - /dev/i2c-1
+  spi:
+    - /dev/spidev0.0
+    - /dev/spidev0.1
+slms:
+  - id: llama-3.2-1b-instruct-q4
+    capabilities: [chat, function_call]
+    ramMB: 1200
+    estTokPerSec: 28
+  - id: llama-3.2-3b-instruct-q4
+    capabilities: [chat, function_call, reasoning]
+    ramMB: 2800
+    estTokPerSec: 11
+  - id: qwen2.5-3b-instruct-q5
+    capabilities: [chat, function_call, code]
+    ramMB: 3400
+    estTokPerSec: 9
+  - id: nomic-embed-text-v1.5-q8
+    capabilities: [embedding]
+    dimension: 768
+    ramMB: 280
+  - id: distil-bert-cls-q8
+    capabilities: [classification]
+    ramMB: 95
+slmRuntime:
+  image: ghcr.io/ggerganov/llama.cpp:server
+  servePort: 8080
+notes: |
+  General-purpose ARM SBC. Workhorse for home automation and light edge AI.
+  No GPU/NPU acceleration for LLMs — CPU-only via llama.cpp.
+  GPIO via libgpiod (gpiochip0). On-board ADC requires HAT.
