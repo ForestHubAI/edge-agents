@@ -1,0 +1,90 @@
+schemaVersion: 1
+name: muellers-haus
+target: rpi5-8gb
+description: |
+  Single-family home, 2 zones. MQTT broker on local network exposes
+  temperature sensors and a heating-setpoint topic. One GPIO line drives a
+  hallway light.
+
+goals:
+  - id: comfort
+    description: Keep occupied rooms comfortable.
+  - id: energy
+    description: Reduce energy use when nobody is around.
+
+constraints:
+  - id: heating-min
+    description: Heating setpoint must never drop below 5 °C (frost protection).
+  - id: heating-max
+    description: Heating setpoint must never exceed 24 °C.
+
+zones:
+  - id: livingroom
+    name: Wohnzimmer
+  - id: bedroom
+    name: Schlafzimmer
+
+buses:
+  - id: home-mqtt
+    type: mqtt
+    brokerUrl: tcp://localhost:1883
+  - id: gpio
+    type: gpio
+
+devices:
+  - id: temp-livingroom
+    zone: livingroom
+    kind: sensor
+    measures: temperature
+    unit: C
+    bus:
+      ref: home-mqtt
+      topic: home/livingroom/temperature
+  - id: temp-bedroom
+    zone: bedroom
+    kind: sensor
+    measures: temperature
+    unit: C
+    bus:
+      ref: home-mqtt
+      topic: home/bedroom/temperature
+  - id: presence-livingroom
+    zone: livingroom
+    kind: sensor
+    measures: presence
+    bus:
+      ref: home-mqtt
+      topic: home/livingroom/presence
+  - id: heating-livingroom
+    zone: livingroom
+    kind: actuator
+    controls: heating
+    unit: C
+    bus:
+      ref: home-mqtt
+      topic: home/livingroom/heating/setpoint
+      writable: true
+  - id: heating-bedroom
+    zone: bedroom
+    kind: actuator
+    controls: heating
+    unit: C
+    bus:
+      ref: home-mqtt
+      topic: home/bedroom/heating/setpoint
+      writable: true
+  - id: hallway-light
+    kind: actuator
+    controls: light
+    bus:
+      ref: gpio
+      line: 17
+      writable: true
+
+agent:
+  reasoning:
+    capability: chat
+    promptHint: |
+      Be conservative — when in doubt, leave the setpoint where it is.
+      Only change actuators when sensor readings clearly call for it.
+  evaluationEvery: 60s

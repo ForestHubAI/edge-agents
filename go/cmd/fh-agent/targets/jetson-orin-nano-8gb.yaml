@@ -1,0 +1,67 @@
+id: jetson-orin-nano-8gb
+displayName: NVIDIA Jetson Orin Nano (8 GB)
+arch: arm64
+os: linux
+runtime: docker
+cpu:
+  model: Cortex-A78AE 6-core
+  cores: 6
+  freqMHz: 1500
+ram:
+  totalMB: 8192
+  reservedMB: 1536
+accel:
+  type: cuda
+  device: orin
+  tops: 40
+  notes: 1024-core Ampere GPU + 32 Tensor Cores. INT8 sparse 40 TOPS. CUDA, TensorRT, vLLM supported.
+hardware:
+  gpios:
+    - id: gpiochip0
+      chip: gpiochip0
+      lines: 40
+  serials:
+    - id: uart-header
+      device: /dev/ttyTHS1
+      defaultBaud: 115200
+  pwms:
+    - id: pwmchip0
+      chip: /sys/class/pwm/pwmchip0
+  adcs: []
+  dacs: []
+  i2c:
+    - /dev/i2c-1
+    - /dev/i2c-7
+  spi:
+    - /dev/spidev0.0
+slms:
+  - id: llama-3.2-3b-instruct-q4
+    capabilities: [chat, function_call, reasoning]
+    ramMB: 2800
+    estTokPerSec: 60
+    runtime: llama.cpp
+  - id: llama-3.1-8b-instruct-q4
+    capabilities: [chat, function_call, reasoning]
+    ramMB: 5800
+    estTokPerSec: 22
+    runtime: llama.cpp
+  - id: qwen2.5-7b-instruct-awq
+    capabilities: [chat, function_call, reasoning, code]
+    ramMB: 6200
+    estTokPerSec: 35
+    runtime: vllm
+  - id: nomic-embed-text-v1.5
+    capabilities: [embedding]
+    dimension: 768
+    ramMB: 350
+  - id: distil-bert-cls
+    capabilities: [classification]
+    ramMB: 95
+slmRuntime:
+  image: dustynv/llama_cpp:r36.4.0
+  servePort: 8080
+  gpuRequest: all
+notes: |
+  Top edge-AI option for industrial / robotics / vision-language scenarios.
+  CUDA acceleration enables 7B-class models. Use TensorRT-LLM or vLLM for
+  production. JetPack 6 / Ubuntu 22.04 base.

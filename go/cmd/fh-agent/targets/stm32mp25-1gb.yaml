@@ -1,0 +1,63 @@
+id: stm32mp25-1gb
+displayName: ST STM32MP25 (1 GB, Neural-ART NPU)
+arch: arm64
+os: linux
+runtime: docker
+cpu:
+  model: Cortex-A35 dual-core + Cortex-M33 (Linux runs on A35)
+  cores: 2
+  freqMHz: 1500
+ram:
+  totalMB: 1024
+  reservedMB: 256
+accel:
+  type: npu
+  device: neural-art
+  tops: 1.35
+  notes: |
+    ST Neural-ART NPU. Operates on quantized models exported via STM32Cube.AI.
+    Not OpenAI-API compatible — used for classifier/vision nodes, not chat LLMs.
+hardware:
+  gpios:
+    - id: gpiochip0
+      chip: gpiochip0
+      lines: 32
+  serials:
+    - id: uart4
+      device: /dev/ttySTM0
+      defaultBaud: 115200
+  pwms:
+    - id: pwmchip0
+      chip: /sys/class/pwm/pwmchip0
+  adcs:
+    - id: adc1
+      device: /sys/bus/iio/devices/iio:device0
+  dacs:
+    - id: dac1
+      device: /sys/bus/iio/devices/iio:device1
+  i2c:
+    - /dev/i2c-1
+  spi:
+    - /dev/spidev0.0
+slms:
+  - id: tinyllama-1.1b-chat-q4
+    capabilities: [chat]
+    ramMB: 720
+    estTokPerSec: 4
+    notes: Tight fit; chat is slow but functional for simple intent extraction.
+  - id: distil-bert-cls-q8
+    capabilities: [classification]
+    ramMB: 95
+    estTokPerSec: 0
+  - id: nomic-embed-text-v1.5-q4
+    capabilities: [embedding]
+    dimension: 768
+    ramMB: 220
+slmRuntime:
+  image: ghcr.io/ggerganov/llama.cpp:server
+  servePort: 8080
+notes: |
+  Microprocessor-class device (Linux on A35). Native ADC/DAC + on-board NPU.
+  Strong fit for sensor-fusion + classification edge tasks.
+  Chat-class LLMs only marginally usable — prefer classification / embedding
+  workflows here, route reasoning to cloud or to a higher-RAM peer.
