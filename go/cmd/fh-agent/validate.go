@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -17,13 +18,11 @@ import (
 //   - every mapping ref resolves to either an external resource or a manifest entry
 //   - chosen model exists in local-models.yaml and fits target RAM
 //   - bundle metadata schema version is current
-//
-// What this does NOT check:
-//   - workflow JSON against the OpenAPI contract — that is the job of the
-//     TypeScript `fh-workflow validate` CLI (or the engine on /deploy).
-//     Run it separately for v1.
+//   - contract-schema validation via `fh-builder validate --json`
+//     (subprocess; warn-skipped if fh-builder is not installed)
 func runValidate(args []string) {
 	fs := flag.NewFlagSet("validate", flag.ExitOnError)
+	skipWorkflowCheck := fs.Bool("skip-workflow-check", false, "skip fh-builder contract-schema validation")
 	_ = fs.Bool("json", true, "emit JSON diagnostics")
 	pos := parseMixed(fs, args)
 	if len(pos) < 1 {
@@ -124,10 +123,78 @@ func runValidate(args []string) {
 		})
 	}
 
+	// 5. Contract-schema validation via fh-builder. Subprocess; warn-skipped
+	//    if fh-builder is not installed so the tool stays usable offline.
+	if !*skipWorkflowCheck {
+		diags = append(diags, runWorkflowSchemaCheck(filepath.Join(dir, "agent.workflow.json"))...)
+	}
+
 	emitDiags(os.Stderr, diags)
 	if hasError(diags) {
 		os.Exit(exitDiagnostics)
 	}
+}
+
+// runWorkflowSchemaCheck shells out to `fh-builder validate <wf> --json`
+// (the TS-side contract validator). Returns:
+//   - the validator's diagnostics on success
+//   - one warn-diagnostic if fh-builder is not in PATH (so the tool keeps
+//     working in environments without Node)
+//   - an error-diagnostic if subprocess failed for an unexpected reason
+func runWorkflowSchemaCheck(workflowPath string) []Diagnostic {
+	bin, err := exec.LookPath("fh-builder")
+	if err != nil {
+		return []Diagnostic{{
+			Severity: "warn", Category: "validate",
+			Message:  "fh-builder not in PATH — skipping contract-schema validation; install via `npm i -g @foresthubai/app` or pass --skip-workflow-check",
+			Location: workflowPath,
+		}}
+	}
+	cmd := exec.Command(bin, "validate", workflowPath, "--json")
+	stdout, err := cmd.Output()
+	if err != nil {
+		// Exit 1 means the validator found errors; output is still valid JSON.
+		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 1 {
+			return parseSchemaDiags(stdout, workflowPath)
+		}
+		return []Diagnostic{{
+			Severity: "error", Category: "validate",
+			Message: fmt.Sprintf("fh-builder validate failed unexpectedly: %v", err),
+		}}
+	}
+	return parseSchemaDiags(stdout, workflowPath)
+}
+
+func parseSchemaDiags(stdout []byte, workflowPath string) []Diagnostic {
+	if len(stdout) == 0 {
+		return nil
+	}
+	var raw []map[string]any
+	if err := json.Unmarshal(stdout, &raw); err != nil {
+		return []Diagnostic{{
+			Severity: "error", Category: "validate",
+			Message: fmt.Sprintf("fh-builder JSON parse error: %v", err),
+		}}
+	}
+	out := make([]Diagnostic, 0, len(raw))
+	for _, r := range raw {
+		d := Diagnostic{
+			Severity: strOf(r["severity"]),
+			Category: strOf(r["category"]),
+			Message:  strOf(r["message"]),
+			Location: workflowPath + "#" + strOf(r["location"]),
+			NodeID:   strOf(r["nodeId"]),
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
+func strOf(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
 
 func modelOnTarget(t *Target, id string) bool {

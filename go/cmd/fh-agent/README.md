@@ -122,11 +122,28 @@ $ fh-agent build build/ --name muellers-haus --tar
 - **Stable output**: same spec + target ⇒ byte-identical artifacts. Map
   keys sorted, node ids hashed from inputs, no timestamps.
 
+## Contract-schema validation
+
+`fh-agent validate` shells out to `fh-builder validate --json` (the
+TypeScript CLI in `ts/app/`) to check the generated workflow against
+`contract/workflow.yaml`. The diagnostics merge into the same JSON array
+fh-agent's own cross-checks emit.
+
+To enable, build workflow-core and link fh-builder once:
+
+```sh
+cd ts
+npm ci
+npm run -w @foresthubai/workflow-core build
+cd app && npm link
+```
+
+If `fh-builder` is not in PATH, `fh-agent validate` emits a single warn
+diagnostic and continues — the tool stays usable offline. Pass
+`--skip-workflow-check` to silence it.
+
 ## v1 known limits (documented; not bugs)
 
-- **Workflow schema** is structurally compiled but **not** validated
-  against `contract/workflow.yaml`. Run `fh-workflow validate` (from the
-  TypeScript CLI) for that. Plan is to call it as a subprocess in v1.1.
 - **Bus types** in spec: `mqtt`, `gpio`, `serial`. I2C, SPI, HTTP, and
   ctrlX Data-Layer adapters are deferred.
 - **No provisioning, no OTA, no HIL**. v1 stops at the bundle. v2 adds

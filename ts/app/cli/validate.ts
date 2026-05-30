@@ -5,15 +5,23 @@ import type { ValidationResult, Diagnostic } from "@foresthubai/workflow-core/di
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 
 /**
- * `fh-builder validate <file.json>`
+ * `fh-builder validate <file.json> [--json]`
  *
  * Reads a workflow snapshot, deserializes it to the in-memory shape, runs
  * the headless validator, and prints a report. Exits with code 1 if any
  * errors were found, 0 otherwise.
+ *
+ * `--json` emits a flat diagnostics array on stdout for machine consumption
+ * (used by `fh-agent validate` to merge contract-schema findings into its
+ * own report).
  */
-export async function validateCommand(filePath?: string): Promise<void> {
+export async function validateCommand(filePath?: string, jsonOutput = false): Promise<void> {
   if (!filePath) {
-    process.stderr.write("Usage: fh-builder validate <file.json>\n");
+    if (jsonOutput) {
+      process.stdout.write(JSON.stringify([{ severity: "error", category: "usage", message: "missing <file.json>" }]));
+    } else {
+      process.stderr.write("Usage: fh-builder validate <file.json> [--json]\n");
+    }
     process.exit(1);
   }
 
@@ -24,8 +32,7 @@ export async function validateCommand(filePath?: string): Promise<void> {
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {
-      process.stderr.write(`File not found: ${abs}\n`);
-      process.exit(1);
+      emitFatal(jsonOutput, `File not found: ${abs}`);
     }
     throw err;
   }
@@ -34,23 +41,65 @@ export async function validateCommand(filePath?: string): Promise<void> {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    process.stderr.write(`Invalid JSON: ${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
+    emitFatal(jsonOutput, `Invalid JSON: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   let workflow: ApiWorkflow;
   try {
     workflow = migrate(parsed);
   } catch (err) {
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
+    emitFatal(jsonOutput, err instanceof Error ? err.message : String(err));
   }
 
-  const result = validateWorkflow(workflow);
+  const result = validateWorkflow(workflow!);
 
-  printReport(abs, result);
+  if (jsonOutput) {
+    process.stdout.write(JSON.stringify(flattenDiagnostics(result), null, 2) + "\n");
+  } else {
+    printReport(abs, result);
+  }
 
   if (result.totalErrors > 0) process.exit(1);
+}
+
+/**
+ * Flattens the nested ValidationResult into a single array of diagnostics —
+ * the shape `fh-agent validate` expects, identical to its own diagnostic
+ * type. Canvas/channel/memory scope is folded into the `location` string.
+ */
+function flattenDiagnostics(result: ValidationResult): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  for (const canvas of result.canvases) {
+    for (const d of canvas.diagnostics) out.push(toFlat(d, `canvas[${canvas.canvasId}]`));
+  }
+  for (const d of result.channelDiagnostics) out.push(toFlat(d, "channels"));
+  for (const d of result.memoryDiagnostics) out.push(toFlat(d, "memory"));
+  return out;
+}
+
+function toFlat(d: Diagnostic, scope: string): Record<string, unknown> {
+  const where: string[] = [];
+  if (d.nodeId) where.push(`node:${d.nodeId}`);
+  if (d.edgeId) where.push(`edge:${d.edgeId}`);
+  if (d.channelId) where.push(`channel:${d.channelId}`);
+  if (d.paramId) where.push(`param:${d.paramId}`);
+  if (d.outputId) where.push(`output:${d.outputId}`);
+  return {
+    severity: d.severity,
+    category: `workflow:${d.category}`,
+    message: d.message,
+    location: where.length > 0 ? `${scope}/${where.join(",")}` : scope,
+    ...(d.nodeId ? { nodeId: d.nodeId } : {}),
+  };
+}
+
+function emitFatal(jsonOutput: boolean, msg: string): never {
+  if (jsonOutput) {
+    process.stdout.write(JSON.stringify([{ severity: "error", category: "workflow:io", message: msg }]) + "\n");
+  } else {
+    process.stderr.write(msg + "\n");
+  }
+  process.exit(1);
 }
 
 function printReport(file: string, result: ValidationResult): void {

@@ -273,9 +273,7 @@ func compile(spec *Spec, target *Target) (planResult, []Diagnostic) {
 			"id":   tickerID,
 			"type": "Ticker",
 			"position": map[string]any{"x": 0, "y": 120},
-			"arguments": map[string]any{
-				"intervalMs": parseEvery(spec.Agent.EvaluationEvery),
-			},
+			"arguments": tickerArgs(spec.Agent.EvaluationEvery),
 		},
 		map[string]any{
 			"id":   agentID,
@@ -307,33 +305,34 @@ func compile(spec *Spec, target *Target) (planResult, []Diagnostic) {
 			chID := "ch-mqtt-" + sanitize(d.ID)
 			if d.Kind == "sensor" {
 				id := nodeID(spec.Name, "OnMqttMessage", d.ID)
+				dt := inferDataType(d)
 				workflow.Nodes = append(workflow.Nodes, map[string]any{
 					"id":   id,
 					"type": "OnMqttMessage",
 					"position": map[string]any{"x": 0, "y": y},
 					"arguments": map[string]any{
 						"channelReference": chID,
-						"dataType":         inferDataType(d),
+						"dataType":         dt,
 						"output":           map[string]any{"active": true, "mode": "emit", "name": d.ID},
 					},
 				})
 				workflow.Edges = append(workflow.Edges, controlEdge(id, agentID))
 			} else if d.Kind == "actuator" {
 				id := nodeID(spec.Name, "MqttPublish", d.ID)
+				dt := inferDataType(d)
 				workflow.Nodes = append(workflow.Nodes, map[string]any{
 					"id":   id,
 					"type": "MqttPublish",
 					"position": map[string]any{"x": 600, "y": y},
 					"arguments": map[string]any{
 						"channelReference": chID,
-						"dataType":         inferDataType(d),
-						"value":            map[string]any{"kind": "literal", "value": ""},
+						"dataType":         dt,
+						"value":            literalExpr("", dt),
 						"qos":              0,
 						"retain":           false,
-						"toolDescription":  fmt.Sprintf("Write to actuator %q (%s in zone %s)", d.ID, d.Controls, d.Zone),
 					},
 				})
-				workflow.Edges = append(workflow.Edges, agentTaskEdge(agentID, id))
+				workflow.Edges = append(workflow.Edges, agentToolEdge(agentID, id, fmt.Sprintf("Write to actuator %q (%s in zone %s)", d.ID, d.Controls, d.Zone)))
 			}
 		case "gpio":
 			chID := "ch-gpio-" + sanitize(d.ID)
@@ -344,9 +343,8 @@ func compile(spec *Spec, target *Target) (planResult, []Diagnostic) {
 					"type": "OnPinEdge",
 					"position": map[string]any{"x": 0, "y": y},
 					"arguments": map[string]any{
-						"channelReference": chID,
-						"edge":             "both",
-						"output":           map[string]any{"active": true, "mode": "emit", "name": d.ID},
+						"pinReference": chID,
+						"edge":         "both",
 					},
 				})
 				workflow.Edges = append(workflow.Edges, controlEdge(id, agentID))
@@ -357,13 +355,12 @@ func compile(spec *Spec, target *Target) (planResult, []Diagnostic) {
 					"type": "WritePin",
 					"position": map[string]any{"x": 600, "y": y},
 					"arguments": map[string]any{
-						"channelReference": chID,
-						"signalType":       "digital",
-						"value":            map[string]any{"kind": "literal", "value": 0},
-						"toolDescription":  fmt.Sprintf("Drive GPIO actuator %q (%s)", d.ID, d.Controls),
+						"pinReference": chID,
+						"signalType":   "digital",
+						"value":        literalExpr(false, "bool"),
 					},
 				})
-				workflow.Edges = append(workflow.Edges, agentTaskEdge(agentID, id))
+				workflow.Edges = append(workflow.Edges, agentToolEdge(agentID, id, fmt.Sprintf("Drive GPIO actuator %q (%s)", d.ID, d.Controls)))
 			}
 		case "serial":
 			chID := "ch-uart-" + sanitize(d.ID)
@@ -387,10 +384,10 @@ func compile(spec *Spec, target *Target) (planResult, []Diagnostic) {
 					"position": map[string]any{"x": 600, "y": y},
 					"arguments": map[string]any{
 						"portReference": chID,
-						"value":         map[string]any{"kind": "literal", "value": ""},
+						"value":         literalExpr("", "string"),
 					},
 				})
-				workflow.Edges = append(workflow.Edges, agentTaskEdge(agentID, id))
+				workflow.Edges = append(workflow.Edges, agentToolEdge(agentID, id, fmt.Sprintf("Write to serial actuator %q", d.ID)))
 			}
 		}
 	}
@@ -524,13 +521,70 @@ func controlEdge(from, to string) map[string]any {
 	}
 }
 
-func agentTaskEdge(from, to string) map[string]any {
+// agentToolEdge wires a tool node onto the agent. The contract requires
+// every agentTask edge to carry a `prompt` Expression — that is the
+// LLM-readable description of what the tool does.
+func agentToolEdge(from, to, description string) map[string]any {
 	return map[string]any{
-		"id":   "e-tool-" + shortHash(from+"->"+to),
-		"type": "agentTask",
-		"from": map[string]any{"nodeId": from, "port": "tool"},
-		"to":   map[string]any{"nodeId": to, "port": "ctrl"},
+		"id":     "e-tool-" + shortHash(from+"->"+to),
+		"type":   "agentTask",
+		"from":   map[string]any{"nodeId": from, "port": "tool"},
+		"to":     map[string]any{"nodeId": to, "port": "ctrl"},
+		"prompt": literalExpr(description, "string"),
 	}
+}
+
+// literalExpr builds a workflow.Expression with no variable references —
+// a constant value the agent fills in at tool-call time (or that the engine
+// uses as a default).
+func literalExpr(value any, dataType string) map[string]any {
+	expr := fmt.Sprintf("%v", value)
+	if expr == "" {
+		switch dataType {
+		case "float", "int":
+			expr = "0"
+		case "bool":
+			expr = "false"
+		default:
+			expr = `""`
+		}
+	}
+	return map[string]any{
+		"expression": expr,
+		"references": []any{},
+		"dataType":   dataType,
+	}
+}
+
+// tickerArgs splits "60s" / "5m" / "100ms" / "1h" into intervalValue +
+// intervalUnit as the contract requires. Falls back to 60 seconds.
+func tickerArgs(s string) map[string]any {
+	if s == "" {
+		return map[string]any{"intervalValue": 60, "intervalUnit": "seconds"}
+	}
+	unit := "seconds"
+	body := s
+	switch {
+	case strings.HasSuffix(s, "ms"):
+		unit, body = "milliseconds", strings.TrimSuffix(s, "ms")
+	case strings.HasSuffix(s, "s"):
+		unit, body = "seconds", strings.TrimSuffix(s, "s")
+	case strings.HasSuffix(s, "m"):
+		unit, body = "minutes", strings.TrimSuffix(s, "m")
+	case strings.HasSuffix(s, "h"):
+		unit, body = "hours", strings.TrimSuffix(s, "h")
+	}
+	n := 0
+	for _, c := range body {
+		if c < '0' || c > '9' {
+			return map[string]any{"intervalValue": 60, "intervalUnit": "seconds"}
+		}
+		n = n*10 + int(c-'0')
+	}
+	if n == 0 {
+		n = 60
+	}
+	return map[string]any{"intervalValue": n, "intervalUnit": unit}
 }
 
 // nodeID derives a stable id from spec name + node type + discriminator.
