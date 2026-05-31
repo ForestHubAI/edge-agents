@@ -13,7 +13,18 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+// defaultTimeout is the per-request ceiling for the underlying http.Client.
+// Callers are expected to pass their own context.WithTimeout for tighter
+// per-call deadlines (e.g. BootCallbackTimeout=10s, HeartbeatTimeout=5s),
+// but this default protects call sites that forget — most notably the deploy
+// path (engine.Engine.Deploy → memory.Restore → Snapshot), which inherits an
+// uncapped context and would otherwise hang the engine on an unreachable
+// backend. 30s is loose enough not to interfere with the tighter per-call
+// timeouts and long enough for a slow first-byte on a healthy backend.
+const defaultTimeout = 30 * time.Second
 
 // Client is a JSON-over-HTTP client that attaches a fixed auth header to
 // every request.
@@ -31,7 +42,7 @@ func NewClient(baseURL, authHeader, authValue string) *Client {
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		authHeader: authHeader,
 		authValue:  authValue,
-		http:       &http.Client{},
+		http:       &http.Client{Timeout: defaultTimeout},
 	}
 }
 
