@@ -1,0 +1,36 @@
+# EditorConfig — https://editorconfig.org
+# Top-level config; no parent lookups beyond this file.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Go uses tabs (gofmt is non-negotiable).
+[*.go]
+indent_style = tab
+
+# TS / JS / JSON — 2-space (matches Prettier + tsconfig conventions).
+[*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc}]
+indent_style = space
+indent_size = 2
+
+# YAML — 2-space (contract/*.yaml, GitHub Actions).
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown — preserve trailing spaces (two-space line-break trick).
+[*.md]
+trim_trailing_whitespace = false
+
+# Makefiles require literal tabs.
+[Makefile]
+indent_style = tab
+
+[**/Makefile]
+indent_style = tab
