@@ -2,6 +2,7 @@
   "name": "@foresthubai/workflow-core",
   "version": "0.1.1",
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ForestHubAI/edge-agents.git",
@@ -78,7 +79,10 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
