@@ -26,6 +26,6 @@
 
 ## Contributor License Agreement
 
-- [ ] I agree to the terms in [CONTRIBUTING.md § License and Contributor Agreement](./CONTRIBUTING.md#license-and-contributor-agreement), including ForestHub's right to relicense my contribution commercially in addition to AGPL-3.0.
+- [ ] I agree to the terms in [CONTRIBUTING.md § License and Contributor Agreement](./CONTRIBUTING.md#license-and-contributor-agreement). I understand that contributions to `contract/` and `ts/workflow-core/` are released under Apache-2.0, and contributions to all other paths are released under AGPL-3.0-only with ForestHub's right to also offer them under a commercial license.
 - [ ] My contribution is my own original work and I am legally entitled to submit it under these terms.
 - [ ] This contribution was created **outside** any employment, work-for-hire, or contractor obligations and **without** the use of employer-owned equipment, accounts, or time — **OR** my employer has explicitly authorized me to submit it under these terms and has waived any rights under §69b UrhG (or equivalent foreign law) for this contribution.
