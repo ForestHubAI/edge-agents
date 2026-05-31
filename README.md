@@ -251,13 +251,21 @@ scope and process.
 
 ## License
 
-Dual-licensed:
+`edge-agents` uses a **two-tier license model** designed to make the wire
+format and the headless workflow model maximally reusable while keeping
+the engine and the visual builder protected under copyleft.
 
-- [AGPL-3.0-only](LICENSE) for open-source use — including the AGPL
-  requirement to make corresponding source available to users who interact
-  with a modified version over a network.
-- A separate **commercial license** for use cases incompatible with the AGPL.
-  Contact **root@foresthub.ai**.
+| Component | License | Why |
+| --- | --- | --- |
+| [`contract/`](contract) (OpenAPI schemas) | **Apache-2.0** | Wire format. Third-party Python, Rust, or Java clients should be free to implement against it. |
+| [`ts/workflow-core`](ts/workflow-core) (headless model) | **Apache-2.0** | Workflow model and validation. Same reasoning — should be embeddable into any TypeScript/JavaScript project without copyleft friction. |
+| [`go/`](go) (engine, LLM proxy, drivers) | **AGPL-3.0-only** or **commercial** | Keeps hosted "edge-agents as a service" offerings honest. For commercial use cases incompatible with AGPL, contact **root@foresthub.ai**. |
+| [`ts/workflow-builder`](ts/workflow-builder) (React canvas) | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine. |
+| [`ts/app`](ts/app) (reference SPA, not published) | **AGPL-3.0-only** | Reference implementation, not for redistribution. |
+
+For the AGPL components, the AGPL network clause applies — providing a
+modified version over a network requires making the corresponding source
+available to users of that service.
 
 Third-party components retain their own licenses; see
 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) and [NOTICE](NOTICE).
