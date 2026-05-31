@@ -1,0 +1,47 @@
+# golangci-lint config — sensible defaults for the edge-agents Go module.
+# See https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  # Generated files are skipped by linters that respect generation markers,
+  # but be explicit for the oapi-codegen output.
+  build-tags: []
+
+issues:
+  exclude-dirs:
+    - api  # generated oapi-codegen output (types.gen.go, server.gen.go)
+  exclude-rules:
+    # Test files often have legitimate uses of patterns gosec flags.
+    - path: _test\.go
+      linters:
+        - gosec
+        - errcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - gosimple
+    - gosec
+
+linters-settings:
+  gosec:
+    excludes:
+      # Noisy / low-signal for this codebase:
+      - G104  # errors unhandled (errcheck covers this with better context)
+      - G304  # file path provided as taint input (legitimate config loading)
+      - G404  # weak random (we don't do crypto in engine paths)
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # too noisy for general code
+      - shadow          # too noisy with err re-use
