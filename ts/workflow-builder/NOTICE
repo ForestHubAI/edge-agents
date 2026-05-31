@@ -1,0 +1,16 @@
+edge-agents/workflow-builder
+Copyright (c) 2026 ForestHub. All rights reserved.
+
+This product includes software developed by ForestHub
+(https://foresthub.ai).
+
+The @foresthubai/workflow-builder package is the React canvas/editor
+component library for the edge-agents platform. This package is
+licensed under the GNU Affero General Public License Version 3.0
+(AGPL-3.0-only) or a separate commercial license.
+
+It depends on @foresthubai/workflow-core which is licensed under the
+Apache License, Version 2.0. AGPL allows consumption of Apache-licensed
+dependencies; the AGPL terms apply to this package only.
+
+For commercial licensing inquiries: root@foresthub.ai
