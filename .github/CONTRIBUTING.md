@@ -100,11 +100,14 @@ Use clear, prefixed messages: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 
 ## License and Contributor Agreement
 
-edge-agents is dual-licensed: the public release is distributed under
-[AGPL-3.0](../LICENSE), and ForestHub offers separate commercial licenses for use
-cases that are incompatible with the AGPL (commercial licensing: root@foresthub.ai).
-To keep this model viable, every contribution must grant ForestHub the rights needed
-to offer it under both license regimes.
+edge-agents uses a **two-tier license model**: the `contract/` and
+`ts/workflow-core/` subdirectories are released under [Apache-2.0](../contract/LICENSE),
+and all other components (engine, LLM proxy, workflow-builder, app) are released
+under [AGPL-3.0](../LICENSE) with the option for ForestHub to also offer them under a
+separate commercial license for use cases that are incompatible with the AGPL
+(commercial licensing: root@foresthub.ai). To keep this model viable, every
+contribution must grant ForestHub the rights needed to offer it under both license
+regimes.
 
 **By submitting a contribution (pull request, patch, or any other code or
 documentation change), you agree to the following terms:**
@@ -153,3 +156,16 @@ including for presently unknown forms of use to the extent allowed by §31a UrhG
 You confirm these terms by checking the Contributor License Agreement boxes in the pull
 request template when you open your PR. A maintainer verifies this before merging; a PR
 whose CLA boxes are not checked will not be merged.
+
+### Which license your contribution falls under
+
+The repository uses a two-tier license model:
+
+- Contributions to `contract/` and `ts/workflow-core/` are released under
+  **Apache-2.0**.
+- Contributions to all other paths (engine, LLM proxy, workflow-builder, app) are
+  released under **AGPL-3.0-only** with the option for ForestHub to also offer them
+  under a commercial license (per the CLA above).
+
+If your PR touches both tiers, the per-file license header (or, where absent, the
+directory-level `LICENSE`/`NOTICE`) governs.
