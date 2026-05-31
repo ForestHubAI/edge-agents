@@ -1,0 +1,31 @@
+# CODEOWNERS — Review routing for edge-agents
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Order matters: the LAST matching pattern wins for a given file.
+#
+# NOTE: The @ForestHubAI/maintainers team must exist in the GitHub org
+# (Org Settings → Teams) for these mentions to resolve. Without the team,
+# GitHub will show "Unknown owner" warnings on the Branch protection /
+# PR review UI but CODEOWNERS routing will silently no-op.
+
+# ---------------------------------------------------------------------------
+# Default owner — applies to anything not covered by a more specific rule below
+# ---------------------------------------------------------------------------
+*                   @ForestHubAI/maintainers
+
+# ---------------------------------------------------------------------------
+# Language subtrees
+# ---------------------------------------------------------------------------
+/go/                @ForestHubAI/maintainers
+/ts/                @ForestHubAI/maintainers
+
+# ---------------------------------------------------------------------------
+# Contract subtree — CRITICAL: drift between go/ and ts/ implementations
+# of the protobuf/JSON-Schema contracts must always be reviewed.
+# ---------------------------------------------------------------------------
+/contract/          @ForestHubAI/maintainers
+
+# ---------------------------------------------------------------------------
+# Repo meta: CI workflows, issue templates, CODEOWNERS itself
+# ---------------------------------------------------------------------------
+/.github/           @ForestHubAI/maintainers
