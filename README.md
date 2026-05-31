@@ -1,6 +1,6 @@
 # edge-agents
 
-**The open-source runtime for embedded and edge AI agents.**
+**A ~32 MB AI agent runtime for edge devices.** Runs offline. GPIO, MQTT, and UART as first-class nodes. From a Raspberry Pi to industrial gateways.
 
 [![CI](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
@@ -36,7 +36,7 @@ not in this repository.
 - **Contract-typed wire format** — every API generated from `contract/*.yaml`
   in both Go and TypeScript; CI fails on drift.
 - **Distroless multi-arch container** — `linux/amd64` and `linux/arm64`,
-  nonroot, ~15 MB.
+  nonroot, ~32 MB.
 
 ## Contents
 
