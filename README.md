@@ -4,7 +4,11 @@
 
 [![CI](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/ForestHubAI/edge-agents?filename=go%2Fgo.mod)](go/go.mod)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/ForestHubAI/edge-agents?style=flat)](https://github.com/ForestHubAI/edge-agents/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/ForestHubAI/edge-agents)](https://github.com/ForestHubAI/edge-agents/commits)
+[![GitHub issues](https://img.shields.io/github/issues/ForestHubAI/edge-agents)](https://github.com/ForestHubAI/edge-agents/issues)
 
 `edge-agents` is the open-source core of the [ForestHub](https://foresthub.ai)
 platform. It contains the Go runtime engine, a multi-provider LLM proxy with
