@@ -60,7 +60,7 @@ First tagged Go release after the `fh-core` → `edge-agents` repository rename.
 ## [ts/0.1.1] - 2026-05-29
 
 First documented release of the TypeScript workspace
-(`@foresthub/workflow-core`, `@foresthub/workflow-builder`).
+(`@foresthubai/workflow-core`, `@foresthubai/workflow-builder`).
 
 ### Added
 - Visual workflow builder SPA (`workflow-builder`) with drag-and-drop canvas,
