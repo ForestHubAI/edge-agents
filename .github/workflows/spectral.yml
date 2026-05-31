@@ -1,0 +1,31 @@
+name: Spectral
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "contract/**"
+      - ".spectral.yaml"
+      - ".github/workflows/spectral.yml"
+  push:
+    branches: [main]
+    paths:
+      - "contract/**"
+      - ".spectral.yaml"
+      - ".github/workflows/spectral.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  spectral:
+    name: Lint OpenAPI contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: stoplightio/spectral-action@latest
+        with:
+          file_glob: "contract/*.yaml"
+          spectral_ruleset: .spectral.yaml
