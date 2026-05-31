@@ -7,8 +7,8 @@ never collide.
 | Artifact                            | Ecosystem             | Version source            | Consumer pins with                          |
 | ----------------------------------- | --------------------- | ------------------------- | ------------------------------------------- |
 | `github.com/ForestHubAI/edge-agents/go` | Go modules            | **git tag** `go/vX.Y.Z`   | `go get ...@vX.Y.Z`                         |
-| `@foresthubai/workflow-core`        | npm (GitHub Packages) | `version` in package.json | `npm i @foresthubai/workflow-core@X.Y.Z`    |
-| `@foresthubai/workflow-builder`     | npm (GitHub Packages) | `version` in package.json | `npm i @foresthubai/workflow-builder@X.Y.Z` |
+| `@foresthubai/workflow-core`        | npm (npmjs.org)       | `version` in package.json | `npm i @foresthubai/workflow-core@X.Y.Z`    |
+| `@foresthubai/workflow-builder`     | npm (npmjs.org)       | `version` in package.json | `npm i @foresthubai/workflow-builder@X.Y.Z` |
 
 Go and TS version on **independent cadences**. The two TS packages, however, are
 **locked to each other** (see below) — they always ship one shared version.
@@ -39,33 +39,37 @@ npm run release -- 0.2.0
 
 Each package's `prepublishOnly` rebuilds `dist/` first, so you never publish stale output.
 
-### Registry: GitHub Packages
+### Registry: npmjs.org (public)
 
-Both packages carry `publishConfig.registry = https://npm.pkg.github.com`.
+Both packages carry `publishConfig.registry = https://registry.npmjs.org` and
+`publishConfig.access = public`, so the first `npm publish` ships the scoped
+`@foresthubai/*` packages as openly installable on npmjs.org. No token or
+`.npmrc` is required on the consumer side — `npm i @foresthubai/workflow-builder@X.Y.Z`
+just works.
 
-**To publish**, npm needs a GitHub token with `write:packages`, supplied via `~/.npmrc`
-(never commit it):
+**To publish**, log in once on the machine that runs the release:
 
-```
-//npm.pkg.github.com/:_authToken=$[Token with write access]
-```
-
-**To consume** (e.g. the private FE repo), add `FH_PACKAGES_TOKEN` as env variable and add an `.npmrc` in consumers' root folder:
-
-```
-@foresthubai:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${FH_PACKAGES_TOKEN}
+```sh
+npm login           # interactive — uses the npmjs.org @foresthubai org account
+npm whoami          # sanity check
 ```
 
-then `npm i @foresthubai/workflow-builder@X.Y.Z` as normal. See
-[`ts/workflow-builder/README.md`](ts/workflow-builder/README.md) for the Tailwind/styles
-wiring the consumer must also do.
+Then from `ts/`:
+
+```sh
+npm run release -- X.Y.Z
+```
+
+The release script invokes `npm publish --workspaces`, which honours each
+package's `publishConfig` and skips the private `@foresthubai/app`. Two-factor
+auth on the npm account is recommended; if enabled, `npm publish` will prompt
+for the OTP.
+
+See [`ts/workflow-builder/README.md`](ts/workflow-builder/README.md) for the
+Tailwind/styles wiring the consumer must also do.
 
 > **No automated changelog.** Put a one-line "what changed" in the release commit so the
 > FE maintainer (often future-you) can see why a pinned version moved.
->
-> **Going public** keeps the `@foresthubai` scope — you'd own that org on npmjs.com and
-> drop the GitHub Packages registry line; the package name does not change.
 
 ## Go module — manual tag
 
