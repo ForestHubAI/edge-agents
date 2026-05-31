@@ -65,6 +65,40 @@ func TestAuthMiddleware_RejectsEmptyConfiguredSecret(t *testing.T) {
 	assert.False(t, called)
 }
 
+func TestAuthMiddleware_HealthzBypassesAuth(t *testing.T) {
+	mw := AuthMiddleware("s3cret")
+	called := false
+	// Pass operationID="Healthz" — the middleware must let this through
+	// without checking the Authorization header so that container
+	// orchestrators can probe readiness without the shared secret.
+	handler := mw(okHandler(&called), "Healthz")
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	// Deliberately no Authorization header.
+	rec := httptest.NewRecorder()
+
+	_, err := handler(req.Context(), rec, req, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.True(t, called, "Healthz must reach the downstream handler unauthenticated")
+}
+
+func TestAuthMiddleware_HealthzBypassesEvenWithEmptySecret(t *testing.T) {
+	// Empty secret normally rejects every request. Healthz must still be
+	// reachable so a misconfigured engine can be diagnosed via the probe.
+	mw := AuthMiddleware("")
+	called := false
+	handler := mw(okHandler(&called), "Healthz")
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	_, err := handler(req.Context(), rec, req, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.True(t, called)
+}
+
 func TestAuthMiddleware_AcceptsCorrectBearer(t *testing.T) {
 	mw := AuthMiddleware("s3cret")
 	called := false

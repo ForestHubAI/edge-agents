@@ -53,9 +53,17 @@ func (s *strictServer) Stop(_ context.Context, _ engineapi.StopRequestObject) (e
 // secret as a bearer token on every operation. An empty configured secret
 // rejects all requests. The token comparison uses crypto/subtle to avoid
 // leaking the secret through response-time side channels.
+//
+// The Healthz operation is exempted so that container-orchestrator
+// readiness/liveness probes (k8s, compose, ECS) can hit /healthz without
+// being issued the shared secret. The handler discloses only "is the
+// runner attached" — no workflow content, no node state.
 func AuthMiddleware(secret string) engineapi.StrictMiddlewareFunc {
 	want := []byte("Bearer " + secret)
-	return func(f engineapi.StrictHandlerFunc, _ string) engineapi.StrictHandlerFunc {
+	return func(f engineapi.StrictHandlerFunc, operationID string) engineapi.StrictHandlerFunc {
+		if operationID == "Healthz" {
+			return f
+		}
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 			got := []byte(r.Header.Get("Authorization"))
 			// Length differs => unauthorized. Length is not secret, so an
