@@ -56,6 +56,28 @@ not in this repository.
 Go and TypeScript are independently buildable. Only `contract/` edits touch
 both sides.
 
+## Why edge-agents
+
+Most AI agent frameworks assume datacenter GPUs and always-on cloud APIs.
+`edge-agents` is built for the other end of the spectrum — embedded Linux on
+industrial gateways, SBCs, and edge nodes. Here is how it compares to projects
+people often evaluate alongside it.
+
+| | edge-agents | LangGraph | n8n | Dify |
+|---|---|---|---|---|
+| Container image (compressed) | **~32 MB** | n/a (Python library) | ~368 MB | ~900 MB |
+| Runs offline / air-gapped | first-class (`ENGINE_STANDALONE=true`) | depends on host app | possible, manual telemetry-disable | not designed for it |
+| Hardware I/O (GPIO, ADC/DAC/PWM, UART) | first-class engine nodes | no | only via shell-exec workarounds | no |
+| MQTT transport | first-class | no | community node | no |
+| Visual builder | yes (React Flow, embeddable) | no | yes | yes |
+| Local SLMs (`llama.cpp`, `vLLM`, `Ollama`, …) | typed registry, capability routing | via custom code | community nodes | yes |
+| License | AGPL-3.0 + commercial | MIT | Sustainable Use License | Apache-2.0 |
+
+Container sizes were measured against the latest public images on Docker Hub
+in May 2026 (n8n: `n8nio/n8n:latest`, Dify: `langgenius/dify-api:main`); the
+`edge-agents` figure is the linux/arm64 binary cross-compiled with
+`CGO_ENABLED=0 -ldflags='-s -w'` on top of `gcr.io/distroless/static-debian12`.
+
 ## Quickstart
 
 ### Engine (Docker)
