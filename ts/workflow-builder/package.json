@@ -20,11 +20,14 @@
   },
   "files": [
     "dist",
-    "src",
-    "tailwind-preset.ts"
+    "tailwind-preset.ts",
+    "src/styles",
+    "README.md",
+    "LICENSE"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -b",
