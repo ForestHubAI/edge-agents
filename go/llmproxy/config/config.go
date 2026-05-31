@@ -33,17 +33,6 @@ type EmbeddingConfig struct {
 	ExtractTimeout time.Duration `env:"EMBEDDING_EXTRACT_TIMEOUT" envDefault:"5m"`
 }
 
-// ResilienceConfig holds the resilience configuration parameters
-// type ResilienceConfig struct {
-// 	MaxRetries     int           `json:"RESILIENCE_MAX_RETRIES" default:"3"`
-// 	InitialDelay   time.Duration `json:"RESILIENCE_INITIAL_DELAY" default:"1s"`
-// 	MaxDelay       time.Duration `json:"RESILIENCE_MAX_DELAY" default:"30s"`
-// 	Multiplier     float64       `json:"RESILIENCE_MULTIPLIER" default:"2.0"`
-// 	Jitter         bool          `json:"RESILIENCE_JITTER" default:"true"`
-// 	RequestTimeout time.Duration `json:"RESILIENCE_REQUEST_TIMEOUT" default:"30s"`
-// 	ConnectTimeout time.Duration `json:"RESILIENCE_CONNECT_TIMEOUT" default:"10s"`
-// }
-
 // NewConfig creates a new configuration instance of the specified type
 // T is a generic type that allows creating configurations for different structs
 func NewConfig[T any]() *T {
