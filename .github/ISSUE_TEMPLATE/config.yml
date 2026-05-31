@@ -1,0 +1,31 @@
+# Issue-template chooser config.
+# Reference: https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+#
+# Forces contributors to pick a structured template (bug_report / feature_request)
+# instead of opening blank issues. The contact_links route off-topic intents
+# (questions, security reports, commercial inquiries) to the right channel so
+# the issue tracker stays focused on actionable engineering work.
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/ForestHubAI/edge-agents/discussions
+    about: |
+      Have a question, an idea, or want to discuss usage? Please open a
+      GitHub Discussion instead of an issue. (If Discussions is not yet
+      enabled on this repo, this link will 404 until the maintainer turns
+      it on in Settings → Features.)
+
+  - name: Security Vulnerability
+    url: https://github.com/ForestHubAI/edge-agents/security/advisories/new
+    about: |
+      Please do NOT open a public issue for security vulnerabilities. Use
+      GitHub's private vulnerability reporting, or email root@foresthub.ai.
+      See .github/SECURITY.md for scope and process.
+
+  - name: Commercial License Inquiry
+    url: mailto:root@foresthub.ai
+    about: |
+      edge-agents is dual-licensed (AGPL-3.0-only + commercial). For use
+      cases that are incompatible with AGPL, contact root@foresthub.ai.
