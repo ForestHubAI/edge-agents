@@ -2,6 +2,7 @@
   "name": "@foresthubai/workflow-builder",
   "version": "0.1.1",
   "description": "Reusable React component library: the workflow canvas/editor. Imports workflow-core for types and validation.",
+  "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ForestHubAI/edge-agents.git",
@@ -21,7 +22,9 @@
   "files": [
     "dist",
     "src",
-    "tailwind-preset.ts"
+    "tailwind-preset.ts",
+    "LICENSE",
+    "NOTICE"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
