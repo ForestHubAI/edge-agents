@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
@@ -50,11 +51,17 @@ func (s *strictServer) Stop(_ context.Context, _ engineapi.StopRequestObject) (e
 
 // AuthMiddleware is a strict-handler middleware enforcing the shared agent
 // secret as a bearer token on every operation. An empty configured secret
-// rejects all requests.
+// rejects all requests. The token comparison uses crypto/subtle to avoid
+// leaking the secret through response-time side channels.
 func AuthMiddleware(secret string) engineapi.StrictMiddlewareFunc {
+	want := []byte("Bearer " + secret)
 	return func(f engineapi.StrictHandlerFunc, _ string) engineapi.StrictHandlerFunc {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-			if secret == "" || r.Header.Get("Authorization") != "Bearer "+secret {
+			got := []byte(r.Header.Get("Authorization"))
+			// Length differs => unauthorized. Length is not secret, so an
+			// early return here does not weaken the constant-time check;
+			// ConstantTimeCompare itself rejects unequal-length inputs.
+			if secret == "" || len(got) != len(want) || subtle.ConstantTimeCompare(got, want) != 1 {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return nil, nil
 			}
