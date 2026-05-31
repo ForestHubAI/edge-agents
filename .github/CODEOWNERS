@@ -20,8 +20,8 @@
 /ts/                @ForestHubAI/maintainers
 
 # ---------------------------------------------------------------------------
-# Contract subtree — CRITICAL: drift between go/ and ts/ implementations
-# of the protobuf/JSON-Schema contracts must always be reviewed.
+# Contract subtree — CRITICAL: this is the source of truth. Drift between
+# go/ and ts/ codegen from the OpenAPI 3.0.3 contracts must always be reviewed.
 # ---------------------------------------------------------------------------
 /contract/          @ForestHubAI/maintainers
 
