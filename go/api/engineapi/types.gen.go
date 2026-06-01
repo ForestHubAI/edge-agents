@@ -49,6 +49,21 @@ func (e AgentRuntimeStatusResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for LLMProviderConfigType.
+const (
+	Selfhosted LLMProviderConfigType = "selfhosted"
+)
+
+// Valid indicates whether the value is a known member of the LLMProviderConfigType enum.
+func (e LLMProviderConfigType) Valid() bool {
+	switch e {
+	case Selfhosted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LogEntryLevel.
 const (
 	Debug LogEntryLevel = "debug"
@@ -85,21 +100,6 @@ const (
 func (e MQTTConnectionType) Valid() bool {
 	switch e {
 	case Mqtt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ProviderConfigType.
-const (
-	Selfhosted ProviderConfigType = "selfhosted"
-)
-
-// Valid indicates whether the value is a known member of the ProviderConfigType enum.
-func (e ProviderConfigType) Valid() bool {
-	switch e {
-	case Selfhosted:
 		return true
 	default:
 		return false
@@ -217,6 +217,22 @@ type HealthzResponse struct {
 	Status State `json:"status"`
 }
 
+// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here.
+type LLMProviderConfig struct {
+	// ApiKey Optional bearer credential for the endpoint.
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
+	Model *string               `json:"model,omitempty"`
+	Type  LLMProviderConfigType `json:"type"`
+
+	// Url Base URL of the inference endpoint (http:// or https://).
+	Url string `json:"url"`
+}
+
+// LLMProviderConfigType defines model for LLMProviderConfig.Type.
+type LLMProviderConfigType string
+
 // LogEntry Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest.
 type LogEntry struct {
 	Action               string                 `json:"action"`
@@ -269,22 +285,6 @@ type PWMConfig struct {
 	// Chip sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
 	Chip string `json:"chip"`
 }
-
-// ProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here.
-type ProviderConfig struct {
-	// ApiKey Optional bearer credential for the endpoint.
-	ApiKey *string `json:"apiKey,omitempty"`
-
-	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
-	Model *string            `json:"model,omitempty"`
-	Type  ProviderConfigType `json:"type"`
-
-	// Url Base URL of the inference endpoint (http:// or https://).
-	Url string `json:"url"`
-}
-
-// ProviderConfigType defines model for ProviderConfig.Type.
-type ProviderConfigType string
 
 // RagQueryRequest defines model for RagQueryRequest.
 type RagQueryRequest struct {
@@ -476,23 +476,23 @@ func (t *ExternalResourceConfig) MergeMQTTConnection(v MQTTConnection) error {
 	return err
 }
 
-// AsProviderConfig returns the union data inside the ExternalResourceConfig as a ProviderConfig
-func (t ExternalResourceConfig) AsProviderConfig() (ProviderConfig, error) {
-	var body ProviderConfig
+// AsLLMProviderConfig returns the union data inside the ExternalResourceConfig as a LLMProviderConfig
+func (t ExternalResourceConfig) AsLLMProviderConfig() (LLMProviderConfig, error) {
+	var body LLMProviderConfig
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromProviderConfig overwrites any union data inside the ExternalResourceConfig as the provided ProviderConfig
-func (t *ExternalResourceConfig) FromProviderConfig(v ProviderConfig) error {
+// FromLLMProviderConfig overwrites any union data inside the ExternalResourceConfig as the provided LLMProviderConfig
+func (t *ExternalResourceConfig) FromLLMProviderConfig(v LLMProviderConfig) error {
 	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeProviderConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided ProviderConfig
-func (t *ExternalResourceConfig) MergeProviderConfig(v ProviderConfig) error {
+// MergeLLMProviderConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided LLMProviderConfig
+func (t *ExternalResourceConfig) MergeLLMProviderConfig(v LLMProviderConfig) error {
 	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -521,7 +521,7 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 	case "mqtt":
 		return t.AsMQTTConnection()
 	case "selfhosted":
-		return t.AsProviderConfig()
+		return t.AsLLMProviderConfig()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
