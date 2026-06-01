@@ -29,9 +29,9 @@ export interface components {
             functions: components["schemas"]["Function"][];
             declaredVariables: components["schemas"]["Variable"][];
             channels: components["schemas"]["Channel"][];
-            memory?: components["schemas"]["Memory"][];
+            memory: components["schemas"]["Memory"][];
             /** @description Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration. */
-            models?: components["schemas"]["Model"][];
+            models: components["schemas"]["Model"][];
         };
         Edge: {
             id: string;
