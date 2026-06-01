@@ -9,7 +9,7 @@ import (
 
 // RegisterWithRetry calls lc.Register until success or ctx cancellation.
 // Each attempt runs under its own cfg.AttemptTimeout.
-func RegisterWithRetry(ctx context.Context, lc Lifecycle, reg AgentRegistration, cfg RetryConfig) {
+func RegisterWithRetry(ctx context.Context, lc Supervisor, reg AgentRegistration, cfg RetryConfig) {
 	attempt := 0
 	for {
 		attempt++
@@ -32,7 +32,7 @@ func RegisterWithRetry(ctx context.Context, lc Lifecycle, reg AgentRegistration,
 
 // HeartbeatLoop ticks cfg.Interval and posts one heartbeat per tick.
 // Returns when ctx is canceled; failed ticks log at warn and continue.
-func HeartbeatLoop(ctx context.Context, lc Lifecycle, address string, cfg RetryConfig) {
+func HeartbeatLoop(ctx context.Context, lc Supervisor, address string, cfg RetryConfig) {
 	ticker := time.NewTicker(cfg.Interval)
 	defer ticker.Stop()
 

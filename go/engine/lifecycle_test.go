@@ -2,81 +2,44 @@ package engine
 
 import (
 	"context"
-	"errors"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-// stubLifecycle is a hand-rolled Lifecycle for exercising the loop
-// helpers without HTTP. registerErrs and heartbeatErrs are popped in
-// order; once exhausted, subsequent calls succeed.
-type stubLifecycle struct {
-	mu             sync.Mutex
-	registerCalls  atomic.Int32
-	heartbeatCalls atomic.Int32
-	registerErrs   []error
-	heartbeatErrs  []error
-}
-
-func (s *stubLifecycle) Register(_ context.Context, _ AgentRegistration) error {
-	s.registerCalls.Add(1)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.registerErrs) == 0 {
-		return nil
-	}
-	err := s.registerErrs[0]
-	s.registerErrs = s.registerErrs[1:]
-	return err
-}
-
-func (s *stubLifecycle) Heartbeat(_ context.Context, _ string) error {
-	s.heartbeatCalls.Add(1)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.heartbeatErrs) == 0 {
-		return nil
-	}
-	err := s.heartbeatErrs[0]
-	s.heartbeatErrs = s.heartbeatErrs[1:]
-	return err
-}
-
 func TestRegisterWithRetry_EventuallySucceeds(t *testing.T) {
-	stub := &stubLifecycle{
-		registerErrs: []error{errors.New("first"), errors.New("second")},
-	}
+	sup := NewMockSupervisor(t)
+	// Fail twice, then succeed. Expectations are consumed in order, and the
+	// cleanup AssertExpectations verifies all three were hit.
+	sup.EXPECT().Register(mock.Anything, mock.Anything).Return(assert.AnError).Times(2)
+	sup.EXPECT().Register(mock.Anything, mock.Anything).Return(nil).Once()
 	cfg := RetryConfig{AttemptTimeout: 50 * time.Millisecond, Interval: 20 * time.Millisecond}
 
 	done := make(chan struct{})
 	go func() {
-		RegisterWithRetry(context.Background(), stub, AgentRegistration{Address: "x", Status: StatusOnline}, cfg)
+		RegisterWithRetry(context.Background(), sup, AgentRegistration{Address: "x", Status: StatusOnline}, cfg)
 		close(done)
 	}()
 
 	select {
 	case <-done:
-		assert.GreaterOrEqual(t, stub.registerCalls.Load(), int32(3))
 	case <-time.After(2 * time.Second):
 		t.Fatal("RegisterWithRetry did not return within 2s")
 	}
 }
 
 func TestRegisterWithRetry_RespectsContextCancel(t *testing.T) {
-	stub := &stubLifecycle{}
-	for range 100 {
-		stub.registerErrs = append(stub.registerErrs, errors.New("never succeeds"))
-	}
+	sup := NewMockSupervisor(t)
+	sup.EXPECT().Register(mock.Anything, mock.Anything).Return(assert.AnError)
 	cfg := RetryConfig{AttemptTimeout: 50 * time.Millisecond, Interval: 20 * time.Millisecond}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		RegisterWithRetry(ctx, stub, AgentRegistration{Status: StatusOnline}, cfg)
+		RegisterWithRetry(ctx, sup, AgentRegistration{Status: StatusOnline}, cfg)
 		close(done)
 	}()
 
@@ -91,13 +54,21 @@ func TestRegisterWithRetry_RespectsContextCancel(t *testing.T) {
 }
 
 func TestHeartbeatLoop_TickAndCancel(t *testing.T) {
-	stub := &stubLifecycle{}
+	sup := NewMockSupervisor(t)
+	// Unbounded expectation: the loop ticks an unknown number of times. A
+	// Run hook counts calls so we can assert it ticked more than once before
+	// cancel — something mockery's exact-count assertions can't express for a
+	// timing-driven loop.
+	var calls atomic.Int32
+	sup.EXPECT().Heartbeat(mock.Anything, mock.Anything).
+		Run(func(context.Context, string) { calls.Add(1) }).
+		Return(nil)
 	cfg := RetryConfig{AttemptTimeout: 50 * time.Millisecond, Interval: 20 * time.Millisecond}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		HeartbeatLoop(ctx, stub, "http://engine:8081", cfg)
+		HeartbeatLoop(ctx, sup, "http://engine:8081", cfg)
 		close(done)
 	}()
 
@@ -106,23 +77,33 @@ func TestHeartbeatLoop_TickAndCancel(t *testing.T) {
 
 	select {
 	case <-done:
-		assert.GreaterOrEqual(t, stub.heartbeatCalls.Load(), int32(2))
+		assert.GreaterOrEqual(t, calls.Load(), int32(2))
 	case <-time.After(2 * time.Second):
 		t.Fatal("HeartbeatLoop did not exit after context cancel")
 	}
 }
 
 func TestHeartbeatLoop_FailureContinues(t *testing.T) {
-	stub := &stubLifecycle{
-		heartbeatErrs: []error{errors.New("first"), errors.New("second")},
-	}
+	sup := NewMockSupervisor(t)
+	// First two ticks fail; the loop must keep going and reach a success.
+	// AssertExpectations confirms the post-failure success expectation was hit.
+	sup.EXPECT().Heartbeat(mock.Anything, mock.Anything).Return(assert.AnError).Times(2)
+	sup.EXPECT().Heartbeat(mock.Anything, mock.Anything).Return(nil)
 	cfg := RetryConfig{AttemptTimeout: 50 * time.Millisecond, Interval: 20 * time.Millisecond}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go HeartbeatLoop(ctx, stub, "http://engine:8081", cfg)
+	done := make(chan struct{})
+	go func() {
+		HeartbeatLoop(ctx, sup, "http://engine:8081", cfg)
+		close(done)
+	}()
 
 	time.Sleep(120 * time.Millisecond)
 	cancel()
 
-	assert.GreaterOrEqual(t, stub.heartbeatCalls.Load(), int32(4))
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("HeartbeatLoop did not exit after context cancel")
+	}
 }

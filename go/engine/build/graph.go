@@ -222,6 +222,9 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.RetrieverNode:
+			if b.retriever == nil {
+				return "", fmt.Errorf("node %s: retriever node requires a configured RAG backend, none available", nd.Id)
+			}
 			if nd.Arguments.MemoryReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "memoryReference"}
 			}

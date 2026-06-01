@@ -20,10 +20,11 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
-// Lifecycle is the agent-registration seam (registration + periodic
-// heartbeat). Local default: no-op. fh-backend adapter: POSTs to
-// /agents/bootCallback and /agents/heartbeat.
-type Lifecycle interface {
+// Supervisor is the seam to whoever receives this agent's callbacks: the
+// registration the agent sends at boot plus its periodic liveness heartbeat.
+// Optional — a nil Supervisor means there is no one to report to, so the
+// engine simply doesn't register or heartbeat.
+type Supervisor interface {
 	Register(ctx context.Context, reg AgentRegistration) error
 	Heartbeat(ctx context.Context, address string) error
 }
@@ -36,14 +37,12 @@ type MemoryStore interface {
 	Upsert(ctx context.Context, uid, content string) error
 }
 
-// LlmClient is the chat-completion seam. Implementation: *llmproxy.Client,
-// which dispatches by model id across configured providers.
+// LlmClient is the external service for language model calls.
 type LlmClient interface {
 	Chat(ctx context.Context, req *llmproxy.ChatRequest) (*llmproxy.ChatResponse, error)
 }
 
-// Retriever is the RAG seam. Local default: empty results. fh-backend
-// adapter: forwards to /rag/query.
+// Retriever is the external service for retrieval-augmented generation.
 type Retriever interface {
 	QueryRAG(ctx context.Context, params RAGQueryParams) ([]RAGQueryResult, error)
 }

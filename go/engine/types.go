@@ -73,7 +73,7 @@ type RAGQueryResult struct {
 	Score      float64
 }
 
-// AgentRegistration is the per-boot state passed to Lifecycle.Register.
+// AgentRegistration is the per-boot state passed to Supervisor.Register.
 type AgentRegistration struct {
 	Address  string
 	Status   AgentStatus
@@ -81,7 +81,7 @@ type AgentRegistration struct {
 	Error    *string
 }
 
-// AgentStatus is the boot outcome reported through Lifecycle.Register.
+// AgentStatus is the boot outcome reported through Supervisor.Register.
 type AgentStatus string
 
 const (

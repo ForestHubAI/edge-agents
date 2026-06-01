@@ -1,7 +1,9 @@
-// Package local provides offline default adapters for the engine ports
-// (Lifecycle, Retriever, MemoryStore). They let the engine run with zero
-// ForestHub account: no-op registration, no-op RAG, and filesystem-backed
-// durable memory.
+// Package local provides the offline default for the MemoryStore port: a
+// filesystem-backed durable store that lets the engine run with zero
+// ForestHub account. There is no offline ControlPlane (a nil one means "no
+// supervisor to report to") and no offline Retriever — a workflow with a
+// Retriever node fails the build unless a real RAG backend is wired (see
+// engine/build).
 package local
 
 import (
@@ -11,26 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
-	"github.com/ForestHubAI/edge-agents/go/engine"
 )
-
-// NoopLifecycle satisfies engine.Lifecycle with no-ops — there is no
-// control plane to register with offline.
-type NoopLifecycle struct{}
-
-func (NoopLifecycle) Register(context.Context, engine.AgentRegistration) error {
-	return nil
-}
-func (NoopLifecycle) Heartbeat(context.Context, string) error { return nil }
-
-// NoopRetriever satisfies engine.Retriever with empty results — no RAG
-// backend offline. Retriever nodes degrade to "no context" instead of
-// panicking.
-type NoopRetriever struct{}
-
-func (NoopRetriever) QueryRAG(context.Context, engine.RAGQueryParams) ([]engine.RAGQueryResult, error) {
-	return nil, nil
-}
 
 // MemoryStore is a filesystem-backed engine.memoryStore. The durable copy is
 // a directory of <uid>.json files, so declared memory survives engine

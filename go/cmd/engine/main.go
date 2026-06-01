@@ -118,10 +118,11 @@ func main() {
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
 	}
 
-	// Retriever: backend if cloud mode, NoopRetriever (empty results) in
-	// standalone mode so Retriever nodes degrade gracefully instead of
-	// panicking on a typed-nil interface.
-	var retriever engine.Retriever = local.NoopRetriever{}
+	// Retriever: backend if cloud mode, otherwise nil. No offline RAG backend
+	// exists yet, and a nil retriever makes the build reject any workflow that
+	// declares a Retriever node (clear deploy-time error) rather than silently
+	// returning empty context at runtime.
+	var retriever engine.Retriever
 	if backendClient != nil {
 		retriever = backendClient
 	}
