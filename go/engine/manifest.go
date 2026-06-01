@@ -49,11 +49,22 @@ type ResourceBinding struct {
 
 // ExternalResources holds the resolved, deploy-delivered configs for a
 // workflow's non-device external resources, keyed by the platform resource id
-// the DeploymentMapping points at. The engine currently builds transports from
-// MQTTs; provider configs (custom models) are carried on the wire but not yet
-// consumed here.
+// the DeploymentMapping points at. The engine builds transports from MQTTs and
+// per-deploy LLM providers from Providers (the connection for each declared
+// custom/self-hosted model).
 type ExternalResources struct {
-	MQTTs map[string]MQTTConnection
+	MQTTs     map[string]MQTTConnection
+	Providers map[string]LLMProviderConfig
+}
+
+// LLMProviderConfig is the resolved connection to a self-hosted/custom LLM
+// endpoint the llmproxy doesn't ship. The declared workflow model supplies the
+// id and capabilities; this supplies how to reach it. Model is the optional
+// upstream model name the endpoint serves (defaults to the workflow model id).
+type LLMProviderConfig struct {
+	URL    string
+	APIKey string
+	Model  string
 }
 
 type MQTTConnection struct {

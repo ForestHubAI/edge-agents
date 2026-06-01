@@ -16,37 +16,45 @@ const providerID llmproxy.ProviderID = "SelfHosted"
 
 // Provider routes chat and embedding requests to operator-run inference server endpoints.
 type Provider struct {
+	id                 llmproxy.ProviderID
 	chatEndpoints      map[llmproxy.ModelID]*httpclient.Client
 	embeddingEndpoints map[llmproxy.ModelID]*httpclient.Client
 	models             []llmproxy.ModelInfo
 }
 
-// NewProvider builds a Provider from a validated Config. Returns nil if the
-// config has no models (defensive — Validate already rejects this).
+// NewProvider builds a Provider under the default "SelfHosted" id from a
+// validated Config. Returns nil if the config has no models (defensive —
+// Validate already rejects this).
 func NewProvider(cfg Config) *Provider {
 	chatEndpoints := make(map[llmproxy.ModelID]*httpclient.Client)
 	embeddingEndpoints := make(map[llmproxy.ModelID]*httpclient.Client)
 	var models []llmproxy.ModelInfo
 
 	for _, ep := range cfg.Endpoints {
-		client := httpclient.NewClient(ep.URL, "", "")
-		for _, m := range ep.Models {
-			info := llmproxy.ModelInfo{
-				ID:                 m.ID,
-				Provider:           providerID,
-				Label:              m.Label,
-				Capabilities:       m.Capabilities,
-				TokenModifier:      m.TokenModifier,
-				EmbeddingDimension: m.Dimension,
-			}
-			models = append(models, info)
-			for _, cap := range m.Capabilities {
-				switch cap {
-				case llmproxy.CapabilityChat:
-					chatEndpoints[m.ID] = client
-				case llmproxy.CapabilityEmbedding:
-					embeddingEndpoints[m.ID] = client
-				}
+		headerName, headerValue := "", ""
+		if ep.APIKey != "" {
+			headerName, headerValue = "Authorization", "Bearer "+ep.APIKey
+		}
+		client := httpclient.NewClient(ep.URL, headerName, headerValue)
+
+		tokenModifier := ep.TokenModifier
+		if tokenModifier == 0 {
+			tokenModifier = 1.0
+		}
+		models = append(models, llmproxy.ModelInfo{
+			ID:                 ep.ID,
+			Provider:           providerID,
+			Label:              ep.Label,
+			Capabilities:       ep.Capabilities,
+			TokenModifier:      tokenModifier,
+			EmbeddingDimension: ep.Dimension,
+		})
+		for _, cap := range ep.Capabilities {
+			switch cap {
+			case llmproxy.CapabilityChat:
+				chatEndpoints[ep.ID] = client
+			case llmproxy.CapabilityEmbedding:
+				embeddingEndpoints[ep.ID] = client
 			}
 		}
 	}
@@ -61,6 +69,7 @@ func NewProvider(cfg Config) *Provider {
 		Int("models", len(models)).
 		Msg("local provider: registered")
 	return &Provider{
+		id:                 providerID,
 		chatEndpoints:      chatEndpoints,
 		embeddingEndpoints: embeddingEndpoints,
 		models:             models,
@@ -69,7 +78,7 @@ func NewProvider(cfg Config) *Provider {
 
 // ProviderID returns the unique identifier of this provider.
 func (p *Provider) ProviderID() llmproxy.ProviderID {
-	return providerID
+	return p.id
 }
 
 // AvailableModels returns the static model list built at construction time.

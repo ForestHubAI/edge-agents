@@ -12,16 +12,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ProviderConfig holds the API keys for different LLM providers
+// ProviderConfig holds the env-delivered API keys for the catalog LLM
+// providers. Structured providers (self-hosted endpoints, backend-routed
+// stand-ins) are not configured here.
 type ProviderConfig struct {
 	OpenAI    openai.Config
 	Mistral   mistral.Config
 	Gemini    gemini.Config
 	Anthropic anthropic.Config
-
-	// SelfHosted points to a YAML file describing locally-hosted endpoints.
-	// nil = self-hosted provider disabled.
-	SelfHosted *string `env:"SELFHOSTED_CONFIG_FILE"`
 }
 
 type EmbeddingConfig struct {

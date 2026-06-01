@@ -1399,11 +1399,11 @@ type Workflow struct {
 	DeclaredVariables []Variable `json:"declaredVariables"`
 	Edges             []Edge     `json:"edges"`
 	Functions         []Function `json:"functions"`
-	Memory            *[]Memory  `json:"memory,omitempty"`
+	Memory            []Memory   `json:"memory"`
 
 	// Models Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
-	Models *[]Model `json:"models,omitempty"`
-	Nodes  []Node   `json:"nodes"`
+	Models []Model `json:"models"`
+	Nodes  []Node  `json:"nodes"`
 
 	// SchemaVersion Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
 	SchemaVersion int32 `json:"schemaVersion"`

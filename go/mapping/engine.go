@@ -10,36 +10,56 @@ import (
 )
 
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
-// deploy-time configs) onto the engine domain type at the HTTP boundary. Only
-// the MQTT arms are consumed today; provider arms (custom models) are skipped
-// until the engine builds providers from them.
+// deploy-time configs) onto the engine domain type at the HTTP boundary,
+// routing each arm by its discriminator: MQTT connections into MQTTs, custom
+// LLM provider configs into Providers. Unknown arms are skipped.
 func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
-	out := &engine.ExternalResources{MQTTs: make(map[string]engine.MQTTConnection)}
+	out := &engine.ExternalResources{
+		MQTTs:     make(map[string]engine.MQTTConnection),
+		Providers: make(map[string]engine.LLMProviderConfig),
+	}
 	for id, rc := range *in {
-		c, err := rc.AsMQTTConnection()
-		if err != nil || c.Type != engineapi.Mqtt {
-			continue // not an MQTT arm (e.g. a ProviderConfig) — not consumed yet
+		disc, err := rc.Discriminator()
+		if err != nil {
+			continue
 		}
-		mc := engine.MQTTConnection{
-			BrokerURL:       c.BrokerURL,
-			ClientID:        pointer.Val(c.ClientID),
-			Username:        pointer.Val(c.Username),
-			Password:        pointer.Val(c.Password),
-			PublishPrefix:   pointer.Val(c.PublishPrefix),
-			SubscribePrefix: pointer.Val(c.SubscribePrefix),
-		}
-		if c.Will != nil {
-			mc.Will = &engine.MQTTWill{
-				Topic:   c.Will.Topic,
-				Payload: c.Will.Payload,
-				Qos:     c.Will.Qos,
-				Retain:  c.Will.Retain,
+		switch disc {
+		case string(engineapi.Mqtt):
+			c, err := rc.AsMQTTConnection()
+			if err != nil {
+				continue
+			}
+			mc := engine.MQTTConnection{
+				BrokerURL:       c.BrokerURL,
+				ClientID:        pointer.Val(c.ClientID),
+				Username:        pointer.Val(c.Username),
+				Password:        pointer.Val(c.Password),
+				PublishPrefix:   pointer.Val(c.PublishPrefix),
+				SubscribePrefix: pointer.Val(c.SubscribePrefix),
+			}
+			if c.Will != nil {
+				mc.Will = &engine.MQTTWill{
+					Topic:   c.Will.Topic,
+					Payload: c.Will.Payload,
+					Qos:     c.Will.Qos,
+					Retain:  c.Will.Retain,
+				}
+			}
+			out.MQTTs[id] = mc
+		case string(engineapi.Selfhosted):
+			c, err := rc.AsLLMProviderConfig()
+			if err != nil {
+				continue
+			}
+			out.Providers[id] = engine.LLMProviderConfig{
+				URL:    c.Url,
+				APIKey: pointer.Val(c.ApiKey),
+				Model:  pointer.Val(c.Model),
 			}
 		}
-		out.MQTTs[id] = mc
 	}
 	return out
 }

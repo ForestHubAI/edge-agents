@@ -18,7 +18,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
-	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 	"github.com/ForestHubAI/edge-agents/go/mapping"
 	"github.com/rs/zerolog"
@@ -67,9 +66,8 @@ func main() {
 	// take precedence; any provider the backend exposes that the engine lacks
 	// a key for is registered as a backend-routed stand-in.
 	loadCtx, cancelLoad := context.WithTimeout(context.Background(), backend.ProviderLoadTimeout)
-	providers := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
+	llmProviders := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
 	cancelLoad() // Release loadCtx resources
-	llmClient := llmproxy.NewClient(providers)
 
 	// Only normalise if the operator actually opted into file mode. An empty
 	// path stays empty so the deploy handler can surface a clear "not configured"
@@ -127,11 +125,11 @@ func main() {
 
 	// Create builder and engine
 	builder := &build.Builder{
-		Drivers:   drivers,
-		LLM:       llmClient,
-		Memory:    memoryManager,
-		WebSearch: webSearchProvider,
-		Retriever: retriever,
+		Drivers:      drivers,
+		LLMProviders: llmProviders,
+		Memory:       memoryManager,
+		WebSearch:    webSearchProvider,
+		Retriever:    retriever,
 	}
 	eng := &engine.Engine{
 		Secret:  cfg.Secret,

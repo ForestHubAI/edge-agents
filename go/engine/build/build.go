@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
@@ -11,15 +12,18 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
+// LLMProviders is the boot provider set; Build composes it with any per-deploy
+// custom-model providers into a fresh client scoped to each Runner.
 type Builder struct {
-	Drivers   *driver.Registry
-	LLM       engine.LlmClient
-	Memory    *memory.Manager
-	Retriever engine.Retriever
-	WebSearch websearch.Provider // optional; nil disables WebSearchTool nodes
+	Drivers      *driver.Registry
+	LLMProviders []llmproxy.Provider
+	Memory       *memory.Manager
+	Retriever    engine.Retriever
+	WebSearch    websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
 // Build constructs a Runner for the given workflow and network manifest.
@@ -36,11 +40,25 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 			return nil, fmt.Errorf("refreshing memory: %w", err)
 		}
 	}
+	// Compose a per-deploy LLM client: the boot providers plus any custom-model
+	// providers resolved from this deploy's externalResources. Done before
+	// transports so a provider-resolution error fails fast without leaking a
+	// transport registry. The client is scoped to this Runner and GC'd on the
+	// next deploy, so the boot set is never mutated.
+	deployProviders, err := buildDeployProviders(wf, dm, ext)
+	if err != nil {
+		return nil, fmt.Errorf("resolving deploy llm providers: %w", err)
+	}
+	llmClient := llmproxy.NewClient(append(slices.Clone(b.LLMProviders), deployProviders...))
+	if err := validateModelsResolvable(wf, llmClient); err != nil {
+		return nil, fmt.Errorf("resolving referenced models: %w", err)
+	}
+
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		return nil, fmt.Errorf("creating transport registry: %w", err)
 	}
-	runner, err := buildRunner(ctx, wf, dm, ext, transports, b.Drivers, b.LLM, b.Memory, b.Retriever, b.WebSearch)
+	runner, err := buildRunner(ctx, wf, dm, ext, transports, b.Drivers, llmClient, b.Memory, b.Retriever, b.WebSearch)
 	if err != nil {
 		transports.CloseAll()
 		return nil, err
@@ -52,11 +70,8 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 // skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
 // nodes). These are the canonical set of files the memory Manager restores.
 func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
-	if wf.Memory == nil {
-		return nil, nil
-	}
 	var out []workflow.MemoryFile
-	for i, m := range *wf.Memory {
+	for i, m := range wf.Memory {
 		disc, err := m.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)

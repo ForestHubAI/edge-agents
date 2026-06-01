@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
@@ -99,12 +97,10 @@ func newEmbeddingTestServer(t *testing.T, embeddingHandler func(w http.ResponseW
 // newTestChatProvider creates a Provider with a single chat model pointing to the given server URL.
 func newTestChatProvider(modelID string, serverURL string) *Provider {
 	return NewProvider(Config{
-		Endpoints: []EndpointConfig{{
-			URL: serverURL,
-			Models: []ModelConfig{{
-				ID:           llmproxy.ModelID(modelID),
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
-			}},
+		Endpoints: []ModelEndpoint{{
+			URL:          serverURL,
+			ID:           llmproxy.ModelID(modelID),
+			Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
 		}},
 	})
 }
@@ -112,131 +108,12 @@ func newTestChatProvider(modelID string, serverURL string) *Provider {
 // newTestEmbeddingProvider creates a Provider with a single embedding model pointing to the given server URL.
 func newTestEmbeddingProvider(modelID string, serverURL string, dim int) *Provider {
 	return NewProvider(Config{
-		Endpoints: []EndpointConfig{{
-			URL: serverURL,
-			Models: []ModelConfig{{
-				ID:           llmproxy.ModelID(modelID),
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityEmbedding},
-				Dimension:    pointer.Ptr(dim),
-			}},
+		Endpoints: []ModelEndpoint{{
+			URL:          serverURL,
+			ID:           llmproxy.ModelID(modelID),
+			Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityEmbedding},
+			Dimension:    pointer.Ptr(dim),
 		}},
-	})
-}
-
-// --- Config / LoadConfig Tests ---
-
-func TestLoadConfig(t *testing.T) {
-	t.Run("missing file", func(t *testing.T) {
-		_, err := LoadConfig("/nonexistent/path/local.yaml")
-		assert.Error(t, err)
-	})
-
-	t.Run("malformed yaml", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "bad.yaml")
-		require.NoError(t, os.WriteFile(path, []byte("endpoints: ["), 0o644))
-		_, err := LoadConfig(path)
-		assert.Error(t, err)
-	})
-
-	t.Run("valid config", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "good.yaml")
-		body := `endpoints:
-  - url: http://llama:8080
-    models:
-      - id: phi-4-mini
-        label: "Phi-4 Mini"
-        capabilities: [chat]
-  - url: http://embed:8081
-    models:
-      - id: nomic-embed
-        capabilities: [embedding]
-        dimension: 768
-`
-		require.NoError(t, os.WriteFile(path, []byte(body), 0o644))
-		cfg, err := LoadConfig(path)
-		require.NoError(t, err)
-		require.Len(t, cfg.Endpoints, 2)
-		assert.Equal(t, llmproxy.ModelID("phi-4-mini"), cfg.Endpoints[0].Models[0].ID)
-		assert.InDelta(t, 1.0, cfg.Endpoints[0].Models[0].TokenModifier, 0.001, "default applied")
-		require.NotNil(t, cfg.Endpoints[1].Models[0].Dimension)
-		assert.Equal(t, 768, *cfg.Endpoints[1].Models[0].Dimension)
-	})
-}
-
-func TestConfigValidate(t *testing.T) {
-	t.Run("empty endpoints", func(t *testing.T) {
-		err := Config{}.Validate()
-		assert.Error(t, err)
-	})
-
-	t.Run("bad URL scheme", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{
-			URL: "ftp://host",
-			Models: []ModelConfig{{
-				ID:           "m",
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
-			}},
-		}}}.Validate()
-		assert.Error(t, err)
-	})
-
-	t.Run("embedding without dimension", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{
-			URL: "http://h",
-			Models: []ModelConfig{{
-				ID:           "m",
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityEmbedding},
-			}},
-		}}}.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "dimension")
-	})
-
-	t.Run("embedding with zero dimension", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{
-			URL: "http://h",
-			Models: []ModelConfig{{
-				ID:           "m",
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityEmbedding},
-				Dimension:    pointer.Ptr(0),
-			}},
-		}}}.Validate()
-		assert.Error(t, err)
-	})
-
-	t.Run("duplicate model id across endpoints", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{
-			{URL: "http://a", Models: []ModelConfig{{ID: "m", Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}}}},
-			{URL: "http://b", Models: []ModelConfig{{ID: "m", Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}}}},
-		}}.Validate()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "multiple endpoints")
-	})
-
-	t.Run("model without capabilities", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{
-			URL:    "http://h",
-			Models: []ModelConfig{{ID: "m"}},
-		}}}.Validate()
-		assert.Error(t, err)
-	})
-
-	t.Run("endpoint with no models", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{URL: "http://h"}}}.Validate()
-		assert.Error(t, err)
-	})
-
-	t.Run("valid", func(t *testing.T) {
-		err := Config{Endpoints: []EndpointConfig{{
-			URL: "http://h",
-			Models: []ModelConfig{{
-				ID:           "m",
-				Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
-			}},
-		}}}.Validate()
-		assert.NoError(t, err)
 	})
 }
 

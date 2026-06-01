@@ -9,7 +9,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/gemini"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/mistral"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/openai"
-	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/selfhosted"
 
 	"github.com/rs/zerolog/log"
 )
@@ -44,14 +43,6 @@ func Build(cfg ProviderConfig) []llmproxy.Provider {
 	}
 	if cfg.Anthropic.APIKey != "" {
 		providers = append(providers, anthropic.NewProvider(cfg.Anthropic))
-	}
-	if cfg.SelfHosted != nil {
-		shCfg, err := selfhosted.LoadConfig(*cfg.SelfHosted)
-		if err != nil {
-			log.Error().Err(err).Str("path", *cfg.SelfHosted).Msg("Failed to load self-hosted provider config, skipping")
-		} else if p := selfhosted.NewProvider(shCfg); p != nil {
-			providers = append(providers, p)
-		}
 	}
 
 	return providers
