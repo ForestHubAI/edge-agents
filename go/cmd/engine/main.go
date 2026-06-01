@@ -16,7 +16,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
-	"github.com/ForestHubAI/edge-agents/go/engine/local"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
@@ -92,18 +91,17 @@ func main() {
 		logging.Logger.Fatal().Err(err).Msg("initialising driver registry")
 	}
 
-	// Memory subsystem: backed by the configured local dir, syncs through
-	// either the backend (cloud mode) or a filesystem-backed local store
-	// rooted at the same dir (standalone mode — declared memory survives
-	// engine restarts without a backend). Restore is invoked on every Build
-	// (deploy or initial), so no eager call here.
-	var memoryStore engine.MemoryStore
+	// Memory subsystem: the Manager owns durable local storage rooted at
+	// cfg.MemoryDir (declared memory survives engine restarts with no
+	// backend). The backend, when configured, is an optional remote mirror —
+	// it hydrates an empty local copy on a cold start and receives best-effort
+	// pushes; nil means local-only. Restore is invoked on every Build (deploy
+	// or initial), so no eager call here.
+	var memorySync engine.MemorySync
 	if backendClient != nil {
-		memoryStore = backendClient
-	} else {
-		memoryStore = local.NewMemoryStore(cfg.MemoryDir)
+		memorySync = backendClient
 	}
-	memoryManager := memory.NewManager(cfg.MemoryDir, memoryStore)
+	memoryManager := memory.NewManager(cfg.MemoryDir, memorySync)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node

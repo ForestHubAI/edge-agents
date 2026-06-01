@@ -1,14 +1,15 @@
-// Package memory manages the engine's local working copy of an agent's
-// declared memory files. A configured store holds the durable copy; this
-// manager pulls a snapshot at boot, exposes read/append/edit operations
-// to LLM agent nodes, and pushes every successful write back through the
-// store synchronously. Sync-on-write keeps the durable copy ahead of
-// in-memory state in case the engine process is killed without graceful
-// shutdown.
+// Package memory manages the engine's local copy of an agent's declared
+// memory files. The local filesystem is the source of truth: the manager
+// owns a directory of <uid>.json records, reads them at boot, and writes
+// through to disk on every successful mutation. An optional remote mirror
+// (engine.MemorySync) hydrates an empty local copy on a cold start and
+// receives a best-effort push after each local write; with no mirror the
+// manager is fully functional offline.
 package memory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -17,7 +18,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
 // ErrFileNotFound is returned when the LLM references a memory file that
@@ -61,36 +64,49 @@ type entry struct {
 // LLM-facing tool layer resolves human names to uids via Card.
 type Manager struct {
 	dir   string
-	store engine.MemoryStore
+	sync  engine.MemorySync // optional remote mirror; nil → local-only
 	mu    sync.Mutex
 	files map[string]*entry // uid → entry
 }
 
-// NewManager constructs a manager that writes its working copy into dir
-// and syncs through the given store. The directory is created lazily on
-// Restore.
-func NewManager(dir string, store engine.MemoryStore) *Manager {
+// NewManager constructs a manager whose durable copy lives in dir. sync is
+// the optional remote mirror; pass nil for local-only operation. The
+// directory is created lazily on Restore.
+func NewManager(dir string, sync engine.MemorySync) *Manager {
 	return &Manager{
 		dir:   dir,
-		store: store,
+		sync:  sync,
 		files: make(map[string]*entry),
 	}
 }
 
-// Restore pulls the full memory snapshot from the store and overwrites
-// the local working copy. Called from Builder.Build, so each deploy
-// refreshes state (covers boot AND post-rename redeploy).
-func (m *Manager) Restore(ctx context.Context) error {
-	if m.store == nil {
-		// No store configured (local dev / debug). Treat as "no memory".
-		m.mu.Lock()
-		m.files = make(map[string]*entry)
-		m.mu.Unlock()
-		return nil
-	}
-	snapshot, err := m.store.Snapshot(ctx)
+// Restore rebuilds the working copy for the files declared by the current
+// deploy. Called from Builder.Build, so every deploy reconciles state
+// (boot and post-rename redeploy). The local filesystem wins: for each
+// declared file an existing local copy is kept as-is (preserving the
+// agent's accumulated edits). Files with no local copy are seeded — from
+// the remote mirror on a cold start (empty local dir, mirror configured),
+// otherwise from the declared content carried in the workflow. Declared
+// metadata (name, description, size cap) is always authoritative; only
+// content is preserved across redeploys.
+func (m *Manager) Restore(ctx context.Context, declared []workflow.MemoryFile) error {
+	local, err := m.readLocal()
 	if err != nil {
-		return fmt.Errorf("memory: restore: %w", err)
+		return fmt.Errorf("memory: read local: %w", err)
+	}
+
+	// Cold start: no local copy at all. If a mirror is configured, pull the
+	// agent's accumulated state from it to seed the new working copy.
+	var remote map[string]string
+	if len(local) == 0 && m.sync != nil {
+		snapshot, err := m.sync.Hydrate(ctx)
+		if err != nil {
+			return fmt.Errorf("memory: hydrate: %w", err)
+		}
+		remote = make(map[string]string, len(snapshot))
+		for _, f := range snapshot {
+			remote[f.Id] = f.Content
+		}
 	}
 
 	if err := os.MkdirAll(m.dir, 0o755); err != nil {
@@ -99,19 +115,29 @@ func (m *Manager) Restore(ctx context.Context) error {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.files = make(map[string]*entry, len(snapshot))
-	for _, f := range snapshot {
-		if !validName.MatchString(f.Label) {
-			return fmt.Errorf("memory: invalid file name %q", f.Label)
+	m.files = make(map[string]*entry, len(declared))
+	for _, d := range declared {
+		if !validName.MatchString(d.Label) {
+			return fmt.Errorf("memory: invalid file name %q", d.Label)
 		}
-		m.files[f.Id] = &entry{
-			name:         f.Label,
-			description:  f.Description,
-			content:      f.Content,
-			maxSizeBytes: f.MaxSizeBytes,
+		// Content precedence: local edits win, then a cold-start mirror
+		// snapshot, then the declared seed from the workflow.
+		content := d.Content
+		if c, ok := remote[d.Id]; ok {
+			content = c
 		}
-		if err := os.WriteFile(m.filePath(f.Label), []byte(f.Content), 0o644); err != nil {
-			return fmt.Errorf("memory: write %s: %w", f.Label, err)
+		if c, ok := local[d.Id]; ok {
+			content = c
+		}
+		e := &entry{
+			name:         d.Label,
+			description:  d.Description,
+			content:      content,
+			maxSizeBytes: d.MaxSizeBytes,
+		}
+		m.files[d.Id] = e
+		if err := m.persist(d.Id, e); err != nil {
+			return fmt.Errorf("memory: write %s: %w", d.Label, err)
 		}
 	}
 	return nil
@@ -145,8 +171,8 @@ func (m *Manager) Read(uid string) (string, error) {
 	return e.content, nil
 }
 
-// Append concatenates content to the file identified by uid, persists
-// locally, and pushes the new full content through the store. Returns
+// Append concatenates content to the file identified by uid, persists it
+// locally, and mirrors the new full content best-effort. Returns
 // ErrSizeExceeded if the result would exceed the declared cap.
 func (m *Manager) Append(ctx context.Context, uid, content string) error {
 	return m.write(ctx, uid, func(cur string) (string, error) {
@@ -170,10 +196,11 @@ func (m *Manager) Edit(ctx context.Context, uid, oldStr, newStr string) error {
 	})
 }
 
-// write is the shared mutation path: lock, transform, size-check, push to
-// store, commit local state. Store push happens inside the lock so a
-// failed remote write doesn't leave the in-memory copy ahead of the
-// durable one.
+// write is the shared mutation path: lock, transform, size-check, persist
+// locally, commit in-memory, then mirror best-effort. The local write is
+// the source of truth — if it fails the mutation fails and nothing is
+// committed. A mirror push failure is logged but does not fail the write,
+// so the agent keeps working when the remote is unreachable.
 func (m *Manager) write(ctx context.Context, uid string, transform func(string) (string, error)) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -189,15 +216,17 @@ func (m *Manager) write(ctx context.Context, uid string, transform func(string) 
 	if e.maxSizeBytes != nil && len(next) > *e.maxSizeBytes {
 		return ErrSizeExceeded
 	}
-	if m.store != nil {
-		if err := m.store.Upsert(ctx, uid, next); err != nil {
-			return fmt.Errorf("memory: push %s: %w", uid, err)
-		}
-	}
-	if err := os.WriteFile(m.filePath(e.name), []byte(next), 0o644); err != nil {
+	committed := e.content
+	e.content = next
+	if err := m.persist(uid, e); err != nil {
+		e.content = committed // roll back in-memory on local write failure
 		return fmt.Errorf("memory: local write %s: %w", e.name, err)
 	}
-	e.content = next
+	if m.sync != nil {
+		if err := m.sync.Push(ctx, uid, next); err != nil {
+			logging.Logger.Warn().Err(err).Str("uid", uid).Msg("memory: remote mirror push failed; local write retained")
+		}
+	}
 	return nil
 }
 
@@ -213,6 +242,49 @@ func (m *Manager) UIDs() []string {
 	return out
 }
 
-func (m *Manager) filePath(name string) string {
-	return filepath.Join(m.dir, name+".md")
+// readLocal loads every <uid>.json record from the durable directory. A
+// missing dir is "no local copy yet" (cold start), not an error.
+func (m *Manager) readLocal() (map[string]string, error) {
+	entries, err := os.ReadDir(m.dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string)
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(m.dir, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		var mf workflow.MemoryFile
+		if err := json.Unmarshal(b, &mf); err != nil {
+			return nil, err
+		}
+		out[mf.Id] = mf.Content
+	}
+	return out, nil
+}
+
+// persist writes one entry to its <uid>.json record. The full record is
+// stored so the working copy is self-describing and can be read back at
+// boot without a remote. Caller holds m.mu.
+func (m *Manager) persist(uid string, e *entry) error {
+	mf := workflow.MemoryFile{
+		Id:           uid,
+		Label:        e.name,
+		Description:  e.description,
+		Content:      e.content,
+		MaxSizeBytes: e.maxSizeBytes,
+		Type:         workflow.MemoryFileTypeMemoryFile,
+	}
+	b, err := json.Marshal(mf)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(m.dir, uid+".json"), b, 0o644)
 }

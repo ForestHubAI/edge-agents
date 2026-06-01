@@ -2,14 +2,20 @@ package engine
 
 // Ports: the engine-owned seams for everything it needs from "outside".
 // Each is an interface so the engine never depends on a concrete adapter.
-// The fh-backend HTTP client is one adapter; package local provides
-// offline defaults (filesystem memory, no-op lifecycle and retriever)
-// so the engine is fully usable with zero account. Signatures speak the
-// engine's own domain types (RAGQueryParams, etc.) plus external package
-// types (llmproxy, api/workflow); adapters map to their own internal
-// wire forms privately.
+// The fh-backend HTTP client (engine/backend) is one adapter that satisfies
+// all four; the engine is fully usable with no backend, because Supervisor
+// and MemorySync are optional (nil) and Retriever is required only when a
+// workflow actually declares a retrieval node. Signatures speak the engine's
+// own domain types (RAGQueryParams, etc.) plus external package types
+// (llmproxy, api/workflow); adapters map to their own internal wire forms
+// privately. See docs/ports.md for the full required/optional matrix and
+// standalone behavior.
 //
-// LogSink is intentionally not a port here: the engine already depends on
+// Memory is deliberately NOT a "where it's stored" port: local filesystem
+// persistence is owned unconditionally by engine/memory.Manager. MemorySync
+// is only the optional remote mirror.
+//
+// Logging is intentionally not a port either: the engine already depends on
 // the logging package, and stderr logging is unconditional, so log shipping
 // is configured by main, not abstracted through engine.
 
@@ -20,21 +26,21 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
 
-// Supervisor is the seam to whoever receives this agent's callbacks: the
-// registration the agent sends at boot plus its periodic liveness heartbeat.
-// Optional — a nil Supervisor means there is no one to report to, so the
-// engine simply doesn't register or heartbeat.
+// Supervisor is the external receiver of lifecycle events from the engine.
 type Supervisor interface {
 	Register(ctx context.Context, reg AgentRegistration) error
 	Heartbeat(ctx context.Context, address string) error
 }
 
-// MemoryStore is the durable-memory seam. Snapshot pulls the agent's full
-// declared set; Upsert persists new content for one file. Local default:
-// filesystem-backed. fh-backend adapter: HTTP sync.
-type MemoryStore interface {
-	Snapshot(ctx context.Context) ([]workflow.MemoryFile, error)
-	Upsert(ctx context.Context, uid, content string) error
+// MemorySync is the OPTIONAL remote mirror for agent memory. The Manager
+// owns local filesystem persistence unconditionally; when a MemorySync is
+// configured it hydrates from the mirror on a cold start (empty local copy)
+// and pushes every local write back. nil → local-only: no hydration, no
+// mirroring. fh-backend adapter: HTTP. Push is best-effort — a mirror
+// failure must not fail the agent's local write.
+type MemorySync interface {
+	Hydrate(ctx context.Context) ([]workflow.MemoryFile, error)
+	Push(ctx context.Context, uid, content string) error
 }
 
 // LlmClient is the external service for language model calls.

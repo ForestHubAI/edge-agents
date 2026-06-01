@@ -28,7 +28,11 @@ type Builder struct {
 // current deploy).
 func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
 	if b.Memory != nil {
-		if err := b.Memory.Restore(ctx); err != nil {
+		declared, err := declaredMemoryFiles(wf)
+		if err != nil {
+			return nil, fmt.Errorf("memory: reading declared files: %w", err)
+		}
+		if err := b.Memory.Restore(ctx, declared); err != nil {
 			return nil, fmt.Errorf("refreshing memory: %w", err)
 		}
 	}
@@ -42,6 +46,31 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 		return nil, err
 	}
 	return runner, nil
+}
+
+// declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
+// skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
+// nodes). These are the canonical set of files the memory Manager restores.
+func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
+	if wf.Memory == nil {
+		return nil, nil
+	}
+	var out []workflow.MemoryFile
+	for i, m := range *wf.Memory {
+		disc, err := m.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		if disc != string(workflow.MemoryFileTypeMemoryFile) {
+			continue
+		}
+		mf, err := m.AsMemoryFile()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		out = append(out, mf)
+	}
+	return out, nil
 }
 
 // buildContext holds the inputs shared across every graph build.

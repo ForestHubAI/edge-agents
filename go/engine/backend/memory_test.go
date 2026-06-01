@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSnapshot_Success(t *testing.T) {
+func TestHydrate_Success(t *testing.T) {
 	var (
 		gotKey    string
 		gotMethod string
@@ -34,7 +34,7 @@ func TestSnapshot_Success(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret")
-	got, err := c.Snapshot(context.Background())
+	got, err := c.Hydrate(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodGet, gotMethod)
 	assert.Equal(t, "/agents/memory", gotPath)
@@ -45,19 +45,19 @@ func TestSnapshot_Success(t *testing.T) {
 	assert.Equal(t, "uid-log", got[1].Id)
 }
 
-func TestSnapshot_BackendError(t *testing.T) {
+func TestHydrate_BackendError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret")
-	_, err := c.Snapshot(context.Background())
+	_, err := c.Hydrate(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
 }
 
-func TestUpsert_Success(t *testing.T) {
+func TestPush_Success(t *testing.T) {
 	var (
 		gotKey    string
 		gotMethod string
@@ -74,21 +74,21 @@ func TestUpsert_Success(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret")
-	require.NoError(t, c.Upsert(context.Background(), "uid-notes", "hello world"))
+	require.NoError(t, c.Push(context.Background(), "uid-notes", "hello world"))
 	assert.Equal(t, http.MethodPut, gotMethod)
 	assert.Equal(t, "/agents/memory/uid-notes", gotPath)
 	assert.Equal(t, "secret", gotKey)
 	assert.JSONEq(t, `{"content":"hello world"}`, string(gotBody))
 }
 
-func TestUpsert_BackendError(t *testing.T) {
+func TestPush_BackendError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret")
-	err := c.Upsert(context.Background(), "uid-missing", "x")
+	err := c.Push(context.Background(), "uid-missing", "x")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "404")
 }
