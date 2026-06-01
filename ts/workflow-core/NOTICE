@@ -1,0 +1,14 @@
+edge-agents/workflow-core
+Copyright (c) 2026 ForestHub
+
+This product includes software developed by
+ForestHub (https://foresthub.ai).
+
+The @foresthubai/workflow-core package is the headless workflow model and
+validation library of the edge-agents platform. This package is licensed
+under the Apache License, Version 2.0, while the rest of the repository
+(the engine and the React workflow builder) is licensed under AGPL-3.0
+or a separate commercial license.
+
+See the repository LICENSE for AGPL terms and ts/workflow-core/LICENSE for
+the Apache terms applicable to this package.

@@ -1,12 +1,17 @@
 Third-Party Software Notices
 ============================
 
-edge-agents is licensed under the GNU Affero General Public License v3.0
-(AGPL-3.0-only). The third-party components listed below are incorporated into
-or distributed with edge-agents and retain their original licenses as noted. None of
-these licenses conflict with the distribution of edge-agents under AGPL-3.0-only; the
-permissive and weak-copyleft licenses below are all one-way compatible with the
-GNU AGPL v3.
+edge-agents uses a two-tier license model:
+  - `contract/` and `ts/workflow-core/` are licensed under Apache-2.0
+  - The rest (engine, workflow-builder, app) is licensed under AGPL-3.0-only
+    or a separate commercial license
+See LICENSE, NOTICE, contract/LICENSE, and ts/workflow-core/LICENSE for details.
+
+The third-party components listed below are incorporated into or distributed
+with edge-agents and retain their original licenses as noted. None of these
+licenses conflict with the two-tier model above; the permissive and
+weak-copyleft licenses below are all one-way compatible with both Apache-2.0
+and the GNU AGPL v3.
 
 Per-license obligations satisfied here:
   * MIT / ISC / BSD-2-Clause / BSD-3-Clause / 0BSD / BlueOak-1.0.0 / Python-2.0
