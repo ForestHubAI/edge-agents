@@ -87,7 +87,7 @@ aggregate** — they are not duplicates.
 | | `test` | `vitest run` |
 | `workflow-builder` | `build` | `tsc -b` → `dist/` |
 | `app` | `dev` | `vite` dev server |
-| | `open` / `validate` / `cli` | the `fh-builder` CLI (see below) |
+| | `open` / `check-schema` / `validate` / `cli` | the `fh-builder` CLI (see below) |
 
 Run a package's script directly with `-w`, e.g. `npm run test -w @foresthubai/workflow-core`.
 
@@ -103,8 +103,9 @@ Run the builder in a browser via the reference app / CLI (from `ts/app`):
 ```bash
 npm run dev                          # blank canvas, HMR
 npm run open -- sample.json          # open a workflow; Save writes back to that file
-npm run validate -- sample.json      # headless validation, non-zero exit on errors
-# equivalently: npx fh-builder <open|validate> <file>
+npm run check-schema -- sample.json  # structural schema check against the contract
+npm run validate -- sample.json      # headless semantic validation, non-zero exit on errors
+# equivalently: npx fh-builder <open|check-schema|validate> <file>
 ```
 
 Because the app resolves the libraries to **source**, editing `workflow-core` or

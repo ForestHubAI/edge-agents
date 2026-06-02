@@ -11,9 +11,10 @@ packages resolve to source, etc.).
 ## `fh-builder` CLI
 
 ```
-fh-builder open [file.json]        Open the workflow builder; optionally pre-load a workflow.
-fh-builder validate <file.json>    Validate a workflow JSON file. Exits non-zero on errors.
-fh-builder help | -h | --help      Print usage.
+fh-builder open [file.json]          Open the workflow builder; optionally pre-load a workflow.
+fh-builder check-schema <file.json>  Structural schema check against the contract. Exits non-zero on mismatch.
+fh-builder validate <file.json>      Semantic validation of a workflow. Exits non-zero on errors.
+fh-builder help | -h | --help        Print usage.
 ```
 
 ### `open [file.json]`
@@ -32,11 +33,20 @@ Starts the Vite dev server and opens the builder in your browser.
 The bound file's directory is the only path the bridge will read or write
 (`FH_BUILDER_ALLOW_ROOT`); anything outside returns 403.
 
+### `check-schema <file.json>`
+
+Structural gate — checks the raw JSON against the contract
+(`contract/workflow.yaml`) with Ajv, **before** semantics. Catches shape errors
+(wrong `type`, missing required field, bad enum) with a JSON-pointer path
+(e.g. `/nodes/0/arguments`), and **exits `1` on any mismatch**, `0` otherwise. Run
+it before `validate`: a malformed shape should never reach the semantic validator.
+
 ### `validate <file.json>`
 
-Headless validation — no browser. Reads the file, runs `workflow-core`'s pure
-validator, prints a report (`✗` errors / `⚠` warnings), and **exits `1` if there
-are any errors**, `0` otherwise. Suitable for CI / pre-commit.
+Semantic validation — no browser. Reads the file, runs `workflow-core`'s pure
+validator (references, wiring, types), prints a report (`✗` errors / `⚠` warnings),
+and **exits `1` if there are any errors**, `0` otherwise. Suitable for CI /
+pre-commit. Pair it after `check-schema` for a structural-then-semantic pipeline.
 
 ## Running it
 
@@ -45,10 +55,12 @@ All equivalent — pick what fits:
 ```bash
 # from ts/app
 npm run open -- sample.json
+npm run check-schema -- sample.json
 npm run validate -- sample.json
 npx fh-builder open sample.json
 
 # from anywhere
+node ts/app/cli/fh-builder.mjs check-schema path/to/workflow.json
 node ts/app/cli/fh-builder.mjs validate path/to/workflow.json
 ```
 
@@ -60,7 +72,7 @@ the CLI rather than to npm.
 | Script | Does |
 | --- | --- |
 | `dev` | `vite` — dev server, blank canvas, HMR on builder/core edits |
-| `open` / `validate` / `cli` | the `fh-builder` CLI (`cli` = no preset subcommand) |
+| `open` / `check-schema` / `validate` / `cli` | the `fh-builder` CLI (`cli` = no preset subcommand) |
 | `build` | `vite build` — bundles the SPA to `dist/` (the SPA, not a library) |
 | `preview` | serve the built SPA |
 
