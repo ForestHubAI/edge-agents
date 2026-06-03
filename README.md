@@ -111,6 +111,7 @@ fh-workflow open my.workflow.json          # open the visual builder; Save write
 fh-workflow validate my.workflow.json      # semantic: wiring, references, types
 fh-workflow check-schema my.workflow.json  # structural: types, required fields, enums
 fh-workflow update my.workflow.json        # migrate a workflow to the current schema version
+fh-workflow deploy my.workflow.json        # generate a self-contained deployment bundle
 fh-workflow help                           # list all commands
 ```
 
@@ -253,6 +254,7 @@ npm install
 npm run check-schema -- my.workflow.json   # the -- passes the path to the CLI, not to npm
 npm run validate    -- my.workflow.json
 npm run open        -- my.workflow.json
+npm run deploy      -- my.workflow.json     # generate a deployment bundle (--non-interactive for scripted runs)
 ```
 
 After a `git pull` that changed dependencies, just run `npm install` again. If a stale

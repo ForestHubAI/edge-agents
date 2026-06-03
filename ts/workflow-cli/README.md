@@ -27,6 +27,7 @@ fh-workflow open [file.json] [--static|--dev]   Open the visual builder; optiona
 fh-workflow check-schema <file.json>            Structural schema check against the contract. Non-zero on mismatch.
 fh-workflow validate <file.json>                Semantic validation (references, wiring, types). Non-zero on errors.
 fh-workflow update <file.json> [out.json]       Migrate a workflow to the current schema version.
+fh-workflow deploy <file.json> [flags]          Generate a self-contained deployment bundle. --help for flags.
 fh-workflow help | -h | --help                  Print usage.
 ```
 
@@ -67,6 +68,16 @@ Suitable for CI / pre-commit.
 Migrates a workflow document up to the current schema version, in place or to a
 second path.
 
+### `deploy <file.json> [flags]`
+
+Generates a self-contained deployment bundle for an edge controller — a directory
+holding `workflow.json`, `docker-compose.yml`, `.env` (operator config, written
+`0600`), and a `README.md` with the build/transfer/run steps. Missing values come
+from flags or interactive prompts; pass `--non-interactive` plus the needed
+`--flag`s for scripted use. The mode (`standalone` vs `cloud`) is derived from the
+workflow but can be overridden. Run `fh-workflow deploy --help` for the full flag
+list.
+
 ## In-repo development
 
 From `ts/workflow-cli` (resolves the libraries to **source**, so editing core/builder
@@ -94,7 +105,7 @@ FH_BUILDER_MODE=static npm run open -- sample.json
 | Script | Does |
 | --- | --- |
 | `dev` | `vite` — dev server, blank canvas, HMR |
-| `open` / `check-schema` / `validate` / `cli` | the dev CLI via `tsx` (`cli` = no preset subcommand) |
+| `open` / `check-schema` / `validate` / `deploy` / `cli` | the dev CLI via `tsx` (`cli` = no preset subcommand) |
 | `build` | `vite build` — the SPA bundle → `dist/` |
 | `build:cli` | esbuild — the CLI bundle → `dist-cli/cli.js` (+ `workflow.yaml`) |
 | `build:all` | both of the above; the publishable artifacts |
