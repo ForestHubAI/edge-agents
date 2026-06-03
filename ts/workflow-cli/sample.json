@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
+      "type": "Delay",
+      "position": {
+        "x": 518,
+        "y": 269.6000061035156
+      },
+      "arguments": {
+        "delayMs": 1000
+      }
+    },
+    {
+      "id": "SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4c",
+      "type": "SerialRead",
+      "position": {
+        "x": 288.4534516045523,
+        "y": 49.08668493234259
+      },
+      "arguments": {
+        "output": {
+          "active": false,
+          "mode": "emit",
+          "name": "output"
+        }
+      }
+    },
+    {
+      "id": "ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304",
+      "type": "ReadPin",
+      "position": {
+        "x": 773,
+        "y": 362.70001220703125
+      },
+      "arguments": {
+        "signalType": "digital",
+        "output": {
+          "active": true,
+          "mode": "emit",
+          "name": "output2"
+        }
+      }
+    },
+    {
+      "id": "Agent_de2436f6_f8cb_4e1e_ae7d_70d82d2d4ddb",
+      "type": "Agent",
+      "position": {
+        "x": 514.0674872253041,
+        "y": 489.2777310822554
+      },
+      "arguments": {
+        "outputDeclarations": [],
+        "memoryRefs": [],
+        "answer": {
+          "active": false,
+          "mode": "emit",
+          "name": "answer"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "xy-edge__SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4cctrl-Delay_b337a558_a2ac_40c5_a912_3622df025d72ctrl",
+      "type": "control",
+      "from": {
+        "nodeId": "SerialRead_ace290d7_3234_4b9b_9a4b_433261665e4c",
+        "port": "ctrl"
+      },
+      "to": {
+        "nodeId": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
+        "port": "ctrl"
+      }
+    },
+    {
+      "id": "xy-edge__Delay_b337a558_a2ac_40c5_a912_3622df025d72ctrl-ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304ctrl",
+      "type": "control",
+      "from": {
+        "nodeId": "Delay_b337a558_a2ac_40c5_a912_3622df025d72",
+        "port": "ctrl"
+      },
+      "to": {
+        "nodeId": "ReadPin_17b8f852_c31f_4189_95d3_25e695bfa304",
+        "port": "ctrl"
+      }
+    }
+  ],
+  "functions": [],
+  "declaredVariables": [],
+  "channels": [
+    {
+      "type": "UART",
+      "id": "uart0",
+      "label": "Serial"
+    }
+  ],
+  "memory": [],
+  "models": []
+}

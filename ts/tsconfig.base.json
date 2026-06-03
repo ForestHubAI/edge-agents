@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // In-repo, every @foresthubai/* import (root or subpath) resolves to that
+    // package's SOURCE — the same thing Vite's alias does at runtime. dist/ is
+    // produced only for publishing, where external consumers resolve via each
+    // package's "exports" map instead. One model in the repo: it's all source.
+    //
+    // No baseUrl (deprecated in TS 5, removed in 7): with `paths` and no
+    // baseUrl, these patterns resolve relative to THIS file's dir (ts/), and
+    // `extends` keeps them anchored here — so they're repo-relative for every
+    // package.
+    "paths": {
+      "@foresthubai/workflow-core": ["./workflow-core/src/index.ts"],
+      "@foresthubai/workflow-core/*": ["./workflow-core/src/*/index.ts"],
+      "@foresthubai/workflow-builder": ["./workflow-builder/src/index.ts"]
+    }
+  }
+}

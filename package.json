@@ -1,0 +1,12 @@
+{
+  "name": "edge-agents",
+  "private": true,
+  "description": "Root launcher for the fh-workflow CLI. Delegates to ts/workflow-cli; no dependencies of its own.",
+  "scripts": {
+    "postinstall": "npm --prefix ts install && npm --prefix ts run build",
+    "validate": "node ts/workflow-cli/cli/fh-workflow.mjs validate",
+    "check-schema": "node ts/workflow-cli/cli/fh-workflow.mjs check-schema",
+    "open": "node ts/workflow-cli/cli/fh-workflow.mjs open",
+    "update": "node ts/workflow-cli/cli/fh-workflow.mjs update"
+  }
+}

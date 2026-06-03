@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: ForestHub Engine Deploy & Control-Plane Contract
+  version: 0.1.0
+  description: "Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query."
+
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Engine runner state.
+      responses:
+        "200":
+          description: Current runner state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthzResponse"
+  /deploy:
+    post:
+      operationId: deploy
+      summary: Deploy or hot-swap a workflow.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeployRequest"
+      responses:
+        "204":
+          description: Workflow deployed.
+        "400":
+          description: Invalid request (e.g. missing workflow).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineError"
+        "422":
+          description: Build failure.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineError"
+  /stop:
+    post:
+      operationId: stop
+      summary: Stop the running workflow (idempotent when idle).
+      responses:
+        "204":
+          description: Runner stopped.
+
+components:
+  schemas:
+    State:
+      type: string
+      enum: [idle, running]
+      description: Engine runner state.
+
+    HealthzResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/State"
+
+    EngineError:
+      type: object
+      description: Error body for /deploy 400/422. Distinct from control-plane ErrorResponse.
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    DeployRequest:
+      type: object
+      description: "Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it)."
+      properties:
+        workflow:
+          $ref: "workflow.yaml#/components/schemas/Workflow"
+        mapping:
+          $ref: "#/components/schemas/DeploymentMapping"
+        externalResources:
+          $ref: "#/components/schemas/ExternalResources"
+
+    DeploymentMapping:
+      type: object
+      description: "Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id)."
+      additionalProperties:
+        $ref: "#/components/schemas/ResourceBinding"
+
+    ResourceBinding:
+      type: object
+      description: "How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models."
+      required: [ref]
+      properties:
+        ref:
+          type: string
+          description: Shared platform resource id this binds to.
+        index:
+          type: integer
+          description: Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
+
+    ExternalResources:
+      type: object
+      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs."
+      additionalProperties:
+        $ref: "#/components/schemas/ExternalResourceConfig"
+
+    ExternalResourceConfig:
+      description: "Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf."
+      oneOf:
+        - $ref: "#/components/schemas/MQTTConnection"
+        - $ref: "#/components/schemas/LLMProviderConfig"
+      discriminator:
+        propertyName: type
+        mapping:
+          mqtt: "#/components/schemas/MQTTConnection"
+          selfhosted: "#/components/schemas/LLMProviderConfig"
+
+    LLMProviderConfig:
+      type: object
+      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here."
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [selfhosted]
+        url:
+          type: string
+          description: Base URL of the inference endpoint (http:// or https://).
+        apiKey:
+          type: string
+          format: password
+          description: Optional bearer credential for the endpoint.
+        model:
+          type: string
+          description: Upstream model name the endpoint serves; defaults to the workflow model id when empty.
+
+    MQTTConnection:
+      type: object
+      required: [type, brokerUrl]
+      properties:
+        type:
+          type: string
+          enum: [mqtt]
+        brokerUrl:
+          type: string
+          x-go-name: BrokerURL
+        clientId:
+          type: string
+          x-go-name: ClientID
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+        publishPrefix:
+          type: string
+          x-go-name: PublishPrefix
+          description: Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/).
+        subscribePrefix:
+          type: string
+          x-go-name: SubscribePrefix
+          description: Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/).
+        will:
+          $ref: "#/components/schemas/MQTTWill"
+
+    MQTTWill:
+      type: object
+      required: [topic, payload, qos, retain]
+      properties:
+        topic:
+          type: string
+        payload:
+          type: string
+        qos:
+          type: integer
+          description: MQTT QoS (0,1,2). Cast to byte at the paho call site.
+        retain:
+          type: boolean
+
+    DeviceManifest:
+      type: object
+      description: "Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine."
+      properties:
+        gpios:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/GPIOConfig"
+        adcs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ADCConfig"
+        dacs:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DACConfig"
+        serials:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SerialConfig"
+        pwms:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PWMConfig"
+
+    GPIOConfig:
+      type: object
+      required: [chip]
+      properties:
+        chip:
+          type: string
+          minLength: 1
+          description: cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0"
+
+    ADCConfig:
+      type: object
+      required: [device]
+      properties:
+        device:
+          type: string
+          minLength: 1
+          description: sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
+
+    DACConfig:
+      type: object
+      required: [device]
+      properties:
+        device:
+          type: string
+          minLength: 1
+          description: sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
+
+    SerialConfig:
+      type: object
+      required: [device]
+      properties:
+        device:
+          type: string
+          minLength: 1
+          description: Serial device path, e.g. "/dev/ttyUSB0" or "COM3"
+        baud:
+          type: integer
+          description: Baud rate; falls back to 115200 when zero
+
+    PWMConfig:
+      type: object
+      required: [chip]
+      properties:
+        chip:
+          type: string
+          minLength: 1
+          description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
+
+    # ===== Engine events =====
+
+    LogEntry:
+      type: object
+      required: [level, action, summary, msg, time]
+      additionalProperties: true
+      description: "Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest."
+      properties:
+        level:
+          type: string
+          enum: [debug, info, warn, error, fatal]
+        action:
+          type: string
+        summary:
+          type: string
+        msg:
+          type: string
+        time:
+          type: string
+          format: date-time
+
+    AgentBootCallback:
+      type: object
+      required: [status]
+      properties:
+        address:
+          type: string
+          format: uri
+          example: "http://10.0.1.50:8081"
+          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work."
+        status:
+          type: string
+          enum: [online, booterror]
+          description: "Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.)."
+        loadedDeviceManifest:
+          $ref: "#/components/schemas/DeviceManifest"
+          nullable: true
+          description: "The manifest the engine loaded into its driver registry at boot. Set on a successful boot; may be null on booterror if the engine could not even parse the manifest."
+        error:
+          type: string
+          nullable: true
+          description: Human-readable failure detail. Set when status='booterror', null otherwise.
+
+    AgentHeartbeatRequest:
+      type: object
+      properties:
+        address:
+          type: string
+          format: uri
+          example: "http://10.0.1.50:8081/"
+          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column."
+
+    MemoryFileWrite:
+      type: object
+      description: Body of PUT /agents/memory/{name}.
+      required: [content]
+      properties:
+        content:
+          type: string
+
+    AgentRuntimeStatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [idle, running]
+
+    RagQueryRequest:
+      type: object
+      required: [collectionId, query]
+      properties:
+        collectionId:
+          type: string
+          description: Collection to query
+          x-go-name: CollectionID
+        query:
+          type: string
+          maxLength: 10000
+          description: Search query text
+        topK:
+          type: integer
+          description: Number of results to return
+          default: 5
+          maximum: 100
+
+    RagQueryResult:
+      type: object
+      required: [chunkId, documentId, content, score]
+      properties:
+        chunkId:
+          type: string
+          x-go-name: ChunkID
+        documentId:
+          type: string
+          x-go-name: DocumentID
+        content:
+          type: string
+        score:
+          type: number
+          format: double

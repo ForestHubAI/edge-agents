@@ -1,0 +1,909 @@
+openapi: 3.0.3
+info:
+  title: ForestHub Workflow Contract
+  version: 1.0.0
+  description: OpenAPI schema definition for the ForestHub workflow format.
+
+components:
+  schemas:
+    DataType:
+      type: string
+      enum: [int, float, bool, string]
+
+    SignalType:
+      type: string
+      enum: [digital, analog]
+
+    EdgeType:
+      type: string
+      enum: [control, tool, agentTask, agentChoice, agentDelegate]
+
+    NodePosition:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: number
+        y:
+          type: number
+
+    Workflow:
+      type: object
+      description: Workflow represents the deployment format of a project, passed to agents.
+      required:
+        [
+          schemaVersion,
+          nodes,
+          edges,
+          functions,
+          declaredVariables,
+          channels,
+          memory,
+          models,
+        ]
+      properties:
+        schemaVersion:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Monotonic version of the persisted workflow format, bumped when the serialized shape changes.
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Edge"
+        functions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Function"
+        declaredVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Channel"
+        memory:
+          type: array
+          items:
+            $ref: "#/components/schemas/Memory"
+        models:
+          type: array
+          description: Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration.
+          items:
+            $ref: "#/components/schemas/Model"
+
+    Edge:
+      type: object
+      required: [id, type, from, to]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/EdgeType"
+        from:
+          $ref: "#/components/schemas/Vertex"
+        to:
+          $ref: "#/components/schemas/Vertex"
+        prompt:
+          $ref: "#/components/schemas/Expression"
+          description: >
+            Prompt expression sent to the agent. Present on `agentTask` (required)
+            and `agentDelegate` (optional).
+        description:
+          type: string
+          description: LLM-readable explanation of when the edge should fire. Present on `agentChoice` and `agentDelegate`.
+
+    Vertex:
+      type: object
+      required:
+        - nodeId
+        - port
+      properties:
+        nodeId:
+          type: string
+        port:
+          type: string
+
+    Function:
+      type: object
+      required:
+        [functionInfo, outputAssignments, nodes, edges, declaredVariables]
+      properties:
+        functionInfo:
+          $ref: "#/components/schemas/FunctionInfo"
+        outputAssignments:
+          type: object
+          description: Maps return variable uid to its Expression
+          additionalProperties:
+            $ref: "#/components/schemas/Expression"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Node"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Edge"
+        declaredVariables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+
+    FunctionInfo:
+      type: object
+      required: [id, version, name, arguments, returns]
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          format: int32
+          minimum: 0
+        name:
+          type: string
+        arguments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+        returns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Variable"
+
+    Variable:
+      description: A named, typed variable with a stable uid that can be referenced throughout the workflow.
+      required: [uid, name, dataType]
+      properties:
+        uid:
+          type: string
+          description: Stable identifier that survives renames
+        name:
+          type: string
+        dataType:
+          $ref: "#/components/schemas/DataType"
+        initialValue:
+          description: Initial value matching the dataType (number, boolean, or string). Only used by declared variables.
+
+    Expression:
+      type: object
+      required: [expression, references, dataType]
+      properties:
+        expression:
+          type: string
+        references:
+          description: A list of referenced variable IDs used in the expression
+          type: array
+          items:
+            $ref: "#/components/schemas/Reference"
+        dataType:
+          $ref: "#/components/schemas/DataType"
+
+    Reference:
+      type: object
+      required: [srcId, varId]
+      properties:
+        srcId:
+          type: string
+        varId:
+          type: string
+
+    OutputBinding:
+      type: object
+      required: [active, mode]
+      properties:
+        active:
+          type: boolean
+          description: Discard the output if false; route it according to `mode` if true
+        mode:
+          type: string
+          enum: [emit, assign]
+        # mode=emit
+        name:
+          type: string
+          description: Variable name (when mode=emit)
+        # mode=assign
+        target:
+          $ref: "#/components/schemas/Reference"
+          description: Existing variable to route to (when mode=assign)
+
+    OutputDeclaration:
+      type: object
+      required: [mode, name, dataType]
+      properties:
+        mode:
+          type: string
+          enum: [emit, assign]
+        name:
+          type: string
+          description: JSON property name of the declared output
+        dataType:
+          $ref: "#/components/schemas/DataType"
+        # mode=emit
+        uid:
+          type: string
+          description: New variable uid (when mode=emit)
+        # mode=assign
+        target:
+          $ref: "#/components/schemas/Reference"
+          description: Existing variable to route to (when mode=assign)
+
+    # ====== Memory ======
+
+    Memory:
+      oneOf:
+        - $ref: "#/components/schemas/MemoryFile"
+        - $ref: "#/components/schemas/VectorDatabase"
+      discriminator:
+        propertyName: type
+        mapping:
+          MemoryFile: "#/components/schemas/MemoryFile"
+          VectorDatabase: "#/components/schemas/VectorDatabase"
+
+    MemoryFile:
+      type: object
+      description: One .md file that agent nodes can read and write to.
+      required: [type, id, label, description, content]
+      properties:
+        type: { type: string, enum: [MemoryFile] }
+        id:
+          type: string
+          description: Stable identifier that survives renames; referenced from MemoryRef.
+        label:
+          type: string
+          description: Display name. Unique per agent (LLM tool enums use it).
+        description:
+          type: string
+        content:
+          type: string
+        maxSizeBytes:
+          type: integer
+          nullable: true
+          description: Byte cap; null means unlimited.
+
+    VectorDatabase:
+      type: object
+      description: A vector database for retrieval-augmented generation (RAG).
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [VectorDatabase] }
+        id:
+          type: string
+          description: Stable identifier; referenced from Retriever nodes.
+        label:
+          type: string
+          description: Display name.
+        description:
+          type: string
+
+    MemoryRef:
+      type: object
+      description: Reference from an LLM agent node to a declared MemoryFile with an access mode.
+      required: [id, mode]
+      properties:
+        id:
+          type: string
+          description: id of the referenced MemoryFile.
+        mode:
+          type: string
+          enum: [r, rw]
+          description: r = read-only; rw = read + write.
+
+    # ====== Models ======
+
+    ModelCapability:
+      type: string
+      enum:
+        [
+          chat,
+          embedding,
+          function_call,
+          vision,
+          fine_tuning,
+          reasoning,
+          classification,
+          code,
+        ]
+
+    Model:
+      oneOf:
+        - $ref: "#/components/schemas/LLMModel"
+      discriminator:
+        propertyName: type
+        mapping:
+          LLMModel: "#/components/schemas/LLMModel"
+
+    LLMModel:
+      type: object
+      description: A custom or self-hosted language model that agent nodes can reference.
+      required: [type, id, label, capabilities]
+      properties:
+        type: { type: string, enum: [LLMModel] }
+        id:
+          type: string
+          description: Stable identifier; this is the ModelID nodes reference.
+        label:
+          type: string
+          description: Display name.
+        capabilities:
+          type: array
+          description: Capabilities this model supports (used to filter model pickers).
+          items:
+            $ref: "#/components/schemas/ModelCapability"
+
+    # ====== Nodes ======
+
+    Node:
+      oneOf:
+        - $ref: "#/components/schemas/ReadPinNode"
+        - $ref: "#/components/schemas/WritePinNode"
+        - $ref: "#/components/schemas/AgentNode"
+        - $ref: "#/components/schemas/IfNode"
+        - $ref: "#/components/schemas/SerialReadNode"
+        - $ref: "#/components/schemas/SerialWriteNode"
+        - $ref: "#/components/schemas/RetrieverNode"
+        - $ref: "#/components/schemas/WebFetchNode"
+        - $ref: "#/components/schemas/FunctionCallNode"
+        - $ref: "#/components/schemas/OnFunctionCallNode"
+        - $ref: "#/components/schemas/DelayNode"
+        - $ref: "#/components/schemas/TickerNode"
+        - $ref: "#/components/schemas/AlarmNode"
+        - $ref: "#/components/schemas/WebSearchToolNode"
+        - $ref: "#/components/schemas/OnStartupNode"
+        - $ref: "#/components/schemas/OnPinEdgeNode"
+        - $ref: "#/components/schemas/OnSerialReceiveNode"
+        - $ref: "#/components/schemas/OnThresholdNode"
+        - $ref: "#/components/schemas/SetVariableNode"
+        - $ref: "#/components/schemas/MqttPublishNode"
+        - $ref: "#/components/schemas/OnMqttMessageNode"
+      discriminator:
+        propertyName: type
+        mapping:
+          ReadPin: "#/components/schemas/ReadPinNode"
+          WritePin: "#/components/schemas/WritePinNode"
+          Agent: "#/components/schemas/AgentNode"
+          If: "#/components/schemas/IfNode"
+          SerialRead: "#/components/schemas/SerialReadNode"
+          SerialWrite: "#/components/schemas/SerialWriteNode"
+          Retriever: "#/components/schemas/RetrieverNode"
+          WebFetch: "#/components/schemas/WebFetchNode"
+          FunctionCall: "#/components/schemas/FunctionCallNode"
+          OnFunctionCall: "#/components/schemas/OnFunctionCallNode"
+          Delay: "#/components/schemas/DelayNode"
+          Ticker: "#/components/schemas/TickerNode"
+          Alarm: "#/components/schemas/AlarmNode"
+          WebSearchTool: "#/components/schemas/WebSearchToolNode"
+          OnStartup: "#/components/schemas/OnStartupNode"
+          OnPinEdge: "#/components/schemas/OnPinEdgeNode"
+          OnSerialReceive: "#/components/schemas/OnSerialReceiveNode"
+          OnThreshold: "#/components/schemas/OnThresholdNode"
+          SetVariable: "#/components/schemas/SetVariableNode"
+          MqttPublish: "#/components/schemas/MqttPublishNode"
+          OnMqttMessage: "#/components/schemas/OnMqttMessageNode"
+
+    WebSearchToolNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [WebSearchTool] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          properties:
+            maxResults:
+              type: integer
+              description: Maximum number of search results to return per call. Defaults to 5 when omitted or non-positive. Capped at 20.
+              minimum: 1
+
+    DelayNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [Delay] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          properties:
+            delayMs:
+              type: integer
+              description: Time in milliseconds to pause execution
+
+    TickerNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [Ticker] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [intervalUnit]
+          properties:
+            intervalValue:
+              type: integer
+              description: How many units between ticks
+            intervalUnit:
+              type: string
+              enum: [milliseconds, seconds, minutes, hours]
+              description: Time unit for the interval
+
+    AlarmNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [Alarm] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [days]
+          properties:
+            time:
+              type: string
+              description: "Time of day to fire (HH:MM, 24h format)"
+            days:
+              type: array
+              items:
+                type: string
+              description: "Days of the week to fire on (empty = every day)"
+
+    FunctionCallNode:
+      type: object
+      required: [id, type, arguments, position, functionId]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [FunctionCall] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        functionId:
+          type: string
+          description: Id of the function this node calls. The signature is resolved from the workflow's functions table.
+        arguments:
+          type: object
+          properties:
+            inputBindings:
+              type: object
+              additionalProperties:
+                $ref: "#/components/schemas/Expression"
+            outputBindings:
+              type: object
+              additionalProperties:
+                $ref: "#/components/schemas/OutputBinding"
+            toolDescription:
+              type: string
+              description: >
+                Description exposed to the LLM when this function is wired as
+                a tool. Ignored in exec mode.
+
+    OnFunctionCallNode:
+      type: object
+      required: [id, type, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnFunctionCall] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+
+    OnStartupNode:
+      type: object
+      required: [id, type, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnStartup] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+
+    OnPinEdgeNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnPinEdge] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [edge]
+          properties:
+            pinReference:
+              type: string
+              description: IO variable ID of the digital pin to watch
+            edge:
+              type: string
+              enum: [rising, falling, both]
+              description: Edge transition that fires the trigger
+
+    OnSerialReceiveNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnSerialReceive] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [output]
+          properties:
+            portReference:
+              type: string
+              description: Reference to an IO variable ID (the serial port to listen on)
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    OnThresholdNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnThreshold] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [direction, output]
+          properties:
+            variable:
+              $ref: "#/components/schemas/Reference"
+              description: Numeric variable to watch for threshold crossings
+            threshold:
+              type: number
+              description: Value the variable crosses to fire the trigger
+            direction:
+              type: string
+              enum: [rising, falling, both]
+              description: Crossing direction to fire on (default both)
+            deadband:
+              type: number
+              description: Hysteresis band width around threshold; 0 disables (default 0)
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+              description: Optional binding for the triggering value
+
+    RetrieverNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [Retriever] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [query, output]
+          properties:
+            memoryReference:
+              type: string
+              description: Reference to a declared VectorDatabase memory id
+            topK:
+              type: integer
+              description: Number of results to return
+            query:
+              $ref: "#/components/schemas/Expression"
+              description: Search query expression
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+            toolDescription:
+              type: string
+              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+
+    WebFetchNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [WebFetch] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [url, output]
+          properties:
+            url:
+              $ref: "#/components/schemas/Expression"
+              description: URL expression to fetch (http or https)
+            maxChars:
+              type: integer
+              description: Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
+              minimum: 1
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    ReadPinNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [ReadPin] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [signalType, output]
+          properties:
+            pinReference:
+              type: string
+              description: Reference to an IO variable ID
+            signalType:
+              $ref: "#/components/schemas/SignalType"
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+            toolDescription:
+              type: string
+              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+
+    WritePinNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [WritePin] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [signalType, value]
+          properties:
+            pinReference:
+              type: string
+              description: Reference to an IO variable ID
+            signalType:
+              $ref: "#/components/schemas/SignalType"
+            value:
+              $ref: "#/components/schemas/Expression"
+
+    AgentNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [Agent] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [answer, outputDeclarations, memoryRefs]
+          properties:
+            name:
+              type: string
+              description: Name of the agent
+            model:
+              type: string
+            instructions:
+              type: string
+            maxTurns:
+              type: integer
+              description: Maximum number of agent runner turns
+            answer:
+              $ref: "#/components/schemas/OutputBinding"
+            outputDeclarations:
+              type: array
+              description: Ordered list of structured-output declarations. Names must be unique within this list
+              items:
+                $ref: "#/components/schemas/OutputDeclaration"
+            memoryRefs:
+              type: array
+              description: Memory files this agent can access, each with an access mode.
+              items:
+                $ref: "#/components/schemas/MemoryRef"
+            toolDescription:
+              type: string
+              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+
+    IfNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [If] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [condition]
+          properties:
+            condition:
+              $ref: "#/components/schemas/Expression"
+
+    SerialReadNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [SerialRead] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [output]
+          properties:
+            portReference:
+              type: string
+              description: Reference to an UART ID (the serial port to read from)
+            prompt:
+              type: string
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    SerialWriteNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [SerialWrite] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [value]
+          properties:
+            portReference:
+              type: string
+              description: Reference to a UART channel ID (the serial port to write to)
+            value:
+              $ref: "#/components/schemas/Expression"
+
+    SetVariableNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [SetVariable] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [value]
+          properties:
+            variable:
+              $ref: "#/components/schemas/Reference"
+            value:
+              $ref: "#/components/schemas/Expression"
+
+    MqttPublishNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [MqttPublish] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [dataType, value, qos, retain]
+          properties:
+            channelReference:
+              type: string
+              description: Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time)
+            dataType:
+              $ref: "#/components/schemas/DataType"
+            value:
+              $ref: "#/components/schemas/Expression"
+            qos:
+              type: integer
+              enum: [0, 1, 2]
+              description: MQTT Quality of Service level
+            retain:
+              type: boolean
+              description: Whether the broker should retain the message
+
+    OnMqttMessageNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [OnMqttMessage] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [dataType, output]
+          properties:
+            channelReference:
+              type: string
+              description: Reference to an MQTT channel ID (the channel carries the topic filter; resolved to a broker at deploy time)
+            dataType:
+              $ref: "#/components/schemas/DataType"
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    # ====== Channels ======
+
+    Channel:
+      oneOf:
+        - $ref: "#/components/schemas/GPIOINChannel"
+        - $ref: "#/components/schemas/GPIOOUTChannel"
+        - $ref: "#/components/schemas/ADCChannel"
+        - $ref: "#/components/schemas/PWMChannel"
+        - $ref: "#/components/schemas/DACChannel"
+        - $ref: "#/components/schemas/UARTChannel"
+        - $ref: "#/components/schemas/MQTTChannel"
+      discriminator:
+        propertyName: type
+        mapping:
+          GPIOIN: "#/components/schemas/GPIOINChannel"
+          GPIOOUT: "#/components/schemas/GPIOOUTChannel"
+          ADC: "#/components/schemas/ADCChannel"
+          PWM: "#/components/schemas/PWMChannel"
+          DAC: "#/components/schemas/DACChannel"
+          UART: "#/components/schemas/UARTChannel"
+          MQTT: "#/components/schemas/MQTTChannel"
+
+    GPIOINChannel:
+      type: object
+      required: [type, id, label, bias, debounceMs]
+      properties:
+        type: { type: string, enum: [GPIOIN] }
+        id: { type: string }
+        label: { type: string }
+        bias:
+          type: string
+          enum: [none, pullup, pulldown]
+          description: Pin bias configuration
+        debounceMs:
+          type: integer
+          description: Debounce window in milliseconds
+
+    GPIOOUTChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [GPIOOUT] }
+        id: { type: string }
+        label: { type: string }
+
+    ADCChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [ADC] }
+        id: { type: string }
+        label: { type: string }
+
+    PWMChannel:
+      type: object
+      required: [type, id, label, frequency]
+      properties:
+        type: { type: string, enum: [PWM] }
+        id: { type: string }
+        label: { type: string }
+        frequency:
+          type: integer
+          description: PWM frequency in Hz
+
+    DACChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [DAC] }
+        id: { type: string }
+        label: { type: string }
+
+    UARTChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [UART] }
+        id: { type: string }
+        label: { type: string }
+
+    MQTTChannel:
+      type: object
+      required: [type, id, label, topic]
+      properties:
+        type: { type: string, enum: [MQTT] }
+        id: { type: string }
+        label: { type: string }
+        topic:
+          type: string
+          description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.

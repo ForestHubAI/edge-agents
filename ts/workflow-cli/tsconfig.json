@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@foresthubai/workflow-builder": ["../workflow-builder/src/index.ts"],
+      "@foresthubai/workflow-core": ["../workflow-core/src/index.ts"],
+      "@foresthubai/workflow-core/*": ["../workflow-core/src/*/index.ts"]
+    }
+  },
+  "include": ["src", "cli", "server", "plugins", "vite.config.ts"]
+}

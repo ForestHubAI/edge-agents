@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM"],
+    "resolveJsonModule": true
+  },
+  "references": [{ "path": "../workflow-core" }],
+  "include": ["src", "src/**/*.json"],
+  "exclude": ["**/*.test.ts"]
+}

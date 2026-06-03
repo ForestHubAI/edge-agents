@@ -1,0 +1,14 @@
+edge-agents/contract
+Copyright (c) 2026 ForestHub. All rights reserved.
+
+This product includes software developed by
+ForestHub (https://foresthub.ai).
+
+The contract/ directory contains OpenAPI 3.0.3 schemas that define the
+wire format of the edge-agents platform. This directory is licensed under
+the Apache License, Version 2.0, while the rest of the repository (the
+engine, the React workflow builder, and the TypeScript workflow-builder
+package) is licensed under AGPL-3.0 or a separate commercial license.
+
+See the repository LICENSE for AGPL terms and contract/LICENSE for the
+Apache terms applicable to this subdirectory.

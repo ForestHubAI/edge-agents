@@ -1,0 +1,526 @@
+/* ReactFlow's required CSS — without this, nodes can't be dragged/selected and
+   the canvas chrome (controls, minimap, viewport transforms) renders unstyled. */
+@import "@xyflow/react/dist/style.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Color-mode switch must snap, not fade. useSuppressThemeTransition adds
+   `theme-changing` while the embedder flips the `light` class on <html> and
+   removes it once React has committed the new colorMode, killing every
+   color/background/border transition in between (canvas tabs, the builder
+   sidebar, ReactFlow's controls and node chrome) so they change in lockstep
+   with the rest of the UI instead of animating to the new tokens. */
+.theme-changing,
+.theme-changing *,
+.theme-changing *::before,
+.theme-changing *::after {
+  transition: none !important;
+}
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  /*
+   * Token system: two layers
+   *
+   *  1. SURFACES (independent per mode) — background, card, popover, border, etc.
+   *     These are *materials*: white card vs dark card aren't the same hue shifted,
+   *     they're different identities. Defined separately in :root and .light.
+   *
+   *  2. SIGNALS (canonical hue, per-mode lightness) — node categories, channel
+   *     types, badge severity. These are *identity markers*:
+   *     "logic" should be recognizably the same green in both modes. Hue/sat
+   *     stay fixed; only --signal-l changes per mode.
+   *
+   *  Consumers using opacity (hsl(var(--node-X) / 0.3)) automatically tint
+   *  toward the surface behind them, so the same canonical color reads well
+   *  on both dark and light surfaces.
+   */
+  :root {
+    /* ════════════════════════════════════════════════════════════
+     * GENERAL UI — surfaces, text, controls. (DARK MODE = default)
+     *
+     * These are the colors an embedding app SHARES with the builder:
+     * buttons, panels, inputs, menus, status. A host that reuses this
+     * preset reuses everything in this block. Hue 40, saturation ~2%:
+     * a faint warm gray, premium and nearly neutral.
+     * (.light overrides these values further down.)
+     * ════════════════════════════════════════════════════════════ */
+
+    /* App shell / page background, and the default text drawn on it. */
+    --background: 40 2% 8%;
+    --foreground: 0 0% 95%;
+
+    /* Card surface — builder panels, list rows, AND node bodies. Matches
+       --sidebar-background and --panel-background so all chrome shares one
+       panel color. --card-foreground is text drawn on a card. */
+    --card: 40 2% 18%;
+    --card-foreground: 0 0% 95%;
+
+    /* Popover / dropdown / menu surface (lifted slightly above cards). */
+    --popover: 40 2% 22%;
+    --popover-foreground: 0 0% 95%;
+
+    /* PRIMARY = the vibrant brand green. Active text/icons (text-primary),
+       primary buttons, the focus ring. --primary-foreground is text ON it. */
+    --primary: 158 53% 42%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 158 53% 52%;
+
+    /* Secondary neutral surface — secondary buttons. */
+    --secondary: 40 2% 24%;
+    --secondary-foreground: 0 0% 95%;
+
+    /* MUTED = subtle neutral fill (hover backgrounds, bg-muted/50). Its
+       --muted-foreground is the canonical SUBTEXT color: port labels,
+       descriptions, "<arg>:" hints, and any secondary text. */
+    --muted: 40 2% 22%;
+    --muted-foreground: 0 0% 65%;
+
+    /* ACCENT = the muted/selection green. Fills selected list rows and
+       focused menu/command/select items (bg-accent). The calm "this is
+       selected" wash; vibrant interactions use --primary instead. */
+    --accent: 158 16% 22%;
+    --accent-foreground: 0 0% 95%;
+
+    /* DESTRUCTIVE = error red — delete buttons, error text/badges/borders. */
+    --destructive: 0 78% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* BORDER = every DOM border: panels, cards, separators, AND form-field
+       borders (the preset aliases border-input to this — one border color). */
+    --border: 40 2% 26%;
+    /* RING = focus highlight around inputs/buttons. */
+    --ring: 158 53% 42%;
+    /* OVERLAY = dialog/backdrop scrim. */
+    --overlay: 0 0% 0% / 0.8;
+
+    /* FIELD = form-input fill, darker than --card so inputs read as recessed
+       (--border draws their outline). */
+    --field: 40 2% 14%;
+
+    --radius: 0.5rem;
+
+    /* Status accents (semantic, full-saturation). */
+    --success: 158 53% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Sidebar — app-shell chrome, shared with the host's AppSidebar. */
+    --sidebar-background: 40 2% 18%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 158 53% 42%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 2% 24%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 40 2% 26%;
+    --sidebar-ring: 158 53% 42%;
+
+    /* Gradients — page background and glass components. */
+    --gradient-subtle: linear-gradient(135deg, hsl(40 2% 8%), hsl(40 2% 18%));
+    --gradient-glass: linear-gradient(135deg, var(--glass-bg-light), var(--glass-bg-medium));
+
+    /* Shadows — black at moderate alpha; in dark mode the eye can't see much
+       against near-black surfaces, so elevated states lean on the glow tokens. */
+    --shadow-sm: 0 2px 4px 0 hsl(0 0% 0% / 0.4);
+    --shadow-md: 0 4px 12px -2px hsl(0 0% 0% / 0.5);
+    --shadow-lg: 0 12px 24px -4px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 20px hsl(158 53% 42% / 0.4);
+
+    /* ════════════════════════════════════════════════════════════
+     * BUILDER / GRAPH ONLY — canvas, edges, ports, node categories.
+     *
+     * Embedding apps do NOT use these; they're specific to the React
+     * Flow editing surface and are mostly consumed INLINE by the graph
+     * layer (CustomEdge / PortHandle / BaseNode), not via Tailwind classes.
+     * ════════════════════════════════════════════════════════════ */
+
+    /* Canvas = editing surface behind nodes (sits between --background and
+       --card for a subtle elevation). */
+    --canvas-background: 40 2% 14%;
+
+    /* Edge/connection color — ALSO the node OUTLINE color, so edges and node
+       borders share one graph-line color. */
+    --edge-default: 40 5% 58%;
+
+    /* Builder panel chrome (inspectors/sidebars inside the editor). */
+    --panel-background: 40 2% 18%;
+    --panel-border: 40 2% 26%;
+
+    /* Selection glow — uniform halo around selected nodes/edges, independent
+       of category color so multi-selection stays calm. */
+    --selection-glow: 0 0% 100%;
+
+    /* Drop shadow cast under nodes. */
+    --node-shadow: 40 2% 5%;
+
+    /* SIGNAL TUNING — node category hues are fixed; only saturation and
+       lightness shift per mode (see .light). */
+    --signal-s: 70%; /* signal saturation */
+    --signal-l: 58%; /* signal lightness (dark mode) */
+
+    /* NODE CATEGORY SIGNALS — one identity color per node type. */
+    --node-agent: 273 var(--signal-s) var(--signal-l);
+    --node-input: 195 var(--signal-s) var(--signal-l);
+    --node-output: 142 var(--signal-s) var(--signal-l);
+    --node-trigger: 32 88% var(--signal-l);
+    --node-logic: 175 var(--signal-s) var(--signal-l);
+    --node-data: 42 85% var(--signal-l);
+    --node-tool: 200 80% var(--signal-l);
+    --node-function: 320 var(--signal-s) var(--signal-l);
+  }
+
+  .light {
+    /* ═══ GENERAL UI (light overrides — a different material, not a shift) ═══ */
+    --background: 220 14% 96%;
+    --foreground: 220 15% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 15%;
+    --primary: 158 53% 38%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 158 53% 48%;
+    --secondary: 220 12% 92%;
+    --secondary-foreground: 220 15% 15%;
+    --muted: 220 12% 94%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 158 40% 93%;
+    --accent-foreground: 220 15% 15%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 88%;
+    --ring: 158 53% 42%;
+    --overlay: 0 0% 0% / 0.5;
+    /* Field fill — clearly darker than the white card so inputs read recessed. */
+    --field: 220 14% 92%;
+    --success: 158 53% 38%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 42%;
+    --warning-foreground: 0 0% 100%;
+    --sidebar-background: 220 14% 98%;
+    --sidebar-foreground: 220 15% 15%;
+    --sidebar-primary: 158 53% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 12% 94%;
+    --sidebar-accent-foreground: 220 15% 15%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 158 53% 38%;
+    /* Shadows — dark ink on light surfaces. Alpha kept high enough that cards
+       read with clear elevation (matching dark mode's 0.4-alpha prominence),
+       while staying soft so they don't smudge on white. */
+    --shadow-sm: 0 1px 3px 0 hsl(220 15% 25% / 0.16), 0 2px 6px -1px hsl(220 15% 25% / 0.12);
+    --shadow-md: 0 4px 8px -1px hsl(220 15% 25% / 0.18), 0 8px 16px -2px hsl(220 15% 25% / 0.14);
+    --shadow-lg: 0 4px 8px -2px hsl(220 15% 25% / 0.12), 0 12px 24px -4px hsl(220 15% 25% / 0.18);
+    --shadow-glow: 0 0 24px hsl(158 53% 42% / 0.25);
+
+    /* ═══ BUILDER / GRAPH ONLY (light overrides) ═══ */
+    /* Canvas sits deeper than the app shell so the editing surface is
+       clearly distinct from chrome. */
+    --canvas-background: 220 14% 92%;
+    --edge-default: 220 8% 45%;
+    --panel-background: 0 0% 100%;
+    --panel-border: 220 13% 88%;
+    /* Selection glow — dark in light mode for high contrast on white. */
+    --selection-glow: 220 15% 15%;
+    /* Same node hues as dark; only saturation/lightness drop for legibility. */
+    --signal-s: 68%;
+    --signal-l: 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Base look is scoped to the builder's own root — NOT <body>. The host owns
+     page chrome (background, page font, overscroll); the builder only dresses
+     itself. font-sans (Poppins) is inherited from the .fh-builder root;
+     headings get the Inter display face, scoped so it can't restyle host pages. */
+  .fh-builder :is(h1, h2, h3, h4, h5, h6) {
+    font-family: Inter, system-ui, sans-serif;
+  }
+}
+
+/* Glass Forest Design System */
+@layer components {
+  /* Core Glass Components - Verstärkte Glass-Effekte */
+  .glass-forest-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg transition-all duration-300;
+  }
+
+  .glass-forest-card:hover {
+    @apply bg-card/70 shadow-xl scale-[1.02] border-primary/20;
+  }
+
+  .glass-forest-panel {
+    @apply bg-card/70 backdrop-blur-2xl border border-white/10 shadow-xl;
+  }
+
+  .glass-forest-button {
+    @apply bg-card/40 backdrop-blur-md border border-border rounded-full transition-all duration-300;
+  }
+
+  .glass-forest-button:hover {
+    @apply bg-card/60 border-primary/30 shadow-lg -translate-y-0.5;
+  }
+
+  .glass-forest-button-primary {
+    @apply bg-primary text-primary-foreground rounded-full shadow-sm border-0;
+  }
+
+  .glass-forest-button-primary:hover {
+    @apply shadow-xl scale-[1.02] -translate-y-0.5;
+  }
+
+  .glass-forest-input {
+    @apply bg-card/40 backdrop-blur-lg border border-border rounded-2xl transition-all duration-300;
+  }
+
+  .glass-forest-input:focus {
+    @apply bg-card/60 border-primary outline-none ring-2 ring-primary/20;
+  }
+
+  /* Organic Hover Effects */
+  .hover-glow {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-glow:hover {
+    box-shadow: var(--glow-green);
+    transform: translateY(-2px);
+  }
+
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  /* Workflow Builder Glass Styles - Mehr Transparenz */
+  .workflow-builder-panel {
+    @apply bg-card/70 backdrop-blur-2xl border border-white/10 shadow-xl;
+  }
+
+  .block-card {
+    @apply bg-card/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg cursor-pointer transition-all duration-300;
+  }
+
+  .block-card:hover {
+    @apply bg-card/70 shadow-xl scale-[1.02];
+  }
+
+  .block-node-glass {
+    @apply bg-card/70 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl transition-all duration-300;
+  }
+
+  .block-node-glass:hover {
+    @apply shadow-2xl scale-[1.02] bg-card/80;
+  }
+
+  /* Loading & Status */
+  .loading-organic {
+    @apply animate-pulse-organic rounded-full bg-primary/20;
+  }
+
+  .status-dot {
+    @apply w-2 h-2 rounded-full animate-pulse-organic;
+  }
+
+  .status-success .status-dot {
+    @apply bg-success;
+    box-shadow: var(--glow-green);
+  }
+
+  .status-warning .status-dot {
+    @apply bg-warning;
+  }
+}
+
+@layer utilities {
+  /* Organic Animations */
+  @keyframes pulse-organic {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes ripple-expand {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  @keyframes light-trail {
+    0% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes glow-pulse {
+    0%,
+    100% {
+      box-shadow: var(--glow-green);
+    }
+    50% {
+      box-shadow: var(--glow-combined);
+    }
+  }
+
+  /* Animation Classes */
+  .animate-pulse-organic {
+    animation: pulse-organic 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-ripple {
+    animation: ripple-expand 1.5s ease-out;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+ * Themed thin scrollbars — uniform across every scrollable region
+ * inside the builder (sidebar, right panel, tabs toolbar, dropdowns,
+ * dialogs, debug console).
+ *
+ * Two scopes, both opt-in:
+ *  - `.fh-builder` covers everything rendered inside the
+ *    builder DOM subtree.
+ *  - `.fh-builder-portal` covers Radix Content nodes that portal to
+ *    <body> (DropdownMenu, Dialog, AlertDialog, Select, Tooltip), so
+ *    they don't drop back to the host's native scrollbar just because
+ *    they live outside the builder root in the DOM. Same marker used
+ *    to pin `font-sans` on those nodes.
+ *
+ * Host pages are never touched: every rule is anchored on one of these
+ * two classes; no `body`/`html`/universal selector escapes them. Thumb
+ * uses --muted-foreground at low opacity so it reads as a faint hint of
+ * the subtext color on both card and popover surfaces, in both modes.
+ *
+ * Width 6px: thin enough that the 6px reflow when it appears is barely
+ * perceptible, while still big enough to grab. We deliberately don't
+ * use `scrollbar-gutter: stable` (which would reserve the gutter even
+ * when nothing overflows) — most panels never need a scrollbar, and
+ * the permanent gap looks worse than the rare reflow.
+ * ════════════════════════════════════════════════════════════ */
+.fh-builder,
+.fh-builder *,
+.fh-builder-portal,
+.fh-builder-portal * {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+}
+.fh-builder ::-webkit-scrollbar,
+.fh-builder-portal::-webkit-scrollbar,
+.fh-builder-portal ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.fh-builder ::-webkit-scrollbar-track,
+.fh-builder-portal::-webkit-scrollbar-track,
+.fh-builder-portal ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fh-builder ::-webkit-scrollbar-thumb,
+.fh-builder-portal::-webkit-scrollbar-thumb,
+.fh-builder-portal ::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+}
+.fh-builder ::-webkit-scrollbar-thumb:hover,
+.fh-builder-portal::-webkit-scrollbar-thumb:hover,
+.fh-builder-portal ::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.55);
+}
+.fh-builder ::-webkit-scrollbar-corner,
+.fh-builder-portal::-webkit-scrollbar-corner,
+.fh-builder-portal ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Suppress ReactFlow's built-in selection outline — we use custom glow via editorStore */
+.react-flow__node.selected,
+.react-flow__edge.selected {
+  outline: none !important;
+}
+
+/* Debug cursor pulse animation for node highlighting */
+@keyframes debug-cursor-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}

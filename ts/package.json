@@ -1,0 +1,33 @@
+{
+  "name": "@foresthubai/ts",
+  "private": true,
+  "description": "TypeScript workspace for the ForestHub open platform (workflow-core, workflow-builder).",
+  "workspaces": [
+    "workflow-core",
+    "workflow-builder",
+    "workflow-cli"
+  ],
+  "scripts": {
+    "generate": "npm run generate --workspace @foresthubai/workflow-core",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc -b workflow-core workflow-builder && tsc --noEmit -p workflow-cli/tsconfig.json",
+    "release": "node scripts/release.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.59.4"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "*",
+    "@rollup/rollup-darwin-x64": "*",
+    "@rollup/rollup-linux-x64-gnu": "*",
+    "@rollup/rollup-win32-x64-msvc": "*"
+  }
+}

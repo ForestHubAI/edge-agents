@@ -1,0 +1,1 @@
+export { getReferencedCatalogModelIds } from "./requirements";

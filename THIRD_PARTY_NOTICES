@@ -1,0 +1,159 @@
+Third-Party Software Notices
+============================
+
+edge-agents uses a two-tier license model:
+  - `contract/` and `ts/workflow-core/` are licensed under Apache-2.0
+  - The rest (engine, workflow-builder, app) is licensed under AGPL-3.0-only
+    or a separate commercial license
+See LICENSE, NOTICE, contract/LICENSE, and ts/workflow-core/LICENSE for details.
+
+The third-party components listed below are incorporated into or distributed
+with edge-agents and retain their original licenses as noted. None of these
+licenses conflict with the two-tier model above; the permissive and
+weak-copyleft licenses below are all one-way compatible with both Apache-2.0
+and the GNU AGPL v3.
+
+Per-license obligations satisfied here:
+  * MIT / ISC / BSD-2-Clause / BSD-3-Clause / 0BSD / BlueOak-1.0.0 / Python-2.0
+    — reproduce the copyright notice and license text (satisfied by listing the
+    component; upstream LICENSE text ships in each package's source).
+  * Apache-2.0 — additionally retain any NOTICE file and preserve attribution
+    headers in modified files (§4). Components under Apache-2.0 are marked [A].
+  * CC-BY-4.0 — attribution required (data package, build-time only).
+  * Eclipse Paho is taken under its Eclipse Distribution License v1.0
+    (BSD-3-Clause) option, not the EPL-2.0 option.
+
+This file is generated from go/go.mod, go/go.sum and ts/package-lock.json.
+Regenerate it after dependency changes.
+
+
+================================================================================
+A. VENDORED THIRD-PARTY SOURCE (copied into this repository)
+================================================================================
+
+go/llmproxy/schemautil/schemautil.go
+    Portions Copyright 2025 The NLP Odyssey Authors.
+    Licensed under the Apache License, Version 2.0. [A]
+    The original copyright and license header is retained at the top of the
+    file. See http://www.apache.org/licenses/LICENSE-2.0
+
+
+================================================================================
+B. GO MODULE DEPENDENCIES (github.com/ForestHubAI/edge-agents/go)
+================================================================================
+
+-- Apache-2.0 [A] (NOTICE / attribution obligation) --
+  google.golang.org/genai                                  v1.57.0
+  google.golang.org/grpc                                   v1.66.2
+  google.golang.org/genproto/googleapis/rpc                (pinned)
+  cloud.google.com/go                                      v0.116.0
+  cloud.google.com/go/auth                                 v0.9.3
+  cloud.google.com/go/compute/metadata                     v0.5.0
+  github.com/google/s2a-go                                 v0.1.8
+  github.com/googleapis/enterprise-certificate-proxy       v0.3.4
+  go.opencensus.io                                         v0.24.0
+  github.com/xeipuuv/gojsonschema                          v1.2.0
+  github.com/xeipuuv/gojsonpointer                         (pinned)
+  github.com/xeipuuv/gojsonreference                       (pinned)
+  github.com/spf13/cobra                                   v1.10.2   (build tool)
+  github.com/getkin/kin-openapi                            v0.135.0  (build tool)
+  github.com/oapi-codegen/oapi-codegen/v2                  v2.7.0    (build tool)
+  github.com/oapi-codegen/runtime                          v1.4.0
+
+-- BSD-3-Clause --
+  google.golang.org/protobuf                               v1.34.2
+  github.com/spf13/pflag                                   v1.0.10   (build tool)
+  golang.org/x/crypto, x/exp, x/mod, x/net, x/sync,
+    x/sys, x/term, x/text, x/tools                          (pinned)
+  github.com/golang/groupcache                             (pinned)
+  github.com/google/go-cmp                                 v0.6.0
+  go.bug.st/serial                                         v1.6.4
+  github.com/creack/goselect                               v0.1.2
+
+-- Eclipse Distribution License v1.0 (BSD-3-Clause) --
+  github.com/eclipse/paho.mqtt.golang                      v1.5.1
+    (dual-licensed EPL-2.0 OR EDL-1.0; distributed under the EDL-1.0 option)
+
+-- MIT --
+  github.com/anthropics/anthropic-sdk-go                   v1.44.0
+  github.com/openai/openai-go/v2                           v2.7.1
+  github.com/go-chi/chi/v5                                 v5.2.5
+  github.com/rs/zerolog                                    v1.35.1
+  github.com/caarlos0/env/v9                               v9.0.0
+  github.com/invopop/jsonschema                            v0.13.0
+  github.com/stretchr/testify                              v1.11.1
+  github.com/google/uuid                                   v1.6.0
+  github.com/gorilla/websocket                             v1.5.3
+  github.com/knadh/koanf/* (v2 + parsers/providers)        (pinned)
+  github.com/tidwall/gjson, match, pretty, sjson           (pinned)
+  github.com/mitchellh/copystructure, reflectwalk          (pinned)
+  github.com/mattn/go-colorable, go-isatty, go-runewidth   (pinned)
+  github.com/warthog618/go-gpiocdev                        v0.9.1
+  github.com/jedib0t/go-pretty/v6                          v6.7.8    (build tool)
+  github.com/vektra/mockery/v3                             v3.7.0    (build tool)
+  gopkg.in/yaml.v3 / go.yaml.in/yaml/v3                     (pinned)
+  ... and other MIT-licensed transitive modules
+
+-- BSD-2-Clause --
+  github.com/pmezard/go-difflib                            (pinned)
+  gopkg.in/check.v1, github.com/kr/text, github.com/kr/pretty  (pinned, test)
+
+
+================================================================================
+C. NPM WORKSPACE DEPENDENCIES (ts/)
+================================================================================
+
+The TypeScript workspace draws ~484 third-party packages, the vast majority
+under MIT. Representative components by license:
+
+-- MIT --
+  react, react-dom                                         18.3.1
+  @radix-ui/react-*  (dialog, select, dropdown-menu, ...)  1.x / 2.x
+  @xyflow/react, @xyflow/system                            12.10.2 / 0.0.76
+  i18next, react-i18next                                   25.x / 15.x
+  zustand                                                  5.0.13
+  cmdk, clsx, tailwind-merge, tailwindcss(-animate)        (pinned)
+  @inquirer/* (prompts/core/...)                           (pinned, CLI)
+  jsep                                                     1.4.0
+  vite, vitest, esbuild, rollup, @babel/*, postcss,
+    eslint, @typescript-eslint/*                           (dev toolchain)
+  ... and the bulk of transitive MIT packages
+
+-- ISC --
+  lucide-react 0.462.0, picocolors, semver, yargs-parser,
+  d3-* (color/dispatch/drag/interpolate/selection/...),
+  signal-exit, mute-stream, fastq, glob-parent, yallist, ...
+
+-- Apache-2.0 [A] --
+  typescript 5.9.3, class-variance-authority 0.7.1,
+  ts-interface-checker 0.1.13, eslint-visitor-keys,
+  @humanfs/*, @humanwhocodes/*, @eslint/* (config-array/core/
+  object-schema/plugin-kit), baseline-browser-mapping,
+  expect-type, yaml-ast-parser (dev)
+
+-- BSD-2-Clause / BSD-3-Clause --
+  eslint-scope, espree, esrecurse, estraverse, esutils, uri-js (BSD-2)
+  d3-ease, esquery, source-map-js (BSD-3)
+
+-- 0BSD --
+  tslib 2.8.1
+
+-- Python-2.0 --
+  argparse 2.0.1 (dev)
+
+-- BlueOak-1.0.0 --
+  minimatch 10.x (dev)
+
+-- (MIT OR CC0-1.0) --
+  type-fest 4.41.0 (dev) — used under MIT
+
+-- CC-BY-4.0 (attribution required; data, build-time only) --
+  caniuse-lite 1.0.30001793
+    (c) the caniuse contributors. https://github.com/browserslist/caniuse-lite
+    Distributed under Creative Commons Attribution 4.0.
+
+
+================================================================================
+Full license texts for every component above are available in each package's
+source distribution (Go module cache / node_modules).
+================================================================================

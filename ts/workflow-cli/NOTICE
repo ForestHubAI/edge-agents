@@ -1,0 +1,23 @@
+edge-agents/workflow-cli  (@foresthubai/workflow-cli)
+Copyright (c) 2026 ForestHub. All rights reserved.
+
+This product includes software developed by ForestHub
+(https://foresthub.ai). Source: https://github.com/ForestHubAI/edge-agents
+
+The @foresthubai/workflow-cli package is the `fh-workflow` command-line
+tool plus a bundled copy of the visual workflow builder. It is licensed
+under the GNU Affero General Public License Version 3.0 (AGPL-3.0-only)
+or a separate commercial license.
+
+Because the published package bundles @foresthubai/workflow-builder
+(AGPL-3.0-only) into its SPA assets, the package as a whole is
+AGPL-3.0-only. The AGPL network clause applies: `fh-workflow open`
+serves the builder over a local HTTP server, so the corresponding
+source must be made available to users of that service — it is the
+repository linked above.
+
+It also bundles @foresthubai/workflow-core (Apache-2.0) and the
+third-party libraries ajv, ajv-formats, js-yaml, and jsep, each under
+its own license. See THIRD_PARTY_NOTICES in the repository.
+
+For commercial licensing inquiries: root@foresthub.ai

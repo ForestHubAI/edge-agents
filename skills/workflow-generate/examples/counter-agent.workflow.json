@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "ticker-1",
+      "type": "Ticker",
+      "position": { "x": 268, "y": 293 },
+      "arguments": {
+        "intervalValue": 15,
+        "intervalUnit": "seconds"
+      }
+    },
+    {
+      "id": "setvar-1",
+      "type": "SetVariable",
+      "position": { "x": 583, "y": 297 },
+      "arguments": {
+        "variable": {
+          "srcId": "declared",
+          "varId": "var-counter"
+        },
+        "value": {
+          "expression": "${} + 1",
+          "references": [
+            { "srcId": "declared", "varId": "var-counter" }
+          ],
+          "dataType": "int"
+        }
+      }
+    },
+    {
+      "id": "agent-1",
+      "type": "Agent",
+      "position": { "x": 863, "y": 297 },
+      "arguments": {
+        "model": "claude-haiku-4-5",
+        "outputDeclarations": [
+          {
+            "mode": "assign",
+            "name": "comment",
+            "dataType": "int",
+            "target": { "srcId": "declared", "varId": "var-counter" }
+          }
+        ],
+        "memoryRefs": [],
+        "answer": {
+          "active": true,
+          "mode": "emit",
+          "name": "answer"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-ticker-setvar",
+      "type": "control",
+      "from": { "nodeId": "ticker-1", "port": "ctrl" },
+      "to": { "nodeId": "setvar-1", "port": "ctrl" }
+    },
+    {
+      "id": "edge-setvar-agent",
+      "type": "agentTask",
+      "from": { "nodeId": "setvar-1", "port": "ctrl" },
+      "to": { "nodeId": "agent-1", "port": "ctrl" },
+      "prompt": {
+        "expression": "Comment on the current counter value ${} in one short sentence.",
+        "references": [
+          { "srcId": "declared", "varId": "var-counter" }
+        ],
+        "dataType": "string"
+      }
+    }
+  ],
+  "functions": [],
+  "declaredVariables": [
+    {
+      "uid": "var-counter",
+      "name": "counter",
+      "dataType": "int"
+    }
+  ],
+  "channels": [],
+  "memory": [],
+  "models": []
+}

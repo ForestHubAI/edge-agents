@@ -1,0 +1,105 @@
+{
+  "name": "@foresthubai/workflow-core",
+  "version": "0.1.1",
+  "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ForestHubAI/edge-agents.git",
+    "directory": "ts/workflow-core"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js"
+    },
+    "./id": {
+      "types": "./dist/id/index.d.ts",
+      "import": "./dist/id/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "import": "./dist/node/index.js"
+    },
+    "./edge": {
+      "types": "./dist/edge/index.d.ts",
+      "import": "./dist/edge/index.js"
+    },
+    "./channel": {
+      "types": "./dist/channel/index.d.ts",
+      "import": "./dist/channel/index.js"
+    },
+    "./memory": {
+      "types": "./dist/memory/index.d.ts",
+      "import": "./dist/memory/index.js"
+    },
+    "./model": {
+      "types": "./dist/model/index.d.ts",
+      "import": "./dist/model/index.js"
+    },
+    "./deploy": {
+      "types": "./dist/deploy/index.d.ts",
+      "import": "./dist/deploy/index.js"
+    },
+    "./parameter": {
+      "types": "./dist/parameter/index.d.ts",
+      "import": "./dist/parameter/index.js"
+    },
+    "./function": {
+      "types": "./dist/function/index.d.ts",
+      "import": "./dist/function/index.js"
+    },
+    "./variable": {
+      "types": "./dist/variable/index.d.ts",
+      "import": "./dist/variable/index.js"
+    },
+    "./expression": {
+      "types": "./dist/expression/index.d.ts",
+      "import": "./dist/expression/index.js"
+    },
+    "./workflow": {
+      "types": "./dist/workflow/index.d.ts",
+      "import": "./dist/workflow/index.js"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics/index.d.ts",
+      "import": "./dist/diagnostics/index.js"
+    },
+    "./migration": {
+      "types": "./dist/migration/index.d.ts",
+      "import": "./dist/migration/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts",
+    "build": "tsc -b",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jsep": "^1.4.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.4.0",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.8"
+  }
+}

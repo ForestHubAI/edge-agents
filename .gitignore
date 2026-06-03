@@ -1,0 +1,26 @@
+.claude/settings.local.json
+
+# Node
+node_modules/
+ts/**/dist/
+ts/**/dist-cli/
+*.tsbuildinfo
+*.tgz
+# Root delegator has no deps of its own — this lockfile is empty and carries nothing.
+/package-lock.json
+
+# Go
+*.test
+*.out
+
+# Engine deploy build artifacts (image tarball produced by `docker save`)
+*.tar
+
+# Env / local
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# compiled binary, not for VCS
+go/fh-agent

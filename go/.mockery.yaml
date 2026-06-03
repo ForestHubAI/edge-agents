@@ -1,0 +1,8 @@
+all: true
+# use file name as regular code instead of _test Test if mock need to be exported
+# currently not required, because "interfaces are defined where they're consumed, not where they're implemented"
+# filename: mock.go
+packages:
+  github.com/ForestHubAI/edge-agents/go/engine:
+  github.com/ForestHubAI/edge-agents/go/llmproxy:
+  github.com/ForestHubAI/edge-agents/go/llmproxy/agent:

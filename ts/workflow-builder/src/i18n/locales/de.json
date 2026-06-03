@@ -1,0 +1,501 @@
+{
+  "nodeLibrary": "Node-Bibliothek",
+  "blockLibrary": "Node-Bibliothek",
+  "diagnostics": "Diagnose",
+  "functionDefinition": "Funktionsdefinition",
+  "open": "Öffnen",
+  "close": "Schließen",
+  "save": "Speichern",
+  "exportAsJSON": "Als JSON exportieren",
+  "versionHistory": "Versionsverlauf",
+  "test": "Testen",
+  "run": "Ausführen",
+  "stop": "Stoppen",
+  "deploy": "Bereitstellen",
+  "configure": "Konfigurieren",
+  "addBlock": "Node hinzufügen",
+  "deleteBlock": "Node löschen",
+  "duplicateBlock": "Node duplizieren",
+  "connectBlocks": "Nodes verbinden",
+  "disconnectBlocks": "Nodes trennen",
+  "zoomIn": "Vergrößern",
+  "zoomOut": "Verkleinern",
+  "fitView": "An Ansicht anpassen",
+  "autoLayout": "Auto-Layout",
+  "grid": "Raster",
+  "showGrid": "Raster anzeigen",
+  "snapToGrid": "Am Raster ausrichten",
+  "undo": "Rückgängig",
+  "redo": "Wiederholen",
+  "cut": "Ausschneiden",
+  "copy": "Kopieren",
+  "paste": "Einfügen",
+  "selectAll": "Alle auswählen",
+  "deselectAll": "Auswahl aufheben",
+  "delete": "Löschen",
+  "canvas": "Canvas",
+  "parameters": "Parameter",
+  "connections": "Verbindungen",
+  "validation": "Validierung",
+  "errors": "Fehler",
+  "warnings": "Warnungen",
+  "noErrors": "Keine Fehler gefunden",
+  "unknownNodeType": "Unbekannter Nodetyp: {{type}}",
+  "deleteNode": "Node löschen",
+  "updateToLatestDefinition": "Auf neueste Definition aktualisieren",
+  "functionCallNodesMigrated": "Funktionsaufruf-Nodes aktualisiert",
+  "functionCallNodesMigratedDesc": "{{count}} Node(s) wurden auf die neueste Funktionsdefinition migriert.",
+  "variables": "Variablen",
+  "models": "KI-Modelle",
+  "agents": "Agenten",
+  "conversations": "Konversationen",
+  "noVariables": "Keine Variablen verfügbar",
+  "addBlocksForVariables": "Fügen Sie Nodes hinzu, um deren Ausgabevariablen zu sehen",
+  "agentsDescription": "AI-Agenten für Ihren Workflow verwalten und konfigurieren",
+  "noAgentsConfigured": "Noch keine Agenten konfiguriert",
+  "addAgent": "Agent hinzufügen",
+  "availableAgents": "Verfügbare Agenten",
+  "comingSoon": "Demnächst...",
+  "conversationsDescription": "Konversationsabläufe anzeigen und verwalten",
+  "noConversations": "Noch keine Konversationen",
+  "newConversation": "Neue Konversation",
+  "conversationTemplates": "Vorlagen",
+  "newWorkflow": "Neuer Workflow",
+  "searchBlocks": "Nodes durchsuchen...",
+  "noParameters": "Keine Parameter",
+  "moreCount": "+{{count}} weitere",
+  "parametersLabel": "Parameter:",
+  "required": "Erforderlich",
+  "optional": "Optional",
+  "typeLabel": "Typ:",
+  "defaultLabel": "Standard:",
+  "optionsLabel": "Optionen:",
+  "parameterCount": "{{count}} Parameter",
+  "paramTypeText": "Text",
+  "paramTypeNumber": "Zahl",
+  "paramTypeBoolean": "Boolean",
+  "paramTypeSelection": "Auswahl",
+  "paramTypeExpression": "Expr",
+  "noModelsAvailable": "Derzeit sind keine LLM-Modelle verfügbar. Bitte kontaktieren Sie den Support.",
+  "generatedConfig": "Generierte Konfiguration",
+  "importProject": "Projekt importieren",
+  "jsonConfig": "JSON-Konfiguration",
+  "jsonConfigPlaceholder": "JSON-Konfiguration hier einfügen...",
+  "orUploadFile": "Oder Datei hochladen",
+  "import": "Importieren",
+  "saveWorkflow": "Workflow speichern",
+  "createProject": "Projekt erstellen",
+  "create": "Erstellen",
+  "unsavedDraft": "Ungespeicherter Entwurf",
+  "unsavedDraftWarning": "Sie haben ungespeicherte Änderungen, die verloren gehen. Trotzdem verlassen?",
+  "saveFailedMessage": "Das Projekt konnte nicht erstellt werden. Laden Sie Ihre Arbeit als JSON herunter, um sie nicht zu verlieren.",
+  "downloadAsJSON": "Als JSON herunterladen",
+  "namePlaceholder": "Workflow Name eingeben...",
+  "descriptionOptional": "Beschreibung (optional)",
+  "descriptionPlaceholder": "Kurze Beschreibung des Workflows...",
+  "saving": "Speichere...",
+  "testAgentNode": "Agenten-Node testen",
+  "testAgentDescription": "Sende einen Prompt an den Agenten und streame die Antwort. Die Kosten werden mit deinem Guthaben verrechnet.",
+  "prompt": "Prompt",
+  "promptPlaceholder": "Beschreibe die Aufgabe für den Agenten",
+  "testing": "Wird getestet…",
+  "startTest": "Test starten",
+  "stopTest": "Stopp",
+  "testAgent": "Agent testen",
+  "maxTurns": "Max. Durchläufe",
+  "toolCall": "Tool-Aufruf: {{name}}",
+  "toolResult": "Tool-Ergebnis: {{name}}",
+  "finalOutput": "Endergebnis ({{turns}} Durchläufe)",
+  "structuredOutput": "Strukturierte Ausgabe",
+  "structuredOutputParseError": "Strukturierte Ausgabe konnte nicht als JSON geparst werden",
+  "rawJson": "Roh-JSON",
+  "outputName": "Name",
+  "outputType": "Typ",
+  "outputValue": "Wert",
+  "noNodeSelected": "Kein Node gewählt",
+  "selectNodeMessage": "Bitte wähle einen Ziel-Node im Canvas.",
+  "importError": "Import Fehler",
+  "invalidJson": "Ungültiges JSON-Format",
+  "exportSuccess": "Export erfolgreich",
+  "configDownloaded": "Konfiguration wurde heruntergeladen",
+  "copied": "Kopiert",
+  "configCopied": "Konfiguration wurde in die Zwischenablage kopiert",
+  "autoVersionMessage": "Automatischer Checkpoint",
+  "autoVersionLabel": "Auto",
+  "saveStatus.saved": "Gespeichert",
+  "saveStatus.saving": "Speichern...",
+  "saveStatus.unsaved": "Ungespeicherte Änderungen",
+  "versionRenameTooltip": "Version umbenennen",
+  "versionPreviewPlaceholder": "Visuelle Vorschau kommt bald",
+  "preview.viewingVersion": "Version #{{number}} vom {{date}}",
+  "preview.restore": "Wiederherstellen",
+  "preview.cancel": "Zurück zum aktuellen Stand",
+  "preview.viewButton": "Ansehen",
+  "preview.viewOnly": "Nur Ansicht",
+  "preview.noPreview": "Version auswählen für Vorschau",
+  "preview.selectVersion": "Version auswählen zum Ansehen",
+  "preview.template": "Template: {{name}}",
+  "preview.useAsProject": "Als Projekt verwenden",
+  "preview.emptyCanvas": "Keine Nodes in dieser Version",
+  "preview.setAsCurrent": "Als aktuell setzen",
+  "preview.returnToCurrent": "Zurück zur aktuellen",
+  "debug.session": "Debug-Sitzung",
+  "debug.start": "Debug",
+  "debug.stop": "Stopp",
+  "debug.step": "Schritt",
+  "debug.building": "Kompiliert",
+  "debug.idle": "Bereit",
+  "debug.paused": "Pausiert",
+  "debug.stepping": "Ausführung",
+  "debug.error": "Fehler",
+  "debug.console": "Konsole",
+  "debug.clearConsole": "Konsole leeren",
+  "debug.consoleEmpty": "Konsolenausgaben erscheinen hier während der Ausführung.",
+  "debug.context": "Kontext",
+  "debug.externalIO": "Externe E/A",
+  "debug.noVariables": "Keine Workflow-Variablen definiert.",
+  "debug.noInputsNeeded": "Keine externen Eingaben für diesen Node erforderlich.",
+  "debug.selectNode": "Wähle einen Node zum Debuggen.",
+  "debug.triggerNotSteppable": "Trigger-Nodes können nicht einzeln ausgeführt werden. Wähle einen nachfolgenden Node.",
+  "debug.gpioPin": "GPIO Pin {{pin}}",
+  "debug.serialInput": "Serielle Eingabe",
+  "debug.serialPlaceholder": "Serielle Daten eingeben...",
+  "versionsLoading": "Lade Versionen...",
+  "noVersions": "Keine Versionen vorhanden.",
+  "versionsReadOnly": "Versionen sind schreibgeschützt und können nicht verändert werden.",
+  "loadingDialogs": "Dialoge laden…",
+  "loadingVersions": "Versionen laden…",
+  "loadingTest": "Testdialog lädt…",
+  "current": "Aktuell",
+  "newFunction": "Neue Funktion",
+  "enterExpression": "Ausdruck eingeben...",
+  "enterTypeExpression": "{{type}}-Ausdruck eingeben...",
+  "fromNode": "von {{node}}",
+  "addFunction": "Funktion hinzufügen",
+  "addFunctionHint": "Wiederverwendbare Funktion erstellen",
+  "addNodesForVariables": "Nodes hinzufügen, um deren Ausgabevariablen zu sehen",
+  "addVariable": "Variable hinzufügen",
+  "continueWithWarnings": "Mit Warnungen fortfahren",
+  "createFunction": "Funktion erstellen",
+  "definedVariables": "Definierte Variablen",
+  "deleteFunction": "Funktion löschen",
+  "deleteFunctionTitle": "Funktion löschen?",
+  "done": "Fertig",
+  "editFunction": "Funktion bearbeiten",
+  "expressionFor": "Ausdruck für",
+  "fnarg": "Arg",
+  "functionArguments": "Funktionsargumente",
+  "functionDialogDesc": "Funktionsnamen, Eingaben und Ausgaben konfigurieren.",
+  "functionInputsDesc": "Argumente, die beim Aufruf der Funktion übergeben werden",
+  "functionOutputsDesc": "Werte, die die Funktion zurückgibt; jeder ist ein Ausdruck über ihre Eingaben und ihren Rumpf",
+  "functionName": "Funktionsname",
+  "functionNamePlaceholder": "Funktionsname eingeben...",
+  "functions": "Funktionen",
+  "openFunction": "Funktion öffnen",
+  "globalVariable": "Globale Variable",
+  "initialValue": "Anfangswert",
+  "inputs": "Eingaben",
+  "nodeOutputVariables": "Node-Ausgabevariablen",
+  "noEdgeParams": "Keine Kantenparameter",
+  "noFunctionInfo": "Keine Funktionsinformationen verfügbar",
+  "noFunctions": "Noch keine Funktionen",
+  "noInputs": "Keine Eingaben",
+  "noIssuesFound": "Keine Probleme gefunden",
+  "noOutputs": "Keine Ausgaben",
+  "outputs": "Ausgaben",
+  "returnValueAssignments": "Rückgabewert-Zuweisungen",
+  "returnValueAssignmentsDesc": "Ausdrücke den Funktions-Rückgabewerten zuweisen",
+  "deleteEdge": "Verbindung löschen",
+  "renameProject": "Projekt umbenennen",
+  "functionCallDesc": "Die Funktion \"{{name}}\" aufrufen",
+  "functionParamDesc": "Wert für {{name}} eingeben",
+  "functionOutputDesc": "Name der Ausgabevariable für {{name}} eingeben",
+  "deleteFunctionDesc": "Diese Funktion und alle zugehörigen Knoten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "nodeLabel": "Knoten",
+  "validationPassed": "Keine Fehler oder Warnungen in Workflow",
+  "validationIssues": "Validierungsprobleme",
+  "validationErrorsDesc": "{{errorCount}} Fehler und {{warningCount}} Warnung(en) gefunden. Fehler müssen vor dem Export behoben werden.",
+  "validationWarningsDesc": "{{warningCount}} Warnung(en) gefunden. Sie können trotzdem fortfahren.",
+  "versionSaved": "Version gespeichert",
+  "versionSaveError": "Version konnte nicht gespeichert werden",
+  "versionRestored": "Version wiederhergestellt",
+  "versionRestoreError": "Version konnte nicht wiederhergestellt werden",
+  "versionRenamed": "Version umbenannt",
+  "versionRenameError": "Version konnte nicht umbenannt werden",
+  "codeGenSuccess": "Die Embedded-Firmware wurde erfolgreich generiert und heruntergeladen.",
+  "codeGenTitle": "C-Code generiert",
+  "codeGenError": "C-Code Generierung fehlgeschlagen",
+  "codeGenErrorDesc": "Der C-Code konnte nicht generiert werden.",
+  "seoDescription": "Visueller Builder für Ihre Projekte.",
+  "projectNotFound": "Projekt nicht gefunden",
+  "projectNotFoundDesc": "Das ausgewählte Projekt existiert nicht.",
+  "deploymentNotFound": "Deployment nicht gefunden",
+  "deployDialog": {
+    "title": "Workflow bereitstellen",
+    "description": "Diesen Workflow auf einem Gerät bereitstellen.",
+    "redeployTab": "Agent aktualisieren",
+    "newAgentTab": "Neuer Agent",
+    "selectAgent": "Agent auswählen",
+    "redeploy": "Erneut bereitstellen",
+    "selectDevice": "Gerät auswählen",
+    "agentName": "Agent-Name",
+    "agentNamePlaceholder": "z. B. Gewächshaus-Controller",
+    "confirm": "Bereitstellen",
+    "platform": "Plattform",
+    "platformPlaceholder": "Plattform auswählen",
+    "submitPush": "An Engine pushen",
+    "submitBundle": "Bundle herunterladen",
+    "submitCreateAndBundle": "Agent anlegen & herunterladen",
+    "method": {
+      "sectionTitle": "Deploy-Methode",
+      "push": "An Engine pushen",
+      "pushHint": "Den Workflow direkt über das lokale Netzwerk an die laufende Engine senden.",
+      "bundle": "Bundle herunterladen",
+      "bundleHint": "Deploy-Bundle herunterladen und manuell auf dem Gerät anwenden.",
+      "includeImage": "Auch Engine-Image (.tar) herunterladen",
+      "offlineHint": "Engine ist offline — zuletzt gesehen {{time}}. Bitte das Bundle herunterladen und auf dem Gerät anwenden.",
+      "pendingHint": "Engine startet nach dem letzten Deployment. Sie können das Bundle herunterladen, um es manuell anzuwenden.",
+      "bootErrorHint": "Engine meldet einen Boot-Fehler. Bitte das Bundle herunterladen und erneut auf dem Gerät anwenden.",
+      "newAgentHint": "Ein neuer Agent hat noch keine laufende Engine. Beim Bestätigen wird der Agent angelegt und das Deploy-Bundle für die manuelle Installation heruntergeladen."
+    },
+    "redeployHeader": "{{workflow}} auf {{agent}} erneut bereitstellen",
+    "success": {
+      "push": "Workflow an Engine gepusht",
+      "bundle": "Deploy-Bundle heruntergeladen",
+      "bundleWithImage": "Bundle und Engine-Image heruntergeladen"
+    },
+    "warn": {
+      "imageFailed": "Engine-Image-Download fehlgeschlagen",
+      "imageFailedDescription": "Bundle wurde erfolgreich heruntergeladen. Sie können den Image-Download von der Agent-Detailseite erneut starten."
+    },
+    "error": {
+      "save": "Speichern des Workflows fehlgeschlagen",
+      "push": "Push an Engine fehlgeschlagen",
+      "pushUnreachable": "Engine ist nicht erreichbar — versuchen Sie es mit dem Bundle-Download",
+      "pushForbidden": "Engine hat die Anfrage abgelehnt — bitte Agent-Zugangsdaten prüfen",
+      "bundle": "Bundle-Download fehlgeschlagen"
+    },
+    "releaseInfo": "Release {{number}}",
+    "newRelease": "Neues Release wird erstellt",
+    "savingChanges": "Änderungen werden gespeichert...",
+    "deploying": "Wird bereitgestellt...",
+    "deploySuccess": "Erfolgreich bereitgestellt",
+    "deploySuccessDesc": "Auf {{device}} bereitgestellt",
+    "draftError": "Speichern Sie Ihr Projekt vor der Bereitstellung"
+  },
+  "blocks": {
+    "input": "Eingang",
+    "output": "Ausgang",
+    "logic": "Logik",
+    "math": "Mathematik",
+    "ai": "KI",
+    "control": "Steuerung",
+    "sensor": "Sensor",
+    "actuator": "Aktor",
+    "communication": "Kommunikation",
+    "storage": "Speicher",
+    "custom": "Benutzerdefiniert"
+  },
+  "add": "Hinzufügen",
+  "cancel": "Abbrechen",
+  "nodes": {
+    "ReadPin": {
+      "description": "Daten von einem Pin lesen",
+      "params": {
+        "pinNumber": {
+          "description": "Nummer des zu lesenden Pins"
+        },
+        "signalType": {
+          "description": "Art des Signals"
+        },
+        "outputName": {
+          "description": "Name für die erzeugte Ausgabevariable"
+        }
+      }
+    },
+    "SerialRead": {
+      "description": "Zeichenkette von serieller Schnittstelle lesen",
+      "params": {
+        "prompt": {
+          "description": "Aufforderung für den seriellen Lesevorgang"
+        },
+        "outputName": {
+          "description": "Name der Variable für den gelesenen Wert"
+        }
+      }
+    },
+    "Retriever": {
+      "description": "Ruft relevante Dokumente aus einer Wissensdatenbank ab",
+      "params": {
+        "memoryReference": {
+          "description": "Die zu durchsuchende Vektordatenbank"
+        },
+        "topK": {
+          "description": "Anzahl der abzurufenden Ergebnisse"
+        },
+        "outputName": {
+          "description": "Variablenname für die abgerufenen Ergebnisse"
+        }
+      }
+    },
+    "WritePin": {
+      "description": "Daten an einen Pin schreiben",
+      "params": {
+        "pinNumber": {
+          "description": "Nummer des zu beschreibenden Pins"
+        },
+        "signalType": {
+          "description": "Art des Signals"
+        },
+        "value": {
+          "description": "Welcher Wert an den Pin geschrieben werden soll"
+        }
+      }
+    },
+    "SerialWrite": {
+      "description": "Zeichenkette an serielle Schnittstelle schreiben",
+      "params": {
+        "value": {
+          "description": "Ausdruck für den zu schreibenden Wert"
+        }
+      }
+    },
+    "OnFunctionCall": {
+      "description": "Wird ausgelöst, wenn diese Funktion von einem Funktionsaufruf-Knoten aufgerufen wird"
+    },
+    "Delay": {
+      "description": "Pausiert die Ausführung für eine bestimmte Dauer und löst aus, wenn die Verzögerung abgeschlossen ist. Während dieser Pause können andere Knotenketten ausgeführt werden.",
+      "params": {
+        "delayMs": {
+          "description": "Zeit in Millisekunden für die Pause"
+        }
+      }
+    },
+    "Ticker": {
+      "description": "Wird wiederholt in einem festgelegten Intervall ausgelöst",
+      "params": {
+        "intervalValue": {
+          "description": "Anzahl der Einheiten zwischen Takten"
+        },
+        "intervalUnit": {
+          "description": "Zeiteinheit für das Intervall"
+        }
+      }
+    },
+    "Alarm": {
+      "description": "Wird zu einer geplanten Zeit an ausgewählten Wochentagen ausgelöst",
+      "params": {
+        "time": {
+          "description": "Tageszeit für die Auslösung (24-Stunden-Format)"
+        },
+        "days": {
+          "description": "Wochentage für die Auslösung (leer = jeden Tag)"
+        }
+      }
+    },
+    "OnStartup": {
+      "description": "Wird einmal ausgelöst, wenn das Gerät eingeschaltet wird"
+    },
+    "OnPinChange": {
+      "description": "Wird ausgelöst, wenn sich ein Pin-Wert ändert",
+      "params": {
+        "pinNumber": {
+          "description": "Zu überwachende Pin-Nummer"
+        },
+        "outputName": {
+          "description": "Name der Variable, die den Pin-Wert enthält, wenn der Trigger ausgelöst wird"
+        },
+        "mode": {
+          "description": "Ob der Pin als digital oder analog gelesen werden soll"
+        },
+        "edge": {
+          "description": "Welcher Flankenübergang das Ereignis auslöst"
+        },
+        "threshold": {
+          "description": "Analoger Schwellenwert (0-1023)"
+        },
+        "direction": {
+          "description": "Richtung der Schwellenwertüberschreitung, die das Ereignis auslöst"
+        }
+      }
+    },
+    "OnSerialReceive": {
+      "description": "Wird ausgelöst, wenn serielle Daten eintreffen"
+    },
+    "OnThreshold": {
+      "description": "Wird ausgelöst, wenn ein Ausdruckswert einen Schwellenwert überschreitet",
+      "params": {
+        "value": {
+          "description": "Zu überwachender Ausdruck"
+        },
+        "threshold": {
+          "description": "Schwellenwert"
+        },
+        "direction": {
+          "description": "Richtung der Schwellenwertüberschreitung, die das Ereignis auslöst"
+        }
+      }
+    },
+    "Agent": {
+      "description": "KI-gesteuerter Agent für intelligente Verarbeitung",
+      "params": {
+        "name": {
+          "description": "Name des Agenten"
+        },
+        "model": {
+          "description": "KI-Modell für den Cloud-Agenten"
+        },
+        "instructions": {
+          "description": "Anweisungen für den Cloud-Agenten als Systemaufforderung"
+        }
+      }
+    },
+    "If": {
+      "description": "Bedingte Verzweigung basierend auf booleschem Ausdruck",
+      "params": {
+        "condition": {
+          "description": "Boolescher Ausdruck (z.B. ${Input_1.value} > 50)"
+        }
+      }
+    },
+    "SetVariable": {
+      "description": "Einer bestehenden Variable einen neuen Wert zuweisen",
+      "params": {
+        "variable": {
+          "description": "Die zu aktualisierende Variable"
+        },
+        "value": {
+          "description": "Zuzuweisender Ausdruck"
+        }
+      }
+    },
+    "WebSearchTool": {
+      "description": "Stellt Websuchfunktionalität für verbundene Agenten bereit",
+      "params": {
+        "maxResults": {
+          "description": "Maximale Anzahl der zurückzugebenden Suchergebnisse"
+        },
+        "searchDomain": {
+          "description": "Optionale Domäne zur Einschränkung der Suche"
+        }
+      }
+    }
+  },
+  "edges": {
+    "agentTask": {
+      "description": "Weist einem Agenten eine Aufgabe mit einem Prompt zu"
+    },
+    "agentChoice": {
+      "description": "Ein Pfad, den der Agent basierend auf seiner Beschreibung wählen kann"
+    },
+    "agentDelegate": {
+      "description": "Ermöglicht einem Agenten, die Kontrolle an einen anderen Agenten zu übergeben"
+    },
+    "control": {
+      "description": "Sequenzieller Steuerungsfluss zwischen Knoten"
+    },
+    "tool": {
+      "description": "Werkzeugverbindung zwischen Knoten"
+    }
+  }
+}

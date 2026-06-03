@@ -1,0 +1,23 @@
+edge-agents
+Copyright (c) 2026 ForestHub. All rights reserved.
+
+This product includes software developed by ForestHub
+(https://foresthub.ai).
+
+This repository uses a two-tier license model:
+
+  - The contract/ and ts/workflow-core/ subdirectories are licensed under
+    the Apache License, Version 2.0. See contract/LICENSE and
+    contract/NOTICE, and ts/workflow-core/LICENSE and
+    ts/workflow-core/NOTICE for details.
+
+  - All other components (engine, LLM proxy, workflow-builder, app) are
+    licensed under the GNU Affero General Public License v3.0
+    (AGPL-3.0-only); see the LICENSE file for the full AGPL text.
+
+edge-agents is dual-licensed. In addition to the AGPL-3.0, ForestHub offers
+separate commercial licenses for the AGPL components for use cases that are
+incompatible with the AGPL. For commercial licensing, contact
+root@foresthub.ai.
+
+Third-party components retain their original licenses; see THIRD_PARTY_NOTICES.
