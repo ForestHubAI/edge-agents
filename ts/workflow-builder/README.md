@@ -91,3 +91,20 @@ language, but it never reaches into things the host owns.
   imperative **ref handle** (`loadWorkflow` / `exportWorkflow` / `clear` / `validate`
   / undo-redo / selection / `setDebugPhase`). See `WorkflowBuilderProps` and
   `WorkflowBuilderHandle` in [`src/WorkflowBuilder.tsx`](./src/WorkflowBuilder.tsx).
+
+## License
+
+**AGPL-3.0-only** or a separate commercial license — same dual-license terms as the
+edge-agents engine.
+
+Read this before embedding: AGPL-3.0 is **network copyleft (§13)**. Because
+`<WorkflowBuilder>` is a React component you bundle into your own web app, serving that
+app to users over a network makes your **entire combined frontend** a "modified work"
+whose corresponding source you must offer to those users. Embedding the builder in a
+proprietary or closed-source SaaS frontend is therefore not possible under the AGPL — for
+that, take the commercial license (contact **root@foresthub.ai**). If your frontend is
+itself AGPL-3.0, you're fine.
+
+The headless [`@foresthubai/workflow-core`](../workflow-core) (model, serialization,
+validation) is **Apache-2.0** and carries no such obligation — if you only need the data
+layer, depend on core directly and skip this component.

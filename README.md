@@ -1,6 +1,6 @@
 # edge-agents
 
-**The 15 MB open-source AI agent runtime for edge devices.**
+**The 30 MB open-source AI agent runtime for edge devices.**
 
 [![CI](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
@@ -12,7 +12,7 @@
 
 Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside cloud LLMs in the same workflow. Industrial protocols (OPC-UA, Modbus) are on the roadmap.
 
-**Tested on** Raspberry Pi 5 · Jetson Orin Nano · STM32MP25 · Bosch Rexroth ctrlX CORE.
+**Runs on** Raspberry Pi 5 · Jetson Orin Nano · STM32MP25 · Bosch Rexroth ctrlX CORE.
 
 ⭐ **Star the repo** if you think AI agents belong beyond the cloud.
 
@@ -22,13 +22,13 @@ Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside 
 
 - **Voice assistant on a Pi with a local SLM** — wake-word → STT → agent → TTS, no internet required
 - **Predictive maintenance on industrial gear** — live vibration stream over MQTT → LLM decides → MQTT alert
-- **Local RAG on a Jetson** — agent answers grounded in live sensor and machine state, not the public web
+- **Local RAG on a Jetson** *(on the roadmap)* — answers grounded in live sensor and machine state instead of the public web (today the retriever runs against an external backend; a fully on-device RAG path is in progress)
 
 ## edge-agents vs other agent frameworks
 
 |                                             | edge-agents             | n8n             | LangGraph        | Dify           | OpenClaw           |
 | ------------------------------------------- | ----------------------- | --------------- | ---------------- | -------------- | ------------------ |
-| **Runtime size**                            | 15 MB container         | ~500 MB Docker  | Python library   | ~500 MB Docker | ~1 GB Docker       |
+| **Runtime size**                            | ~30 MB container        | ~500 MB Docker  | Python library   | ~500 MB Docker | ~1 GB Docker       |
 | **Offline by default**                      | ✅                      | ❌              | depends on host  | ❌             | ❌ datacenter-only |
 | **Hardware I/O (GPIO, UART, ADC) as nodes** | ✅ first-class          | ❌              | ❌               | ❌             | ❌                 |
 | **On-device SLM provider**                  | ✅ typed multi-endpoint | ❌              | partial via libs | ❌             | ❌                 |
@@ -82,9 +82,18 @@ Building for the same architecture you're already on? A plain
 `docker build -t edge-agents/engine:dev .` works too — the Dockerfile cross-compiles via
 `TARGETARCH`, so QEMU only emulates the trivial copy into the final layer.
 
-The engine HTTP API listens on `:8081`. It runs **standalone by default** — no control
-plane, no account, no outbound calls beyond LLM provider APIs. Configure via `ENGINE_*`
-env vars; see [`go/cmd/engine/config.go`](go/cmd/engine/config.go).
+The engine HTTP API listens on `:8081` **on all interfaces**. It runs **standalone by
+default** — no control plane, no account, no outbound calls beyond LLM provider APIs.
+The deploy API is gated by a bearer token: set `ENGINE_SECRET` to enable `/deploy` and
+`/stop` (without it those endpoints are closed and you load a workflow via
+`ENGINE_CONFIG_FILE` instead). `:8081` is meant to sit behind your own network controls,
+not face the public internet. Configure via `ENGINE_*` env vars; see
+[`go/cmd/engine/config.go`](go/cmd/engine/config.go).
+
+**Hardware access:** the image runs as a nonroot distroless user, so reaching real GPIO,
+serial or analog devices needs them passed into the container with the right group — e.g.
+`--device /dev/gpiochip0 --group-add "$(stat -c '%g' /dev/gpiochip0)"` (or run with
+`--privileged` on a throwaway dev box). Pure-software workflows need none of this.
 
 ## Author workflows
 
@@ -147,8 +156,9 @@ provider's API key. Add the mapping the moment a channel or a custom model appea
 the device manifest for hardware, external resources for MQTT and self-hosted models.
 
 Ship the image with the `docker save` / `docker load` flow from
-[Run the engine](#run-the-engine), mount the files above, and start it with
-`docker compose up`.
+[Run the engine](#run-the-engine) and start it with `docker run`, mounting the files
+above with `-v` and pointing the `ENGINE_*` env vars at them. The repo ships no
+`compose.yaml` — write your own if you prefer `docker compose`.
 
 ## Features
 
@@ -171,7 +181,7 @@ docker run --rm --network host -v "$PWD/models:/models:ro" \
 ```
 
 The model runs in **its own container, separate from the engine** — start it before the
-engine, or bring both up together with `docker compose`. In the workflow you reference the
+engine (or write a `compose.yaml` to bring both up together). In the workflow you reference the
 model as a **custom `LLMModel`** and point it at this endpoint through the deploy files
 (see [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
 
@@ -185,7 +195,9 @@ model as a **custom `LLMModel`** and point it at this endpoint through the deplo
 
 Digital and analog signal types are first-class in the workflow contract.
 
-## Tested targets
+## Target hardware
+
+✅ = brought up and exercised on our own bench. We don't yet publish a per-device CI matrix, so treat these as known-good targets rather than a continuously tested guarantee.
 
 | Target                         | Status                                                                                         |
 | ------------------------------ | ---------------------------------------------------------------------------------------------- |

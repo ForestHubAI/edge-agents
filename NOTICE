@@ -11,7 +11,7 @@ This repository uses a two-tier license model:
     contract/NOTICE, and ts/workflow-core/LICENSE and
     ts/workflow-core/NOTICE for details.
 
-  - All other components (engine, LLM proxy, workflow-builder, app) are
+  - All other components (engine, LLM proxy, workflow-builder, workflow-cli) are
     licensed under the GNU Affero General Public License v3.0
     (AGPL-3.0-only); see the LICENSE file for the full AGPL text.
 

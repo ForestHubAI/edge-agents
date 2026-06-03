@@ -3,7 +3,7 @@ Third-Party Software Notices
 
 edge-agents uses a two-tier license model:
   - `contract/` and `ts/workflow-core/` are licensed under Apache-2.0
-  - The rest (engine, workflow-builder, app) is licensed under AGPL-3.0-only
+  - The rest (engine, workflow-builder, workflow-cli) is licensed under AGPL-3.0-only
     or a separate commercial license
 See LICENSE, NOTICE, contract/LICENSE, and ts/workflow-core/LICENSE for details.
 
