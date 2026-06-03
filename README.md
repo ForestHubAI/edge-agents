@@ -8,14 +8,20 @@
 
 ![edge-agents demo](docs/assets/hero.gif)
 
-Offline by default. GPIO, MQTT, OPC-UA as first-class nodes. Local SLMs alongside cloud LLMs in the same workflow.
+> *Build an edge agent visually, deploy it to a Raspberry Pi, and let it talk to GPIO, MQTT and local SLMs — no cloud required.*
+
+Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside cloud LLMs in the same workflow. Industrial protocols (OPC-UA, Modbus) are on the roadmap.
+
+**Tested on** Raspberry Pi 5 · Jetson Orin Nano · STM32MP25 · Bosch Rexroth ctrlX CORE.
+
+⭐ **Star the repo** if you think AI agents belong beyond the cloud.
 
 > Today's AI agents live in datacenters. The interesting workloads — sensors, machines, vehicles, gateways — live everywhere else. **edge-agents** brings the agent paradigm to the devices that interact with the real world: small enough to run on a Pi 5, capable enough to drive an industrial controller, with hardware I/O as native primitives instead of REST shims.
 
 ## What you can build
 
 - **Voice assistant on a Pi with a local SLM** — wake-word → STT → agent → TTS, no internet required
-- **Predictive maintenance on industrial gear** — live OPC-UA vibration stream → LLM decides → MQTT alert
+- **Predictive maintenance on industrial gear** — live vibration stream over MQTT → LLM decides → MQTT alert
 - **Local RAG on a Jetson** — agent answers grounded in live sensor and machine state, not the public web
 
 ## edge-agents vs other agent frameworks
@@ -38,6 +44,19 @@ Two pieces: the **engine** (a small container that runs your workflows) and the
 **`fh-workflow` CLI** (authors, validates, and visually edits workflow files). You can
 run the engine without ever cloning this repo, and author workflows with a single
 `npm i -g @foresthubai/workflow-cli`.
+
+## Quickstart
+
+The lightest path needs no clone and no Docker — just the CLI and the visual builder:
+
+```sh
+npm i -g @foresthubai/workflow-cli
+fh-workflow open my.workflow.json      # opens the visual builder; Save writes back to the file
+```
+
+Don't have a workflow yet? Let Claude Code write one from a single sentence — see
+[Generate workflows with Claude Code](#generate-workflows-with-claude-code). Ready to run
+it on real hardware? [Run the engine](#run-the-engine) on the device.
 
 ## Run the engine
 
