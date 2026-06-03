@@ -22,6 +22,7 @@
     "access": "public"
   },
   "scripts": {
+    "generate": "openapi-typescript ../../contract/engine.yaml -o src/api/engine.ts",
     "dev": "vite",
     "build": "vite build",
     "build:cli": "node ./scripts/build-cli.mjs",
@@ -31,12 +32,14 @@
     "open": "node ./cli/fh-workflow.mjs open",
     "check-schema": "node ./cli/fh-workflow.mjs check-schema",
     "validate": "node ./cli/fh-workflow.mjs validate",
+    "deploy": "node ./cli/fh-workflow.mjs deploy",
     "test": "vitest run",
     "prepublishOnly": "npm run build:all"
   },
   "devDependencies": {
     "@foresthubai/workflow-builder": "*",
     "@foresthubai/workflow-core": "*",
+    "@inquirer/prompts": "^8.5.0",
     "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
@@ -50,6 +53,7 @@
     "i18next": "^25.3.2",
     "js-yaml": "^4.2.0",
     "lucide-react": "^0.462.0",
+    "openapi-typescript": "^7.4.0",
     "postcss": "^8.4.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
