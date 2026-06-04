@@ -310,6 +310,17 @@ Do not open public issues for security vulnerabilities. Use [GitHub private vuln
 
 ---
 
+## Talk to the team
+
+Using `edge-agents` in a product, need a license that isn't AGPL-compatible, or want
+help getting an agent onto your hardware? Talk to the people who build it at
+[ForestHub](https://foresthub.ai):
+
+- 📅 **Book a 30-min call** → https://calendar.app.google/FZ93vzS5zMBc4Kjs7
+- ✉️  **Email** → root@foresthub.ai
+
+---
+
 ## License
 
 `edge-agents` uses a **two-tier license model** designed to make the wire format and the headless workflow model maximally reusable while keeping the engine and the visual builder protected under copyleft.
@@ -318,7 +329,7 @@ Do not open public issues for security vulnerabilities. Use [GitHub private vuln
 | ---------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | [`contract/`](contract) (OpenAPI schemas)                                          | **Apache-2.0**                      | Wire format. Third-party Python, Rust, or Java clients should be free to implement against it.                                            |
 | [`ts/workflow-core`](ts/workflow-core) (headless model)                            | **Apache-2.0**                      | Workflow model and validation. Same reasoning — should be embeddable into any TypeScript/JavaScript project without copyleft friction.    |
-| [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "edge-agents as a service" offerings honest. For commercial use cases incompatible with AGPL, contact **root@foresthub.ai**. |
+| [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "edge-agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
 | [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                    |
 | [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                        |
 
@@ -328,4 +339,4 @@ Third-party components retain their own licenses; see [THIRD_PARTY_NOTICES](THIR
 
 ---
 
-Built by [ForestHub](https://foresthub.ai) — the platform for embedded and edge AI agents.
+Built by [ForestHub](https://foresthub.ai) — the platform for embedded and edge AI agents. Questions or a commercial use case? **[Book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7).**
