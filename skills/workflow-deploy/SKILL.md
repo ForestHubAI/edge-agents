@@ -126,11 +126,37 @@ _wipes_ the directory — any `.gguf` weights or hand-edits already there are go
 fresh), pick a **different directory**, or **abort**. Default to a different directory unless the
 operator clearly wants to overwrite.
 
-Bundle these into as few `AskUserQuestion` calls as you can (each takes up to 4 questions). For every
-defaultable or optional value, make its default the **first option, marked "(recommended)"**, and
-include an explicit _skip / none_ choice, so one click moves on. Use the type→family→device-path
-table in `reference/values.md` so hardware questions are concrete ("`button-in` is a GPIO channel —
-which `gpiochip` and line?"), not open-ended.
+**One question-round at a time.** Send a single `AskUserQuestion` call and wait for its answers
+before sending the next — **never fire two calls in the same turn**. A second questionnaire paints
+over the first one the operator is still filling in, and they only see the earlier one again after
+confirming it. One call may carry up to 4 related questions — that's a single round and is fine —
+but walk the values through a few **sequential** rounds, never a parallel burst.
+
+**One real default, only where a default makes sense.** Per question, offer exactly one substantive
+option: a recommended default as the **first option, marked "(recommended)"** — and **never fabricate
+alternative example values** (three made-up device paths or `.gguf` names help no one).
+`AskUserQuestion` requires a second option, so make it the natural one and nothing more: _skip / leave
+empty_ for an optional field, or _enter my own value_ — a pointer to the free-text entry — for a
+required field that has no default.
+
+Fields that have a sensible default (offer that value):
+
+- hardware **device path**, per family: gpio `/dev/gpiochip0`, adc `/sys/bus/iio/devices/iio:device0`,
+  dac `/sys/bus/iio/devices/iio:device1`, pwm `/sys/class/pwm/pwmchip0`, serial `/dev/ttyUSB0`
+- serial **baud** `115200` · MQTT **broker URL** `tcp://localhost:1883` · network model **URL**
+  `http://localhost:8080` · web-search **provider** `brave` · **outputDir** `./<workflow-name>-bundle`
+
+Fields that have no sensible default (no default — pure input, or _skip_ if optional):
+
+- GPIO line / channel **index** and a device model's **`.gguf` filename** — required, no default
+- MQTT **username**, **publish/subscribe prefix**, a network model's **apiKey** — optional ⇒ _skip_
+- every **secret** (provider key, MQTT password, web-search key) — never a value, only a
+  `REPLACE_ME_…` placeholder (see Step 3)
+
+**`logLevel` is not a question** — default it to `info` silently (the operator tweaks `.env` on the
+controller). **`force` is not a standalone question** either; it only arises from the output-dir
+collision flow above. Use the type→family→device-path table in `reference/values.md` so hardware
+questions stay concrete ("`gpioin` is a GPIO channel — which `gpiochip` and line?"), not open-ended.
 
 **Secrets are never asked as values.** For a provider key, MQTT password, web-search key, or
 network-model key, don't request the value — ask only _whether it applies_ (e.g. "does this broker
