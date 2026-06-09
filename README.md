@@ -69,18 +69,22 @@ result to the device:
 cd go
 
 # Cross-build for an arm64 edge device (use --platform linux/amd64 for x86 targets)
-docker buildx build --platform linux/arm64 -t edge-agents/engine:arm64 --load .
+docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
 
 # Ship to an offline device: save to a tar, copy it across, load it there
-docker save edge-agents/engine:arm64 -o edge-agents-engine-arm64.tar
-#   scp edge-agents-engine-arm64.tar device:/tmp/   ← then, on the device:
-docker load -i edge-agents-engine-arm64.tar
-docker run --rm -p 8081:8081 edge-agents/engine:arm64
+docker save fh-engine:latest -o fh-engine.tar
+#   scp fh-engine.tar device:/tmp/   ← then, on the device:
+docker load -i fh-engine.tar
+docker run --rm -p 8081:8081 fh-engine:latest
 ```
 
 Building for the same architecture you're already on? A plain
-`docker build -t edge-agents/engine:dev .` works too — the Dockerfile cross-compiles via
+`docker build -t fh-engine:latest .` works too — the Dockerfile cross-compiles via
 `TARGETARCH`, so QEMU only emulates the trivial copy into the final layer.
+
+The `fh-engine:latest` tag is the one a `fh-workflow deploy` bundle expects (its
+`docker-compose.yml` loads the image with `pull_policy: never`), so an image built here
+drops straight into a generated bundle.
 
 The engine HTTP API listens on `:8081` **on all interfaces**. It runs **standalone by
 default** — no control plane, no account, no outbound calls beyond LLM provider APIs.
@@ -136,6 +140,15 @@ the file for you.
 
 ## Deploy a workflow to a device
 
+**The quick path is `fh-workflow deploy my.workflow.json`** — it inspects the workflow,
+asks for the values it can't infer (device paths, broker URLs, model files, API keys),
+and writes a self-contained bundle: `docker-compose.yml`, `.env`, the workflow, and any
+config files the workflow needs — plus a `README.md` with the build/transfer/run steps.
+For an on-device SLM it even drops in a `llama.cpp` sidecar wired to the engine over the
+compose network. Without a terminal (CI, a Claude Code skill) feed the answers with
+`--values <file.json>`. The rest of this section explains what ends up in that bundle —
+and how to assemble it by hand if you'd rather.
+
 A workflow is **binding-free**: it declares _what_ it needs — channels (GPIO, MQTT, …)
 and custom models — but not _where_ those live on a given device. You supply the _where_
 through a few small config files mounted into the engine container alongside the
@@ -156,10 +169,11 @@ What the engine reads, and when each file is needed:
 provider's API key. Add the mapping the moment a channel or a custom model appears; add
 the device manifest for hardware, external resources for MQTT and self-hosted models.
 
-Ship the image with the `docker save` / `docker load` flow from
-[Run the engine](#run-the-engine) and start it with `docker run`, mounting the files
-above with `-v` and pointing the `ENGINE_*` env vars at them. The repo ships no
-`compose.yaml` — write your own if you prefer `docker compose`.
+To assemble this by hand instead of with `fh-workflow deploy`: ship the image with the
+`docker save` / `docker load` flow from [Run the engine](#run-the-engine) and start it
+with `docker run`, mounting the files above with `-v` and pointing the `ENGINE_*` env
+vars at them. The repo ships no static `compose.yaml`; `fh-workflow deploy` generates one
+per workflow, or write your own.
 
 ## Features
 
@@ -170,8 +184,17 @@ above with `-v` and pointing the `ENGINE_*` env vars at them. The repo ships no
 
 ## Local models (self-hosted SLMs)
 
-To run a model on the device, use **`llama.cpp`**: pull its server image and run it as its
-own container serving a `.gguf` model file (e.g. a quantized Gemma):
+Models run on the device through **`llama.cpp`**, in their **own container, separate from
+the engine**. Reference the model in the workflow as a **custom `LLMModel`**; the engine
+talks to its endpoint over HTTP.
+
+The easy way is to mark that model as **on-device** and let `fh-workflow deploy` add the
+`llama.cpp` sidecar to the generated `docker-compose.yml` for you — reached by service
+name over the compose network, no host networking, no hand-written compose (see
+[Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
+
+To run the inference container by hand instead — pull its server image and point it at a
+`.gguf` model file (e.g. a quantized Gemma):
 
 ```sh
 docker pull ghcr.io/ggml-org/llama.cpp:server-b8589
@@ -181,10 +204,8 @@ docker run --rm --network host -v "$PWD/models:/models:ro" \
   --model /models/gemma-3-270m-it-Q4_0.gguf --host 0.0.0.0 --port 8090
 ```
 
-The model runs in **its own container, separate from the engine** — start it before the
-engine (or write a `compose.yaml` to bring both up together). In the workflow you reference the
-model as a **custom `LLMModel`** and point it at this endpoint through the deploy files
-(see [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
+Start it before the engine, then point the workflow's custom model at this endpoint
+through the deploy files (again, [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
 
 ## Hardware and transports
 
@@ -254,7 +275,7 @@ npm install
 npm run check-schema -- my.workflow.json   # the -- passes the path to the CLI, not to npm
 npm run validate    -- my.workflow.json
 npm run open        -- my.workflow.json
-npm run deploy      -- my.workflow.json     # generate a deployment bundle (--non-interactive for scripted runs)
+npm run deploy      -- my.workflow.json     # generate a deployment bundle (--values <file.json> for scripted runs)
 ```
 
 After a `git pull` that changed dependencies, just run `npm install` again. If a stale
