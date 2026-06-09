@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "onmqtt-1",
+      "type": "OnMqttMessage",
+      "position": { "x": 200, "y": 200 },
+      "arguments": {
+        "channelReference": "sensor-in",
+        "dataType": "string",
+        "output": {
+          "active": true,
+          "mode": "emit",
+          "name": "message"
+        }
+      }
+    },
+    {
+      "id": "agent-1",
+      "type": "Agent",
+      "position": { "x": 540, "y": 200 },
+      "arguments": {
+        "model": "claude-haiku-4-5",
+        "instructions": "Summarize the incoming sensor message in one short sentence.",
+        "outputDeclarations": [],
+        "memoryRefs": [],
+        "answer": {
+          "active": true,
+          "mode": "emit",
+          "name": "summary"
+        }
+      }
+    },
+    {
+      "id": "mqttpub-1",
+      "type": "MqttPublish",
+      "position": { "x": 880, "y": 200 },
+      "arguments": {
+        "channelReference": "summary-out",
+        "dataType": "string",
+        "value": {
+          "expression": "${}",
+          "references": [
+            { "srcId": "agent-1", "varId": "answer" }
+          ],
+          "dataType": "string"
+        },
+        "qos": 0,
+        "retain": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-onmqtt-agent",
+      "type": "agentTask",
+      "from": { "nodeId": "onmqtt-1", "port": "ctrl" },
+      "to": { "nodeId": "agent-1", "port": "ctrl" },
+      "prompt": {
+        "expression": "Summarize this message: ${}",
+        "references": [
+          { "srcId": "onmqtt-1", "varId": "output" }
+        ],
+        "dataType": "string"
+      }
+    },
+    {
+      "id": "edge-agent-mqttpub",
+      "type": "control",
+      "from": { "nodeId": "agent-1", "port": "ctrl" },
+      "to": { "nodeId": "mqttpub-1", "port": "ctrl" }
+    }
+  ],
+  "functions": [],
+  "declaredVariables": [],
+  "channels": [
+    {
+      "type": "MQTT",
+      "id": "sensor-in",
+      "label": "Sensor messages",
+      "topic": "sensors/+/reading"
+    },
+    {
+      "type": "MQTT",
+      "id": "summary-out",
+      "label": "Summaries",
+      "topic": "summaries/out"
+    }
+  ],
+  "memory": [],
+  "models": []
+}

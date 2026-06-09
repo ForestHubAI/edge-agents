@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "ticker-1",
+      "type": "Ticker",
+      "position": { "x": 200, "y": 200 },
+      "arguments": {
+        "intervalValue": 1,
+        "intervalUnit": "seconds"
+      }
+    },
+    {
+      "id": "readpin-1",
+      "type": "ReadPin",
+      "position": { "x": 500, "y": 200 },
+      "arguments": {
+        "pinReference": "button-in",
+        "signalType": "digital",
+        "output": {
+          "active": true,
+          "mode": "emit",
+          "name": "buttonState"
+        }
+      }
+    },
+    {
+      "id": "writepin-1",
+      "type": "WritePin",
+      "position": { "x": 800, "y": 200 },
+      "arguments": {
+        "pinReference": "led-out",
+        "signalType": "digital",
+        "value": {
+          "expression": "${}",
+          "references": [
+            { "srcId": "readpin-1", "varId": "output" }
+          ],
+          "dataType": "bool"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-ticker-readpin",
+      "type": "control",
+      "from": { "nodeId": "ticker-1", "port": "ctrl" },
+      "to": { "nodeId": "readpin-1", "port": "ctrl" }
+    },
+    {
+      "id": "edge-readpin-writepin",
+      "type": "control",
+      "from": { "nodeId": "readpin-1", "port": "ctrl" },
+      "to": { "nodeId": "writepin-1", "port": "ctrl" }
+    }
+  ],
+  "functions": [],
+  "declaredVariables": [],
+  "channels": [
+    {
+      "type": "GPIOIN",
+      "id": "button-in",
+      "label": "Button",
+      "bias": "pullup",
+      "debounceMs": 20
+    },
+    {
+      "type": "GPIOOUT",
+      "id": "led-out",
+      "label": "LED"
+    }
+  ],
+  "memory": [],
+  "models": []
+}
