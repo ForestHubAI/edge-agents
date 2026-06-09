@@ -18,7 +18,7 @@ import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
-import { ggufNameError } from "./types";
+import { ALL_PROVIDERS, ggufNameError } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -33,10 +33,7 @@ autonomously. Missing values are filled in interactively, or supplied via
 --values when there is no terminal.
 
 LLM provider keys (set one for each catalog model an Agent uses):
-  --anthropic-key KEY
-  --openai-key KEY
-  --gemini-key KEY
-  --mistral-key KEY
+${ALL_PROVIDERS.map((p) => `  --${p}-key KEY`).join("\n")}
 
 Output:
   --output DIR                    default: ./<workflow-name>-bundle
@@ -54,13 +51,12 @@ Automation (no terminal — e.g. a Claude Code skill or CI):
 // parseFlags / partialFromFlags / loadValues / missingRequired / configFromPartial
 // are exported for unit testing; deployCommand is their only runtime caller.
 export function parseFlags(args: string[]): RawFlags {
+  // One --<provider>-key string flag per provider, derived from ALL_PROVIDERS.
+  const keyOptions = Object.fromEntries(ALL_PROVIDERS.map((p) => [`${p}-key`, { type: "string" as const }]));
   const { values } = parseArgs({
     args,
     options: {
-      "anthropic-key": { type: "string" },
-      "openai-key": { type: "string" },
-      "gemini-key": { type: "string" },
-      "mistral-key": { type: "string" },
+      ...keyOptions,
       output: { type: "string" },
       "log-level": { type: "string" },
       values: { type: "string" },
@@ -70,11 +66,16 @@ export function parseFlags(args: string[]): RawFlags {
     strict: true,
     allowPositionals: false,
   });
+  // Collect the set provider keys back into one record, dropping the unset ones.
+  // The --<provider>-key flags are built dynamically, so parseArgs doesn't know
+  // them by name — reach them through an untyped view and narrow with typeof.
+  const llmKeys: Partial<Record<Provider, string>> = {};
+  for (const p of ALL_PROVIDERS) {
+    const key = (values as Record<string, unknown>)[`${p}-key`];
+    if (typeof key === "string") llmKeys[p] = key;
+  }
   return {
-    anthropicKey: values["anthropic-key"],
-    openaiKey: values["openai-key"],
-    geminiKey: values["gemini-key"],
-    mistralKey: values["mistral-key"],
+    llmKeys,
     output: values.output,
     logLevel: values["log-level"],
     values: values.values,
@@ -86,11 +87,7 @@ export function parseFlags(args: string[]): RawFlags {
 // Merge a --values file (the base) with explicit flags (which win). Provider
 // keys merge per provider; the scalar flags override only when actually set.
 export function partialFromFlags(flags: RawFlags, fileValues: Partial<DeployConfig>): Partial<DeployConfig> {
-  const llmKeys: Partial<Record<Provider, string>> = { ...(fileValues.llmKeys ?? {}) };
-  if (flags.anthropicKey) llmKeys.anthropic = flags.anthropicKey;
-  if (flags.openaiKey) llmKeys.openai = flags.openaiKey;
-  if (flags.geminiKey) llmKeys.gemini = flags.geminiKey;
-  if (flags.mistralKey) llmKeys.mistral = flags.mistralKey;
+  const llmKeys: Partial<Record<Provider, string>> = { ...(fileValues.llmKeys ?? {}), ...flags.llmKeys };
 
   const flagLogLevel: LogLevel | undefined =
     flags.logLevel === "debug" || flags.logLevel === "info" || flags.logLevel === "warn" || flags.logLevel === "error"

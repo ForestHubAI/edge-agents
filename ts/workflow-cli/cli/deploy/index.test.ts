@@ -6,7 +6,7 @@ import { configFromPartial, loadValues, missingRequired, parseFlags, partialFrom
 import type { DeployRequirements, RawFlags } from "./types";
 
 function flagsOf(p: Partial<RawFlags> = {}): RawFlags {
-  return { force: false, help: false, ...p };
+  return { llmKeys: {}, force: false, help: false, ...p };
 }
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
@@ -46,8 +46,8 @@ describe("parseFlags", () => {
       "debug",
       "--force",
     ]);
-    expect(f.anthropicKey).toBe("sk-a");
-    expect(f.openaiKey).toBe("sk-o");
+    expect(f.llmKeys.anthropic).toBe("sk-a");
+    expect(f.llmKeys.openai).toBe("sk-o");
     expect(f.output).toBe("dir");
     expect(f.values).toBe("v.json");
     expect(f.logLevel).toBe("debug");
@@ -58,7 +58,7 @@ describe("parseFlags", () => {
     const f = parseFlags([]);
     expect(f.force).toBe(false);
     expect(f.help).toBe(false);
-    expect(f.anthropicKey).toBeUndefined();
+    expect(f.llmKeys.anthropic).toBeUndefined();
     expect(f.values).toBeUndefined();
   });
 });
@@ -73,7 +73,7 @@ describe("partialFromFlags", () => {
   });
 
   it("merges provider keys per provider, flag wins on conflict", () => {
-    const p = partialFromFlags(flagsOf({ anthropicKey: "flag-a", openaiKey: "flag-o" }), {
+    const p = partialFromFlags(flagsOf({ llmKeys: { anthropic: "flag-a", openai: "flag-o" } }), {
       llmKeys: { anthropic: "file-a", gemini: "file-g" },
     });
     expect(p.llmKeys).toEqual({ anthropic: "flag-a", gemini: "file-g", openai: "flag-o" });

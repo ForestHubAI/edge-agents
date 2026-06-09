@@ -1,9 +1,10 @@
 // Shared vocabulary for the `deploy` command: the types every other deploy
 // module agrees on, plus the canonical provider list.
 
-export type Provider = "anthropic" | "openai" | "gemini" | "mistral";
-
-export const ALL_PROVIDERS: Provider[] = ["anthropic", "openai", "gemini", "mistral"];
+// Single source of truth for the providers the wizard can take a key for: the
+// Provider type, the CLI key flags, and the key prompts all derive from it.
+export const ALL_PROVIDERS = ["anthropic", "openai", "gemini", "mistral"] as const;
+export type Provider = (typeof ALL_PROVIDERS)[number];
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -77,9 +78,7 @@ export interface MqttBinding {
 // same controller; `network` = an inference endpoint the operator runs elsewhere.
 // The endpoint always serves the model under its workflow id — the engine has no
 // upstream-name aliasing yet — so there is no exposed-name field here.
-export type ModelBinding =
-  | { location: "device"; modelFile: string }
-  | { location: "network"; url: string; apiKey?: string };
+export type ModelBinding = { location: "device"; modelFile: string } | { location: "network"; url: string; apiKey?: string };
 
 // Returns why an on-device model filename is unacceptable, or null when it's
 // fine. A name check only — the file doesn't exist yet at wizard time. Shared by
@@ -115,10 +114,7 @@ export interface DeployConfig {
 
 // The raw, still-unvalidated flag values straight off the command line.
 export interface RawFlags {
-  anthropicKey?: string;
-  openaiKey?: string;
-  geminiKey?: string;
-  mistralKey?: string;
+  llmKeys: Partial<Record<Provider, string>>;
   output?: string;
   logLevel?: string;
   values?: string;
