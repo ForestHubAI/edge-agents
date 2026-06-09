@@ -75,7 +75,7 @@ export function inspect(workflow: ApiWorkflow): DeployRequirements {
         hardwareChannels.push({ id: channel.id, label: channel.label, family: "serial", addressable: false });
         break;
       case "MQTT":
-        mqttChannels.push({ id: channel.id, label: channel.label, topic: channel.topic });
+        mqttChannels.push({ id: channel.id, label: channel.label });
         break;
       default:
         return assertNever(channel);

@@ -4,7 +4,7 @@
 import { checkbox, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { ALL_PROVIDERS } from "./types";
+import { ALL_PROVIDERS, ggufNameError } from "./types";
 import type {
   CustomModel,
   DeployConfig,
@@ -122,7 +122,7 @@ async function promptModels(
     if (location === "device") {
       const modelFile = await input({
         message: `${m.label}: model filename in ./models/ (e.g. model.gguf)`,
-        validate: (v) => v.trim().length > 0 || "a model filename is required",
+        validate: (v) => ggufNameError(v) ?? true,
       });
       result[m.id] = { location: "device", modelFile: modelFile.trim() };
       continue;
@@ -153,12 +153,40 @@ export async function promptMissing(
   partial: Partial<DeployConfig>,
   outputDirDefault: string,
   req: DeployRequirements,
+  workflowName?: string,
 ): Promise<DeployConfig> {
+  // Work out which sections will actually ask something this run. A section the
+  // partial (flags / --values) already pre-filled stays silent, so it must get
+  // neither a header nor a slot in the [step/total] denominator.
+  const hwTodo = req.hardwareChannels.filter((ch) => !partial.hardware?.[ch.id]);
+  const mqttTodo = req.mqttChannels.filter((ch) => !partial.mqtt?.[ch.id]);
+  const modelsTodo = req.customModels.filter((m) => !partial.models?.[m.id]);
+  const askKeys = req.hasProviderModel;
+  const askWeb = req.hasWebSearch && !partial.webSearch;
+
+  // Output is always asked; every other section only when it has open items.
+  const total = [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, true].filter(
+    Boolean,
+  ).length;
+  let step = 0;
+  // A blank line + a numbered heading before each section that asks something.
+  // The "— N to configure" tail shows only when a section covers more than one.
+  const section = (label: string, count = 0): void => {
+    step += 1;
+    const tail = count > 1 ? ` — ${count} to configure` : "";
+    process.stdout.write(`\n[${step}/${total}] ${label}${tail}\n`);
+  };
+
+  // The one line in the interactive flow that states what is being built.
+  const named = workflowName ? ` for "${workflowName}"` : "";
+  process.stdout.write(`\n◆ Standalone deployment bundle${named}\n  Boots on the controller — no backend, no account.\n`);
+
   // LLM keys: single multi-select over all four providers, skipped entirely
   // when the workflow has no catalog model. Custom-only workflows (every Agent
   // model declared in workflow.models) need no provider key.
   const llmKeys: Partial<Record<Provider, string>> = { ...(partial.llmKeys ?? {}) };
-  if (req.hasProviderModel) {
+  if (askKeys) {
+    section("LLM provider keys");
     const selectedProviders = await checkbox<Provider>({
       message: "Which providers should run with a local API key?",
       choices: ALL_PROVIDERS.map((p) => ({ value: p, name: p })),
@@ -176,14 +204,20 @@ export async function promptMissing(
     }
   }
 
-  // Resource values: each helper asks only for what the partial didn't pre-fill.
+  // Resource values: each helper asks only for what the partial didn't pre-fill,
+  // so each header is gated on that same "has open items" check.
+  if (hwTodo.length > 0) section("Hardware channels", hwTodo.length);
   const hardware = await promptHardware(req.hardwareChannels, partial.hardware ?? {});
+  if (mqttTodo.length > 0) section("MQTT brokers", mqttTodo.length);
   const mqtt = await promptMqtt(req.mqttChannels, partial.mqtt ?? {});
+  if (modelsTodo.length > 0) section("Custom models", modelsTodo.length);
   const models = await promptModels(req.customModels, partial.models ?? {});
+  if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
   // Output directory — with collision handling. If the dir exists and is
   // non-empty, the operator can overwrite, pick another dir, or abort.
+  section("Output");
   let outputDir: string;
   let force = partial.force ?? false;
   {

@@ -49,7 +49,7 @@ describe("writeOutput", () => {
   it("adds the deploy files for hardware + mqtt and 0o600s the secrets", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    const req = reqOf({ hardwareChannels: [hw("btn")], mqttChannels: [{ id: "m", label: "m", topic: "t" }] });
+    const req = reqOf({ hardwareChannels: [hw("btn")], mqttChannels: [{ id: "m", label: "m" }] });
     const cfg = cfgOf(out, {
       hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 0 } },
       mqtt: { m: { brokerUrl: "tcp://b:1883", password: "p" } },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeYaml, envFile, readme, slugify } from "./generate";
+import { composeYaml, ctxSizeVar, envFile, readme, slugify } from "./generate";
 import type { DeployConfig, DeployRequirements, HardwareFamily } from "./types";
 
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
@@ -48,8 +48,15 @@ describe("envFile", () => {
   });
 
   it("writes the on-device models section only when a model runs on-device", () => {
-    expect(envFile(cfgOf({ models: { m: { location: "device", modelFile: "x.gguf" } } }))).toContain("LLAMA_CTX_SIZE=4096");
+    expect(envFile(cfgOf({ models: { m: { location: "device", modelFile: "x.gguf" } } }))).toContain("LLAMA_CTX_SIZE_M=4096");
     expect(envFile(cfgOf({ models: { m: { location: "network", url: "http://x:8080" } } }))).not.toContain("LLAMA_CTX_SIZE");
+
+  });
+
+  it("writes one context-size var per on-device model", () => {
+    const env = envFile(cfgOf({ models: { a: { location: "device", modelFile: "a.gguf" }, b: { location: "device", modelFile: "b.gguf" } } }));
+    expect(env).toContain("LLAMA_CTX_SIZE_A=4096");
+    expect(env).toContain("LLAMA_CTX_SIZE_B=4096");
   });
 });
 
@@ -99,7 +106,7 @@ describe("composeYaml", () => {
   it("mqtt adds external-resource env/mount but no hardware blocks", () => {
     const yaml = composeYaml(
       cfgOf({ mqtt: { m: { brokerUrl: "tcp://b:1883" } } }),
-      reqOf({ mqttChannels: [{ id: "m", label: "m", topic: "t" }] }),
+      reqOf({ mqttChannels: [{ id: "m", label: "m" }] }),
     );
     expect(yaml).toContain("ENGINE_EXTERNAL_RESOURCES_FILE: /etc/foresthub/external_resources.json");
     expect(yaml).toContain("ENGINE_DEPLOYMENT_MAPPING_FILE: /etc/foresthub/deployment_mapping.json");
@@ -127,7 +134,13 @@ describe("composeYaml", () => {
     expect(yaml).toContain("/models/gemma.gguf");
     expect(yaml).toContain("depends_on:");
     expect(yaml).toContain("condition: service_healthy");
+    expect(yaml).toContain("${LLAMA_CTX_SIZE_GEMMA_3:-4096}");
     expect(yaml).not.toContain("network_mode: host");
+  });
+
+  it("sets no fixed container_name (so multiple bundles can share a host)", () => {
+    const yaml = composeYaml(cfgOf(), reqOf());
+    expect(yaml).not.toContain("container_name");
   });
 
   it("a network model adds no sidecar service", () => {
@@ -157,7 +170,7 @@ describe("readme", () => {
   });
 
   it("mqtt adds the external-resources file and note, with no host-networking advice", () => {
-    const md = readme(cfgOf({ mqtt: { m: { brokerUrl: "tcp://b:1883" } } }), reqOf({ mqttChannels: [{ id: "m", label: "m", topic: "t" }] }));
+    const md = readme(cfgOf({ mqtt: { m: { brokerUrl: "tcp://b:1883" } } }), reqOf({ mqttChannels: [{ id: "m", label: "m" }] }));
     expect(md).toContain("- `external_resources.json`");
     expect(md).toContain("## External resources");
     expect(md).toContain("chmod 600");
@@ -203,5 +216,28 @@ describe("readme", () => {
 
   it("web search adds its note", () => {
     expect(readme(cfgOf(), reqOf({ hasWebSearch: true }))).toContain("## Web search");
+  });
+
+  it("a device model adds the model scp transfer and inspects all containers on run", () => {
+    const md = readme(
+      cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
+      reqOf({ customModels: [{ id: "gemma-3", label: "gemma" }] }),
+    );
+    expect(md).toContain("scp -r models/");
+    expect(md).toContain("docker compose ps");
+  });
+
+  it("a bundle without an on-device model tails only the engine log", () => {
+    const md = readme(cfgOf(), reqOf());
+    expect(md).toContain("docker compose logs -f engine");
+    expect(md).not.toContain("scp -r models/");
+    expect(md).not.toContain("docker compose ps");
+  });
+});
+
+describe("ctxSizeVar", () => {
+  it("derives an uppercased, underscore-safe env var per model id", () => {
+    expect(ctxSizeVar("gemma-3")).toBe("LLAMA_CTX_SIZE_GEMMA_3");
+    expect(ctxSizeVar("qwen.2_5")).toBe("LLAMA_CTX_SIZE_QWEN_2_5");
   });
 });

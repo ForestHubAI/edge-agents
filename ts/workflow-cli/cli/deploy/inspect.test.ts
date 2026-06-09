@@ -44,9 +44,9 @@ describe("inspect — channels", () => {
     ]);
   });
 
-  it("captures mqtt channels with their topic", () => {
+  it("captures mqtt channels", () => {
     const r = inspect(wfOf({ channels: [ch({ type: "MQTT", id: "m", label: "m", topic: "sensors/x" })] }));
-    expect(r.mqttChannels).toEqual([{ id: "m", label: "m", topic: "sensors/x" }]);
+    expect(r.mqttChannels).toEqual([{ id: "m", label: "m" }]);
     expect(r.hardwareChannels).toEqual([]);
   });
 });

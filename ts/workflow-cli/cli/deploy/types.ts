@@ -21,12 +21,10 @@ export interface HardwareChannel {
   addressable: boolean;
 }
 
-// One MQTT channel the workflow declares. `topic` is the workflow-level topic;
-// the broker prefix is applied by the engine at runtime.
+// One MQTT channel the workflow declares.
 export interface MqttChannel {
   id: string;
   label: string;
-  topic: string;
 }
 
 // One custom/self-hosted model declared in workflow.models — needs an
@@ -82,6 +80,17 @@ export interface MqttBinding {
 export type ModelBinding =
   | { location: "device"; modelFile: string }
   | { location: "network"; url: string; apiKey?: string };
+
+// Returns why an on-device model filename is unacceptable, or null when it's
+// fine. A name check only — the file doesn't exist yet at wizard time. Shared by
+// the prompt and the --values path so both reject the same input.
+export function ggufNameError(name: string | undefined): string | null {
+  const t = (name ?? "").trim();
+  if (!t) return "a model filename is required";
+  if (!t.toLowerCase().endsWith(".gguf")) return "must be a .gguf file (llama-server only loads GGUF)";
+  if (t.includes("/")) return "just the filename, not a path — the file goes in ./models/";
+  return null;
+}
 
 // Web-search provider + key. Engine-wide, so just one.
 export interface WebSearchBinding {

@@ -18,6 +18,7 @@ import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
+import { ggufNameError } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -151,7 +152,8 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
   for (const m of req.customModels) {
     const b = p.models?.[m.id];
     if (b?.location === "device") {
-      if (!b.modelFile) missing.push(`model "${m.id}": model filename`);
+      const err = ggufNameError(b.modelFile);
+      if (err) missing.push(`model "${m.id}": ${err}`);
     } else if (!b?.url) {
       missing.push(`model "${m.id}": endpoint URL`);
     }
@@ -254,7 +256,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // required value — the values must all arrive via --values.
   let cfg: DeployConfig;
   if (process.stdin.isTTY) {
-    cfg = await promptMissing(partial, outputDirDefault, req);
+    cfg = await promptMissing(partial, outputDirDefault, req, workflowName);
   } else {
     const missing = missingRequired(req, partial);
     if (missing.length > 0) {

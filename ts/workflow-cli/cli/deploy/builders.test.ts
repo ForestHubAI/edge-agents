@@ -46,7 +46,7 @@ describe("assertDeployable", () => {
 
   it("collects every gap into one message", () => {
     const req = reqOf({
-      mqttChannels: [{ id: "m", label: "m", topic: "t" }],
+      mqttChannels: [{ id: "m", label: "m" }],
       customModels: [{ id: "llm", label: "llm" }],
     });
     let msg = "";
@@ -140,7 +140,7 @@ describe("buildDeployArtifacts — hardware", () => {
 });
 
 describe("buildDeployArtifacts — mqtt", () => {
-  const ch = (id: string) => ({ id, label: id, topic: `t/${id}` });
+  const ch = (id: string) => ({ id, label: id });
 
   it("emits an mqtt connection and an index-less mapping", () => {
     const req = reqOf({ mqttChannels: [ch("m")] });

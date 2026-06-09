@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import os from "node:os";
 import path from "node:path";
 
@@ -48,7 +48,14 @@ function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]
 
 const noExistDir = path.join(os.tmpdir(), "fhprompt-does-not-exist-xyz");
 
-beforeEach(() => vi.resetAllMocks());
+// promptMissing prints section headers to stdout; capture them on a spy so they
+// don't clutter the test run, while still letting tests assert on what was printed.
+let stdout: ReturnType<typeof vi.spyOn>;
+beforeEach(() => {
+  vi.resetAllMocks();
+  stdout = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+});
+afterEach(() => stdout.mockRestore());
 
 describe("promptMissing", () => {
   it("asks nothing when the partial pre-filled everything", async () => {
@@ -109,7 +116,7 @@ describe("promptMissing", () => {
       ],
       password: [[/password/, ""]],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ mqttChannels: [{ id: "m", label: "m", topic: "t" }] }));
+    const cfg = await promptMissing({}, "def", reqOf({ mqttChannels: [{ id: "m", label: "m" }] }));
     expect(cfg.mqtt.m).toEqual({ brokerUrl: "tcp://b:1883" });
   });
 
@@ -148,5 +155,47 @@ describe("promptMissing", () => {
     });
     const cfg = await promptMissing({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
     expect(cfg.models.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
+  });
+
+  // Everything printed to stdout this run, concatenated, for header assertions.
+  const printed = () => stdout.mock.calls.map((c: unknown[]) => String(c[0])).join("");
+
+  it("prints the intro and numbers each active section against the active total", async () => {
+    script({
+      input: [
+        [/device path/, "/dev/gpiochip0"],
+        [/index/, "1"],
+        [/Output directory/, "b"],
+      ],
+    });
+    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }), "test123");
+    const out = printed();
+    expect(out).toContain('Standalone deployment bundle for "test123"');
+    expect(out).toContain("[1/2] Hardware channels");
+    expect(out).toContain("[2/2] Output");
+  });
+
+  it("counts only sections that ask — a pre-filled section gets no header or slot", async () => {
+    script({});
+    await promptMissing(
+      { hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, outputDir: noExistDir },
+      "def",
+      reqOf({ hardwareChannels: [hwGpio("btn")] }),
+    );
+    const out = printed();
+    expect(out).not.toContain("Hardware channels");
+    expect(out).toContain("[1/1] Output");
+  });
+
+  it('adds the "— N to configure" tail only when a section has more than one item', async () => {
+    script({
+      input: [
+        [/device path/, "/dev/gpiochip0"],
+        [/index/, "1"],
+        [/Output directory/, "b"],
+      ],
+    });
+    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
+    expect(printed()).toContain("[1/2] Hardware channels — 2 to configure");
   });
 });

@@ -72,10 +72,11 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
 
   // On-device models each get a llama-server sidecar the engine reaches by service
   // name over the compose network — no host networking. network models add nothing.
-  const deviceModels: { service: string; modelFile: string }[] = [];
+  const deviceModels: { service: string; modelFile: string; ctxVar: string }[] = [];
   for (const m of req.customModels) {
     const b = cfg.models[m.id];
-    if (b?.location === "device") deviceModels.push({ service: sidecarServiceName(m.id), modelFile: b.modelFile });
+    if (b?.location === "device")
+      deviceModels.push({ service: sidecarServiceName(m.id), modelFile: b.modelFile, ctxVar: ctxSizeVar(m.id) });
   }
   const dependsBlock = deviceModels.length
     ? "\n    depends_on:\n" +
@@ -86,7 +87,6 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
       (d) => `  ${d.service}:
     image: ghcr.io/ggml-org/llama.cpp:server-b8589
     pull_policy: missing
-    container_name: fh-${d.service}
     restart: unless-stopped
     command:
       - --model
@@ -96,7 +96,7 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
       - --port
       - "8080"
       - --ctx-size
-      - "\${LLAMA_CTX_SIZE:-4096}"
+      - "\${${d.ctxVar}:-4096}"
     volumes:
       - ./models:/models:ro
     healthcheck:
@@ -117,7 +117,6 @@ services:
   engine:
     image: fh-engine:latest
     pull_policy: never
-    container_name: fh-engine
     restart: unless-stopped${userBlock}${dependsBlock}
     environment:
 ${envBlock}
@@ -150,10 +149,15 @@ ENGINE_WEB_SEARCH_API_KEY=${cfg.webSearch.apiKey}
 `
     : "";
 
-  // Only present when at least one model runs on-device (a llama-server sidecar).
-  const onDeviceSection = Object.values(cfg.models).some((b) => b.location === "device")
+  // One context-size var per on-device model (llama-server sidecar), so each is
+  // tunable on its own.
+  const deviceModelIds = Object.entries(cfg.models)
+    .filter(([, b]) => b.location === "device")
+    .map(([id]) => id);
+  const onDeviceSection = deviceModelIds.length
     ? `# ----- On-device models -----
-LLAMA_CTX_SIZE=4096     # context window for every llama-server sidecar
+# Context window per llama-server sidecar.
+${deviceModelIds.map((id) => `${ctxSizeVar(id)}=4096`).join("\n")}
 
 `
     : "";
@@ -238,9 +242,9 @@ broker/endpoint already exists and is reachable from the controller.`);
     notes.push(`## On-device models
 
 This bundle runs a llama-server container per on-device model; the engine reaches it
-over the compose network by service name. Place the model file(s) in \`./models/\`
-before deploying and copy that folder to the controller too (GGUF files can be several
-GB, so they are not in the \`scp\` line below):
+over the compose network by service name. The GGUF file(s) below must sit in a
+\`models/\` folder next to the compose file on the controller. They are too large for
+the main \`scp\` line, so step 3 transfers them separately:
 ${deviceModelFiles.map((f) => `- \`./models/${f}\``).join("\n")}`);
   }
   if (hasNetworkModel) {
@@ -264,6 +268,30 @@ The web-search API key is in \`.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
     hasHardware || hasExternal ? "deployment_mapping.json" : "",
   ].filter(Boolean);
   const transferExtraStr = transferExtra.length ? " " + transferExtra.join(" ") : "";
+
+  // On-device model weights ship outside the main scp line (GGUF can be several GB).
+  const modelsTransfer = deviceModelFiles.length
+    ? `
+
+# On-device model weights — too large for the line above (GGUF can be several GB).
+# Copy them from this bundle:
+scp -r models/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
+# ...or download them directly into ~/fh-engine/models/ on the controller.`
+    : "";
+
+  // With an on-device sidecar the engine waits on its health before starting, so
+  // show every container; otherwise the engine log alone is enough.
+  const runBlock = deviceModelFiles.length
+    ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
+ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
+
+# The engine only starts once the llama-server sidecar reports healthy. If the engine
+# stays "created", inspect the sidecar — these show every container, not just the engine:
+ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose ps'
+ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f'`
+    : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
+ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
+ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f engine'`;
 
   return `# ForestHub engine — deployment bundle
 
@@ -312,17 +340,26 @@ ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
 scp fh-engine.tar docker-compose.yml workflow.json${transferExtraStr} .env \\
-    $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
+    $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 
 ## 4. Run (on the controller)
 
 \`\`\`bash
-ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
-ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
-ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f engine'
+${runBlock}
 \`\`\`
 `;
+}
+
+// Exported for testing purposes only.
+// Per-sidecar env var for a model's llama-server context size, derived from the
+// model id so each on-device model is tunable on its own.
+export function ctxSizeVar(modelId: string): string {
+  const suffix = modelId
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return `LLAMA_CTX_SIZE_${suffix || "MODEL"}`;
 }
 
 // Exported for testing purposes only.

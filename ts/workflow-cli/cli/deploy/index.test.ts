@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { parseFlags, partialFromFlags, missingRequired, configFromPartial, loadValues } from "./index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { configFromPartial, loadValues, missingRequired, parseFlags, partialFromFlags } from "./index";
 import type { DeployRequirements, RawFlags } from "./types";
 
 function flagsOf(p: Partial<RawFlags> = {}): RawFlags {
@@ -34,8 +34,17 @@ afterEach(() => vi.restoreAllMocks());
 describe("parseFlags", () => {
   it("parses provider keys, output, values, log-level and booleans", () => {
     const f = parseFlags([
-      "--anthropic-key", "sk-a", "--openai-key", "sk-o",
-      "--output", "dir", "--values", "v.json", "--log-level", "debug", "--force",
+      "--anthropic-key",
+      "sk-a",
+      "--openai-key",
+      "sk-o",
+      "--output",
+      "dir",
+      "--values",
+      "v.json",
+      "--log-level",
+      "debug",
+      "--force",
     ]);
     expect(f.anthropicKey).toBe("sk-a");
     expect(f.openaiKey).toBe("sk-o");
@@ -91,7 +100,7 @@ describe("missingRequired", () => {
   it("flags missing mqtt / model / web-search values", () => {
     const m = missingRequired(
       reqOf({
-        mqttChannels: [{ id: "m", label: "m", topic: "t" }],
+        mqttChannels: [{ id: "m", label: "m" }],
         customModels: [{ id: "llm", label: "llm" }],
         hasWebSearch: true,
       }),
@@ -105,6 +114,21 @@ describe("missingRequired", () => {
   it("returns empty when everything is supplied", () => {
     const m = missingRequired(reqOf({ hardwareChannels: [hw("btn", "gpio")] }), {
       hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 0 } },
+    });
+    expect(m).toEqual([]);
+  });
+
+  it("flags a device model whose filename is not a .gguf", () => {
+    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
+      models: { llm: { location: "device", modelFile: "qwen" } },
+    }).join();
+    expect(m).toMatch(/llm/);
+    expect(m).toMatch(/\.gguf/);
+  });
+
+  it("accepts a device model with a valid .gguf filename", () => {
+    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
+      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
     });
     expect(m).toEqual([]);
   });
