@@ -70,13 +70,18 @@ second path.
 
 ### `deploy <file.json> [flags]`
 
-Generates a self-contained deployment bundle for an edge controller — a directory
-holding `workflow.json`, `docker-compose.yml`, `.env` (operator config, written
-`0600`), and a `README.md` with the build/transfer/run steps. Missing values come
-from flags or interactive prompts; pass `--non-interactive` plus the needed
-`--flag`s for scripted use. The mode (`standalone` vs `cloud`) is derived from the
-workflow but can be overridden. Run `fh-workflow deploy --help` for the full flag
-list.
+Generates a self-contained, **standalone** deployment bundle for an edge controller —
+a directory the engine boots from directly, with no backend and no account. It always
+holds `workflow.json`, `docker-compose.yml`, `.env` (operator config, written `0600`),
+and a `README.md` with the build/transfer/run steps. Workflows that declare hardware,
+MQTT, or custom models additionally get `device_manifest.json`, `external_resources.json`
+(`0600`), and `deployment_mapping.json`.
+
+Missing values are filled in **interactively** at a terminal. Without a terminal (a
+Claude Code skill, CI), supply them through `--values <file.json>` — a partial deploy
+config as JSON; any still-missing required value exits non-zero. LLM provider keys can
+also be passed as flags (`--anthropic-key`, …). Run `fh-workflow deploy --help` for the
+full flag list.
 
 ## In-repo development
 
