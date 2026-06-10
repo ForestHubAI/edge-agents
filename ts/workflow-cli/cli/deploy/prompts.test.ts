@@ -155,6 +155,57 @@ describe("promptMissing", () => {
     expect(cfg.models.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
   });
 
+  // The mocks answer prompts without running their validate callbacks; these
+  // tests pull a recorded call's validate out and invoke it like inquirer would.
+  type PromptCall = { message: string; validate?: (v: string) => string | boolean };
+  const promptCalls = (re: RegExp): PromptCall[] =>
+    (input as unknown as { mock: { calls: [PromptCall][] } }).mock.calls.map((c) => c[0]).filter((o) => re.test(o.message));
+
+  it("rejects a GPIO line an earlier channel already claimed", async () => {
+    script({
+      input: [
+        [/device path/, "/dev/gpiochip0"],
+        [/index/, "17"],
+        [/Output directory/, "b"],
+      ],
+    });
+    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
+    const validate = promptCalls(/index/)[1]?.validate;
+    expect(validate?.("17")).toMatch(/already used by "a"/);
+    expect(validate?.("18")).toBe(true);
+  });
+
+  it("counts a pre-filled (--values) address as claimed in the live check", async () => {
+    script({
+      input: [
+        [/device path/, "/dev/gpiochip0"],
+        [/index/, "5"],
+        [/Output directory/, "b"],
+      ],
+    });
+    await promptMissing(
+      { hardware: { a: { chipOrDevice: "/dev/gpiochip0", index: 17 } } },
+      "def",
+      reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }),
+    );
+    const validate = promptCalls(/index/)[0]?.validate;
+    expect(validate?.("17")).toMatch(/already used by "a"/);
+  });
+
+  it("rejects a serial device another channel already uses", async () => {
+    script({
+      input: [
+        [/device path/, "/dev/ttyUSB0"],
+        [/baud/, "9600"],
+        [/Output directory/, "b"],
+      ],
+    });
+    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwSerial("u1"), hwSerial("u2")] }));
+    const validate = promptCalls(/device path/)[1]?.validate;
+    expect(validate?.("/dev/ttyUSB0")).toMatch(/already used by "u1"/);
+    expect(validate?.("/dev/ttyUSB1")).toBe(true);
+  });
+
   // Everything printed to stdout this run, concatenated, for header assertions.
   const printed = () => stdout.mock.calls.map((c: unknown[]) => String(c[0])).join("");
 

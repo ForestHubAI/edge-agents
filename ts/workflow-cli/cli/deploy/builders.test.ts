@@ -68,6 +68,39 @@ describe("assertDeployable", () => {
     const req = reqOf({ customModels: [{ id: "llm", label: "llm" }] });
     expect(() => assertDeployable(req, cfgOf({ models: { llm: { location: "network", url: "" } } }))).toThrow(/llm/);
   });
+
+  it("throws when two channels claim the same chip and line", () => {
+    const req = reqOf({ hardwareChannels: [hw("btn", "gpio"), hw("led", "gpio")] });
+    const cfg = cfgOf({
+      hardware: {
+        btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+        led: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+      },
+    });
+    expect(() => assertDeployable(req, cfg)).toThrow(/already used by "btn"/);
+  });
+
+  it("accepts two channels sharing a chip on different lines", () => {
+    const req = reqOf({ hardwareChannels: [hw("btn", "gpio"), hw("led", "gpio")] });
+    const cfg = cfgOf({
+      hardware: {
+        btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+        led: { chipOrDevice: "/dev/gpiochip0", index: 27 },
+      },
+    });
+    expect(() => assertDeployable(req, cfg)).not.toThrow();
+  });
+
+  it("throws when two serial channels claim the same device", () => {
+    const req = reqOf({ hardwareChannels: [hw("u1", "serial"), hw("u2", "serial")] });
+    const cfg = cfgOf({
+      hardware: {
+        u1: { chipOrDevice: "/dev/ttyUSB0", baud: 9600 },
+        u2: { chipOrDevice: "/dev/ttyUSB0", baud: 115200 },
+      },
+    });
+    expect(() => assertDeployable(req, cfg)).toThrow(/already used by "u1"/);
+  });
 });
 
 describe("buildDeployArtifacts — hardware", () => {

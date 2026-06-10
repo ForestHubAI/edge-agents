@@ -4,7 +4,7 @@
 import { checkbox, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { ALL_PROVIDERS, ggufNameError } from "./types";
+import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
 import type {
   CustomModel,
   DeployConfig,
@@ -31,20 +31,48 @@ const HARDWARE_EXAMPLE: Record<HardwareFamily, string> = {
 const isUint = (v: string) => /^\d+$/.test(v.trim()) || "enter a non-negative integer";
 
 // Per hardware channel: device path + index (addressable) + baud (serial).
+// A claimed-address map rejects a duplicate line/device right at the prompt;
+// assertDeployable re-checks the full set later (it alone covers --values).
 async function promptHardware(
   channels: HardwareChannel[],
   seed: Record<string, HardwareBinding>,
 ): Promise<Record<string, HardwareBinding>> {
   const result: Record<string, HardwareBinding> = { ...seed };
+  const claimed = new Map<string, string>(); // address key -> first claiming channel's label
+  const claim = (key: string, label: string): void => {
+    if (!claimed.has(key)) claimed.set(key, label);
+  };
+  for (const ch of channels) {
+    const b = result[ch.id];
+    if (b?.chipOrDevice && (!ch.addressable || b.index !== undefined)) {
+      claim(hardwareAddressKey(ch.family, b.chipOrDevice, b.index), ch.label);
+    }
+  }
   for (const ch of channels) {
     if (result[ch.id]) continue;
     const chipOrDevice = await input({
       message: `${ch.label} (${ch.family}): device path`,
       default: HARDWARE_EXAMPLE[ch.family],
+      // Only serial claims the whole device; gpio/adc/dac/pwm share the path
+      // and collide on the index below.
+      validate: (v) => {
+        if (ch.family !== "serial") return true;
+        const holder = claimed.get(hardwareAddressKey("serial", v));
+        return holder ? `${v.trim()} is already used by "${holder}" — pick another device` : true;
+      },
     });
-    const binding: HardwareBinding = { chipOrDevice: chipOrDevice.trim() };
+    const dev = chipOrDevice.trim();
+    const binding: HardwareBinding = { chipOrDevice: dev };
     if (ch.addressable) {
-      const idx = await input({ message: `${ch.label}: channel index / GPIO line`, validate: isUint });
+      const idx = await input({
+        message: `${ch.label}: channel index / GPIO line`,
+        validate: (v) => {
+          const uint = isUint(v);
+          if (uint !== true) return uint;
+          const holder = claimed.get(hardwareAddressKey(ch.family, dev, Number(v.trim())));
+          return holder ? `${hardwareAddressLabel(ch.family, dev, Number(v.trim()))} is already used by "${holder}" — pick a free one` : true;
+        },
+      });
       binding.index = Number(idx.trim());
     }
     if (ch.family === "serial") {
@@ -52,6 +80,7 @@ async function promptHardware(
       binding.baud = Number(baud.trim());
     }
     result[ch.id] = binding;
+    claim(hardwareAddressKey(ch.family, dev, binding.index), ch.label);
   }
   return result;
 }

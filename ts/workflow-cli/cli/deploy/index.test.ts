@@ -118,6 +118,16 @@ describe("missingRequired", () => {
     expect(m).toEqual([]);
   });
 
+  it("flags two channels claiming the same chip and line", () => {
+    const m = missingRequired(reqOf({ hardwareChannels: [hw("btn", "gpio"), hw("led", "gpio")] }), {
+      hardware: {
+        btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+        led: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+      },
+    }).join();
+    expect(m).toMatch(/already used by "btn"/);
+  });
+
   it("flags a device model whose filename is not a .gguf", () => {
     const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
       models: { llm: { location: "device", modelFile: "qwen" } },

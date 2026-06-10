@@ -3,6 +3,7 @@
 // contract shape change stops these compiling — the drift guard for the files.
 
 import type { Schemas } from "../../src/api";
+import { hardwareConflicts } from "./types";
 import type { DeployConfig, DeployRequirements } from "./types";
 
 // The three files the standalone engine self-deploys from at boot. Built in one
@@ -86,8 +87,9 @@ export function assertDeployable(req: DeployRequirements, cfg: DeployConfig): vo
       missing.push(`model "${m.id}": endpoint URL`);
     }
   }
+  missing.push(...hardwareConflicts(req.hardwareChannels, cfg.hardware));
   if (missing.length > 0) {
-    throw new Error(`incomplete deploy config:\n  - ${missing.join("\n  - ")}`);
+    throw new Error(`invalid deploy config:\n  - ${missing.join("\n  - ")}`);
   }
 }
 

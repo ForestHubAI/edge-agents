@@ -18,7 +18,7 @@ import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
-import { ALL_PROVIDERS, ggufNameError } from "./types";
+import { ALL_PROVIDERS, ggufNameError, hardwareConflicts } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -143,6 +143,7 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
     }
     if (ch.addressable && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
   }
+  missing.push(...hardwareConflicts(req.hardwareChannels, p.hardware ?? {}));
   for (const ch of req.mqttChannels) {
     if (!p.mqtt?.[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }

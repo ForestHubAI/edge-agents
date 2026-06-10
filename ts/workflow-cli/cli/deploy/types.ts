@@ -89,6 +89,42 @@ export function ggufNameError(name: string | undefined): string | null {
   return null;
 }
 
+// A physical address (GPIO line, ADC/DAC/PWM channel, serial device) belongs to
+// exactly one channel — the engine doesn't police this and would silently let
+// the last claimer win. Same key = collision; sharing just the path is fine
+// (one chip, many lines), except for serial where the path IS the device.
+export function hardwareAddressKey(family: HardwareFamily, chipOrDevice: string, index?: number): string {
+  const dev = chipOrDevice.trim();
+  return family === "serial" ? `serial:${dev}` : `${family}:${dev}:${index}`;
+}
+
+// The same address, phrased for error messages: "/dev/gpiochip0 line 17".
+export function hardwareAddressLabel(family: HardwareFamily, chipOrDevice: string, index?: number): string {
+  const dev = chipOrDevice.trim();
+  if (family === "serial") return dev;
+  return `${dev} ${family === "gpio" ? "line" : "channel"} ${index}`;
+}
+
+// One message per channel whose address an earlier channel already claimed.
+// Incomplete bindings are skipped (completeness is a separate check). Shared by
+// the deploy guard and the --values fail-fast path so both report identically.
+export function hardwareConflicts(channels: HardwareChannel[], bindings: Record<string, HardwareBinding>): string[] {
+  const conflicts: string[] = [];
+  const claimed = new Map<string, string>(); // address key -> channel id holding it
+  for (const ch of channels) {
+    const b = bindings[ch.id];
+    if (!b?.chipOrDevice || (ch.addressable && b.index === undefined)) continue;
+    const key = hardwareAddressKey(ch.family, b.chipOrDevice, b.index);
+    const holder = claimed.get(key);
+    if (holder) {
+      conflicts.push(`hardware "${ch.id}": ${hardwareAddressLabel(ch.family, b.chipOrDevice, b.index)} is already used by "${holder}"`);
+    } else {
+      claimed.set(key, ch.id);
+    }
+  }
+  return conflicts;
+}
+
 // Web-search provider + key. Engine-wide, so just one.
 export interface WebSearchBinding {
   provider: string;
