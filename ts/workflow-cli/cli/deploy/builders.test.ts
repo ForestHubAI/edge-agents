@@ -44,6 +44,24 @@ describe("assertDeployable", () => {
     expect(() => assertDeployable(req, cfgOf({ hardware: { u: { chipOrDevice: "/dev/ttyUSB0" } } }))).not.toThrow();
   });
 
+  it("throws when a binding targets a channel the workflow doesn't declare", () => {
+    const req = reqOf({ hardwareChannels: [hw("btn", "gpio")] });
+    const cfg = cfgOf({
+      hardware: {
+        btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
+        bttn: { chipOrDevice: "/dev/gpiochip0", index: 18 },
+      },
+    });
+    expect(() => assertDeployable(req, cfg)).toThrow(/bttn.*no such channel/);
+  });
+
+  it("throws when a serial channel carries an index", () => {
+    const req = reqOf({ hardwareChannels: [hw("u", "serial")] });
+    expect(() => assertDeployable(req, cfgOf({ hardware: { u: { chipOrDevice: "/dev/ttyUSB0", index: 0 } } }))).toThrow(
+      /index/,
+    );
+  });
+
   it("collects every gap into one message", () => {
     const req = reqOf({
       mqttChannels: [{ id: "m", label: "m" }],

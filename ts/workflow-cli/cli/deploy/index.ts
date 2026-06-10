@@ -18,7 +18,7 @@ import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
-import { ALL_PROVIDERS, ggufNameError, hardwareConflicts } from "./types";
+import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ ${ALL_PROVIDERS.map((p) => `  --${p}-key KEY`).join("\n")}
 Output:
   --output DIR                    default: ./<workflow-name>-bundle
   --force                         overwrite existing DIR
-  --log-level LEVEL               debug|info|warn|error (default: info)
+  --log-level LEVEL               ${logLevelSchema.options.join("|")} (default: info)
 
 Automation (no terminal — e.g. a Claude Code skill or CI):
   --values FILE                   JSON partial deploy config supplying the answers
@@ -86,13 +86,20 @@ export function parseFlags(args: string[]): RawFlags {
 
 // Merge a --values file (the base) with explicit flags (which win). Provider
 // keys merge per provider; the scalar flags override only when actually set.
+// An invalid --log-level exits 1 — loud like a bad values file, not silent.
 export function partialFromFlags(flags: RawFlags, fileValues: Partial<DeployConfig>): Partial<DeployConfig> {
   const llmKeys: Partial<Record<Provider, string>> = { ...(fileValues.llmKeys ?? {}), ...flags.llmKeys };
 
-  const flagLogLevel: LogLevel | undefined =
-    flags.logLevel === "debug" || flags.logLevel === "info" || flags.logLevel === "warn" || flags.logLevel === "error"
-      ? flags.logLevel
-      : undefined;
+  // Same schema the values file is checked against — one list of valid levels.
+  let flagLogLevel: LogLevel | undefined;
+  if (flags.logLevel !== undefined) {
+    const checked = logLevelSchema.safeParse(flags.logLevel);
+    if (!checked.success) {
+      process.stderr.write(`Invalid --log-level "${flags.logLevel}" — expected ${logLevelSchema.options.join("|")}.\n`);
+      process.exit(1);
+    }
+    flagLogLevel = checked.data;
+  }
 
   return {
     ...fileValues,
@@ -104,7 +111,9 @@ export function partialFromFlags(flags: RawFlags, fileValues: Partial<DeployConf
 }
 
 // Load a --values file: a partial DeployConfig as JSON. Never logged (may carry
-// secrets). Exits 1 on a missing file or malformed JSON.
+// secrets). Exits 1 on a missing file, malformed JSON, or content that doesn't
+// match valuesFileSchema (wrong types, unknown keys) — listing every problem as
+// a `path: reason` line so a non-interactive caller can fix the file.
 export async function loadValues(source: string): Promise<Partial<DeployConfig>> {
   const abs = path.resolve(process.cwd(), source);
   let raw: string;
@@ -128,10 +137,20 @@ export async function loadValues(source: string): Promise<Partial<DeployConfig>>
     process.stderr.write("Values file must be a JSON object (a partial deploy config).\n");
     process.exit(1);
   }
-  return parsed as Partial<DeployConfig>;
+  const checked = valuesFileSchema.safeParse(parsed);
+  if (!checked.success) {
+    process.stderr.write("Invalid values file (not a partial deploy config):\n");
+    for (const issue of checked.error.issues) {
+      const at = issue.path.length > 0 ? issue.path.join(".") : "(top level)";
+      process.stderr.write(`  - ${at}: ${issue.message}\n`);
+    }
+    process.exit(1);
+  }
+  return checked.data;
 }
 
-// Required values that have no default and can only come from the operator —
+// Required values that have no default and can only come from the operator,
+// plus consistency problems (address conflicts, family-mismatched fields) —
 // used to fail fast (exit 1) when there is no terminal to prompt on.
 export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig>): string[] {
   const missing: string[] = [];
@@ -144,6 +163,7 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
     if (ch.addressable && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
   }
   missing.push(...hardwareConflicts(req.hardwareChannels, p.hardware ?? {}));
+  missing.push(...familyMismatches(req.hardwareChannels, p.hardware ?? {}));
   for (const ch of req.mqttChannels) {
     if (!p.mqtt?.[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
@@ -157,6 +177,7 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
     }
   }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
+  missing.push(...unknownIds(req, p));
   return missing;
 }
 
@@ -258,7 +279,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   } else {
     const missing = missingRequired(req, partial);
     if (missing.length > 0) {
-      process.stderr.write("error: no interactive terminal and required values are missing:\n");
+      process.stderr.write("error: no interactive terminal and the supplied values are missing or invalid:\n");
       for (const m of missing) process.stderr.write(`  - ${m}\n`);
       process.stderr.write("Supply them in a --values <file.json> (a partial deploy config). See --help.\n");
       process.exit(1);

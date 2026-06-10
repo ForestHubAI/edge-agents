@@ -79,8 +79,9 @@ describe("partialFromFlags", () => {
     expect(p.llmKeys).toEqual({ anthropic: "flag-a", gemini: "file-g", openai: "flag-o" });
   });
 
-  it("ignores an invalid --log-level but honors a valid one", () => {
-    expect(partialFromFlags(flagsOf({ logLevel: "nope" }), { logLevel: "warn" }).logLevel).toBe("warn");
+  it("exits on an invalid --log-level and honors a valid one", () => {
+    trapExit();
+    expect(() => partialFromFlags(flagsOf({ logLevel: "nope" }), {})).toThrow("exit:1");
     expect(partialFromFlags(flagsOf({ logLevel: "debug" }), {}).logLevel).toBe("debug");
   });
 });
@@ -126,6 +127,23 @@ describe("missingRequired", () => {
       },
     }).join();
     expect(m).toMatch(/already used by "btn"/);
+  });
+
+  it("flags a binding for a channel id the workflow doesn't declare", () => {
+    const m = missingRequired(reqOf({ hardwareChannels: [hw("led-out", "gpio")] }), {
+      hardware: {
+        "led-out": { chipOrDevice: "/dev/gpiochip0", index: 27 },
+        "led-out1": { chipOrDevice: "/dev/gpiochip0", index: 1 },
+      },
+    });
+    expect(m.join()).toMatch(/led-out1.*no such channel/);
+  });
+
+  it("flags a baud on a gpio channel instead of silently ignoring it", () => {
+    const m = missingRequired(reqOf({ hardwareChannels: [hw("btn", "gpio")] }), {
+      hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17, baud: 9600 } },
+    }).join();
+    expect(m).toMatch(/btn.*baud/);
   });
 
   it("flags a device model whose filename is not a .gguf", () => {
@@ -196,6 +214,49 @@ describe("loadValues", () => {
     await fs.writeFile(file, "[1,2,3]");
     trapExit();
     await expect(loadValues(file)).rejects.toThrow("exit:1");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("rejects a wrong type and names the exact path", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhdeploy-"));
+    const file = path.join(dir, "v.json");
+    await fs.writeFile(file, JSON.stringify({ hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: "17" } } }));
+    trapExit();
+    await expect(loadValues(file)).rejects.toThrow("exit:1");
+    expect(vi.mocked(process.stderr.write).mock.calls.join("")).toContain("hardware.btn.index");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("rejects an unknown key instead of silently ignoring it", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhdeploy-"));
+    const file = path.join(dir, "v.json");
+    await fs.writeFile(file, JSON.stringify({ hardwre: {} }));
+    trapExit();
+    await expect(loadValues(file)).rejects.toThrow("exit:1");
+    expect(vi.mocked(process.stderr.write).mock.calls.join("")).toContain("hardwre");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("rejects an invalid logLevel coming from the file", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhdeploy-"));
+    const file = path.join(dir, "v.json");
+    await fs.writeFile(file, JSON.stringify({ logLevel: "verbose" }));
+    trapExit();
+    await expect(loadValues(file)).rejects.toThrow("exit:1");
+    expect(vi.mocked(process.stderr.write).mock.calls.join("")).toContain("logLevel");
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("returns a valid partial unchanged", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhdeploy-"));
+    const file = path.join(dir, "v.json");
+    const values = {
+      hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17 } },
+      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
+      logLevel: "debug",
+    };
+    await fs.writeFile(file, JSON.stringify(values));
+    expect(await loadValues(file)).toEqual(values);
     await fs.rm(dir, { recursive: true, force: true });
   });
 });
