@@ -3,7 +3,7 @@
 // contract shape change stops these compiling — the drift guard for the files.
 
 import type { Schemas } from "../../src/api";
-import { familyMismatches, hardwareConflicts, unknownIds } from "./types";
+import { familyMismatches, ggufNameError, hardwareConflicts, unknownIds } from "./types";
 import type { DeployConfig, DeployRequirements } from "./types";
 
 // The three files the standalone engine self-deploys from at boot. Built in one
@@ -82,7 +82,8 @@ export function assertDeployable(req: DeployRequirements, cfg: DeployConfig): vo
   for (const m of req.customModels) {
     const b = cfg.models[m.id];
     if (b?.location === "device") {
-      if (!b.modelFile) missing.push(`model "${m.id}": model filename`);
+      const err = ggufNameError(b.modelFile);
+      if (err) missing.push(`model "${m.id}": ${err}`);
     } else if (!b?.url) {
       missing.push(`model "${m.id}": endpoint URL`);
     }

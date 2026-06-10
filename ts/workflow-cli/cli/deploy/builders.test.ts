@@ -82,6 +82,14 @@ describe("assertDeployable", () => {
     expect(() => assertDeployable(req, cfgOf({ models: { llm: { location: "device", modelFile: "" } } }))).toThrow(/llm/);
   });
 
+  it("throws when a device model's filename is not a plain .gguf name", () => {
+    const req = reqOf({ customModels: [{ id: "llm", label: "llm" }] });
+    expect(() => assertDeployable(req, cfgOf({ models: { llm: { location: "device", modelFile: "model.bin" } } }))).toThrow(/\.gguf/);
+    expect(() => assertDeployable(req, cfgOf({ models: { llm: { location: "device", modelFile: "sub/model.gguf" } } }))).toThrow(
+      /filename, not a path/,
+    );
+  });
+
   it("throws when a network model has no url", () => {
     const req = reqOf({ customModels: [{ id: "llm", label: "llm" }] });
     expect(() => assertDeployable(req, cfgOf({ models: { llm: { location: "network", url: "" } } }))).toThrow(/llm/);
