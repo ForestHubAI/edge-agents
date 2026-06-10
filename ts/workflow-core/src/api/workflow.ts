@@ -145,8 +145,6 @@ export interface components {
              */
             mode: "r" | "rw";
         };
-        /** @enum {string} */
-        ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
         Model: components["schemas"]["LLMModel"];
         /** @description A custom or self-hosted language model that agent nodes can reference. */
         LLMModel: {
@@ -596,6 +594,8 @@ export interface components {
             /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
             topic: string;
         };
+        /** @enum {string} */
+        ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
     };
     responses: never;
     parameters: never;

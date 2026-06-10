@@ -2,11 +2,13 @@ package build
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/selfhosted"
+	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // buildDeployProviders resolves a workflow's declared models into a single
@@ -34,9 +36,9 @@ func buildDeployProviders(wf *workflow.Workflow, dm engine.DeploymentMapping, ex
 		if cfg.Model != "" && cfg.Model != m.Id {
 			return nil, fmt.Errorf("model %q: upstream model-name aliasing (%q) is not supported yet", m.Id, cfg.Model)
 		}
-		caps, err := toCapabilities(m)
-		if err != nil {
-			return nil, err
+		caps := mapping.ModelCapabilitiesToDomain(m.Capabilities)
+		if slices.Contains(caps, llmproxy.CapabilityEmbedding) {
+			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted deploy providers yet (no dimension in the workflow declaration)", m.Id)
 		}
 		endpoints = append(endpoints, selfhosted.ModelEndpoint{
 			URL:          cfg.URL,
@@ -112,18 +114,4 @@ func validateModelsResolvable(wf *workflow.Workflow, client *llmproxy.Client) er
 		}
 	}
 	return nil
-}
-
-// toCapabilities maps a declared model's capabilities onto llmproxy's. Embedding
-// is rejected for now: self-hosted deploy providers need a vector dimension that
-// the workflow model declaration doesn't carry yet.
-func toCapabilities(m workflow.LLMModel) ([]llmproxy.ModelCapability, error) {
-	caps := make([]llmproxy.ModelCapability, 0, len(m.Capabilities))
-	for _, c := range m.Capabilities {
-		if c == workflow.ModelCapabilityEmbedding {
-			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted deploy providers yet (no dimension in the workflow declaration)", m.Id)
-		}
-		caps = append(caps, llmproxy.ModelCapability(c))
-	}
-	return caps, nil
 }

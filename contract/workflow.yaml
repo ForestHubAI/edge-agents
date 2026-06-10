@@ -295,20 +295,6 @@ components:
 
     # ====== Models ======
 
-    ModelCapability:
-      type: string
-      enum:
-        [
-          chat,
-          embedding,
-          function_call,
-          vision,
-          fine_tuning,
-          reasoning,
-          classification,
-          code,
-        ]
-
     Model:
       oneOf:
         - $ref: "#/components/schemas/LLMModel"
@@ -333,7 +319,7 @@ components:
           type: array
           description: Capabilities this model supports (used to filter model pickers).
           items:
-            $ref: "#/components/schemas/ModelCapability"
+            $ref: "llmproxy.yaml#/components/schemas/ModelCapability"
 
     # ====== Nodes ======
 

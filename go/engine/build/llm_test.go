@@ -3,6 +3,7 @@ package build
 import (
 	"testing"
 
+	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func llmModel(t *testing.T, id string, caps ...workflow.ModelCapability) workflow.Model {
+func llmModel(t *testing.T, id string, caps ...llmapi.ModelCapability) workflow.Model {
 	t.Helper()
 	var m workflow.Model
 	require.NoError(t, m.FromLLMModel(workflow.LLMModel{
@@ -52,7 +53,7 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 }
 
 func TestBuildDeployProviders_ResolvesChatModel(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", workflow.ModelCapabilityChat)}}
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
 	dm := engine.DeploymentMapping{"my-llama": {Ref: "prov-1"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"prov-1": {URL: "http://llm:8000", APIKey: "k"},
@@ -71,7 +72,7 @@ func TestBuildDeployProviders_ResolvesChatModel(t *testing.T) {
 
 func TestBuildDeployProviders_UnboundModelFails(t *testing.T) {
 	// Declared models are always custom — an unbound one is a broken deploy.
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", workflow.ModelCapabilityChat)}}
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
 	_, err := buildDeployProviders(wf, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not bound")
@@ -84,7 +85,7 @@ func TestBuildDeployProviders_NoModels(t *testing.T) {
 }
 
 func TestBuildDeployProviders_BoundButNoConfig(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", workflow.ModelCapabilityChat)}}
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.DeploymentMapping{"m": {Ref: "missing"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{}}
 
@@ -94,7 +95,7 @@ func TestBuildDeployProviders_BoundButNoConfig(t *testing.T) {
 }
 
 func TestBuildDeployProviders_EmbeddingUnsupported(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "embed", workflow.ModelCapabilityEmbedding)}}
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "embed", llmapi.Embedding)}}
 	dm := engine.DeploymentMapping{"embed": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": {URL: "http://e:8000"}}}
 
@@ -104,7 +105,7 @@ func TestBuildDeployProviders_EmbeddingUnsupported(t *testing.T) {
 }
 
 func TestBuildDeployProviders_UpstreamAliasRejected(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", workflow.ModelCapabilityChat)}}
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.DeploymentMapping{"m": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"p": {URL: "http://e:8000", Model: "different-upstream"},
@@ -117,8 +118,8 @@ func TestBuildDeployProviders_UpstreamAliasRejected(t *testing.T) {
 
 func TestBuildDeployProviders_MultipleModelsOneProvider(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{
-		llmModel(t, "a", workflow.ModelCapabilityChat),
-		llmModel(t, "b", workflow.ModelCapabilityChat),
+		llmModel(t, "a", llmapi.Chat),
+		llmModel(t, "b", llmapi.Chat),
 	}}
 	dm := engine.DeploymentMapping{"a": {Ref: "p1"}, "b": {Ref: "p2"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{

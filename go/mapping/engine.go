@@ -80,9 +80,9 @@ func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) engine.Deploymen
 // StatusToAPI maps the engine domain Status onto the wire State enum.
 func StatusToAPI(running bool) engineapi.State {
 	if running {
-		return engineapi.StateRunning
+		return engineapi.Running
 	}
-	return engineapi.StateIdle
+	return engineapi.Idle
 }
 
 // TickerInterval converts a wire ticker (value + unit) into a runtime duration.

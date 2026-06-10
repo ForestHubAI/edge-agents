@@ -361,16 +361,19 @@ func ProvidersToDomain(in []llmapi.ProviderInfo) []llmproxy.ProviderInfo {
 	return out
 }
 
+// ModelCapabilitiesToDomain converts api model capabilities to domain.
+func ModelCapabilitiesToDomain(in []llmapi.ModelCapability) []llmproxy.ModelCapability {
+	return Slice(in, func(c *llmapi.ModelCapability) llmproxy.ModelCapability {
+		return llmproxy.ModelCapability(*c)
+	})
+}
+
 func modelInfoToDomain(m *llmapi.ModelInfo) llmproxy.ModelInfo {
-	caps := make([]llmproxy.ModelCapability, len(m.Capabilities))
-	for i, c := range m.Capabilities {
-		caps[i] = llmproxy.ModelCapability(c)
-	}
 	return llmproxy.ModelInfo{
 		ID:                 llmproxy.ModelID(m.Id),
 		Provider:           llmproxy.ProviderID(m.Provider),
 		Label:              m.Label,
-		Capabilities:       caps,
+		Capabilities:       ModelCapabilitiesToDomain(m.Capabilities),
 		TokenModifier:      float64(m.TokenModifier),
 		MaxTokens:          m.MaxTokens,
 		EmbeddingDimension: m.EmbeddingDimension,

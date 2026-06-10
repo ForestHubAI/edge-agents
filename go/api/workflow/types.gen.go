@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/llmapi"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -138,13 +139,13 @@ func (e EdgeType) Valid() bool {
 
 // Defines values for FunctionCallNodeType.
 const (
-	FunctionCallNodeTypeFunctionCall FunctionCallNodeType = "FunctionCall"
+	FunctionCall FunctionCallNodeType = "FunctionCall"
 )
 
 // Valid indicates whether the value is a known member of the FunctionCallNodeType enum.
 func (e FunctionCallNodeType) Valid() bool {
 	switch e {
-	case FunctionCallNodeTypeFunctionCall:
+	case FunctionCall:
 		return true
 	default:
 		return false
@@ -274,42 +275,6 @@ func (e MemoryRefMode) Valid() bool {
 	case R:
 		return true
 	case Rw:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for ModelCapability.
-const (
-	ModelCapabilityChat           ModelCapability = "chat"
-	ModelCapabilityClassification ModelCapability = "classification"
-	ModelCapabilityCode           ModelCapability = "code"
-	ModelCapabilityEmbedding      ModelCapability = "embedding"
-	ModelCapabilityFineTuning     ModelCapability = "fine_tuning"
-	ModelCapabilityFunctionCall   ModelCapability = "function_call"
-	ModelCapabilityReasoning      ModelCapability = "reasoning"
-	ModelCapabilityVision         ModelCapability = "vision"
-)
-
-// Valid indicates whether the value is a known member of the ModelCapability enum.
-func (e ModelCapability) Valid() bool {
-	switch e {
-	case ModelCapabilityChat:
-		return true
-	case ModelCapabilityClassification:
-		return true
-	case ModelCapabilityCode:
-		return true
-	case ModelCapabilityEmbedding:
-		return true
-	case ModelCapabilityFineTuning:
-		return true
-	case ModelCapabilityFunctionCall:
-		return true
-	case ModelCapabilityReasoning:
-		return true
-	case ModelCapabilityVision:
 		return true
 	default:
 		return false
@@ -943,7 +908,7 @@ type IfNodeType string
 // LLMModel A custom or self-hosted language model that agent nodes can reference.
 type LLMModel struct {
 	// Capabilities Capabilities this model supports (used to filter model pickers).
-	Capabilities []ModelCapability `json:"capabilities"`
+	Capabilities []externalRef0.ModelCapability `json:"capabilities"`
 
 	// Id Stable identifier; this is the ModelID nodes reference.
 	Id string `json:"id"`
@@ -1009,9 +974,6 @@ type MemoryRefMode string
 type Model struct {
 	union json.RawMessage
 }
-
-// ModelCapability defines model for ModelCapability.
-type ModelCapability string
 
 // MqttPublishNode defines model for MqttPublishNode.
 type MqttPublishNode struct {

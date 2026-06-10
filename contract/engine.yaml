@@ -317,8 +317,7 @@ components:
       required: [status]
       properties:
         status:
-          type: string
-          enum: [idle, running]
+          $ref: "#/components/schemas/State"
 
     RagQueryRequest:
       type: object

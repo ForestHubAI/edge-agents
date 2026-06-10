@@ -31,24 +31,6 @@ func (e AgentBootCallbackStatus) Valid() bool {
 	}
 }
 
-// Defines values for AgentRuntimeStatusResponseStatus.
-const (
-	AgentRuntimeStatusResponseStatusIdle    AgentRuntimeStatusResponseStatus = "idle"
-	AgentRuntimeStatusResponseStatusRunning AgentRuntimeStatusResponseStatus = "running"
-)
-
-// Valid indicates whether the value is a known member of the AgentRuntimeStatusResponseStatus enum.
-func (e AgentRuntimeStatusResponseStatus) Valid() bool {
-	switch e {
-	case AgentRuntimeStatusResponseStatusIdle:
-		return true
-	case AgentRuntimeStatusResponseStatusRunning:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LLMProviderConfigType.
 const (
 	Selfhosted LLMProviderConfigType = "selfhosted"
@@ -108,16 +90,16 @@ func (e MQTTConnectionType) Valid() bool {
 
 // Defines values for State.
 const (
-	StateIdle    State = "idle"
-	StateRunning State = "running"
+	Idle    State = "idle"
+	Running State = "running"
 )
 
 // Valid indicates whether the value is a known member of the State enum.
 func (e State) Valid() bool {
 	switch e {
-	case StateIdle:
+	case Idle:
 		return true
-	case StateRunning:
+	case Running:
 		return true
 	default:
 		return false
@@ -156,11 +138,9 @@ type AgentHeartbeatRequest struct {
 
 // AgentRuntimeStatusResponse defines model for AgentRuntimeStatusResponse.
 type AgentRuntimeStatusResponse struct {
-	Status AgentRuntimeStatusResponseStatus `json:"status"`
+	// Status Engine runner state.
+	Status State `json:"status"`
 }
-
-// AgentRuntimeStatusResponseStatus defines model for AgentRuntimeStatusResponse.Status.
-type AgentRuntimeStatusResponseStatus string
 
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
