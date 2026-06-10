@@ -30,8 +30,7 @@ required). Anything you omit that has a default is filled with the default.
 
 ```
 HardwareBinding   { "chipOrDevice": string, "index"?: number, "baud"?: number }
-MqttBinding       { "brokerUrl": string, "username"?: string, "password"?: string,
-                    "publishPrefix"?: string, "subscribePrefix"?: string }
+MqttBinding       { "brokerUrl": string, "username"?: string, "password"?: string }
 ModelBinding      { "location": "device",  "modelFile": string }          // a GGUF run as a sidecar
                 | { "location": "network", "url": string, "apiKey"?: string }  // an endpoint you run
 WebSearchBinding  { "provider": string, "apiKey": string }
@@ -86,7 +85,7 @@ The workflow's own content tells you which bindings to provide:
 | `DAC`             | dac      | `/sys/bus/iio/devices/iio:device1` (sysfs)        | yes → `index` = channel | — |
 | `PWM`             | pwm      | `/sys/class/pwm/pwmchip0` (sysfs)                 | yes → `index` = channel | — |
 | `UART`            | serial   | `/dev/ttyUSB0`, `/dev/ttyACM0`, `/dev/ttyAMA0`    | no (omit `index`) | `baud` optional, default 115200 |
-| `MQTT`            | —        | n/a (uses `mqtt` binding, not `hardware`)         | — | `brokerUrl` + optional creds/prefixes |
+| `MQTT`            | —        | n/a (uses `mqtt` binding, not `hardware`)         | — | `brokerUrl` + optional creds |
 
 gpio/adc/dac/pwm always need an `index` sub-address; serial does not (it's one device). gpio and
 serial are passed through as device nodes; adc/dac/pwm reach sysfs via a privileged container — the
@@ -128,8 +127,7 @@ model, web search, and an `Agent` on a catalog model:
     "sensor-in": {
       "brokerUrl": "tcp://broker.local:1883",
       "username": "controller",
-      "password": "REPLACE_ME_MQTT_PASSWORD",
-      "subscribePrefix": "site-a"
+      "password": "REPLACE_ME_MQTT_PASSWORD"
     }
   },
   "models": {

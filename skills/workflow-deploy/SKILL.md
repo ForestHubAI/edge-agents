@@ -111,7 +111,7 @@ default choice: whether to set them is the operator's call, not yours to silentl
 **Optional — offer each; default to leaving it out:**
 
 - serial `baud` (engine default 115200)
-- per MQTT channel: `username`, `publishPrefix`, `subscribePrefix`
+- per MQTT channel: `username`
 - per network model: `apiKey` (secret)
 - `webSearch.provider` (default `brave`)
 
@@ -149,7 +149,7 @@ Fields that have a sensible default (offer that value):
 Fields that have no sensible default (no default — pure input, or _skip_ if optional):
 
 - GPIO line / channel **index** and a device model's **`.gguf` filename** — required, no default
-- MQTT **username**, **publish/subscribe prefix**, a network model's **apiKey** — optional ⇒ _skip_
+- MQTT **username**, a network model's **apiKey** — optional ⇒ _skip_
 - every **secret** (provider key, MQTT password, web-search key) — never a value, only a
   `REPLACE_ME_…` placeholder (see Step 3)
 
@@ -221,7 +221,7 @@ Give the operator:
 2. **The placeholders they must still fill** — prominently. List every `REPLACE_ME_…` you wrote and
    where it landed (`.env` for provider/web-search keys; `external_resources.json` for MQTT
    passwords / network-model keys). Remind them both files are `chmod 600` and to keep them so.
-3. **The defaultable values you set** (output dir, log level, and any baud / prefixes), each with its
+3. **The defaultable values you set** (output dir, log level, and any baud), each with its
    value, and ask plainly whether any should change — so nothing was decided silently.
 4. **The next step, without doing it**: build, transfer, and run are manual and documented in the
    bundle's generated `README.md`. Point there; see `reference/bundle.md` for a summary. Do **not**
