@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -225,15 +226,38 @@ describe("promptMissing", () => {
   });
 
   it("counts only sections that ask — a pre-filled section gets no header or slot", async () => {
-    script({});
+    script({ input: [[/Output directory/, "b"]] });
     await promptMissing(
-      { hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, outputDir: noExistDir },
+      { hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 1 } } },
       "def",
       reqOf({ hardwareChannels: [hwGpio("btn")] }),
     );
     const out = printed();
     expect(out).not.toContain("Hardware channels");
     expect(out).toContain("[1/1] Output");
+  });
+
+  it("skips the Output section when the directory is pre-filled and free", async () => {
+    script({
+      input: [
+        [/device path/, "/dev/gpiochip0"],
+        [/index/, "1"],
+      ],
+    });
+    await promptMissing({ outputDir: noExistDir }, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }));
+    const out = printed();
+    expect(out).toContain("[1/1] Hardware channels");
+    expect(out).not.toContain("Output");
+  });
+
+  it("keeps the Output section when the pre-filled directory collides", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhprompt-"));
+    await fs.writeFile(path.join(dir, "stale.txt"), "x");
+    script({ select: [[/is not empty/, "overwrite"]] });
+    const cfg = await promptMissing({ outputDir: dir }, "def", reqOf());
+    expect(printed()).toContain("[1/1] Output");
+    expect(cfg.force).toBe(true);
+    await fs.rm(dir, { recursive: true, force: true });
   });
 
   it('adds the "— N to configure" tail only when a section has more than one item', async () => {

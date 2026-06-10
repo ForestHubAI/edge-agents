@@ -189,8 +189,16 @@ export async function promptMissing(
   const askKeys = req.hasProviderModel;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
-  // Output is always asked; every other section only when it has open items.
-  const total = [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, true].filter(
+  // Output asks only when the directory is still open, or the pre-filled one
+  // collides with a non-empty directory and force isn't set (overwrite dialog).
+  let askOut = true;
+  if (partial.outputDir) {
+    const resolved = path.resolve(process.cwd(), partial.outputDir);
+    const nonEmpty = existsSync(resolved) && (await fs.readdir(resolved)).length > 0;
+    askOut = nonEmpty && !(partial.force ?? false);
+  }
+
+  const total = [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(
     Boolean,
   ).length;
   let step = 0;
@@ -242,7 +250,7 @@ export async function promptMissing(
 
   // Output directory — with collision handling. If the dir exists and is
   // non-empty, the operator can overwrite, pick another dir, or abort.
-  section("Output");
+  if (askOut) section("Output");
   let outputDir: string;
   let force = partial.force ?? false;
   {
