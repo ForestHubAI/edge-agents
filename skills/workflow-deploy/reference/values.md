@@ -91,6 +91,10 @@ gpio/adc/dac/pwm always need an `index` sub-address; serial does not (it's one d
 serial are passed through as device nodes; adc/dac/pwm reach sysfs via a privileged container — the
 bundle handles that for you, but it's why those families differ.
 
+**One address, one channel.** Channels may share a `chipOrDevice` (one chip, many lines), but the
+same `chipOrDevice` + `index` pair must never appear twice, and a serial device belongs to exactly
+one channel (baud doesn't matter). The command rejects duplicates with `… is already used by "…"`.
+
 ### `.gguf` filename rules (device models)
 
 `modelFile` is a filename, not a path — the file lives in the bundle's `models/` folder. It must be

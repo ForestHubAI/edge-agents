@@ -108,6 +108,11 @@ default choice: whether to set them is the operator's call, not yours to silentl
 - a `WebSearchTool` node ⇒ `webSearch.apiKey` (secret → placeholder)
 - an `Agent` on a catalog model ⇒ the matching `llmKeys` entry (secret → placeholder)
 
+**Physical addresses are exclusive.** Channels may share a device path (one chip, many lines), but
+no two channels may use the same `chipOrDevice` + `index` pair, and a serial device belongs to
+exactly one channel (regardless of baud). The command rejects duplicates (`… is already used by …`)
+— so when collecting hardware values, never assign the same line/device twice; ask for a free one.
+
 **Optional — offer each; default to leaving it out:**
 
 - serial `baud` (engine default 115200)
@@ -197,6 +202,8 @@ The output dir and log level live in the values file, so the command line needs 
 
 - **`required values are missing: …`** — the command lists each gap (e.g. `hardware "btn": index`).
   Ask the operator for exactly those, add them to the values file, re-run.
+- **`… is already used by "…"`** — two channels claim the same physical address (same chip + line,
+  or the same serial device). Ask the operator which channel moves to a free line/device, re-run.
 - **output dir exists / not empty** — the command exits rather than overwrite (it never wipes a
   directory on its own). If you didn't already settle this in Step 2, hold the overwrite /
   different-directory / abort choice with the operator now; overwrite means `"force": true`, which
