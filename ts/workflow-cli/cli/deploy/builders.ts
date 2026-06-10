@@ -139,15 +139,13 @@ export function buildDeployArtifacts(req: DeployRequirements, cfg: DeployConfig)
   }
 
   // MQTT: one connection per distinct config (dedup by full content — same broker
-  // with different credentials/prefixes is a different resource). No index.
+  // with different credentials is a different resource). No index.
   for (const ch of req.mqttChannels) {
     const b = cfg.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
     const conn: Schemas["MQTTConnection"] = { type: "mqtt", brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
     if (b.password) conn.password = b.password;
-    if (b.publishPrefix) conn.publishPrefix = b.publishPrefix;
-    if (b.subscribePrefix) conn.subscribePrefix = b.subscribePrefix;
 
     const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}`, `mqtt-${brokerHost(b.brokerUrl)}`);
     externalResources[ref] = conn;

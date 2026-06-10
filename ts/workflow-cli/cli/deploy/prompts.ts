@@ -56,8 +56,8 @@ async function promptHardware(
   return result;
 }
 
-// Per MQTT channel: broker URL + optional creds/prefixes. Offers to reuse a
-// broker already configured this run (same URL -> builder dedups onto one resource).
+// Per MQTT channel: broker URL + optional creds. Offers to reuse a broker
+// already configured this run (same URL -> builder dedups onto one resource).
 async function promptMqtt(
   channels: MqttChannel[],
   seed: Record<string, MqttBinding>,
@@ -89,13 +89,9 @@ async function promptMqtt(
     });
     const username = (await input({ message: `${ch.label}: username (optional)` })).trim();
     const pass = await password({ message: `${ch.label}: password (optional)`, mask: "*" });
-    const publishPrefix = (await input({ message: `${ch.label}: publish prefix (optional)` })).trim();
-    const subscribePrefix = (await input({ message: `${ch.label}: subscribe prefix (optional)` })).trim();
     const binding: MqttBinding = { brokerUrl: brokerUrl.trim() };
     if (username) binding.username = username;
     if (pass) binding.password = pass;
-    if (publishPrefix) binding.publishPrefix = publishPrefix;
-    if (subscribePrefix) binding.subscribePrefix = subscribePrefix;
     result[ch.id] = binding;
   }
   return result;

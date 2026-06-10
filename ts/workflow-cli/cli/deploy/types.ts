@@ -70,8 +70,6 @@ export interface MqttBinding {
   brokerUrl: string;
   username?: string;
   password?: string;
-  publishPrefix?: string;
-  subscribePrefix?: string;
 }
 
 // One custom model's runtime location. `device` = a llama-server sidecar on this

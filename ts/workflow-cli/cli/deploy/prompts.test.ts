@@ -110,8 +110,6 @@ describe("promptMissing", () => {
       input: [
         [/broker URL/, "tcp://b:1883"],
         [/username/, ""],
-        [/publish prefix/, ""],
-        [/subscribe prefix/, ""],
         [/Output directory/, "b"],
       ],
       password: [[/password/, ""]],
