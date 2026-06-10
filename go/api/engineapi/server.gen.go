@@ -19,8 +19,8 @@ type ServerInterface interface {
 	// (POST /deploy)
 	Deploy(w http.ResponseWriter, r *http.Request)
 	// Engine runner state.
-	// (GET /healthz)
-	Healthz(w http.ResponseWriter, r *http.Request)
+	// (GET /status)
+	Status(w http.ResponseWriter, r *http.Request)
 	// Stop the running workflow (idempotent when idle).
 	// (POST /stop)
 	Stop(w http.ResponseWriter, r *http.Request)
@@ -37,8 +37,8 @@ func (_ Unimplemented) Deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 // Engine runner state.
-// (GET /healthz)
-func (_ Unimplemented) Healthz(w http.ResponseWriter, r *http.Request) {
+// (GET /status)
+func (_ Unimplemented) Status(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -71,11 +71,11 @@ func (siw *ServerInterfaceWrapper) Deploy(w http.ResponseWriter, r *http.Request
 	handler.ServeHTTP(w, r)
 }
 
-// Healthz operation middleware
-func (siw *ServerInterfaceWrapper) Healthz(w http.ResponseWriter, r *http.Request) {
+// Status operation middleware
+func (siw *ServerInterfaceWrapper) Status(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Healthz(w, r)
+		siw.Handler.Status(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -216,7 +216,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/deploy", wrapper.Deploy)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/healthz", wrapper.Healthz)
+		r.Get(options.BaseURL+"/status", wrapper.Status)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/stop", wrapper.Stop)
@@ -269,16 +269,16 @@ func (response Deploy422JSONResponse) VisitDeployResponse(w http.ResponseWriter)
 	return err
 }
 
-type HealthzRequestObject struct {
+type StatusRequestObject struct {
 }
 
-type HealthzResponseObject interface {
-	VisitHealthzResponse(w http.ResponseWriter) error
+type StatusResponseObject interface {
+	VisitStatusResponse(w http.ResponseWriter) error
 }
 
-type Healthz200JSONResponse HealthzResponse
+type Status200JSONResponse StatusResponse
 
-func (response Healthz200JSONResponse) VisitHealthzResponse(w http.ResponseWriter) error {
+func (response Status200JSONResponse) VisitStatusResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -311,8 +311,8 @@ type StrictServerInterface interface {
 	// (POST /deploy)
 	Deploy(ctx context.Context, request DeployRequestObject) (DeployResponseObject, error)
 	// Engine runner state.
-	// (GET /healthz)
-	Healthz(ctx context.Context, request HealthzRequestObject) (HealthzResponseObject, error)
+	// (GET /status)
+	Status(ctx context.Context, request StatusRequestObject) (StatusResponseObject, error)
 	// Stop the running workflow (idempotent when idle).
 	// (POST /stop)
 	Stop(ctx context.Context, request StopRequestObject) (StopResponseObject, error)
@@ -378,23 +378,23 @@ func (sh *strictHandler) Deploy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Healthz operation middleware
-func (sh *strictHandler) Healthz(w http.ResponseWriter, r *http.Request) {
-	var request HealthzRequestObject
+// Status operation middleware
+func (sh *strictHandler) Status(w http.ResponseWriter, r *http.Request) {
+	var request StatusRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Healthz(ctx, request.(HealthzRequestObject))
+		return sh.ssi.Status(ctx, request.(StatusRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Healthz")
+		handler = middleware(handler, "Status")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(HealthzResponseObject); ok {
-		if err := validResponse.VisitHealthzResponse(w); err != nil {
+	} else if validResponse, ok := response.(StatusResponseObject); ok {
+		if err := validResponse.VisitStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

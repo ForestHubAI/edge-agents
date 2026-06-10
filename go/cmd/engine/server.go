@@ -19,9 +19,9 @@ func NewStrictServer(e *engine.Engine) engineapi.StrictServerInterface {
 	return &strictServer{engine: e}
 }
 
-// Healthz reports the engine's runtime state.
-func (s *strictServer) Healthz(_ context.Context, _ engineapi.HealthzRequestObject) (engineapi.HealthzResponseObject, error) {
-	return engineapi.Healthz200JSONResponse{Status: mapping.StatusToAPI(s.engine.IsRunning())}, nil
+// Status reports the engine's runtime state.
+func (s *strictServer) Status(_ context.Context, _ engineapi.StatusRequestObject) (engineapi.StatusResponseObject, error) {
+	return engineapi.Status200JSONResponse{Status: mapping.StatusToAPI(s.engine.IsRunning())}, nil
 }
 
 // Deploy deploys (or hot-swaps) a workflow. A nil workflow is a 400; a build

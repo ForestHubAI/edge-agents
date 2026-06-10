@@ -5,9 +5,9 @@ info:
   description: "Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query."
 
 paths:
-  /healthz:
+  /status:
     get:
-      operationId: healthz
+      operationId: status
       summary: Engine runner state.
       responses:
         "200":
@@ -15,7 +15,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HealthzResponse"
+                $ref: "#/components/schemas/StatusResponse"
   /deploy:
     post:
       operationId: deploy
@@ -56,7 +56,7 @@ components:
       enum: [idle, running]
       description: Engine runner state.
 
-    HealthzResponse:
+    StatusResponse:
       type: object
       required: [status]
       properties:
@@ -311,13 +311,6 @@ components:
       properties:
         content:
           type: string
-
-    AgentRuntimeStatusResponse:
-      type: object
-      required: [status]
-      properties:
-        status:
-          $ref: "#/components/schemas/State"
 
     RagQueryRequest:
       type: object

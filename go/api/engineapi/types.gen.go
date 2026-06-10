@@ -136,12 +136,6 @@ type AgentHeartbeatRequest struct {
 	Address *string `json:"address,omitempty"`
 }
 
-// AgentRuntimeStatusResponse defines model for AgentRuntimeStatusResponse.
-type AgentRuntimeStatusResponse struct {
-	// Status Engine runner state.
-	Status State `json:"status"`
-}
-
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
@@ -189,12 +183,6 @@ type ExternalResources map[string]ExternalResourceConfig
 type GPIOConfig struct {
 	// Chip cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0"
 	Chip string `json:"chip"`
-}
-
-// HealthzResponse defines model for HealthzResponse.
-type HealthzResponse struct {
-	// Status Engine runner state.
-	Status State `json:"status"`
 }
 
 // LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here.
@@ -306,6 +294,12 @@ type SerialConfig struct {
 
 // State Engine runner state.
 type State string
+
+// StatusResponse defines model for StatusResponse.
+type StatusResponse struct {
+	// Status Engine runner state.
+	Status State `json:"status"`
+}
 
 // DeployJSONRequestBody defines body for Deploy for application/json ContentType.
 type DeployJSONRequestBody = DeployRequest
