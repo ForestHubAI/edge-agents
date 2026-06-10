@@ -149,6 +149,14 @@ compose network. Without a terminal (CI, a Claude Code skill) feed the answers w
 `--values <file.json>`. The rest of this section explains what ends up in that bundle —
 and how to assemble it by hand if you'd rather.
 
+Prefer to drive it from Claude Code? The **`workflow-deploy`** skill runs this same flow —
+reading the workflow, gathering the values, and writing the bundle while keeping secrets as
+placeholders. Install it the same way:
+
+```sh
+npx skills add ForestHubAI/edge-agents --skill workflow-deploy
+```
+
 A workflow is **binding-free**: it declares _what_ it needs — channels (GPIO, MQTT, …)
 and custom models — but not _where_ those live on a given device. You supply the _where_
 through a few small config files mounted into the engine container alongside the
