@@ -9,6 +9,10 @@ The object is a partial of the deploy config; every field is optional at the JSO
 become **required by content** (a hardware channel in the workflow ⇒ that channel's binding is
 required). Anything you omit that has a default is filled with the default.
 
+The file is schema-checked when read: a wrong type (`"index": "17"` as a string), an invalid value
+(`"logLevel": "verbose"`), a model binding without a valid `location`, or an unknown/misspelled key
+is rejected before anything runs, with one `path: reason` line per problem and a non-zero exit.
+
 ## Top-level fields
 
 | Field        | Type                                  | Default                      | Notes |

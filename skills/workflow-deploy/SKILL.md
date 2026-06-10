@@ -200,6 +200,10 @@ fh-workflow deploy <workflow.json> --values "$VALUES"
 The output dir and log level live in the values file, so the command line needs nothing but
 `--values`. This is the gate. On a **non-zero exit**, read the message and resolve it, then run again:
 
+- **`Invalid values file (not a partial deploy config)`** — the file failed schema validation; each
+  line names the exact spot and reason (e.g. `hardware.btn.index: expected number, received string`,
+  an unknown/misspelled key, a model binding without a valid `location`). Fix exactly those entries
+  in the values file, re-run.
 - **`required values are missing: …`** — the command lists each gap (e.g. `hardware "btn": index`).
   Ask the operator for exactly those, add them to the values file, re-run.
 - **`… is already used by "…"`** — two channels claim the same physical address (same chip + line,
