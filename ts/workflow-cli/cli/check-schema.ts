@@ -5,18 +5,20 @@ import Ajv, { type ValidateFunction, type ErrorObject } from "ajv";
 import addFormats from "ajv-formats";
 import yaml from "js-yaml";
 
-// The installed CLI bundle ships the contract as a sibling `workflow.yaml`
-// (copied in by build-cli.mjs); prefer it. In-repo (tsx) that sibling doesn't
-// exist, so fall back to the contract in the source tree: cli -> app -> ts ->
-// repo root, then into contract/.
+// The installed CLI bundle ships the contract files as siblings (copied in by
+// build-cli.mjs); prefer them. In-repo (tsx) those siblings don't exist, so fall
+// back to the contract in the source tree: cli -> app -> ts -> repo root, then
+// into contract/.
 const here = path.dirname(fileURLToPath(import.meta.url));
-const bundledContract = path.join(here, "workflow.yaml");
-const CONTRACT_PATH = existsSync(bundledContract)
-  ? bundledContract
-  : path.resolve(here, "../../../contract/workflow.yaml");
+const CONTRACT_DIR = existsSync(path.join(here, "workflow.yaml"))
+  ? here
+  : path.resolve(here, "../../../contract");
 
-function loadContractDocument(): Record<string, unknown> {
-  return yaml.load(readFileSync(CONTRACT_PATH, "utf-8")) as Record<string, unknown>;
+function loadContractDocument(fileName: string): Record<string, unknown> {
+  return yaml.load(readFileSync(path.join(CONTRACT_DIR, fileName), "utf-8")) as Record<
+    string,
+    unknown
+  >;
 }
 
 // Normalises the two OpenAPI 3.0 constructs Ajv can't consume directly, everywhere
@@ -64,14 +66,26 @@ let cachedValidator: ValidateFunction | undefined;
 export function compileWorkflowValidator(): ValidateFunction {
   if (cachedValidator) return cachedValidator;
 
-  const contract = openApiToJsonSchema(loadContractDocument()) as Record<string, unknown>;
-  contract.$id = "workflow-contract"; // gives internal #/components/... refs a base to resolve against
+  // Each contract document is registered under its file name, so $refs between
+  // them ("llmproxy.yaml#/...") resolve exactly as written, and internal
+  // #/components/... refs get a base to resolve against.
+  const workflow = openApiToJsonSchema(loadContractDocument("workflow.yaml")) as Record<
+    string,
+    unknown
+  >;
+  workflow.$id = "workflow.yaml";
+  const llmproxy = openApiToJsonSchema(loadContractDocument("llmproxy.yaml")) as Record<
+    string,
+    unknown
+  >;
+  llmproxy.$id = "llmproxy.yaml";
 
   const ajv = new Ajv({ discriminator: true, strict: false, allErrors: true });
   addFormats(ajv); // teaches Ajv the OpenAPI formats (int32, int64, date-time, ...) so they're truly checked
-  ajv.addSchema(contract);
+  ajv.addSchema(workflow);
+  ajv.addSchema(llmproxy);
 
-  cachedValidator = ajv.compile({ $ref: "workflow-contract#/components/schemas/Workflow" });
+  cachedValidator = ajv.compile({ $ref: "workflow.yaml#/components/schemas/Workflow" });
   return cachedValidator;
 }
 

@@ -45,10 +45,16 @@ await build({
 });
 
 // Ship the contract next to the bundle so `check-schema` works when installed
-// (check-schema.ts prefers this sibling over the repo-relative source path).
-await copyFile(path.join(repoRoot, "contract", "workflow.yaml"), path.join(appRoot, "dist-cli", "workflow.yaml"));
+// (check-schema.ts prefers these siblings over the repo-relative source path).
+// workflow.yaml cross-references llmproxy.yaml, so both must travel together.
+for (const contractFile of ["workflow.yaml", "llmproxy.yaml"]) {
+  await copyFile(
+    path.join(repoRoot, "contract", contractFile),
+    path.join(appRoot, "dist-cli", contractFile),
+  );
+}
 
 // Executable bit for POSIX; harmless on Windows (the npm bin shim handles exec).
 await chmod(outfile, 0o755);
 
-process.stdout.write(`Built ${path.relative(appRoot, outfile)} + dist-cli/workflow.yaml\n`);
+process.stdout.write(`Built ${path.relative(appRoot, outfile)} + dist-cli contract files\n`);
