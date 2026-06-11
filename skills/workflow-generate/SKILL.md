@@ -184,9 +184,17 @@ Close by asking whether any of these values should be changed — plainly, e.g.
 "Should any of these be adjusted?" — so nothing was decided silently and the user
 can correct it in one reply.
 
-Finally, point at the natural next step without doing it automatically:
-`fh-workflow open <path>` to inspect and edit it visually. Stop there — do not
-deploy or package the workflow yourself.
+Finally, point at the natural next steps without doing either automatically:
+
+- `fh-workflow open <path>` — inspect and edit the workflow visually.
+- `fh-workflow deploy <path>` — turn the file into a runnable docker-compose
+  bundle for an edge controller. The command interviews the operator for the
+  concrete values the workflow needs (pins, MQTT brokers, models, keys); the
+  **workflow-deploy** skill drives that wizard end to end.
+
+Offer both and stop — do not start the deploy yourself. Only proceed when the
+user opts in, and then go through the workflow-deploy skill rather than calling
+`fh-workflow deploy` ad hoc.
 
 ## Notes for Claude
 
@@ -209,5 +217,8 @@ deploy or package the workflow yourself.
     — the `name` is only a display alias. The wrong key surfaces as a
     `stale reference` in `validate`. See `gpio-pin.workflow.json`.
 - **Never invent port names or channel ids** — wire to ids you actually declared.
+- **Deploy only on explicit user opt-in.** Generating ends at a validated file;
+  packaging it is the workflow-deploy skill's job. Suggest it, never start it
+  unasked.
 - **Discriminators are literal.** Every `type`/`mode` tag must match the contract
   exactly, or Gate 1 rejects the whole branch.
