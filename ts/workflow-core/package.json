@@ -1,6 +1,6 @@
 {
   "name": "@foresthubai/workflow-core",
-  "version": "0.1.1",
+  "version": "0.4.0",
   "description": "Headless workflow types + serialization + pure validator. No React, no browser.",
   "license": "Apache-2.0",
   "repository": {
