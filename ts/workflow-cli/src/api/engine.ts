@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/healthz": {
+    "/status": {
         parameters: {
             query?: never;
             header?: never;
@@ -12,7 +12,7 @@ export interface paths {
             cookie?: never;
         };
         /** Engine runner state. */
-        get: operations["healthz"];
+        get: operations["status"];
         put?: never;
         post?: never;
         delete?: never;
@@ -64,7 +64,7 @@ export interface components {
          * @enum {string}
          */
         State: "idle" | "running";
-        HealthzResponse: {
+        StatusResponse: {
             status: components["schemas"]["State"];
         };
         /** @description Error body for /deploy 400/422. Distinct from control-plane ErrorResponse. */
@@ -215,10 +215,6 @@ export interface components {
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
             content: string;
-        };
-        AgentRuntimeStatusResponse: {
-            /** @enum {string} */
-            status: "idle" | "running";
         };
         RagQueryRequest: {
             /** @description Collection to query */
@@ -836,7 +832,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    healthz: {
+    status: {
         parameters: {
             query?: never;
             header?: never;
@@ -851,7 +847,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HealthzResponse"];
+                    "application/json": components["schemas"]["StatusResponse"];
                 };
             };
         };
