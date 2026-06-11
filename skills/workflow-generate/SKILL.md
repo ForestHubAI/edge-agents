@@ -81,6 +81,8 @@ and whether an `Agent`/LLM node is needed.
   two ever disagree, the CLI gates win.) Look up the specific `*Node` schemas you
   need (each lists its `required` arguments) plus `Edge`, `Expression`,
   `OutputBinding`, `OutputDeclaration`, `Variable`, and the `Channel` variants.
+  A few schemas are cross-referenced from **`reference/llmproxy.yaml`** (e.g.
+  `ModelCapability`) — follow `llmproxy.yaml#/...` refs into that sibling snapshot.
 - Read the **reference fixtures** in `examples/` next to this file — they are
   known-good, fully validated workflows that show the idioms by example:
   - `counter-agent.workflow.json` — `Ticker → SetVariable → Agent`: an `agentTask`
@@ -182,9 +184,17 @@ Close by asking whether any of these values should be changed — plainly, e.g.
 "Should any of these be adjusted?" — so nothing was decided silently and the user
 can correct it in one reply.
 
-Finally, point at the natural next step without doing it automatically:
-`fh-workflow open <path>` to inspect and edit it visually. Stop there — do not
-deploy or package the workflow yourself.
+Finally, point at the natural next steps without doing either automatically:
+
+- `fh-workflow open <path>` — inspect and edit the workflow visually.
+- `fh-workflow deploy <path>` — turn the file into a runnable docker-compose
+  bundle for an edge controller. The command interviews the operator for the
+  concrete values the workflow needs (pins, MQTT brokers, models, keys); the
+  **workflow-deploy** skill drives that wizard end to end.
+
+Offer both and stop — do not start the deploy yourself. Only proceed when the
+user opts in, and then go through the workflow-deploy skill rather than calling
+`fh-workflow deploy` ad hoc.
 
 ## Notes for Claude
 
@@ -207,5 +217,8 @@ deploy or package the workflow yourself.
     — the `name` is only a display alias. The wrong key surfaces as a
     `stale reference` in `validate`. See `gpio-pin.workflow.json`.
 - **Never invent port names or channel ids** — wire to ids you actually declared.
+- **Deploy only on explicit user opt-in.** Generating ends at a validated file;
+  packaging it is the workflow-deploy skill's job. Suggest it, never start it
+  unasked.
 - **Discriminators are literal.** Every `type`/`mode` tag must match the contract
   exactly, or Gate 1 rejects the whole branch.

@@ -41,6 +41,17 @@ npm run release -- 0.2.0
 Each package's `prepublishOnly` rebuilds `dist/` (and the CLI bundle) first, so you never
 publish stale output.
 
+**After publishing, commit the version bump** — the script edits the three
+`package.json` files and the lockfile but does not commit them. The `version` fields in
+git are the only in-repo record of what was released; skip this and the repo silently
+drifts behind the registry, and the next release picks a version npm already has.
+
+```sh
+git add workflow-core/package.json workflow-builder/package.json \
+        workflow-cli/package.json package-lock.json
+git commit -m "chore(release): publish @foresthubai/* X.Y.Z to npm"
+```
+
 ### Registry: public npm (npmjs.com)
 
 All three packages carry `publishConfig` targeting the public registry with public access:

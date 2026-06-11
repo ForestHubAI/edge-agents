@@ -1,0 +1,11 @@
+{
+  "mqtt": {
+    "sensor-in": { "brokerUrl": "tcp://broker.local:1883" },
+    "summary-out": { "brokerUrl": "tcp://broker.local:1883" }
+  },
+  "llmKeys": {
+    "anthropic": "REPLACE_ME_ANTHROPIC_API_KEY"
+  },
+  "logLevel": "info",
+  "outputDir": "./mqtt-agent-bundle"
+}

@@ -114,6 +114,7 @@ under MIT. Representative components by license:
   zustand                                                  5.0.13
   cmdk, clsx, tailwind-merge, tailwindcss(-animate)        (pinned)
   @inquirer/* (prompts/core/...)                           (pinned, CLI)
+  zod                                                      4.4.3 (CLI)
   jsep                                                     1.4.0
   vite, vitest, esbuild, rollup, @babel/*, postcss,
     eslint, @typescript-eslint/*                           (dev toolchain)

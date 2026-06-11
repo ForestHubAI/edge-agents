@@ -17,7 +17,7 @@ source must be made available to users of that service — it is the
 repository linked above.
 
 It also bundles @foresthubai/workflow-core (Apache-2.0) and the
-third-party libraries ajv, ajv-formats, js-yaml, and jsep, each under
-its own license. See THIRD_PARTY_NOTICES in the repository.
+third-party libraries ajv, ajv-formats, js-yaml, jsep, and zod, each
+under its own license. See THIRD_PARTY_NOTICES in the repository.
 
 For commercial licensing inquiries: root@foresthub.ai

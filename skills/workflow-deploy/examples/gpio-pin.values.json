@@ -1,0 +1,8 @@
+{
+  "hardware": {
+    "button-in": { "chipOrDevice": "/dev/gpiochip0", "index": 17 },
+    "led-out": { "chipOrDevice": "/dev/gpiochip0", "index": 27 }
+  },
+  "logLevel": "info",
+  "outputDir": "./gpio-pin-bundle"
+}

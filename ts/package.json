@@ -8,7 +8,7 @@
     "workflow-cli"
   ],
   "scripts": {
-    "generate": "npm run generate --workspace @foresthubai/workflow-core",
+    "generate": "npm run generate --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",

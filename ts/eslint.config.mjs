@@ -1,12 +1,12 @@
 import js from "@eslint/js";
-import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   // Build output + generated contract types.
-  { ignores: ["**/dist/**", "**/dist-cli/**", "workflow-core/src/api/workflow.ts"] },
+  { ignores: ["**/dist/**", "**/dist-cli/**", "workflow-core/src/api/workflow.ts", "workflow-cli/src/api/engine.ts"] },
 
   // Base: JS + TS recommended for all TS across the workspace.
   {
