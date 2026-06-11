@@ -81,6 +81,8 @@ and whether an `Agent`/LLM node is needed.
   two ever disagree, the CLI gates win.) Look up the specific `*Node` schemas you
   need (each lists its `required` arguments) plus `Edge`, `Expression`,
   `OutputBinding`, `OutputDeclaration`, `Variable`, and the `Channel` variants.
+  A few schemas are cross-referenced from **`reference/llmproxy.yaml`** (e.g.
+  `ModelCapability`) — follow `llmproxy.yaml#/...` refs into that sibling snapshot.
 - Read the **reference fixtures** in `examples/` next to this file — they are
   known-good, fully validated workflows that show the idioms by example:
   - `counter-agent.workflow.json` — `Ticker → SetVariable → Agent`: an `agentTask`
