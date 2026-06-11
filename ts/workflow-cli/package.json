@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "bin": {
-    "fh-workflow": "./dist-cli/cli.js"
+    "fh-workflow": "dist-cli/cli.js"
   },
   "files": [
     "dist",
@@ -49,7 +49,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "autoprefixer": "^10.4.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.0",
     "i18next": "^25.3.2",
     "js-yaml": "^4.2.0",
     "lucide-react": "^0.462.0",
