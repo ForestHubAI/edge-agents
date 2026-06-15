@@ -189,6 +189,11 @@ export interface components {
         };
         AgentBootCallback: {
             /**
+             * Format: uuid
+             * @description The deployment the engine booted for backend to register.
+             */
+            deploymentId?: string;
+            /**
              * Format: uri
              * @description Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
              * @example http://10.0.1.50:8081

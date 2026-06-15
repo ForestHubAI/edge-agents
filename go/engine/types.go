@@ -79,6 +79,10 @@ type AgentRegistration struct {
 	Status   AgentStatus
 	Manifest *DeviceManifest
 	Error    *string
+	// DeploymentID is the opaque deployment token from ENGINE_DEPLOYMENT_ID,
+	// echoed back so the backend can record which deployment is running. Empty
+	// when not configured (e.g. an engine started without a deployment bundle).
+	DeploymentID string
 }
 
 // AgentStatus is the boot outcome reported through Supervisor.Register.

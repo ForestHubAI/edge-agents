@@ -277,6 +277,11 @@ components:
       type: object
       required: [status]
       properties:
+        deploymentId:
+          type: string
+          format: uuid
+          x-go-name: DeploymentID
+          description: The deployment the engine booted for backend to register.
         address:
           type: string
           format: uri

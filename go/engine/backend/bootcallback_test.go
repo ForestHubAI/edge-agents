@@ -44,6 +44,26 @@ func TestRegister_Online_Success(t *testing.T) {
 	assert.JSONEq(t, `{"address":"http://engine:8081","status":"online","loadedDeviceManifest":{"gpios":{"led":{"chip":"gpiochip0"}}}}`, string(gotBody))
 }
 
+func TestRegister_DeploymentID_Echoed(t *testing.T) {
+	var gotBody []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "secret")
+	require.NoError(t, c.Register(context.Background(), engine.AgentRegistration{
+		Status:       engine.StatusOnline,
+		Manifest:     sampleManifest(),
+		DeploymentID: "11111111-2222-3333-4444-555555555555",
+	}))
+	assert.JSONEq(t,
+		`{"deploymentId":"11111111-2222-3333-4444-555555555555","status":"online","loadedDeviceManifest":{"gpios":{"led":{"chip":"gpiochip0"}}}}`,
+		string(gotBody),
+	)
+}
+
 func TestRegister_BootError_NoManifest(t *testing.T) {
 	var gotBody []byte
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

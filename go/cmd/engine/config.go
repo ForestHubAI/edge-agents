@@ -26,6 +26,8 @@ type Config struct {
 	DeploymentMappingFile string `env:"ENGINE_DEPLOYMENT_MAPPING_FILE"`
 	// WorkflowFile is the optional path used to mount a workflow directly on engine start, skipping the need for a deploy API call.
 	WorkflowFile string `env:"ENGINE_CONFIG_FILE"`
+	// DeploymentID is an opaque correlation token minted by the backend and baked into the bundle. The engine does not interpret it (it does not select the workflow — ENGINE_CONFIG_FILE does); it only echoes it back in the boot callback so the backend can record which deployment is running.
+	DeploymentID string `env:"ENGINE_DEPLOYMENT_ID"`
 	// LogLevel is the zerolog level name (debug/info/warn/error). Empty and
 	// unknown values fall back to info via logging.ParseLevel.
 	LogLevel string `env:"ENGINE_LOG_LEVEL"`

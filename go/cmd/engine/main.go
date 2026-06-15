@@ -62,6 +62,35 @@ func main() {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
 
+	// loadedManifest tracks the device manifest once it parses, so a boot error
+	// after that point can report it; it stays nil if the manifest itself fails
+	// to load (matching AgentBootCallback's "null on booterror" contract).
+	var loadedManifest *engine.DeviceManifest
+
+	// bootFail reports a booterror callback to the backend (best-effort, single
+	// bounded attempt) when one is configured, then exits. Used for every
+	// boot-sequence failure so the backend records status=error instead of
+	// inferring it from a missed heartbeat. Reached only before the online
+	// registration below, so the two never contradict each other.
+	bootFail := func(cause error, msg string) {
+		if backendClient != nil {
+			errStr := cause.Error()
+			reportCtx, cancel := context.WithTimeout(context.Background(), backend.BootCallbackTimeout)
+			rerr := backendClient.Register(reportCtx, engine.AgentRegistration{
+				Address:      cfg.PublicAddress,
+				Status:       engine.StatusBootError,
+				Manifest:     loadedManifest,
+				Error:        &errStr,
+				DeploymentID: cfg.DeploymentID,
+			})
+			cancel()
+			if rerr != nil {
+				logging.Logger.Warn().Err(rerr).Msg("reporting boot error to backend")
+			}
+		}
+		logging.Logger.Fatal().Err(cause).Msg(msg)
+	}
+
 	// Create LLM provider registry and client. Locally-configured providers
 	// take precedence; any provider the backend exposes that the engine lacks
 	// a key for is registered as a backend-routed stand-in.
@@ -82,11 +111,12 @@ func main() {
 	// Load device manifest and build driver registry
 	manifest, err := loadManifest(cfg.DeviceManifestFile)
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Msg("loading driver manifest")
+		bootFail(err, "loading driver manifest")
 	}
+	loadedManifest = &manifest
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Msg("initialising driver registry")
+		bootFail(err, "initialising driver registry")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at
@@ -108,7 +138,7 @@ func main() {
 	if cfg.WebSearch.APIKey != "" {
 		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
 		if err != nil {
-			logging.Logger.Fatal().Err(err).Msg("configuring web search provider")
+			bootFail(err, "configuring web search provider")
 		}
 		webSearchProvider = p
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
@@ -140,22 +170,22 @@ func main() {
 	if workflowFile != "" {
 		wfData, err := os.ReadFile(workflowFile)
 		if err != nil {
-			logging.Logger.Fatal().Err(err).Msg("reading workflow file")
+			bootFail(err, "reading workflow file")
 		}
 		var wf workflow.Workflow
 		if err := json.Unmarshal(wfData, &wf); err != nil {
-			logging.Logger.Fatal().Err(err).Msg("parsing workflow file")
+			bootFail(err, "parsing workflow file")
 		}
 		ext, err := loadExternalResources(cfg.ExternalResourcesFile)
 		if err != nil {
-			logging.Logger.Fatal().Err(err).Msg("loading external resources")
+			bootFail(err, "loading external resources")
 		}
 		dm, err := loadDeploymentMapping(cfg.DeploymentMappingFile)
 		if err != nil {
-			logging.Logger.Fatal().Err(err).Msg("loading deployment mapping")
+			bootFail(err, "loading deployment mapping")
 		}
 		if err := eng.Deploy(&wf, dm, ext); err != nil {
-			logging.Logger.Fatal().Err(err).Msg("deploying workflow from file")
+			bootFail(err, "deploying workflow from file")
 		}
 	}
 
@@ -182,9 +212,10 @@ func main() {
 	// tracks liveness through heartbeats and accepts bundle deploys.
 	if backendClient != nil {
 		reg := engine.AgentRegistration{
-			Address:  cfg.PublicAddress,
-			Status:   engine.StatusOnline,
-			Manifest: &manifest,
+			Address:      cfg.PublicAddress,
+			Status:       engine.StatusOnline,
+			Manifest:     &manifest,
+			DeploymentID: cfg.DeploymentID,
 		}
 		registerCfg := engine.RetryConfig{
 			AttemptTimeout: backend.BootCallbackTimeout,

@@ -11,6 +11,7 @@ import (
 
 	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AgentBootCallbackStatus.
@@ -116,6 +117,9 @@ type ADCConfig struct {
 type AgentBootCallback struct {
 	// Address Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
 	Address *string `json:"address,omitempty"`
+
+	// DeploymentID The deployment the engine booted (from ENGINE_DEPLOYMENT_ID). Optional — an older engine omits it during rollout, and absent means leave running_deployment_id unchanged rather than an error. On an online boot the backend records it as the agent's running deployment; on booterror it is kept only for diagnostics and does not promote running_deployment_id.
+	DeploymentID *openapi_types.UUID `json:"deploymentId,omitempty"`
 
 	// Error Human-readable failure detail. Set when status='booterror', null otherwise.
 	Error *string `json:"error,omitempty"`

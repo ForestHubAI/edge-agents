@@ -13,6 +13,7 @@ import (
 // Cloud-mode engines behind NAT can omit it; the backend then keeps the
 // stored address as SQL NULL.
 type bootCallbackBody struct {
+	DeploymentID         string                 `json:"deploymentId,omitempty"`
 	Address              string                 `json:"address,omitempty"`
 	Status               string                 `json:"status"`
 	LoadedDeviceManifest *engine.DeviceManifest `json:"loadedDeviceManifest,omitempty"`
@@ -25,6 +26,7 @@ type bootCallbackBody struct {
 // populated only when reg.Status is StatusBootError.
 func (c *Client) Register(ctx context.Context, reg engine.AgentRegistration) error {
 	body := bootCallbackBody{
+		DeploymentID:         reg.DeploymentID,
 		Address:              reg.Address,
 		Status:               string(reg.Status),
 		LoadedDeviceManifest: reg.Manifest,
