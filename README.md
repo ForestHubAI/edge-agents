@@ -341,6 +341,16 @@ Do not open public issues for security vulnerabilities. Use [GitHub private vuln
 
 ---
 
+## Learn more
+
+New to edge AI? These guides on foresthub.ai define the concepts edge-agents builds on:
+
+- [What is edge AI?](https://www.foresthub.ai/en/glossary#edge-ai) and the [edge agents guide](https://www.foresthub.ai/en/edge-agents): running models and autonomous agents on local devices.
+- [On-device inference](https://www.foresthub.ai/en/glossary#on-device-inference) and [small language models](https://www.foresthub.ai/en/glossary#slm): deciding locally without a cloud round trip.
+- The full [edge AI glossary](https://www.foresthub.ai/en/glossary) spans foundations, models, agents, safety and industrial integration.
+
+---
+
 ## Talk to the team
 
 Using `edge-agents` in a product, need a license that isn't AGPL-compatible, or want
