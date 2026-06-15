@@ -26,7 +26,7 @@ func (c *Client) Health(ctx context.Context) error {
 // providers it can fall back to via the backend.
 func (c *Client) GetProviders(ctx context.Context) ([]llmproxy.ProviderInfo, error) {
 	var apiProviders []llmapi.ProviderInfo
-	if err := c.http.Do(ctx, http.MethodGet, "/llm/catalog", nil, nil, &apiProviders); err != nil {
+	if err := c.http.Do(ctx, http.MethodGet, "/llm/providers", nil, nil, &apiProviders); err != nil {
 		return nil, fmt.Errorf("list providers: %w", err)
 	}
 	return mapping.ProvidersToDomain(apiProviders), nil

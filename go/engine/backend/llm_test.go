@@ -31,7 +31,7 @@ func TestGetProviders_Success(t *testing.T) {
 	c := NewClient(srv.URL, "secret")
 	got, err := c.GetProviders(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, "/llm/catalog", gotPath)
+	assert.Equal(t, "/llm/providers", gotPath)
 	assert.Equal(t, "secret", gotKey)
 	require.Len(t, got, 1)
 	assert.Equal(t, "Anthropic", string(got[0].ID))
