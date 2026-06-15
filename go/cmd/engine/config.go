@@ -32,7 +32,7 @@ type Config struct {
 	// MemoryDir is the local working-copy directory for memory files. The
 	// backend remains the durable source of truth; this is just a
 	// container-local cache.
-	MemoryDir string `env:"ENGINE_MEMORY_DIR" envDefault:"/var/forest/memory"`
+	MemoryDir string `env:"ENGINE_MEMORY_DIR" envDefault:"/var/lib/foresthub/memory"`
 	// LLM holds direct provider API keys
 	LLM llmcfg.ProviderConfig
 	// WebSearch configures the optional WebSearchTool node. Leaving APIKey empty

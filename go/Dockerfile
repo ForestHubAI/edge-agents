@@ -21,7 +21,11 @@ ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -ldflags='-s -w' -o /engine ./cmd/engine
 
+RUN mkdir -p /staging/memory
+
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /engine /engine
+# Named volumes mounted here inherit this dir's nonroot ownership on first use.
+COPY --from=builder --chown=65532:65532 /staging/memory /var/lib/foresthub/memory
 EXPOSE 8081
 ENTRYPOINT ["/engine"]

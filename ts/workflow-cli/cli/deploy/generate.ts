@@ -26,7 +26,7 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
     env.push("ENGINE_WEB_SEARCH_API_KEY: ${ENGINE_WEB_SEARCH_API_KEY:-}");
   }
   env.push("ENGINE_CONFIG_FILE: /etc/foresthub/workflow.json");
-  env.push("ENGINE_MEMORY_DIR: /var/forest/memory");
+  env.push("ENGINE_MEMORY_DIR: /var/lib/foresthub/memory");
   if (hasHardware) env.push("ENGINE_DEVICE_MANIFEST_FILE: /etc/foresthub/device_manifest.json");
   if (hasExternal) env.push("ENGINE_EXTERNAL_RESOURCES_FILE: /etc/foresthub/external_resources.json");
   if (hasMapping) env.push("ENGINE_DEPLOYMENT_MAPPING_FILE: /etc/foresthub/deployment_mapping.json");
@@ -36,7 +36,7 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
   if (hasHardware) vols.push("./device_manifest.json:/etc/foresthub/device_manifest.json:ro");
   if (hasExternal) vols.push("./external_resources.json:/etc/foresthub/external_resources.json:ro");
   if (hasMapping) vols.push("./deployment_mapping.json:/etc/foresthub/deployment_mapping.json:ro");
-  vols.push("engine-memory:/var/forest/memory");
+  vols.push("engine-memory:/var/lib/foresthub/memory");
 
   // device passthrough. cdev nodes (GPIO, UART) map one-to-one; sysfs families
   // (ADC/DAC/PWM) have no single node, so the container runs privileged.
@@ -347,6 +347,24 @@ scp fh-engine.tar docker-compose.yml workflow.json${transferExtraStr} .env \\
 
 \`\`\`bash
 ${runBlock}
+\`\`\`
+
+## Agent memory
+
+The workflow's memory files live in the named volume \`engine-memory\` (mounted at
+\`/var/lib/foresthub/memory\`). They survive restarts and \`docker compose down\`;
+only \`docker compose down -v\` deletes them. The volume is namespaced by the
+compose project name, which defaults to the bundle directory's name — keep it
+stable across updates, or pin it via \`COMPOSE_PROJECT_NAME\`. In this standalone
+bundle the volume is the only copy of the memory.
+
+To keep the data at a host path instead, replace the named volume with a bind
+mount. Named-volume ownership is handled by the image; a bind-mounted host
+directory you must create and chown to the engine's nonroot user yourself:
+
+\`\`\`bash
+sudo mkdir -p /data/foresthub/memory && sudo chown -R 65532:65532 /data/foresthub/memory
+# docker-compose.yml:  - /data/foresthub/memory:/var/lib/foresthub/memory
 \`\`\`
 `;
 }
