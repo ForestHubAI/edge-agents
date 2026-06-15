@@ -1,6 +1,6 @@
 # edge-agents
 
-**The 30 MB open-source AI agent runtime for edge devices.**
+**The 30 MB open-source edge AI agent runtime. Run AI agents offline, on Linux.**
 
 [![CI](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/ForestHubAI/edge-agents/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
@@ -12,7 +12,7 @@
 
 Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside cloud LLMs in the same workflow. Industrial protocols (OPC-UA, Modbus) are on the roadmap.
 
-**Runs on** Raspberry Pi 5 · Jetson Orin Nano · STM32MP25 · Bosch Rexroth ctrlX CORE.
+**Runs on Linux edge devices:** Raspberry Pi 5 · Jetson Orin Nano · STM32MP25 · Bosch Rexroth ctrlX CORE.
 
 ⭐ **Star the repo** if you think AI agents belong beyond the cloud.
 
