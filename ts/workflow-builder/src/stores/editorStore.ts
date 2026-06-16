@@ -5,18 +5,6 @@ import type { Memory } from "@foresthubai/workflow-core/memory";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 
-// ---------------------------------------------------------------------------
-// Default Channels — every workflow starts pre-initialized with a UART
-// port so nodes that need a serial port (SerialRead/Write, OnSerialReceive)
-// have something to bind to out of the box. Domain shape only — the driver
-// binding is supplied at deploy time via the DeploymentMapping, not here.
-// ---------------------------------------------------------------------------
-
-export function createDefaultChannels(): Record<string, Channel> {
-  const uart: Channel = { id: "uart0", label: "Serial", type: "UART", arguments: {} };
-  return { [uart.id]: uart };
-}
-
 import type { BuilderMode } from "../WorkflowBuilder";
 // Type-only (erased) — the active left-sidebar tab lives here so non-sidebar code
 // (e.g. validation navigation) can open a specific panel. No runtime cycle.
@@ -108,7 +96,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   builderMode: { type: "edit" },
   selection: NO_SELECTION,
   activeSidebarTab: "nodes",
-  channels: createDefaultChannels(),
+  channels: {},
   memory: {},
   models: {},
   functions: {},
