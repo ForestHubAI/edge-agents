@@ -1,6 +1,6 @@
 {
   "name": "@foresthubai/workflow-cli",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "fh-workflow CLI — author, validate, and visually edit ForestHub workflow JSON. Bundles the visual builder; no other install required.",
   "license": "AGPL-3.0-only",
