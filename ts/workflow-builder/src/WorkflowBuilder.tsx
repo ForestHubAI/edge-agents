@@ -24,7 +24,6 @@ import { useSuppressThemeTransition } from "./hooks/useSuppressThemeTransition";
 import { useFunctions } from "./hooks/useFunctions";
 import { useWorkflowSerialization, readStateFromStores } from "./hooks/useWorkflowSerialization";
 import {
-  clearAllCanvasStores,
   getAllCanvasStores,
   getOrCreateCanvasStore,
   subscribeCanvasRegistryChanges,
@@ -134,7 +133,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       if (language && i18n.language !== language) i18n.changeLanguage(language);
     }, [language]);
 
-    const { importProject, exportProject } = useWorkflowSerialization();
+    const { importProject, exportProject, clearProject } = useWorkflowSerialization();
 
     // Color-mode toggles should snap, not fade — see hook docs.
     useSuppressThemeTransition();
@@ -223,7 +222,10 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       initialLoadDone.current = true;
       try {
         if (initialMode) useEditorStore.getState().setBuilderMode(initialMode);
+        // No initialWorkflow → start empty; the module-level stores may still hold the
+        // previously mounted project, so clear them rather than leaving them untouched.
         if (initialWorkflow) importProject(initialWorkflow);
+        else clearProject();
       } catch (e) {
         onError?.(e instanceof Error ? e : new Error(String(e)));
       }
@@ -352,13 +354,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
           }
         },
         exportWorkflow: () => exportProject(),
-        clear: () => {
-          clearAllCanvasStores();
-          // Function declarations are project-scoped (not in canvas stores), so reset
-          // them explicitly alongside the cleared bodies.
-          useEditorStore.getState().setFunctions(() => ({}));
-          useEditorStore.getState().clearSelection();
-        },
+        clear: () => clearProject(),
         setMode: (mode) => useEditorStore.getState().setBuilderMode(mode),
         getMode: () => useEditorStore.getState().builderMode,
         validate: runValidate,
@@ -366,7 +362,7 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         redo: () => getOrCreateCanvasStore(useEditorStore.getState().activeCanvasId).redo(),
         setDebugPhase: (phase) => useDebugStore.getState().setPhase(phase),
       }),
-      [importProject, exportProject, onError, runValidate],
+      [importProject, exportProject, clearProject, onError, runValidate],
     );
 
     // I18nextProvider scopes the builder's PRIVATE i18n instance to this subtree,

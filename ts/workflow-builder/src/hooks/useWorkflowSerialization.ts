@@ -7,7 +7,7 @@ import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Memory } from "@foresthubai/workflow-core/memory";
 import type { Model } from "@foresthubai/workflow-core/model";
 import { Edge, Node } from "@xyflow/react";
-import { clearAllCanvasStores, getOrCreateCanvasStore, getAllCanvasStores, notifyCanvasRegistryChange } from "../stores/canvasStore";
+import { clearAllCanvasStores, getOrCreateCanvasStore, getAllCanvasStores, notifyCanvasRegistryChange, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
 import { getReactFlowType } from "../utils/graphOperations";
 
@@ -76,7 +76,24 @@ export function useWorkflowSerialization() {
     return serialize(readStateFromStores());
   }, []);
 
-  return { exportProject, importProject };
+  // Inverse of importProject: reset every (module-level) store to empty so a fresh
+  // builder never inherits the previously mounted project. Used by the clear() handle
+  // and on mount when no initialWorkflow is supplied.
+  const clearProject = useCallback((): void => {
+    clearAllCanvasStores(); // drops all canvas stores, re-seeds an empty main, notifies
+    const editor = useEditorStore.getState();
+    // A stale non-main activeCanvasId would lazily resurrect a phantom function body.
+    editor.setActiveCanvas(MAIN_CANVAS_ID);
+    // Project-scoped resources aren't touched by clearAllCanvasStores. Empty only when
+    // non-empty so an already-clean store doesn't bump mutationCount (as importProject).
+    editor.setChannels((c) => (Object.keys(c).length ? {} : c));
+    editor.setMemory((m) => (Object.keys(m).length ? {} : m));
+    editor.setModels((m) => (Object.keys(m).length ? {} : m));
+    editor.setFunctions((f) => (Object.keys(f).length ? {} : f));
+    editor.clearSelection();
+  }, []);
+
+  return { exportProject, importProject, clearProject };
 }
 
 /**
