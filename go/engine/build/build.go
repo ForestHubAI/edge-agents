@@ -88,12 +88,39 @@ func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
 	return out, nil
 }
 
+// buildCollections resolves each declared VectorDatabase to its collection id
+// through the deploy mapping, skipping other memory kinds. Hard-fails on a
+// missing binding, exactly as buildChannels does for hardware/MQTT channels.
+func buildCollections(wf *workflow.Workflow, dm engine.DeploymentMapping) (map[string]string, error) {
+	out := make(map[string]string)
+	for i, m := range wf.Memory {
+		disc, err := m.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		if disc != string(workflow.VectorDatabaseTypeVectorDatabase) {
+			continue
+		}
+		vd, err := m.AsVectorDatabase()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		b, err := bindingFor(dm, vd.Id)
+		if err != nil {
+			return nil, err
+		}
+		out[vd.Id] = b.Ref
+	}
+	return out, nil
+}
+
 // buildContext holds the inputs shared across every graph build.
 type buildContext struct {
-	ctx       context.Context
-	channels  *channels                   // typed channel registry; nodes look up their linked channel here
-	functions map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
-	mainScope *engine.Scope
+	ctx         context.Context
+	channels    *channels                   // typed channel registry; nodes look up their linked channel here
+	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
+	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
+	mainScope   *engine.Scope
 	// clients for building nodes that rely on external services
 	llm       engine.LlmClient
 	memory    *memory.Manager
@@ -115,6 +142,12 @@ func buildRunner(ctx context.Context, wf *workflow.Workflow, dm engine.Deploymen
 		return nil, fmt.Errorf("channels: %w", err)
 	}
 
+	// Resolve declared VectorDatabases to their bound collection ids
+	collections, err := buildCollections(wf, dm)
+	if err != nil {
+		return nil, fmt.Errorf("collections: %w", err)
+	}
+
 	// Forward declare functions so FunctionCall nodes can resolve them during build()
 	functions := make(map[string]*engine.Function, len(wf.Functions))
 	for i := range wf.Functions {
@@ -122,7 +155,7 @@ func buildRunner(ctx context.Context, wf *workflow.Workflow, dm engine.Deploymen
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, channels: chs, functions: functions, mainScope: ms, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
+	bc := &buildContext{ctx: ctx, channels: chs, collections: collections, functions: functions, mainScope: ms, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))

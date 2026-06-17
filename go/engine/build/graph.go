@@ -231,7 +231,11 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			if nd.Arguments.TopK == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "topK"}
 			}
-			n := node.NewRetriever(nd.Id, *nd.Arguments.MemoryReference, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), b.retriever)
+			collID, ok := b.collections[*nd.Arguments.MemoryReference]
+			if !ok {
+				return "", fmt.Errorf("node %s: memory %q is not a declared VectorDatabase", nd.Id, *nd.Arguments.MemoryReference)
+			}
+			n := node.NewRetriever(nd.Id, collID, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), b.retriever)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
