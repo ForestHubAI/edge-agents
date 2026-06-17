@@ -33,16 +33,6 @@ func NewRegistry(ext *engine.ExternalResources) (*Registry, error) {
 	return r, nil
 }
 
-// str dereferences an optional wire string (nil -> ""). MQTTConnection's
-// clientId/username/password are optional in the contract and thus generated
-// as *string.
-func str(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
-}
-
 // MQTT returns the transport registered under networkID, or an error if no
 // such network was opened in this deploy.
 func (r *Registry) MQTT(networkID string) (MQTTTransport, error) {

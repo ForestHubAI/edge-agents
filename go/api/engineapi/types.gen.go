@@ -89,24 +89,6 @@ func (e MQTTConnectionType) Valid() bool {
 	}
 }
 
-// Defines values for State.
-const (
-	Idle    State = "idle"
-	Running State = "running"
-)
-
-// Valid indicates whether the value is a known member of the State enum.
-func (e State) Valid() bool {
-	switch e {
-	case Idle:
-		return true
-	case Running:
-		return true
-	default:
-		return false
-	}
-}
-
 // ADCConfig defines model for ADCConfig.
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
@@ -127,11 +109,11 @@ type AgentBootCallback struct {
 	// LoadedDeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 	LoadedDeviceManifest *DeviceManifest `json:"loadedDeviceManifest,omitempty"`
 
-	// Status Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
+	// Status Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
 	Status AgentBootCallbackStatus `json:"status"`
 }
 
-// AgentBootCallbackStatus Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
+// AgentBootCallbackStatus Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
 type AgentBootCallbackStatus string
 
 // AgentHeartbeatRequest defines model for AgentHeartbeatRequest.
@@ -146,18 +128,6 @@ type DACConfig struct {
 	Device string `json:"device"`
 }
 
-// DeployRequest Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it).
-type DeployRequest struct {
-	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
-	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
-
-	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
-	Mapping *DeploymentMapping `json:"mapping,omitempty"`
-
-	// Workflow Workflow represents the deployment format of a project, passed to agents.
-	Workflow *externalRef0.Workflow `json:"workflow,omitempty"`
-}
-
 // DeploymentMapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
 type DeploymentMapping map[string]ResourceBinding
 
@@ -170,9 +140,19 @@ type DeviceManifest struct {
 	Serials *map[string]SerialConfig `json:"serials,omitempty"`
 }
 
-// EngineError Error body for /deploy 400/422. Distinct from control-plane ErrorResponse.
-type EngineError struct {
-	Error string `json:"error"`
+// EngineConfig The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields.
+type EngineConfig struct {
+	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
+
+	// Manifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
+	Manifest *DeviceManifest `json:"manifest,omitempty"`
+
+	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+	Mapping *DeploymentMapping `json:"mapping,omitempty"`
+
+	// Workflow Workflow represents the deployment format of a project, passed to agents.
+	Workflow externalRef0.Workflow `json:"workflow"`
 }
 
 // ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
@@ -295,18 +275,6 @@ type SerialConfig struct {
 	// Device Serial device path, e.g. "/dev/ttyUSB0" or "COM3"
 	Device string `json:"device"`
 }
-
-// State Engine runner state.
-type State string
-
-// StatusResponse defines model for StatusResponse.
-type StatusResponse struct {
-	// Status Engine runner state.
-	Status State `json:"status"`
-}
-
-// DeployJSONRequestBody defines body for Deploy for application/json ContentType.
-type DeployJSONRequestBody = DeployRequest
 
 // Getter for additional properties for LogEntry. Returns the specified
 // element and whether it was found

@@ -3,79 +3,16 @@
  * Do not make direct changes to the file.
  */
 
-export interface paths {
-    "/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Engine runner state. */
-        get: operations["status"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/deploy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Deploy or hot-swap a workflow. */
-        post: operations["deploy"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Stop the running workflow (idempotent when idle). */
-        post: operations["stop"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-}
+export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * @description Engine runner state.
-         * @enum {string}
-         */
-        State: "idle" | "running";
-        StatusResponse: {
-            status: components["schemas"]["State"];
-        };
-        /** @description Error body for /deploy 400/422. Distinct from control-plane ErrorResponse. */
-        EngineError: {
-            error: string;
-        };
-        /** @description Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it). */
-        DeployRequest: {
-            workflow?: components["schemas"]["Workflow"];
+        /** @description The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields. */
+        EngineConfig: {
+            workflow: components["schemas"]["Workflow"];
             mapping?: components["schemas"]["DeploymentMapping"];
             externalResources?: components["schemas"]["ExternalResources"];
+            manifest?: components["schemas"]["DeviceManifest"];
         };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id). */
         DeploymentMapping: {
@@ -200,7 +137,7 @@ export interface components {
              */
             address?: string;
             /**
-             * @description Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
+             * @description Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
              * @enum {string}
              */
             status: "online" | "booterror";
@@ -836,83 +773,4 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export interface operations {
-    status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current runner state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
-                };
-            };
-        };
-    };
-    deploy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeployRequest"];
-            };
-        };
-        responses: {
-            /** @description Workflow deployed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request (e.g. missing workflow). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EngineError"];
-                };
-            };
-            /** @description Build failure. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EngineError"];
-                };
-            };
-        };
-    };
-    stop: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Runner stopped. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-}
+export type operations = Record<string, never>;

@@ -2,78 +2,15 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: "Engine<->control-plane wire: deploy/redeploy/boot/heartbeat/memory-sync/runtime-status/preflight/RAG-query."
+  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config/boot/heartbeat/memory-sync/preflight/RAG-query."
 
-paths:
-  /status:
-    get:
-      operationId: status
-      summary: Engine runner state.
-      responses:
-        "200":
-          description: Current runner state.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StatusResponse"
-  /deploy:
-    post:
-      operationId: deploy
-      summary: Deploy or hot-swap a workflow.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DeployRequest"
-      responses:
-        "204":
-          description: Workflow deployed.
-        "400":
-          description: Invalid request (e.g. missing workflow).
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EngineError"
-        "422":
-          description: Build failure.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EngineError"
-  /stop:
-    post:
-      operationId: stop
-      summary: Stop the running workflow (idempotent when idle).
-      responses:
-        "204":
-          description: Runner stopped.
-
+paths: {}
 components:
   schemas:
-    State:
-      type: string
-      enum: [idle, running]
-      description: Engine runner state.
-
-    StatusResponse:
+    EngineConfig:
       type: object
-      required: [status]
-      properties:
-        status:
-          $ref: "#/components/schemas/State"
-
-    EngineError:
-      type: object
-      description: Error body for /deploy 400/422. Distinct from control-plane ErrorResponse.
-      required: [error]
-      properties:
-        error:
-          type: string
-
-    DeployRequest:
-      type: object
-      description: "Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it)."
+      required: [workflow]
+      description: "The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields."
       properties:
         workflow:
           $ref: "workflow.yaml#/components/schemas/Workflow"
@@ -81,6 +18,8 @@ components:
           $ref: "#/components/schemas/DeploymentMapping"
         externalResources:
           $ref: "#/components/schemas/ExternalResources"
+        manifest:
+          $ref: "#/components/schemas/DeviceManifest"
 
     DeploymentMapping:
       type: object
@@ -290,7 +229,7 @@ components:
         status:
           type: string
           enum: [online, booterror]
-          description: "Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.)."
+          description: "Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.)."
         loadedDeviceManifest:
           $ref: "#/components/schemas/DeviceManifest"
           nullable: true
