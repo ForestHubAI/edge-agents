@@ -1,22 +1,20 @@
-// Output writer: turns the config into actual files on disk. This is the
+// Output writer: turns the resolved spec into actual files on disk. This is the
 // "write" step. The generators produce strings; this puts them in the bundle.
+// The spec arrives already validated (buildDeploymentSpec threw on any gap).
 
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
-import { buildDeployArtifacts } from "./builders";
 import { composeYaml, envFile, readme } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
+import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+
+type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 
 export async function writeOutput(
-  workflow: ApiWorkflow,
+  spec: DeploymentSpec,
   cfg: DeployConfig,
   req: DeployRequirements,
 ): Promise<string[]> {
-  // Build the three wire-files in memory first: a completeness failure
-  // (assertDeployable) throws here, before anything is written to disk.
-  const artifacts = buildDeployArtifacts(req, cfg);
-
   const dir = path.resolve(process.cwd(), cfg.outputDir);
 
   if (existsSync(dir)) {
@@ -36,7 +34,8 @@ export async function writeOutput(
   }
 
   const written: string[] = [];
-  // secret=true -> mode 0o600 (.env, external_resources.json carry keys/passwords).
+  // secret=true -> mode 0o600. engine-config.json + deployment-spec.json may carry
+  // resource creds (broker passwords, endpoint keys) inline via externalResources.
   const emit = async (name: string, content: string, secret = false): Promise<void> => {
     const out = path.join(dir, name);
     const opts = secret ? { encoding: "utf-8" as const, mode: 0o600 } : { encoding: "utf-8" as const };
@@ -45,18 +44,16 @@ export async function writeOutput(
   };
   const json = (v: unknown): string => JSON.stringify(v, null, 2) + "\n";
 
-  await emit("workflow.json", json(workflow));
-  await emit("docker-compose.yml", composeYaml(cfg, req));
-  await emit(".env", envFile(cfg), true);
-  await emit("README.md", readme(cfg, req));
+  const engine = spec.components.engine;
+  if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
 
-  // Deploy wire-files — only the ones this workflow needs. The engine skips an
-  // unset *_FILE env var, so an absent file is correct, not a gap.
-  const hasHardware = req.hardwareChannels.length > 0;
-  const hasExternal = req.mqttChannels.length > 0 || req.customModels.length > 0;
-  if (hasHardware) await emit("device_manifest.json", json(artifacts.deviceManifest));
-  if (hasExternal) await emit("external_resources.json", json(artifacts.externalResources), true);
-  if (hasHardware || hasExternal) await emit("deployment_mapping.json", json(artifacts.deploymentMapping));
+  // The engine's single boot file (workflow + bindings + manifest, unified) and
+  // the full resolved spec (record + re-apply source). Both secret-bearing.
+  await emit("engine-config.json", json(engine.config), true);
+  await emit("deployment-spec.json", json(spec), true);
+  await emit("docker-compose.yml", composeYaml(spec, cfg));
+  await emit(".env", envFile(cfg), true);
+  await emit("README.md", readme(spec, cfg, req.hasProviderModel));
 
   // On-device models bind-mount ./models/ — create it so the operator has a place
   // to drop the GGUF file(s) and docker doesn't create it root-owned on first up.

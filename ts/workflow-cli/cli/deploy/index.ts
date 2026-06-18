@@ -11,15 +11,21 @@
 
 import { migrate } from "@foresthubai/workflow-core";
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
+import { deserialize } from "@foresthubai/workflow-core/workflow";
+import { deriveRequirements, buildDeploymentSpec } from "@foresthubai/workflow-core/deploy";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
 import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
+
+// Image tags the spec pins. OSS builds the engine locally as fh-engine:latest;
+// the llama sidecar is a pinned upstream tag. The paid path pins exact versions.
+const ENGINE_IMAGE_VERSION = "latest";
+const LLAMA_SERVER_VERSION = "server-b8589";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -246,8 +252,17 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(0);
   }
 
-  // Inspect workflow to derive requirements
-  const req = inspect(workflow);
+  // Deserialize to the domain model, then derive requirements from it. The
+  // resolver (buildDeploymentSpec) is domain-based; deserialize also re-validates
+  // node/channel shapes, failing here rather than mid-build.
+  let domain;
+  try {
+    domain = deserialize(workflow);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+  const req = deriveRequirements(domain);
 
   // Custom models are handled per model in the prompts (on-device sidecar vs. an
   // endpoint the operator runs) and explained accurately in the generated README —
@@ -287,12 +302,25 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     cfg = configFromPartial(partial, outputDirDefault);
   }
 
-  // Write the bundle. buildDeployArtifacts (inside writeOutput) re-validates
-  // completeness and throws on a gap — turn that into a clean exit rather than
-  // letting the raw error surface as a stack trace.
+  // Resolve the deployment spec. buildDeploymentSpec re-validates completeness
+  // and throws on a gap — turn that into a clean exit rather than a stack trace.
+  let spec;
+  try {
+    spec = buildDeploymentSpec(domain, cfg, {
+      id: slugify(workflowName),
+      status: "active",
+      engineVersion: ENGINE_IMAGE_VERSION,
+      llamaServerVersion: LLAMA_SERVER_VERSION,
+    });
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
+  // Write the bundle.
   let files: string[];
   try {
-    files = await writeOutput(workflow, cfg, req);
+    files = await writeOutput(spec, cfg, req);
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

@@ -1,59 +1,65 @@
-// Generators — pure functions, each produces the text of one output file.
-//
-// composeYaml writes ${VAR:-} interpolations exclusively. Operator values live
-// in .env, never inlined here, so the same compose file works across every
+// Generators — pure functions, each produces the text of one output file from
+// the resolved DeploymentSpec (+ the device-env secrets that never enter the
+// spec). composeYaml writes ${VAR:-} interpolations exclusively; operator values
+// live in .env, never inlined here, so the same compose file works across every
 // (.env, controller) pair.
 
-import { sidecarServiceName } from "./builders";
+import { createHash } from "node:crypto";
+import { sidecarServiceName } from "./types";
 import { ALL_PROVIDERS } from "./types";
-import type { DeployConfig, DeployRequirements } from "./types";
+import type { DeployConfig } from "./types";
+import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+
+type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
+
+// Container-internal paths. The engine reads ONE config file (workflow + bindings
+// + manifest, unified) — Phase 1 collapsed the former four files into it.
+const ENGINE_CONFIG_PATH = "/etc/foresthub/engine-config.json";
+const MEMORY_PATH = "/var/lib/foresthub/memory";
+const LLAMA_IMAGE_REPO = "ghcr.io/ggml-org/llama.cpp";
 
 // Exported for testing purposes only.
-export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string {
-  const hasHardware = req.hardwareChannels.length > 0;
-  const hasExternal = req.mqttChannels.length > 0 || req.customModels.length > 0;
-  const hasMapping = hasHardware || hasExternal;
+export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
+  const engine = spec.components.engine;
+  if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
+  const llama = spec.components.llamaServer;
+  const deviceGrants = engine.deviceGrants ?? [];
+  const privileged = engine.privileged ?? false;
 
   // environment block. Operator values are ${VAR:-} interpolations (filled from
-  // .env); container-internal paths are literal. A *_FILE var is set only when
-  // that file is emitted — the engine skips an unset one.
+  // .env); container-internal paths are literal. Provider keys and the web-search
+  // key are device env, not spec fields.
   const env: string[] = ["ENGINE_LOG_LEVEL: ${ENGINE_LOG_LEVEL:-info}"];
   for (const p of ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]))) {
     env.push(`${p.toUpperCase()}_API_KEY: \${${p.toUpperCase()}_API_KEY:-}`);
   }
-  if (req.hasWebSearch) {
+  if (cfg.webSearch) {
     env.push("ENGINE_WEB_SEARCH_PROVIDER: ${ENGINE_WEB_SEARCH_PROVIDER:-brave}");
     env.push("ENGINE_WEB_SEARCH_API_KEY: ${ENGINE_WEB_SEARCH_API_KEY:-}");
   }
-  env.push("ENGINE_CONFIG_FILE: /etc/foresthub/workflow.json");
-  env.push("ENGINE_MEMORY_DIR: /var/lib/foresthub/memory");
-  if (hasHardware) env.push("ENGINE_DEVICE_MANIFEST_FILE: /etc/foresthub/device_manifest.json");
-  if (hasExternal) env.push("ENGINE_EXTERNAL_RESOURCES_FILE: /etc/foresthub/external_resources.json");
-  if (hasMapping) env.push("ENGINE_DEPLOYMENT_MAPPING_FILE: /etc/foresthub/deployment_mapping.json");
+  env.push(`ENGINE_CONFIG_FILE: ${ENGINE_CONFIG_PATH}`);
+  env.push(`ENGINE_MEMORY_DIR: ${MEMORY_PATH}`);
 
-  // volume mounts — workflow + the emitted deploy files (read-only) + memory.
-  const vols: string[] = ["./workflow.json:/etc/foresthub/workflow.json:ro"];
-  if (hasHardware) vols.push("./device_manifest.json:/etc/foresthub/device_manifest.json:ro");
-  if (hasExternal) vols.push("./external_resources.json:/etc/foresthub/external_resources.json:ro");
-  if (hasMapping) vols.push("./deployment_mapping.json:/etc/foresthub/deployment_mapping.json:ro");
-  vols.push("engine-memory:/var/lib/foresthub/memory");
+  // volume mounts — the single engine config file (read-only) + memory.
+  const vols: string[] = [`./engine-config.json:${ENGINE_CONFIG_PATH}:ro`, `engine-memory:${MEMORY_PATH}`];
 
-  // device passthrough. cdev nodes (GPIO, UART) map one-to-one; sysfs families
-  // (ADC/DAC/PWM) have no single node, so the container runs privileged.
-  const cdev = new Set<string>();
-  let needsPrivileged = false;
-  for (const ch of req.hardwareChannels) {
-    const dev = cfg.hardware[ch.id]?.chipOrDevice;
-    if (!dev) continue;
-    if (ch.family === "gpio" || ch.family === "serial") cdev.add(dev);
-    else needsPrivileged = true;
-  }
+  // Content hash of the engine's boot config, stamped as a label so the engine's
+  // compose config-hash changes when engine-config.json changes. Compose hashes
+  // the service definition (labels included) but NOT the contents of bind-mounted
+  // files, so without this a workflow/binding edit — same image, same env — would
+  // leave `docker compose up -d` thinking the engine is up-to-date and never
+  // recreate it. (llama needs no such label: its config is inline in `command`.)
+  const configHash = createHash("sha256").update(JSON.stringify(engine.config)).digest("hex");
+  const labelsBlock = `\n    labels:\n      com.foresthub.engine-config-hash: "${configHash}"`;
 
   const envBlock = env.map((l) => `      ${l}`).join("\n");
   const volBlock = vols.map((v) => `      - ${v}`).join("\n");
+
+  // device passthrough — resolved into the spec: cdev nodes (GPIO, UART) map
+  // one-to-one; sysfs families (ADC/DAC/PWM) have no single node, so privileged.
   const deviceBlock =
-    cdev.size > 0 ? `\n    devices:\n${[...cdev].map((d) => `      - "${d}:${d}"`).join("\n")}` : "";
-  const privilegedBlock = needsPrivileged
+    deviceGrants.length > 0 ? `\n    devices:\n${deviceGrants.map((d) => `      - "${d}:${d}"`).join("\n")}` : "";
+  const privilegedBlock = privileged
     ? "\n    # ADC/DAC/PWM need sysfs access (/sys/class/pwm, /sys/bus/iio). privileged is" +
       "\n    # the simple default — tighten to specific bind-mounts if your policy requires." +
       "\n    privileged: true"
@@ -61,9 +67,8 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
 
   // The image is distroless:nonroot, so the engine process cannot open the
   // root-owned device nodes / sysfs files mapped above. Run it as root whenever
-  // any hardware is passed through — orthogonal to devices:/privileged: (which
-  // grant access at the container level; this grants permission at the process).
-  const needsRoot = cdev.size > 0 || needsPrivileged;
+  // any hardware is passed through.
+  const needsRoot = deviceGrants.length > 0 || privileged;
   const userBlock = needsRoot
     ? "\n    # The engine image runs as nonroot and can't open root-owned device nodes /" +
       "\n    # sysfs files; root is the host-agnostic way to reach the mapped hardware below." +
@@ -71,13 +76,13 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
     : "";
 
   // On-device models each get a llama-server sidecar the engine reaches by service
-  // name over the compose network — no host networking. network models add nothing.
-  const deviceModels: { service: string; modelFile: string; ctxVar: string }[] = [];
-  for (const m of req.customModels) {
-    const b = cfg.models[m.id];
-    if (b?.location === "device")
-      deviceModels.push({ service: sidecarServiceName(m.id), modelFile: b.modelFile, ctxVar: ctxSizeVar(m.id) });
-  }
+  // name over the compose network — no host networking.
+  const deviceModels = (llama?.models ?? []).map((m) => ({
+    service: sidecarServiceName(m.id),
+    modelFile: m.modelFile ?? "",
+    ctxVar: ctxSizeVar(m.id),
+  }));
+  const llamaImage = llama ? `${LLAMA_IMAGE_REPO}:${llama.version}` : "";
   const dependsBlock = deviceModels.length
     ? "\n    depends_on:\n" +
       deviceModels.map((d) => `      ${d.service}:\n        condition: service_healthy`).join("\n")
@@ -85,7 +90,7 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
   const sidecars = deviceModels
     .map(
       (d) => `  ${d.service}:
-    image: ghcr.io/ggml-org/llama.cpp:server-b8589
+    image: ${llamaImage}
     pull_policy: missing
     restart: unless-stopped
     command:
@@ -115,9 +120,9 @@ export function composeYaml(cfg: DeployConfig, req: DeployRequirements): string 
 
 services:
   engine:
-    image: fh-engine:latest
+    image: fh-engine:${engine.version}
     pull_policy: never
-    restart: unless-stopped${userBlock}${dependsBlock}
+    restart: unless-stopped${labelsBlock}${userBlock}${dependsBlock}
     environment:
 ${envBlock}
     volumes:
@@ -172,50 +177,26 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 }
 
 // Exported for testing purposes only.
-export function readme(cfg: DeployConfig, req: DeployRequirements): string {
+export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel: boolean): string {
   const localProviders = ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]));
   const providerBlock =
     localProviders.length === 0
       ? "_No local API keys set._ An Agent that uses a catalog model will fail at build — set the matching key in `.env`."
       : localProviders.map((p) => `- **${p}** — runs locally (your API key)`).join("\n");
 
-  const hasHardware = req.hardwareChannels.length > 0;
-  const hasExternal = req.mqttChannels.length > 0 || req.customModels.length > 0;
+  const engine = spec.components.engine;
+  const hasHardware = (engine?.deviceGrants?.length ?? 0) > 0 || Boolean(engine?.privileged);
+  const deviceModelFiles = (spec.components.llamaServer?.models ?? []).map((m) => m.modelFile ?? "");
+  const hasNetworkModel = Object.values(cfg.models).some((b) => b.location === "network");
+  const hasMqtt = Object.keys(cfg.mqtt).length > 0;
+  const hasExternalService = hasMqtt || hasNetworkModel;
 
-  // Split custom models into their two runtime kinds up front: both the notes and
-  // the external-resources gating key off this. A device model is a sidecar this
-  // bundle runs; a network model is an endpoint the operator runs elsewhere.
-  const deviceModelFiles: string[] = [];
-  let hasNetworkModel = false;
-  for (const m of req.customModels) {
-    const b = cfg.models[m.id];
-    if (b?.location === "device") deviceModelFiles.push(b.modelFile);
-    else if (b?.location === "network") hasNetworkModel = true;
-  }
-
-  // An MQTT broker or a network model is a service that lives outside this bundle —
-  // external_resources.json then carries the credentials the engine connects with. A
-  // device-only bundle's entry is just the sidecar's in-network URL (no secret).
-  const hasExternalService = req.mqttChannels.length > 0 || hasNetworkModel;
-
-  // Deploy wire-files actually present in this bundle (mirrors write.ts).
-  const deployFiles: string[] = [];
-  if (hasHardware) deployFiles.push("- `device_manifest.json` — hardware the engine binds at boot");
-  if (hasExternal)
-    deployFiles.push("- `external_resources.json` — MQTT brokers / model endpoints (**secrets — `chmod 600`**)");
-  if (hasHardware || hasExternal)
-    deployFiles.push("- `deployment_mapping.json` — maps the workflow's resources to the entries above");
-  const deployFilesBlock = deployFiles.length ? "\n" + deployFiles.join("\n") : "";
-
-  // Per-workflow operator notes — only the relevant ones appear, in this order:
+  // Per-workflow operator notes — only the relevant ones, in this order:
   // provider keys, hardware, external services, on-device models, network models,
   // web search.
   const notes: string[] = [];
 
-  // Catalog (provider) models need an API key from .env; on-device and network
-  // custom models do not. Surface the key section only when a catalog model is
-  // actually used, or the operator pre-set a key — a purely local bundle needs none.
-  if (req.hasProviderModel || localProviders.length > 0) {
+  if (hasProviderModel || localProviders.length > 0) {
     notes.push(`## LLM provider keys
 
 ${providerBlock}
@@ -234,8 +215,8 @@ and tighten it to your security policy before deploying.`);
   if (hasExternalService) {
     notes.push(`## External resources
 
-\`external_resources.json\` holds the broker/endpoint credentials the engine connects
-with — keep it \`chmod 600\`. This bundle does not start those services; it assumes the
+\`engine-config.json\` holds the broker/endpoint credentials the engine connects with —
+keep it \`chmod 600\`. This bundle does not start those services; it assumes the
 broker/endpoint already exists and is reachable from the controller.`);
   }
   if (deviceModelFiles.length > 0) {
@@ -253,21 +234,12 @@ ${deviceModelFiles.map((f) => `- \`./models/${f}\``).join("\n")}`);
 A network model points at an inference endpoint **you run yourself** (llama-server, vLLM,
 Ollama, ...) on another machine. This bundle does not start that server for you.`);
   }
-  if (req.hasWebSearch) {
+  if (cfg.webSearch) {
     notes.push(`## Web search
 
 The web-search API key is in \`.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
   }
   const notesBlock = notes.length ? "\n" + notes.join("\n\n") + "\n" : "";
-
-  // Extra files to scp alongside the base set — must match what was emitted, or
-  // the engine boots against a mounted file that isn't there.
-  const transferExtra = [
-    hasHardware ? "device_manifest.json" : "",
-    hasExternal ? "external_resources.json" : "",
-    hasHardware || hasExternal ? "deployment_mapping.json" : "",
-  ].filter(Boolean);
-  const transferExtraStr = transferExtra.length ? " " + transferExtra.join(" ") : "";
 
   // On-device model weights ship outside the main scp line (GGUF can be several GB).
   const modelsTransfer = deviceModelFiles.length
@@ -297,10 +269,11 @@ ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f 
 
 Generated by \`fh-workflow deploy\`. This directory contains everything needed to
 run one engine instance on an edge controller, **standalone** — the engine boots
-the workflow from \`workflow.json\` and runs it autonomously:
+the workflow from \`engine-config.json\` and runs it autonomously:
 
 - \`docker-compose.yml\` — deployment template
-- \`workflow.json\` — the workflow graph the engine executes${deployFilesBlock}
+- \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest; **secrets — \`chmod 600\`**)
+- \`deployment-spec.json\` — the full resolved deployment spec (record + re-apply source)
 - \`.env\` — operator configuration (already filled in, \`chmod 600\` it)
 - \`fh-engine.tar\` — image tarball (you build this in step 1 below)
 ${notesBlock}
@@ -321,7 +294,7 @@ docker buildx build --platform linux/amd64 -t fh-engine:latest --load .
 ## 2. Review the generated \`.env\`
 
 \`\`\`bash
-chmod 600 .env
+chmod 600 .env engine-config.json deployment-spec.json
 \`\`\`
 
 The wizard already filled in your operator values. Double-check before
@@ -339,7 +312,7 @@ docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
-scp fh-engine.tar docker-compose.yml workflow.json${transferExtraStr} .env \\
+scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json .env \\
     $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 
@@ -357,15 +330,6 @@ only \`docker compose down -v\` deletes them. The volume is namespaced by the
 compose project name, which defaults to the bundle directory's name — keep it
 stable across updates, or pin it via \`COMPOSE_PROJECT_NAME\`. In this standalone
 bundle the volume is the only copy of the memory.
-
-To keep the data at a host path instead, replace the named volume with a bind
-mount. Named-volume ownership is handled by the image; a bind-mounted host
-directory you must create and chown to the engine's nonroot user yourself:
-
-\`\`\`bash
-sudo mkdir -p /data/foresthub/memory && sudo chown -R 65532:65532 /data/foresthub/memory
-# docker-compose.yml:  - /data/foresthub/memory:/var/lib/foresthub/memory
-\`\`\`
 `;
 }
 

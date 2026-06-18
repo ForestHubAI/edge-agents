@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   // Build output + generated contract types.
-  { ignores: ["**/dist/**", "**/dist-cli/**", "workflow-core/src/api/workflow.ts", "workflow-cli/src/api/engine.ts"] },
+  { ignores: ["**/dist/**", "**/dist-cli/**", "workflow-core/src/api/workflow.ts", "workflow-core/src/api/deployment.ts", "workflow-cli/src/api/engine.ts"] },
 
   // Base: JS + TS recommended for all TS across the workspace.
   {

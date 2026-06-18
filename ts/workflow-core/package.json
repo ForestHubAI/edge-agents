@@ -89,7 +89,7 @@
     "access": "public"
   },
   "scripts": {
-    "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts",
+    "generate": "openapi-typescript ../../contract/workflow.yaml -o src/api/workflow.ts && openapi-typescript ../../contract/deployment.yaml -o src/api/deployment.ts",
     "build": "tsc -b",
     "prepublishOnly": "npm run build",
     "test": "vitest run"

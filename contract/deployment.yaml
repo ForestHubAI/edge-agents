@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  title: ForestHub Deployment Spec Contract
+  version: 0.1.0
+  description: "Resolved, contract-defined description of a device's component set for one deployment (types only). Produced once by a packaging step (the CLI for the OSS path, the FE/backend for the paid path) and consumed two ways: the OSS one-shot CLI renders it to containers and exits; the paid nucleus reconciles desired-vs-actual against it."
+
+paths: {}
+components:
+  schemas:
+    DeploymentSpec:
+      type: object
+      required: [schemaVersion, id, status, components]
+      description: "The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. The spec is resolved and explicit — every decision (which components run, which device nodes the engine is granted) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. This is the cross-language artifact the OSS CLI and the paid control plane both emit identically, hence its place in the contract."
+      properties:
+        schemaVersion:
+          type: integer
+          minimum: 1
+          description: "Spec format version, currently 1. Bumped when the spec shape changes incompatibly."
+        id:
+          type: string
+          description: "Stable identifier for this deployment, used as the rollback/history key. A slug in the OSS path, a uuid in the paid path; left as a free string so neither path is over-constrained."
+        createdAt:
+          type: string
+          format: date-time
+          description: "When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering."
+        status:
+          type: string
+          enum: [active, inactive]
+          description: "Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates."
+        components:
+          $ref: "#/components/schemas/ComponentSet"
+
+    ComponentSet:
+      type: object
+      description: "The closed, known set of components a device can run for one deployment. Not a generic component registry or dependency solver — each slot is a named, optional component the packaging step populates from the workflow's needs. A workflow that uses no custom models omits llamaServer; one with no engine workflow omits engine."
+      properties:
+        engine:
+          $ref: "#/components/schemas/EngineComponent"
+        llamaServer:
+          $ref: "#/components/schemas/LlamaServerComponent"
+        mqttBroker:
+          $ref: "#/components/schemas/MqttBrokerComponent"
+
+    EngineComponent:
+      type: object
+      required: [version, config]
+      description: "The ForestHub engine container: the workflow runtime plus its in-process driver I/O. deviceGrants and privileged are the resolved container-level hardware access the engine needs — computed once from the workflow's hardware channels against the device manifest and frozen here, so the renderer passes them through verbatim rather than recomputing them."
+      properties:
+        version:
+          type: string
+          description: "Container image tag to run, e.g. \"0.4.2\". Explicit, never \"latest\" — a deployment pins exact versions so a redeploy is reproducible."
+        config:
+          $ref: "engine.yaml#/components/schemas/EngineConfig"
+        deviceGrants:
+          type: array
+          description: "Resolved host device nodes to pass into the engine container, e.g. \"/dev/gpiochip0\", \"/dev/ttyUSB0\". One entry per distinct cdev node the workflow's GPIO/serial channels bind. Empty when the workflow uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead."
+          items:
+            type: string
+        privileged:
+          type: boolean
+          description: "Run the engine container privileged. Required for ADC/DAC/PWM, which use sysfs paths (/sys/class/pwm, /sys/bus/iio) with no single device node to grant. False when the workflow uses only cdev hardware or none."
+
+    LlamaServerComponent:
+      type: object
+      required: [version, models]
+      description: "One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here."
+      properties:
+        version:
+          type: string
+          description: "llama-server container image tag to run. Explicit, never \"latest\"."
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/LlamaModel"
+
+    LlamaModel:
+      type: object
+      required: [id, modelFile]
+      description: "One on-device model served by a llama-server sidecar."
+      properties:
+        id:
+          type: string
+          description: "Workflow model id the sidecar serves; the engine's external-resource entry for this model points at this sidecar."
+        modelFile:
+          type: string
+          description: "GGUF filename to load, resolved relative to the renderer's models directory (llama-server loads GGUF only)."
+        port:
+          type: integer
+          description: "Port the sidecar listens on inside the container network. Defaults to 8080 when omitted."
+        ctxSize:
+          type: integer
+          description: "Context window size to start llama-server with. Renderer-chosen default when omitted."
+
+    MqttBrokerComponent:
+      type: object
+      required: [version]
+      description: "An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo."
+      properties:
+        version:
+          type: string
+          description: "Broker container image tag to run. Explicit, never \"latest\"."
+        config:
+          type: object
+          additionalProperties: true
+          description: "Broker configuration blob; shape defined when the broker component is added to the repo."
