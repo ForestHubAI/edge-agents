@@ -124,36 +124,6 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        AgentBootCallback: {
-            /**
-             * Format: uuid
-             * @description The deployment the engine booted for backend to register.
-             */
-            deploymentId?: string;
-            /**
-             * Format: uri
-             * @description Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
-             * @example http://10.0.1.50:8081
-             */
-            address?: string;
-            /**
-             * @description Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
-             * @enum {string}
-             */
-            status: "online" | "booterror";
-            /** @description The manifest the engine loaded into its driver registry at boot. Set on a successful boot; may be null on booterror if the engine could not even parse the manifest. */
-            loadedDeviceManifest?: components["schemas"]["DeviceManifest"];
-            /** @description Human-readable failure detail. Set when status='booterror', null otherwise. */
-            error?: string | null;
-        };
-        AgentHeartbeatRequest: {
-            /**
-             * Format: uri
-             * @description Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column.
-             * @example http://10.0.1.50:8081/
-             */
-            address?: string;
-        };
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
             content: string;

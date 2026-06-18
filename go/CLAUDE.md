@@ -30,8 +30,10 @@ execute node → transition. Triggers run as parallel goroutines.
 
 The engine serves no inbound HTTP. It is a headless process that boots from a
 single `EngineConfig` file (workflow + bindings + device manifest, read once at
-boot) and reports OUT (boot callback / heartbeat / log shipping); `engine.yaml`
-is a types-only contract for that outbound wire. Node instantiation is a
+boot) and reports OUT (log shipping + memory sync only); status and liveness are
+observed externally by Ranger (the nucleus), not self-reported — a boot failure
+exits the process and Ranger sees a failed container. `engine.yaml` is a
+types-only contract for that outbound wire. Node instantiation is a
 hand-written switch on the workflow `Node` discriminator in
 `engine/build/graph.go`.
 
@@ -74,9 +76,9 @@ No Makefile. Run from inside `go/`.
 - **Provider is resolved implicitly from the model id** in `llmproxy.Client.Chat`.
   Unknown model → error; no Client-level default. Backend fallback is wired at
   registry-build time, not at call time.
-- **Backend client is optional** (nil → locals-only LLM, no heartbeat); the engine
-  still boots. The workflow, bindings, and device manifest arrive as one
-  `EngineConfig` file read once at boot.
+- **Backend client is optional** (nil → locals-only LLM, no log shipping or memory
+  mirror); the engine still boots. The workflow, bindings, and device manifest
+  arrive as one `EngineConfig` file read once at boot.
 - **Nodes are instantiated once at build**, reused across executions — node state
   persists unless `Execute` clears it.
 - **`mapping` is not contract↔Go mapping** (that's oapi-codegen). It's generic

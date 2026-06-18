@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
@@ -71,31 +70,4 @@ type RAGQueryResult struct {
 	DocumentID string
 	Content    string
 	Score      float64
-}
-
-// AgentRegistration is the per-boot state passed to Supervisor.Register.
-type AgentRegistration struct {
-	Address  string
-	Status   AgentStatus
-	Manifest *DeviceManifest
-	Error    *string
-	// DeploymentID is the opaque deployment token from ENGINE_DEPLOYMENT_ID,
-	// echoed back so the backend can record which deployment is running. Empty
-	// when not configured (e.g. an engine started without a deployment bundle).
-	DeploymentID string
-}
-
-// AgentStatus is the boot outcome reported through Supervisor.Register.
-type AgentStatus string
-
-const (
-	StatusOnline    AgentStatus = "online"
-	StatusBootError AgentStatus = "booterror"
-)
-
-// RetryConfig tunes RegisterWithRetry and HeartbeatLoop. Interval is the
-// wait between Register retries and the tick cadence for Heartbeat.
-type RetryConfig struct {
-	AttemptTimeout time.Duration
-	Interval       time.Duration
 }

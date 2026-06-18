@@ -11,26 +11,7 @@ import (
 
 	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
-
-// Defines values for AgentBootCallbackStatus.
-const (
-	Booterror AgentBootCallbackStatus = "booterror"
-	Online    AgentBootCallbackStatus = "online"
-)
-
-// Valid indicates whether the value is a known member of the AgentBootCallbackStatus enum.
-func (e AgentBootCallbackStatus) Valid() bool {
-	switch e {
-	case Booterror:
-		return true
-	case Online:
-		return true
-	default:
-		return false
-	}
-}
 
 // Defines values for LLMProviderConfigType.
 const (
@@ -93,33 +74,6 @@ func (e MQTTConnectionType) Valid() bool {
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
 	Device string `json:"device"`
-}
-
-// AgentBootCallback defines model for AgentBootCallback.
-type AgentBootCallback struct {
-	// Address Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
-	Address *string `json:"address,omitempty"`
-
-	// DeploymentID The deployment the engine booted for backend to register.
-	DeploymentID *openapi_types.UUID `json:"deploymentId,omitempty"`
-
-	// Error Human-readable failure detail. Set when status='booterror', null otherwise.
-	Error *string `json:"error,omitempty"`
-
-	// LoadedDeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
-	LoadedDeviceManifest *DeviceManifest `json:"loadedDeviceManifest,omitempty"`
-
-	// Status Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
-	Status AgentBootCallbackStatus `json:"status"`
-}
-
-// AgentBootCallbackStatus Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
-type AgentBootCallbackStatus string
-
-// AgentHeartbeatRequest defines model for AgentHeartbeatRequest.
-type AgentHeartbeatRequest struct {
-	// Address Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column.
-	Address *string `json:"address,omitempty"`
 }
 
 // DACConfig defines model for DACConfig.

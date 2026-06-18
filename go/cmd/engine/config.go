@@ -14,10 +14,8 @@ type Config struct {
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
 	Secret string `env:"ENGINE_SECRET"`
-	// BackendURL is the URL of the backend to call home to and push logs to
+	// BackendURL is the URL of the backend to push logs to and sync memory with
 	BackendURL string `env:"FH_BACKEND_URL"`
-	// DeploymentID is an opaque correlation token minted by the backend and baked into the bundle. The engine does not interpret it (it does not select the workflow — ENGINE_CONFIG_FILE does); it only echoes it back in the boot callback so the backend can record which deployment is running.
-	DeploymentID string `env:"ENGINE_DEPLOYMENT_ID"`
 	// LogLevel is the zerolog level name (debug/info/warn/error). Empty and
 	// unknown values fall back to info via logging.ParseLevel.
 	LogLevel string `env:"ENGINE_LOG_LEVEL"`

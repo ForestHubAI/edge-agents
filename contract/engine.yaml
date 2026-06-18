@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config/boot/heartbeat/memory-sync/preflight/RAG-query."
+  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config / log-ingest / memory-sync / RAG-query. Status and liveness are observed by Ranger (the nucleus) via the device-state channel, not self-reported by the engine."
 
 paths: {}
 components:
@@ -211,42 +211,6 @@ components:
         time:
           type: string
           format: date-time
-
-    AgentBootCallback:
-      type: object
-      required: [status]
-      properties:
-        deploymentId:
-          type: string
-          format: uuid
-          x-go-name: DeploymentID
-          description: The deployment the engine booted for backend to register.
-        address:
-          type: string
-          format: uri
-          example: "http://10.0.1.50:8081"
-          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work."
-        status:
-          type: string
-          enum: [online, booterror]
-          description: "Boot result reported by the engine. 'online' when the manifest loaded cleanly and the workflow is running; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.)."
-        loadedDeviceManifest:
-          $ref: "#/components/schemas/DeviceManifest"
-          nullable: true
-          description: "The manifest the engine loaded into its driver registry at boot. Set on a successful boot; may be null on booterror if the engine could not even parse the manifest."
-        error:
-          type: string
-          nullable: true
-          description: Human-readable failure detail. Set when status='booterror', null otherwise.
-
-    AgentHeartbeatRequest:
-      type: object
-      properties:
-        address:
-          type: string
-          format: uri
-          example: "http://10.0.1.50:8081/"
-          description: "Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column."
 
     MemoryFileWrite:
       type: object

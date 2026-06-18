@@ -57,31 +57,10 @@ func main() {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
 
-	// loadedManifest tracks the device manifest once it parses, so a boot error
-	// after that point can report it; it stays nil if the manifest itself fails
-	// to load (matching AgentBootCallback's "null on booterror" contract).
-	var loadedManifest *engine.DeviceManifest
-
-	// bootFail reports a booterror callback to the backend (best-effort, single
-	// bounded attempt) when one is configured, then exits. Used for every
-	// boot-sequence failure so the backend records status=error instead of
-	// inferring it from a missed heartbeat. Reached only before the online
-	// registration below, so the two never contradict each other.
+	// bootFail logs a fatal boot error and exits nonzero. In the immutable model a
+	// boot failure ends the process; Ranger (or the container runtime) observes the
+	// nonzero exit as a failed container — the engine no longer self-reports status.
 	bootFail := func(cause error, msg string) {
-		if backendClient != nil {
-			errStr := cause.Error()
-			reportCtx, cancel := context.WithTimeout(context.Background(), backend.BootCallbackTimeout)
-			rerr := backendClient.Register(reportCtx, engine.AgentRegistration{
-				Status:       engine.StatusBootError,
-				Manifest:     loadedManifest,
-				Error:        &errStr,
-				DeploymentID: cfg.DeploymentID,
-			})
-			cancel()
-			if rerr != nil {
-				logging.Logger.Warn().Err(rerr).Msg("reporting boot error to backend")
-			}
-		}
 		logging.Logger.Fatal().Err(cause).Msg(msg)
 	}
 
@@ -118,7 +97,6 @@ func main() {
 	// Both are injected into the builder, borrowed by the workflow's channels,
 	// and closed by main at shutdown.
 	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
-	loadedManifest = &manifest
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
 		bootFail(err, "initialising driver registry")
@@ -173,12 +151,10 @@ func main() {
 		Retriever:    retriever,
 	}
 
-	// One lifecycle context for the whole process: the workflow runner and the
-	// heartbeat both run under it. A termination signal cancels it (graceful
-	// shutdown); the runner exiting on its own ends the process just the same.
-	// The engine reports OUT only — it serves no inbound HTTP and advertises no
-	// address, since nothing connects back to it; liveness is observed from its
-	// container/process state.
+	// One lifecycle context for the whole process: a termination signal cancels it
+	// (graceful shutdown); the runner exiting on its own ends the process just the
+	// same. The engine serves no inbound HTTP and self-reports no status — liveness
+	// is observed externally (Ranger / the container runtime) from its process state.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
@@ -192,41 +168,12 @@ func main() {
 		}
 	}()
 
-	// Build the runner before the online registration so a build failure reports
-	// as a boot error rather than contradicting an already-sent "online" callback.
+	// Build the runner. A build failure exits nonzero (Ranger observes a failed
+	// container); there is no "online" callback for it to contradict.
 	dm := mapping.DeploymentMappingToDomain(ec.Mapping)
 	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
 	if err != nil {
 		bootFail(err, "building workflow runner")
-	}
-
-	// Boot-time self-registration: RegisterWithRetry runs in its own goroutine so
-	// a cold-started backend does not block boot. Once Register succeeds,
-	// HeartbeatLoop takes over for periodic liveness; both stop when ctx is
-	// cancelled.
-	if backendClient != nil {
-		reg := engine.AgentRegistration{
-			Status:       engine.StatusOnline,
-			Manifest:     &manifest,
-			DeploymentID: cfg.DeploymentID,
-		}
-		registerCfg := engine.RetryConfig{
-			AttemptTimeout: backend.BootCallbackTimeout,
-			Interval:       backend.RegisterRetryInterval,
-		}
-		heartbeatCfg := engine.RetryConfig{
-			AttemptTimeout: backend.HeartbeatTimeout,
-			Interval:       backend.HeartbeatInterval,
-		}
-		go func() {
-			engine.RegisterWithRetry(ctx, backendClient, reg, registerCfg)
-			if ctx.Err() != nil {
-				return
-			}
-			engine.HeartbeatLoop(ctx, backendClient, "", heartbeatCfg)
-		}()
-	} else {
-		logging.Logger.Info().Msg("FH_BACKEND_URL or ENGINE_SECRET not set, skipping self-registration")
 	}
 
 	// Run the workflow, BLOCKING until it exits — on its own (terminal: the

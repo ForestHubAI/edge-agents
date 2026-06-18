@@ -24,11 +24,14 @@ seam, based on whether a backend client was constructed.
 |------|---------|-----------|-------------------------|--------------------|
 | `LlmClient` | `Chat` | Required for agent nodes | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
 | `Retriever` | `QueryRAG` | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node | Forwards to `/rag/query` |
-| `Supervisor` | `Register`, `Heartbeat` | Optional | **nil** → no registration/heartbeat | POSTs `/agents/bootCallback`, `/agents/heartbeat` |
 | `MemorySync` | `Hydrate`, `Push` | Optional (mirror only) | **nil** → local-only memory | HTTP `GET`/`PUT /agents/memory` |
 
-Two capabilities deliberately are **not** ports:
+Three capabilities deliberately are **not** ports:
 
+- **Status & liveness** — not self-reported. A boot failure exits the process
+  and a crash stops the container; Ranger (the nucleus) observes the container
+  state and reports it to the backend. There is no outbound status / heartbeat
+  seam — the engine had a `Supervisor` port for this, now removed.
 - **Local memory persistence** — owned unconditionally by
   `engine/memory.Manager`. The device always has a durable local copy; see
   [Memory](#memorysync-optional-remote-mirror) below.
@@ -63,20 +66,6 @@ yet**.
 - **Planned:** a standalone pgvector-backed adapter (query embedding via
   `llmproxy` + similarity search + ingestion) will live in its own package
   (e.g. `engine/rag/pgvector`), not bundled with the trivial seams.
-
-## Supervisor — optional outbound callbacks
-
-`Supervisor` abstracts whoever receives this agent's callbacks: the
-registration sent at boot plus the periodic liveness heartbeat. It is a
-purely outbound seam — deploys/commands arrive the other way, through the
-engine's HTTP server.
-
-- **Standalone:** nil. With no one to report to, the engine simply doesn't
-  register or heartbeat. This is correct, not degraded — pull-based health
-  endpoints are the standalone observability story, not a fake heartbeat.
-- **Backend:** `backend.Client` POSTs `/agents/bootCallback` and
-  `/agents/heartbeat`. The retry/heartbeat loops live in
-  `engine/lifecycle.go`.
 
 ## MemorySync — optional remote mirror
 
@@ -119,10 +108,9 @@ authoritative; only content is preserved.
 ```
 FH_BACKEND_URL set?
 ├─ yes → backend.Client satisfies LlmClient (fallback), Retriever,
-│         Supervisor, and MemorySync.
+│         and MemorySync.
 └─ no  → LlmClient: local providers only
           Retriever:  nil (retrieval nodes fail the build)
-          Supervisor: nil (no register/heartbeat)
           MemorySync: nil (local-only memory)
 ```
 
