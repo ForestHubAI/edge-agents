@@ -680,6 +680,7 @@ export interface components {
             qos: number;
             retain: boolean;
         };
+        /** @description Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays. */
         MQTTConnection: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -689,15 +690,13 @@ export interface components {
             brokerUrl: string;
             clientId?: string;
             username?: string;
-            /** Format: password */
-            password?: string;
             /** @description Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/). */
             publishPrefix?: string;
             /** @description Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/). */
             subscribePrefix?: string;
             will?: components["schemas"]["MQTTWill"];
         };
-        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. */
+        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. */
         LLMProviderConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -706,11 +705,6 @@ export interface components {
             type: "selfhosted";
             /** @description Base URL of the inference endpoint (http:// or https://). */
             url: string;
-            /**
-             * Format: password
-             * @description Optional bearer credential for the endpoint.
-             */
-            apiKey?: string;
             /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
             model?: string;
         };

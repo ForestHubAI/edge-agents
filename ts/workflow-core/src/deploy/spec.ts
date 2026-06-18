@@ -27,6 +27,22 @@ export interface DeploymentSpecMeta {
   llamaServerImage: DeploymentSchemas["ComponentImage"];
 }
 
+// One external resource's credentials. Secrets are NEVER part of the spec (not
+// rotation-safe, breach-exposed if stored): the resolver returns them separately,
+// keyed by the same resource ref the spec's externalResources use, for the
+// renderer to deliver out-of-band (engine env FH_RESOURCE_SECRETS).
+export interface ResourceSecret {
+  password?: string; // MQTT broker password
+  apiKey?: string; // self-hosted LLM endpoint bearer
+}
+export type ResourceSecrets = Record<string, ResourceSecret>;
+
+// buildDeploymentSpec's output: the secret-free spec plus the pulled-out secrets.
+export interface DeploymentSpecResult {
+  spec: DeploymentSpec;
+  resourceSecrets: ResourceSecrets;
+}
+
 // Hands out stable, collision-free ref names. Same dedup key -> same ref (the
 // engine builds that resource once); distinct keys preferring the same name get
 // suffixed (-2, -3, ...) so the flat ref namespace stays unambiguous.
@@ -181,11 +197,12 @@ export function buildDeploymentSpec(
   workflow: Workflow,
   inputs: DeploymentInputs,
   meta: DeploymentSpecMeta,
-): DeploymentSpec {
+): DeploymentSpecResult {
   const req = deriveRequirements(workflow);
   assertDeployable(req, inputs);
 
   const refs = new RefAllocator();
+  const resourceSecrets: ResourceSecrets = {};
 
   // DeviceManifest is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
@@ -248,10 +265,13 @@ export function buildDeploymentSpec(
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
     const conn: DeploymentSchemas["MQTTConnection"] = { type: "mqtt", brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
-    if (b.password) conn.password = b.password;
-    const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}`, `mqtt-${brokerHost(b.brokerUrl)}`);
+    // The password is a secret — kept out of conn (and thus the spec). It still
+    // participates in the dedup key, so two channels differing only by password
+    // don't collapse onto one ref (and one shared secret).
+    const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}:${b.password ?? ""}`, `mqtt-${brokerHost(b.brokerUrl)}`);
     externalResources[ref] = conn;
     mapping[ch.id] = { ref };
+    if (b.password) resourceSecrets[ref] = { ...resourceSecrets[ref], password: b.password };
   }
 
   // Custom models: one self-hosted provider per model id. A device model points
@@ -264,10 +284,11 @@ export function buildDeploymentSpec(
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
     const url = b.location === "device" ? `http://${sidecarServiceName(m.id)}:8080` : b.url;
     const provider: DeploymentSchemas["LLMProviderConfig"] = { type: "selfhosted", url };
-    if (b.location === "network" && b.apiKey) provider.apiKey = b.apiKey;
     const ref = refs.alloc(`model:${m.id}`, basename(m.id));
     externalResources[ref] = provider;
     mapping[m.id] = { ref };
+    // The endpoint bearer is a secret — out of the spec, returned separately.
+    if (b.location === "network" && b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
     if (b.location === "device") llamaModels.push({ id: m.id, modelFile: b.modelFile });
   }
 
@@ -302,5 +323,5 @@ export function buildDeploymentSpec(
     components,
   };
   if (meta.createdAt) spec.createdAt = meta.createdAt;
-  return spec;
+  return { spec, resourceSecrets };
 }

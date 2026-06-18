@@ -7,11 +7,13 @@ import path from "node:path";
 import { composeYaml, envFile, readme } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 
 export async function writeOutput(
   spec: DeploymentSpec,
+  resourceSecrets: ResourceSecrets,
   cfg: DeployConfig,
   req: DeployRequirements,
 ): Promise<string[]> {
@@ -34,8 +36,10 @@ export async function writeOutput(
   }
 
   const written: string[] = [];
-  // secret=true -> mode 0o600. engine-config.json + deployment-spec.json may carry
-  // resource creds (broker passwords, endpoint keys) inline via externalResources.
+  // secret=true -> mode 0o600. Only .env is secret-bearing now: it carries the
+  // provider keys and FH_RESOURCE_SECRETS (broker passwords / endpoint keys).
+  // engine-config.json and deployment-spec.json are secret-free by construction —
+  // safe to read, commit, or share.
   const emit = async (name: string, content: string, secret = false): Promise<void> => {
     const out = path.join(dir, name);
     const opts = secret ? { encoding: "utf-8" as const, mode: 0o600 } : { encoding: "utf-8" as const };
@@ -48,11 +52,11 @@ export async function writeOutput(
   if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
 
   // The engine's single boot file (workflow + bindings + manifest, unified) and
-  // the full resolved spec (record + re-apply source). Both secret-bearing.
-  await emit("engine-config.json", json(engine.config), true);
-  await emit("deployment-spec.json", json(spec), true);
+  // the full resolved spec (record + re-apply source) — both secret-free.
+  await emit("engine-config.json", json(engine.config));
+  await emit("deployment-spec.json", json(spec));
   await emit("docker-compose.yml", composeYaml(spec, cfg));
-  await emit(".env", envFile(cfg), true);
+  await emit(".env", envFile(cfg, resourceSecrets), true);
   await emit("README.md", readme(spec, cfg, req.hasProviderModel));
 
   // On-device models bind-mount ./models/ — create it so the operator has a place

@@ -49,7 +49,7 @@ const meta = {
 
 describe("buildDeploymentSpec", () => {
   it("resolves a full workflow into a contract-shaped spec", () => {
-    const spec = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
+    const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
 
     expect(spec.schemaVersion).toBe(1);
     expect(spec.id).toBe("dep-1");
@@ -62,7 +62,7 @@ describe("buildDeploymentSpec", () => {
   });
 
   it("splits the device manifest by family and maps every resource", () => {
-    const { config } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta).components.engine!;
+    const { config } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta).spec.components.engine!;
     const m = config.manifest!;
     expect(Object.keys(m.gpios ?? {})).toHaveLength(1);
     expect(Object.keys(m.serials ?? {})).toHaveLength(1);
@@ -74,14 +74,14 @@ describe("buildDeploymentSpec", () => {
   });
 
   it("resolves cdev nodes into deviceGrants and forces privileged for sysfs families", () => {
-    const { deviceGrants, privileged } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta).components.engine!;
+    const { deviceGrants, privileged } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta).spec.components.engine!;
     // GPIO + serial are cdev → granted; ADC (sysfs) is not a node → privileged instead.
     expect(deviceGrants?.sort()).toEqual(["/dev/gpiochip0", "/dev/ttyUSB0"]);
     expect(privileged).toBe(true);
   });
 
   it("emits a llama-server component and points the engine's provider at the sidecar", () => {
-    const spec = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
+    const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     expect(spec.components.llamaServer).toEqual({
       image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" },
       models: [{ id: "local-llm", modelFile: "model.gguf" }],
@@ -100,7 +100,7 @@ describe("buildDeploymentSpec", () => {
       memory: {},
       models: {},
     };
-    const spec = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, models: {} }, meta);
+    const { spec } = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, models: {} }, meta);
     expect(spec.components.engine!.privileged).toBeUndefined();
     expect(spec.components.llamaServer).toBeUndefined();
     expect(spec.components.engine!.deviceGrants).toEqual(["/dev/gpiochip0"]);
@@ -119,10 +119,25 @@ describe("buildDeploymentSpec", () => {
       mqtt: {},
       models: { "local-llm": { location: "network", url: "https://infer.example/v1", apiKey: "k" } },
     };
-    const spec = buildDeploymentSpec(wf, inputs, meta);
+    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components.llamaServer).toBeUndefined();
+    // The provider config in the spec is secret-free; the apiKey is pulled out.
     const ext = spec.components.engine!.config.externalResources!;
-    expect(Object.values(ext)).toContainEqual({ type: "selfhosted", url: "https://infer.example/v1", apiKey: "k" });
+    const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhosted")!;
+    expect(provider).toEqual({ type: "selfhosted", url: "https://infer.example/v1" });
+    expect(resourceSecrets[ref]).toEqual({ apiKey: "k" });
+  });
+
+  it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
+    const { spec, resourceSecrets } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
+    const ext = spec.components.engine!.config.externalResources!;
+    // The stored connection carries metadata but never the password.
+    const [mqttRef, mqttConn] = Object.entries(ext).find(([, r]) => r.type === "mqtt")!;
+    expect(mqttConn).not.toHaveProperty("password");
+    expect(mqttConn).toMatchObject({ username: "u" });
+    expect(resourceSecrets[mqttRef]).toEqual({ password: "p" });
+    // Whole spec serialized carries no secret value.
+    expect(JSON.stringify(spec)).not.toContain('"p"');
   });
 });
 

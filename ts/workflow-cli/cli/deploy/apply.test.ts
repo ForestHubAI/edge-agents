@@ -26,7 +26,7 @@ function gpioSpec() {
       engineImage: { repository: "fh-engine", tag: "0.4.2" },
       llamaServerImage: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" },
     },
-  );
+  ).spec;
 }
 
 function silence() {

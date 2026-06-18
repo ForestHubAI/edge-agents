@@ -11,4 +11,4 @@ export {
   ggufNameError,
   sidecarServiceName,
 } from "./spec";
-export type { DeploymentSpecMeta } from "./spec";
+export type { DeploymentSpecMeta, DeploymentSpecResult, ResourceSecret, ResourceSecrets } from "./spec";

@@ -13,7 +13,13 @@ import (
 // deploy-time configs) onto the engine domain type at the HTTP boundary,
 // routing each arm by its discriminator: MQTT connections into MQTTs, custom
 // LLM provider configs into Providers. Unknown arms are skipped.
-func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.ExternalResources {
+//
+// The wire configs are secret-free (secrets are never stored in the deployment
+// spec). Credentials arrive separately in secrets, keyed by the same resource
+// id, and are merged in here so the domain connection the engine builds from is
+// complete. A missing secret leaves the credential empty (the connection may
+// still be valid — e.g. an anonymous broker or a keyless endpoint).
+func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.ResourceSecrets) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
@@ -36,7 +42,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.External
 				BrokerURL:       c.BrokerURL,
 				ClientID:        pointer.Val(c.ClientID),
 				Username:        pointer.Val(c.Username),
-				Password:        pointer.Val(c.Password),
+				Password:        secrets[id].Password,
 				PublishPrefix:   pointer.Val(c.PublishPrefix),
 				SubscribePrefix: pointer.Val(c.SubscribePrefix),
 			}
@@ -56,7 +62,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.External
 			}
 			out.Providers[id] = engine.LLMProviderConfig{
 				URL:    c.Url,
-				APIKey: pointer.Val(c.ApiKey),
+				APIKey: secrets[id].APIKey,
 				Model:  pointer.Val(c.Model),
 			}
 		}

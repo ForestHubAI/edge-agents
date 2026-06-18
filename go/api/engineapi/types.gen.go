@@ -123,11 +123,8 @@ type GPIOConfig struct {
 	Chip string `json:"chip"`
 }
 
-// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here.
+// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec.
 type LLMProviderConfig struct {
-	// ApiKey Optional bearer credential for the endpoint.
-	ApiKey *string `json:"apiKey,omitempty"`
-
 	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
 	Model *string               `json:"model,omitempty"`
 	Type  LLMProviderConfigType `json:"type"`
@@ -152,11 +149,10 @@ type LogEntry struct {
 // LogEntryLevel defines model for LogEntry.Level.
 type LogEntryLevel string
 
-// MQTTConnection defines model for MQTTConnection.
+// MQTTConnection Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays.
 type MQTTConnection struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
-	Password  *string `json:"password,omitempty"`
 
 	// PublishPrefix Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/).
 	PublishPrefix *string `json:"publishPrefix,omitempty"`

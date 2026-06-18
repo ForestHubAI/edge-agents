@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -101,7 +102,11 @@ func main() {
 	if err != nil {
 		bootFail(err, "initialising driver registry")
 	}
-	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources)
+	resourceSecrets, err := parseResourceSecrets(cfg.ResourceSecrets)
+	if err != nil {
+		bootFail(err, "parsing resource secrets")
+	}
+	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, resourceSecrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		bootFail(err, "opening transports")
@@ -213,4 +218,19 @@ func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
 		return nil, err
 	}
 	return &ec, nil
+}
+
+// parseResourceSecrets decodes the FH_RESOURCE_SECRETS env (a JSON map of
+// external-resource id -> credentials) into the domain secrets the api->domain
+// mapping merges into connections. Secrets travel out-of-band, never in the
+// deployment spec. An empty/unset value yields no secrets.
+func parseResourceSecrets(raw string) (engine.ResourceSecrets, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var s engine.ResourceSecrets
+	if err := json.Unmarshal([]byte(raw), &s); err != nil {
+		return nil, fmt.Errorf("FH_RESOURCE_SECRETS: %w", err)
+	}
+	return s, nil
 }

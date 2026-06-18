@@ -306,9 +306,9 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
 
   // Resolve the deployment spec. buildDeploymentSpec re-validates completeness
   // and throws on a gap — turn that into a clean exit rather than a stack trace.
-  let spec;
+  let built;
   try {
-    spec = buildDeploymentSpec(domain, cfg, {
+    built = buildDeploymentSpec(domain, cfg, {
       id: slugify(workflowName),
       status: "active",
       engineImage: ENGINE_IMAGE,
@@ -319,10 +319,10 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(1);
   }
 
-  // Write the bundle.
+  // Write the bundle. Secrets (resourceSecrets) go to .env, never the spec.
   let files: string[];
   try {
-    files = await writeOutput(spec, cfg, req);
+    files = await writeOutput(built.spec, built.resourceSecrets, cfg, req);
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

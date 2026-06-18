@@ -58,7 +58,7 @@ components:
 
     LLMProviderConfig:
       type: object
-      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here."
+      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec."
       required: [type, url]
       properties:
         type:
@@ -67,16 +67,13 @@ components:
         url:
           type: string
           description: Base URL of the inference endpoint (http:// or https://).
-        apiKey:
-          type: string
-          format: password
-          description: Optional bearer credential for the endpoint.
         model:
           type: string
           description: Upstream model name the endpoint serves; defaults to the workflow model id when empty.
 
     MQTTConnection:
       type: object
+      description: "Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays."
       required: [type, brokerUrl]
       properties:
         type:
@@ -90,9 +87,6 @@ components:
           x-go-name: ClientID
         username:
           type: string
-        password:
-          type: string
-          format: password
         publishPrefix:
           type: string
           x-go-name: PublishPrefix

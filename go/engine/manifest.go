@@ -83,3 +83,18 @@ type MQTTWill struct {
 	Qos     int    `json:"qos"`
 	Retain  bool   `json:"retain"`
 }
+
+// ResourceSecret holds the credentials for one external resource. Secrets are
+// deliberately NOT part of the deployment spec (not rotation-safe, breach-
+// exposed if stored): they are delivered out-of-band and merged into the
+// resource's connection at the api->domain boundary, so the connection the
+// engine actually uses is complete while the stored spec stays secret-free.
+type ResourceSecret struct {
+	Password string `json:"password,omitempty"` // MQTT broker password
+	APIKey   string `json:"apiKey,omitempty"`   // self-hosted LLM endpoint bearer
+}
+
+// ResourceSecrets maps an external-resource id (the same id ExternalResources
+// and the DeploymentMapping key on) to its credentials. Populated from the
+// FH_RESOURCE_SECRETS env channel at boot; empty when no resource needs a secret.
+type ResourceSecrets map[string]ResourceSecret
