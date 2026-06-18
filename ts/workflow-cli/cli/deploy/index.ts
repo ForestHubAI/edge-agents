@@ -22,10 +22,12 @@ import { slugify } from "./generate";
 import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
-// Image tags the spec pins. OSS builds the engine locally as fh-engine:latest;
-// the llama sidecar is a pinned upstream tag. The paid path pins exact versions.
-const ENGINE_IMAGE_VERSION = "latest";
-const LLAMA_SERVER_VERSION = "server-b8589";
+// Resolved component images the spec pins. The engine is currently built locally
+// (bare repository → local daemon, pull_policy never); the llama sidecar is a
+// pinned upstream tag. When engine images are published to a registry, this gains
+// a registry host and the renderer's pull_policy flips to missing.
+const ENGINE_IMAGE = { repository: "fh-engine", tag: "latest" };
+const LLAMA_SERVER_IMAGE = { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" };
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -309,8 +311,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     spec = buildDeploymentSpec(domain, cfg, {
       id: slugify(workflowName),
       status: "active",
-      engineVersion: ENGINE_IMAGE_VERSION,
-      llamaServerVersion: LLAMA_SERVER_VERSION,
+      engineImage: ENGINE_IMAGE,
+      llamaServerImage: LLAMA_SERVER_IMAGE,
     });
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);

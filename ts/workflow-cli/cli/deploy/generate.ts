@@ -16,7 +16,13 @@ type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 // + manifest, unified) — Phase 1 collapsed the former four files into it.
 const ENGINE_CONFIG_PATH = "/etc/foresthub/engine-config.json";
 const MEMORY_PATH = "/var/lib/foresthub/memory";
-const LLAMA_IMAGE_REPO = "ghcr.io/ggml-org/llama.cpp";
+
+// Render a resolved component image coordinate to a docker image reference: pin
+// by digest when present (immutable), else by tag. The repository carries its
+// registry, so this is the whole reference.
+function imageRef(img: DeploymentSchemas["ComponentImage"]): string {
+  return img.digest ? `${img.repository}@${img.digest}` : `${img.repository}:${img.tag}`;
+}
 
 // Exported for testing purposes only.
 export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
@@ -82,7 +88,7 @@ export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
     modelFile: m.modelFile ?? "",
     ctxVar: ctxSizeVar(m.id),
   }));
-  const llamaImage = llama ? `${LLAMA_IMAGE_REPO}:${llama.version}` : "";
+  const llamaImage = llama ? imageRef(llama.image) : "";
   const dependsBlock = deviceModels.length
     ? "\n    depends_on:\n" +
       deviceModels.map((d) => `      ${d.service}:\n        condition: service_healthy`).join("\n")
@@ -120,7 +126,7 @@ export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
 
 services:
   engine:
-    image: fh-engine:${engine.version}
+    image: ${imageRef(engine.image)}
     pull_policy: never
     restart: unless-stopped${labelsBlock}${userBlock}${dependsBlock}
     environment:

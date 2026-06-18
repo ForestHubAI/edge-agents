@@ -33,18 +33,16 @@ export interface components {
         };
         /** @description The ForestHub engine container: the workflow runtime plus its in-process driver I/O. deviceGrants and privileged are the resolved container-level hardware access the engine needs — computed once from the workflow's hardware channels against the device manifest and frozen here, so the renderer passes them through verbatim rather than recomputing them. */
         EngineComponent: {
-            /** @description Container image tag to run, e.g. "0.4.2". Explicit, never "latest" — a deployment pins exact versions so a redeploy is reproducible. */
-            version: string;
+            image: components["schemas"]["ComponentImage"];
             config: components["schemas"]["EngineConfig"];
             /** @description Resolved host device nodes to pass into the engine container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the workflow's GPIO/serial channels bind. Empty when the workflow uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead. */
             deviceGrants?: string[];
             /** @description Run the engine container privileged. Required for ADC/DAC/PWM, which use sysfs paths (/sys/class/pwm, /sys/bus/iio) with no single device node to grant. False when the workflow uses only cdev hardware or none. */
             privileged?: boolean;
         };
-        /** @description One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. */
+        /** @description One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. One image serves every sidecar; the models differ per sidecar. */
         LlamaServerComponent: {
-            /** @description llama-server container image tag to run. Explicit, never "latest". */
-            version: string;
+            image: components["schemas"]["ComponentImage"];
             models: components["schemas"]["LlamaModel"][];
         };
         /** @description One on-device model served by a llama-server sidecar. */
@@ -60,12 +58,20 @@ export interface components {
         };
         /** @description An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo. */
         MqttBrokerComponent: {
-            /** @description Broker container image tag to run. Explicit, never "latest". */
-            version: string;
+            image: components["schemas"]["ComponentImage"];
             /** @description Broker configuration blob; shape defined when the broker component is added to the repo. */
             config?: {
                 [key: string]: unknown;
             };
+        };
+        /** @description Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change. */
+        ComponentImage: {
+            /** @description Image repository, registry host included, e.g. "ghcr.io/foresthubai/engine". A bare name (no host) resolves against the local daemon — the air-gap / build-locally case. */
+            repository: string;
+            /** @description Human-readable version tag, e.g. "1.1.0". Explicit, never "latest" for a real release — a deployment pins exact versions. Used for the pull when no digest is set, and kept for readability when one is. */
+            tag: string;
+            /** @description Optional content digest, e.g. "sha256:abc123...". When set, the renderer pulls repository@digest for an immutable, reproducible pull; the tag stays for readability. Recommended for the reconcile/rollback (paid) path, where a moved tag would otherwise break determinism. */
+            digest?: string;
         };
         NodePosition: {
             x: number;

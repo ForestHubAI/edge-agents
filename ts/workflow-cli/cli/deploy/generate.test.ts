@@ -27,7 +27,7 @@ function specOf(engine: Partial<EngineComponent> = {}, llama?: LlamaServer): Spe
     id: "test",
     status: "active",
     components: {
-      engine: { version: "latest", config: { workflow: bareWorkflow }, ...engine },
+      engine: { image: { repository: "fh-engine", tag: "latest" }, config: { workflow: bareWorkflow }, ...engine },
       ...(llama ? { llamaServer: llama } : {}),
     },
   };
@@ -90,8 +90,17 @@ describe("composeYaml", () => {
     expect(yaml).not.toContain("privileged:");
   });
 
-  it("pins the engine image to the spec's version", () => {
-    expect(composeYaml(specOf({ version: "0.4.2" }), cfgOf())).toContain("image: fh-engine:0.4.2");
+  it("pins the engine image from the spec coordinate (by tag)", () => {
+    expect(composeYaml(specOf({ image: { repository: "fh-engine", tag: "0.4.2" } }), cfgOf())).toContain("image: fh-engine:0.4.2");
+  });
+
+  it("pins by digest when the coordinate carries one", () => {
+    const yaml = composeYaml(
+      specOf({ image: { repository: "ghcr.io/foresthubai/engine", tag: "1.1.0", digest: "sha256:abc123" } }),
+      cfgOf(),
+    );
+    expect(yaml).toContain("image: ghcr.io/foresthubai/engine@sha256:abc123");
+    expect(yaml).not.toContain(":1.1.0");
   });
 
   it("maps a cdev device grant and runs root", () => {
@@ -126,7 +135,7 @@ describe("composeYaml", () => {
 
   it("an on-device model adds a llama sidecar and an engine depends_on", () => {
     const yaml = composeYaml(
-      specOf({}, { version: "server-b8589", models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
+      specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
       cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
     );
     expect(yaml).toContain("llama-gemma-3:");
@@ -185,7 +194,7 @@ describe("readme", () => {
 
   it("an on-device model adds the on-device note with the model file", () => {
     const md = readme(
-      specOf({}, { version: "server-b8589", models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
+      specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
       cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
       false,
     );
@@ -214,7 +223,7 @@ describe("readme", () => {
 
   it("a device model adds the model scp transfer and inspects all containers on run", () => {
     const md = readme(
-      specOf({}, { version: "server-b8589", models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
+      specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "gemma-3", modelFile: "gemma.gguf" }] }),
       cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
       false,
     );

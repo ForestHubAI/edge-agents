@@ -20,7 +20,12 @@ function gpioSpec() {
   return buildDeploymentSpec(
     wf,
     { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, models: {} },
-    { id: "d", status: "active", engineVersion: "0.4.2", llamaServerVersion: "server-b8589" },
+    {
+      id: "d",
+      status: "active",
+      engineImage: { repository: "fh-engine", tag: "0.4.2" },
+      llamaServerImage: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" },
+    },
   );
 }
 

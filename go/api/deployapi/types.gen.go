@@ -27,12 +27,24 @@ func (e DeploymentSpecStatus) Valid() bool {
 	}
 }
 
+// ComponentImage Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
+type ComponentImage struct {
+	// Digest Optional content digest, e.g. "sha256:abc123...". When set, the renderer pulls repository@digest for an immutable, reproducible pull; the tag stays for readability. Recommended for the reconcile/rollback (paid) path, where a moved tag would otherwise break determinism.
+	Digest *string `json:"digest,omitempty"`
+
+	// Repository Image repository, registry host included, e.g. "ghcr.io/foresthubai/engine". A bare name (no host) resolves against the local daemon — the air-gap / build-locally case.
+	Repository string `json:"repository"`
+
+	// Tag Human-readable version tag, e.g. "1.1.0". Explicit, never "latest" for a real release — a deployment pins exact versions. Used for the pull when no digest is set, and kept for readability when one is.
+	Tag string `json:"tag"`
+}
+
 // ComponentSet The closed, known set of components a device can run for one deployment. Not a generic component registry or dependency solver — each slot is a named, optional component the packaging step populates from the workflow's needs. A workflow that uses no custom models omits llamaServer; one with no engine workflow omits engine.
 type ComponentSet struct {
 	// Engine The ForestHub engine container: the workflow runtime plus its in-process driver I/O. deviceGrants and privileged are the resolved container-level hardware access the engine needs — computed once from the workflow's hardware channels against the device manifest and frozen here, so the renderer passes them through verbatim rather than recomputing them.
 	Engine *EngineComponent `json:"engine,omitempty"`
 
-	// LlamaServer One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here.
+	// LlamaServer One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. One image serves every sidecar; the models differ per sidecar.
 	LlamaServer *LlamaServerComponent `json:"llamaServer,omitempty"`
 
 	// MqttBroker An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo.
@@ -68,11 +80,11 @@ type EngineComponent struct {
 	// DeviceGrants Resolved host device nodes to pass into the engine container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the workflow's GPIO/serial channels bind. Empty when the workflow uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead.
 	DeviceGrants *[]string `json:"deviceGrants,omitempty"`
 
+	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
+	Image ComponentImage `json:"image"`
+
 	// Privileged Run the engine container privileged. Required for ADC/DAC/PWM, which use sysfs paths (/sys/class/pwm, /sys/bus/iio) with no single device node to grant. False when the workflow uses only cdev hardware or none.
 	Privileged *bool `json:"privileged,omitempty"`
-
-	// Version Container image tag to run, e.g. "0.4.2". Explicit, never "latest" — a deployment pins exact versions so a redeploy is reproducible.
-	Version string `json:"version"`
 }
 
 // LlamaModel One on-device model served by a llama-server sidecar.
@@ -90,12 +102,11 @@ type LlamaModel struct {
 	Port *int `json:"port,omitempty"`
 }
 
-// LlamaServerComponent One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here.
+// LlamaServerComponent One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. One image serves every sidecar; the models differ per sidecar.
 type LlamaServerComponent struct {
-	Models []LlamaModel `json:"models"`
-
-	// Version llama-server container image tag to run. Explicit, never "latest".
-	Version string `json:"version"`
+	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
+	Image  ComponentImage `json:"image"`
+	Models []LlamaModel   `json:"models"`
 }
 
 // MqttBrokerComponent An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo.
@@ -103,6 +114,6 @@ type MqttBrokerComponent struct {
 	// Config Broker configuration blob; shape defined when the broker component is added to the repo.
 	Config *map[string]interface{} `json:"config,omitempty"`
 
-	// Version Broker container image tag to run. Explicit, never "latest".
-	Version string `json:"version"`
+	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
+	Image ComponentImage `json:"image"`
 }

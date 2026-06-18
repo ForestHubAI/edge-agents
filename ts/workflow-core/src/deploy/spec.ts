@@ -17,13 +17,14 @@ type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type EngineConfig = DeploymentSchemas["EngineConfig"];
 
 // Deploy-time metadata the resolver cannot derive from the workflow: identity,
-// lifecycle, and the explicit image tags each component runs (never "latest").
+// lifecycle, and the resolved OCI image each component runs (registry-qualified,
+// frozen here so the renderer pulls a coordinate rather than assembling one).
 export interface DeploymentSpecMeta {
   id: string;
   status: DeploymentSpec["status"];
   createdAt?: string;
-  engineVersion: string;
-  llamaServerVersion: string;
+  engineImage: DeploymentSchemas["ComponentImage"];
+  llamaServerImage: DeploymentSchemas["ComponentImage"];
 }
 
 // Hands out stable, collision-free ref names. Same dedup key -> same ref (the
@@ -285,13 +286,13 @@ export function buildDeploymentSpec(
   if (Object.keys(externalResources).length) config.externalResources = externalResources;
   if (Object.keys(manifest).length) config.manifest = manifest;
 
-  const engine: DeploymentSchemas["EngineComponent"] = { version: meta.engineVersion, config };
+  const engine: DeploymentSchemas["EngineComponent"] = { image: meta.engineImage, config };
   if (cdev.size > 0) engine.deviceGrants = [...cdev];
   if (privileged) engine.privileged = true;
 
   const components: DeploymentSchemas["ComponentSet"] = { engine };
   if (llamaModels.length > 0) {
-    components.llamaServer = { version: meta.llamaServerVersion, models: llamaModels };
+    components.llamaServer = { image: meta.llamaServerImage, models: llamaModels };
   }
 
   const spec: DeploymentSpec = {

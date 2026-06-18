@@ -40,7 +40,12 @@ const fullInputs: DeploymentInputs = {
   models: { "local-llm": { location: "device", modelFile: "model.gguf" } },
 };
 
-const meta = { id: "dep-1", status: "active" as const, engineVersion: "0.4.2", llamaServerVersion: "server-b8589" };
+const meta = {
+  id: "dep-1",
+  status: "active" as const,
+  engineImage: { repository: "fh-engine", tag: "0.4.2" },
+  llamaServerImage: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" },
+};
 
 describe("buildDeploymentSpec", () => {
   it("resolves a full workflow into a contract-shaped spec", () => {
@@ -52,7 +57,7 @@ describe("buildDeploymentSpec", () => {
 
     const engine = spec.components.engine;
     if (!engine) throw new Error("expected engine component");
-    expect(engine.version).toBe("0.4.2");
+    expect(engine.image).toEqual({ repository: "fh-engine", tag: "0.4.2" });
     expect(engine.config.workflow.schemaVersion).toBeGreaterThanOrEqual(1);
   });
 
@@ -78,7 +83,7 @@ describe("buildDeploymentSpec", () => {
   it("emits a llama-server component and points the engine's provider at the sidecar", () => {
     const spec = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     expect(spec.components.llamaServer).toEqual({
-      version: "server-b8589",
+      image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" },
       models: [{ id: "local-llm", modelFile: "model.gguf" }],
     });
     // The external-resource provider URL must point at the sidecar service name.

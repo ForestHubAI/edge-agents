@@ -27,7 +27,7 @@ function specOf(engine: Partial<EngineComponent> = {}, llama?: LlamaServer): Spe
     id: "test",
     status: "active",
     components: {
-      engine: { version: "latest", config: { workflow: bareWorkflow }, ...engine },
+      engine: { image: { repository: "fh-engine", tag: "latest" }, config: { workflow: bareWorkflow }, ...engine },
       ...(llama ? { llamaServer: llama } : {}),
     },
   };
@@ -89,7 +89,7 @@ describe("writeOutput", () => {
   it("creates a models/ directory for an on-device model", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    const spec = specOf({}, { version: "server-b8589", models: [{ id: "llm", modelFile: "m.gguf" }] });
+    const spec = specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "llm", modelFile: "m.gguf" }] });
     const cfg = cfgOf(out, { models: { llm: { location: "device", modelFile: "m.gguf" } } });
     await writeOutput(spec, cfg, reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
     expect((await fs.stat(path.join(out, "models"))).isDirectory()).toBe(true);
