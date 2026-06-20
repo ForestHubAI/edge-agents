@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in edge-agents
+description: Report a bug in Edge Agents
 labels: ["bug"]
 body:
   - type: markdown
@@ -20,7 +20,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of edge-agents is affected?
+      description: Which part of Edge Agents is affected?
       options:
         - Engine (Go runtime)
         - LLM proxy (Go)
@@ -65,7 +65,7 @@ body:
     id: version
     attributes:
       label: Version / commit
-      description: Which version or git commit of edge-agents are you on?
+      description: Which version or git commit of Edge Agents are you on?
       placeholder: "e.g. go/v0.1.0, or commit abc1234"
     validations:
       required: false

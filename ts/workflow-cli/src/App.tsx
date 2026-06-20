@@ -92,7 +92,7 @@ export default function App() {
   // Mirror the current filename into the browser tab title.
   useEffect(() => {
     const base = fileName ?? "Untitled.json";
-    document.title = `${dirty ? "• " : ""}${base} — ForestHub Builder`;
+    document.title = `${dirty ? "• " : ""}${base} — Edge Agents Builder`;
   }, [fileName, dirty]);
 
   // If launched with ?file=…, load it from the bridge on mount.

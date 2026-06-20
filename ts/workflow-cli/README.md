@@ -1,6 +1,6 @@
 # @foresthubai/workflow-cli
 
-`fh-workflow` — a self-contained CLI for authoring [ForestHub](https://foresthub.ai)
+`fh-workflow` — a self-contained CLI for authoring [Edge Agents](https://foresthub.ai)
 workflow JSON. Validate workflows headlessly, or open them in the **visual builder**
 (bundled into this package — no other install, no account, no network). Backed by
 [`@foresthubai/workflow-core`](../workflow-core) and the
