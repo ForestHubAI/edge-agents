@@ -74,6 +74,10 @@ describe("envFile", () => {
     expect(env).toContain("LLAMA_CTX_SIZE_A=4096");
     expect(env).toContain("LLAMA_CTX_SIZE_B=4096");
   });
+
+  it("writes the chosen context size when the binding sets one", () => {
+    expect(envFile(cfgOf({ models: { m: { location: "device", modelFile: "x.gguf", ctxSize: 8192 } } }))).toContain("LLAMA_CTX_SIZE_M=8192");
+  });
 });
 
 describe("composeYaml", () => {
@@ -145,6 +149,17 @@ describe("composeYaml", () => {
     expect(yaml).toContain("condition: service_healthy");
     expect(yaml).toContain("${LLAMA_CTX_SIZE_GEMMA_3:-4096}");
     expect(yaml).not.toContain("network_mode: host");
+  });
+
+  it("renders a sidecar's port and context size from the spec, not the hardcoded defaults", () => {
+    const yaml = composeYaml(
+      specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "gemma-3", modelFile: "gemma.gguf", port: 9090, ctxSize: 8192 }] }),
+      cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf", port: 9090, ctxSize: 8192 } } }),
+    );
+    expect(yaml).toContain('- "9090"'); // --port arg
+    expect(yaml).toContain("http://localhost:9090/health"); // healthcheck on the same port
+    expect(yaml).toContain("${LLAMA_CTX_SIZE_GEMMA_3:-8192}"); // ctx fallback from the spec
+    expect(yaml).not.toContain('- "8080"');
   });
 
   it("sets no fixed container_name (so multiple bundles can share a host)", () => {

@@ -46,8 +46,8 @@ export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
   }
   // External-resource secrets (broker passwords / endpoint keys) ride in env,
   // keyed by resource id — never in the spec or engine-config.json. Always wired
-  // (empty-safe via :-) so a re-render / `fh apply` never drops it; the value is
-  // set in .env only when there are secrets.
+  // (empty-safe via :-) so compose never errors when no secrets are set; the
+  // value is filled into .env only when there are secrets.
   env.push("FH_RESOURCE_SECRETS: ${FH_RESOURCE_SECRETS:-}");
   env.push(`ENGINE_CONFIG_FILE: ${ENGINE_CONFIG_PATH}`);
   env.push(`ENGINE_MEMORY_DIR: ${MEMORY_PATH}`);
@@ -92,7 +92,9 @@ export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
   const deviceModels = (llama?.models ?? []).map((m) => ({
     service: sidecarServiceName(m.id),
     modelFile: m.modelFile ?? "",
+    port: m.port ?? 8080,
     ctxVar: ctxSizeVar(m.id),
+    ctxDefault: m.ctxSize ?? 4096,
   }));
   const llamaImage = llama ? imageRef(llama.image) : "";
   const dependsBlock = deviceModels.length
@@ -111,13 +113,13 @@ export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
       - --host
       - "0.0.0.0"
       - --port
-      - "8080"
+      - "${d.port}"
       - --ctx-size
-      - "\${${d.ctxVar}:-4096}"
+      - "\${${d.ctxVar}:-${d.ctxDefault}}"
     volumes:
       - ./models:/models:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:${d.port}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -168,13 +170,13 @@ ENGINE_WEB_SEARCH_API_KEY=${cfg.webSearch.apiKey}
 
   // One context-size var per on-device model (llama-server sidecar), so each is
   // tunable on its own.
-  const deviceModelIds = Object.entries(cfg.models)
-    .filter(([, b]) => b.location === "device")
-    .map(([id]) => id);
-  const onDeviceSection = deviceModelIds.length
+  const deviceModelLines = Object.entries(cfg.models).flatMap(([id, b]) =>
+    b.location === "device" ? [`${ctxSizeVar(id)}=${b.ctxSize ?? 4096}`] : [],
+  );
+  const onDeviceSection = deviceModelLines.length
     ? `# ----- On-device models -----
 # Context window per llama-server sidecar.
-${deviceModelIds.map((id) => `${ctxSizeVar(id)}=4096`).join("\n")}
+${deviceModelLines.join("\n")}
 
 `
     : "";
@@ -296,7 +298,7 @@ the workflow from \`engine-config.json\` and runs it autonomously:
 
 - \`docker-compose.yml\` — deployment template
 - \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest; **secrets — \`chmod 600\`**)
-- \`deployment-spec.json\` — the full resolved deployment spec (record + re-apply source)
+- \`deployment-spec.json\` — the full resolved deployment spec (deployment record)
 - \`.env\` — operator configuration (already filled in, \`chmod 600\` it)
 - \`fh-engine.tar\` — image tarball (you build this in step 1 below)
 ${notesBlock}

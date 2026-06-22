@@ -52,7 +52,7 @@ export async function writeOutput(
   if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
 
   // The engine's single boot file (workflow + bindings + manifest, unified) and
-  // the full resolved spec (record + re-apply source) — both secret-free.
+  // the full resolved spec (deployment record) — both secret-free.
   await emit("engine-config.json", json(engine.config));
   await emit("deployment-spec.json", json(spec));
   await emit("docker-compose.yml", composeYaml(spec, cfg));

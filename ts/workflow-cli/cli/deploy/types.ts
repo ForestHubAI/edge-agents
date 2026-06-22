@@ -53,7 +53,12 @@ const mqttBindingSchema = z.strictObject({
 });
 
 const modelBindingSchema = z.discriminatedUnion("location", [
-  z.strictObject({ location: z.literal("device"), modelFile: z.string() }),
+  z.strictObject({
+    location: z.literal("device"),
+    modelFile: z.string(),
+    port: z.number().int().positive().optional(),
+    ctxSize: z.number().int().positive().optional(),
+  }),
   z.strictObject({ location: z.literal("network"), url: z.string(), apiKey: z.string().optional() }),
 ]);
 

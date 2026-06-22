@@ -149,7 +149,14 @@ async function promptModels(
         message: `${m.label}: model filename in ./models/ (e.g. model.gguf)`,
         validate: (v) => ggufNameError(v) ?? true,
       });
-      result[m.id] = { location: "device", modelFile: modelFile.trim() };
+      const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });
+      const port = await input({ message: `${m.label}: sidecar port`, default: "8080", validate: isUint });
+      result[m.id] = {
+        location: "device",
+        modelFile: modelFile.trim(),
+        ctxSize: Number(ctxSize.trim()),
+        port: Number(port.trim()),
+      };
       continue;
     }
 

@@ -3,7 +3,6 @@ import { updateCommand } from "./update";
 import { validateCommand } from "./validate";
 import { checkSchemaCommand } from "./check-schema";
 import { deployCommand } from "./deploy";
-import { applyCommand } from "./deploy/apply";
 
 const USAGE = `Usage:
   fh-workflow open [file.json] [--static|--dev]  Open the workflow builder; optionally pre-load a workflow.
@@ -11,7 +10,6 @@ const USAGE = `Usage:
   fh-workflow validate <file.json>               Semantic validation of a workflow (references, wiring, types). Exits non-zero on errors.
   fh-workflow update <file.json> [out]           Migrate a workflow to the current schema version.
   fh-workflow deploy <file.json> [...]           Generate a self-contained deployment bundle. Use --help for flags.
-  fh-workflow apply <deployment-spec.json> [...] Re-render a resolved deployment spec to its bundle artifacts. Use --help for flags.
 `;
 
 const [, , command, ...args] = process.argv;
@@ -32,9 +30,6 @@ try {
       break;
     case "deploy":
       await deployCommand(args[0], args.slice(1));
-      break;
-    case "apply":
-      await applyCommand(args[0], args.slice(1));
       break;
     case undefined:
     case "--help":

@@ -29,7 +29,7 @@ export interface MqttBinding {
 // `network` = an inference endpoint the operator runs elsewhere. The endpoint
 // serves the model under its workflow id — no upstream-name aliasing yet.
 export type ModelBinding =
-  | { location: "device"; modelFile: string }
+  | { location: "device"; modelFile: string; port?: number; ctxSize?: number }
   | { location: "network"; url: string; apiKey?: string };
 
 // The complete set of bindings a deploy supplies, keyed by workflow logical id

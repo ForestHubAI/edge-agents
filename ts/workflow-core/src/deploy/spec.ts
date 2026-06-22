@@ -278,14 +278,19 @@ export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs
   for (const m of req.customModels) {
     const b = inputs.models[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
-    const url = b.location === "device" ? `http://${sidecarServiceName(m.id)}:8080` : b.url;
+    const url = b.location === "device" ? `http://${sidecarServiceName(m.id)}:${b.port ?? 8080}` : b.url;
     const provider: DeploymentSchemas["LLMProviderConfig"] = { type: "selfhosted", url };
     const ref = refs.alloc(`model:${m.id}`, basename(m.id));
     externalResources[ref] = provider;
     mapping[m.id] = { ref };
     // The endpoint bearer is a secret — out of the spec, returned separately.
     if (b.location === "network" && b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
-    if (b.location === "device") llamaModels.push({ id: m.id, modelFile: b.modelFile });
+    if (b.location === "device") {
+      const model: DeploymentSchemas["LlamaModel"] = { id: m.id, modelFile: b.modelFile };
+      if (b.port !== undefined) model.port = b.port;
+      if (b.ctxSize !== undefined) model.ctxSize = b.ctxSize;
+      llamaModels.push(model);
+    }
   }
 
   const manifest: DeploymentSchemas["DeviceManifest"] = {};
