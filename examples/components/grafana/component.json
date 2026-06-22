@@ -1,0 +1,11 @@
+{
+  "name": "grafana",
+  "image": "foresthub/grafana:local",
+  "config": {
+    "server": { "http_port": 3000 },
+    "analytics": { "reporting_enabled": false, "check_for_updates": false },
+    "users": { "allow_sign_up": false }
+  },
+  "ports": ["3000:3000"],
+  "volumes": ["grafana-storage:/var/lib/grafana"]
+}

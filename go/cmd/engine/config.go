@@ -8,8 +8,8 @@ import (
 
 // Config holds engine boot configuration. All values come from env vars
 type Config struct {
-	// ConfigFile is the path to the engine's single boot config file. The engine is immutable and reads it once at startup; this is the only way config is supplied.
-	ConfigFile string `env:"ENGINE_CONFIG_FILE"`
+	// ConfigFile is the path to the engine's single boot config file. The engine is immutable and reads it once at startup; this is the only way config is supplied. Defaults to the deployment convention path the renderer mounts config at, so the spec needs no env var to point at it; set ENGINE_CONFIG_FILE only to override.
+	ConfigFile string `env:"ENGINE_CONFIG_FILE" envDefault:"/etc/foresthub/config.json"`
 	// ID identifies this engine to hosted-MQTT brokers, acting as 'username'
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers

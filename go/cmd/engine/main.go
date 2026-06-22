@@ -201,13 +201,13 @@ func main() {
 }
 
 // loadEngineConfig reads the engine's single boot config file (the EngineConfig
-// wire shape: workflow + bindings + device manifest). The path is mandatory —
-// the engine exists only to run the workflow this file carries, so an empty path
-// (ENGINE_CONFIG_FILE unset), or a missing or malformed file, is a fatal boot
-// error.
+// wire shape: workflow + bindings + device manifest). The path defaults to the
+// deployment convention (/etc/foresthub/config.json); an explicitly empty path,
+// or a missing or malformed file, is a fatal boot error — the engine exists only
+// to run the workflow this file carries.
 func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
 	if path == "" {
-		return nil, errors.New("ENGINE_CONFIG_FILE not set")
+		return nil, errors.New("engine config path is empty (ENGINE_CONFIG_FILE explicitly set to empty)")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

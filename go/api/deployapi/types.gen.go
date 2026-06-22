@@ -5,8 +5,6 @@ package deployapi
 
 import (
 	"time"
-
-	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/engineapi"
 )
 
 // Defines values for DeploymentSpecStatus.
@@ -27,42 +25,45 @@ func (e DeploymentSpecStatus) Valid() bool {
 	}
 }
 
-// ComponentImage Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
-type ComponentImage struct {
-	// Digest Optional content digest, e.g. "sha256:abc123...". When set, the renderer pulls repository@digest for an immutable, reproducible pull; the tag stays for readability. Recommended for the reconcile/rollback (paid) path, where a moved tag would otherwise break determinism.
-	Digest *string `json:"digest,omitempty"`
+// DeployComponent One resolved container to run as part of a deployment. Generic by design: it carries only runtime-neutral container knobs the renderer passes through, never a component-typed config schema. A component's own config shape lives in that component's contract (e.g. the engine's EngineConfig in engine.yaml), referenced directly by whoever produces and consumes that config; this spec only transports the rendered config content as opaque file bytes. Adding a component, OSS or paid, means producing one of these, not editing this contract.
+type DeployComponent struct {
+	// Config Structured config for the component, frozen at packaging time. The renderer serializes it to JSON, writes it to a device-local file, bind-mounts that file read-only at configPath, and hashes it into a recreate trigger (compose does not track bind-mount content). How the component interprets the file — read it as JSON, convert it to CLI args, expand it into several native config files — is the image's entrypoint, not this spec; a non-JSON image is wrapped with a thin entrypoint that converts. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets; those arrive as environment variables from the device-local env file.
+	Config *map[string]interface{} `json:"config,omitempty"`
 
-	// Repository Image repository, registry host included, e.g. "ghcr.io/foresthubai/engine". A bare name (no host) resolves against the local daemon — the air-gap / build-locally case.
-	Repository string `json:"repository"`
+	// ConfigPath Absolute in-container path to mount the config file at. Omit to use the convention default "/etc/foresthub/config.json", which first-party components read by default. Set it to drop in a JSON-configured third-party image that reads its config elsewhere, e.g. "/app/config.json". Ignored when config is absent.
+	ConfigPath *string `json:"configPath,omitempty"`
 
-	// Tag Human-readable version tag, e.g. "1.1.0". Explicit, never "latest" for a real release — a deployment pins exact versions. Used for the pull when no digest is set, and kept for readability when one is.
-	Tag string `json:"tag"`
+	// Devices Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the component binds, computed once from the workflow's hardware against the device manifest. Empty when the component uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead.
+	Devices *[]string `json:"devices,omitempty"`
+
+	// Image OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the nucleus resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.
+	Image string `json:"image"`
+
+	// Name Unique component name within the deployment. Doubles as the container/service name the renderer emits, the basename of any device-local env file the operator supplies ("<name>.env"), and the address other components reach this one by over the container network.
+	Name string `json:"name"`
+
+	// Ports Host port publishings in compose short form, e.g. "1883:1883". Empty when the component is reached only over the internal container network (the common case: components address each other by name, no host exposure needed).
+	Ports *[]string `json:"ports,omitempty"`
+
+	// Privileged Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none.
+	Privileged *bool `json:"privileged,omitempty"`
+
+	// Volumes Persistent or host volume mounts in compose short form, e.g. "engine-memory:/var/lib/foresthub/memory" or "./models:/models:ro". Empty when the component is stateless and mounts nothing beyond its config files.
+	Volumes *[]string `json:"volumes,omitempty"`
 }
 
-// ComponentSet The closed, known set of components a device can run for one deployment. Not a generic component registry or dependency solver — each slot is a named, optional component the packaging step populates from the workflow's needs. A workflow that uses no custom models omits llamaServer; one with no engine workflow omits engine.
-type ComponentSet struct {
-	// Engine The ForestHub engine container: the workflow runtime plus its in-process driver I/O. deviceGrants and privileged are the resolved container-level hardware access the engine needs — computed once from the workflow's hardware channels against the device manifest and frozen here, so the renderer passes them through verbatim rather than recomputing them.
-	Engine *EngineComponent `json:"engine,omitempty"`
-
-	// LlamaServer One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. One image serves every sidecar; the models differ per sidecar.
-	LlamaServer *LlamaServerComponent `json:"llamaServer,omitempty"`
-
-	// MqttBroker An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo.
-	MqttBroker *MqttBrokerComponent `json:"mqttBroker,omitempty"`
-}
-
-// DeploymentSpec The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. The spec is resolved and explicit — every decision (which components run, which device nodes the engine is granted) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. This is the cross-language artifact the OSS CLI and the paid control plane both emit identically, hence its place in the contract.
+// DeploymentSpec The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline.
 type DeploymentSpec struct {
-	// Components The closed, known set of components a device can run for one deployment. Not a generic component registry or dependency solver — each slot is a named, optional component the packaging step populates from the workflow's needs. A workflow that uses no custom models omits llamaServer; one with no engine workflow omits engine.
-	Components ComponentSet `json:"components"`
+	// Components The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here.
+	Components []DeployComponent `json:"components"`
 
 	// CreatedAt When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering.
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
-	// Id Stable identifier for this deployment, used as the rollback/history key. A slug in the OSS path, a uuid in the paid path; left as a free string so neither path is over-constrained.
+	// Id Stable identifier for this deployment, used as the rollback/history key.
 	Id string `json:"id"`
 
-	// SchemaVersion Spec format version, currently 1. Bumped when the spec shape changes incompatibly.
+	// SchemaVersion Spec format version. Bumped when the spec shape changes incompatibly.
 	SchemaVersion int `json:"schemaVersion"`
 
 	// Status Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
@@ -71,49 +72,3 @@ type DeploymentSpec struct {
 
 // DeploymentSpecStatus Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
 type DeploymentSpecStatus string
-
-// EngineComponent The ForestHub engine container: the workflow runtime plus its in-process driver I/O. deviceGrants and privileged are the resolved container-level hardware access the engine needs — computed once from the workflow's hardware channels against the device manifest and frozen here, so the renderer passes them through verbatim rather than recomputing them.
-type EngineComponent struct {
-	// Config The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields.
-	Config externalRef0.EngineConfig `json:"config"`
-
-	// DeviceGrants Resolved host device nodes to pass into the engine container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the workflow's GPIO/serial channels bind. Empty when the workflow uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead.
-	DeviceGrants *[]string `json:"deviceGrants,omitempty"`
-
-	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
-	Image ComponentImage `json:"image"`
-
-	// Privileged Run the engine container privileged. Required for ADC/DAC/PWM, which use sysfs paths (/sys/class/pwm, /sys/bus/iio) with no single device node to grant. False when the workflow uses only cdev hardware or none.
-	Privileged *bool `json:"privileged,omitempty"`
-}
-
-// LlamaModel One on-device model served by a llama-server sidecar.
-type LlamaModel struct {
-	// CtxSize Context window size to start llama-server with. Renderer-chosen default when omitted.
-	CtxSize *int `json:"ctxSize,omitempty"`
-
-	// Id Workflow model id the sidecar serves; the engine's external-resource entry for this model points at this sidecar.
-	Id string `json:"id"`
-
-	// ModelFile GGUF filename to load, resolved relative to the renderer's models directory (llama-server loads GGUF only).
-	ModelFile string `json:"modelFile"`
-
-	// Port Port the sidecar listens on inside the container network. Defaults to 8080 when omitted.
-	Port *int `json:"port,omitempty"`
-}
-
-// LlamaServerComponent One llama-server sidecar per on-device custom model the workflow declares. The engine reaches each over the container network by service name. Absent when the workflow declares no on-device models — network models are plain external-resource endpoints in the engine config, not sidecars run here. One image serves every sidecar; the models differ per sidecar.
-type LlamaServerComponent struct {
-	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
-	Image  ComponentImage `json:"image"`
-	Models []LlamaModel   `json:"models"`
-}
-
-// MqttBrokerComponent An MQTT broker container run as part of this deployment. Modeled now but not yet populated by the OSS packaging step, which currently treats brokers as pre-existing external services (an MQTT connection in the engine config's external resources). config is intentionally loose until the broker component lands in the repo.
-type MqttBrokerComponent struct {
-	// Config Broker configuration blob; shape defined when the broker component is added to the repo.
-	Config *map[string]interface{} `json:"config,omitempty"`
-
-	// Image Resolved OCI image reference for a component, frozen at packaging time. A renderer pulls repository@digest when a digest is present (reproducible, since tags are mutable) and repository:tag otherwise. The repository carries its registry host, so the same coordinate resolves against the public registry for an OSS component or a private one for a future paid component with no schema change.
-	Image ComponentImage `json:"image"`
-}
