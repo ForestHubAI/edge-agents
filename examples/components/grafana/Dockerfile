@@ -19,7 +19,7 @@ RUN chmod +x /foresthub-entrypoint.sh
 USER grafana
 
 # Health lives in the image, never in the deployment spec. The OSS compose path
-# and the paid nucleus both read this status from the runtime.
+# and the paid ranger both read this status from the runtime.
 HEALTHCHECK --interval=10s --timeout=5s --retries=12 --start-period=30s \
   CMD wget -q --spider http://localhost:3000/api/health || exit 1
 

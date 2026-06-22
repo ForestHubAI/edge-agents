@@ -20,16 +20,16 @@ seam, based on whether a backend client was constructed.
 
 ## The matrix
 
-| Port | Methods | Required? | No backend (standalone) | fh-backend adapter |
-|------|---------|-----------|-------------------------|--------------------|
-| `LlmClient` | `Chat` | Required for agent nodes | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
-| `Retriever` | `QueryRAG` | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node | Forwards to `/rag/query` |
-| `MemorySync` | `Hydrate`, `Push` | Optional (mirror only) | **nil** → local-only memory | HTTP `GET`/`PUT /agents/memory` |
+| Port         | Methods           | Required?                                         | No backend (standalone)                          | fh-backend adapter               |
+| ------------ | ----------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------- |
+| `LlmClient`  | `Chat`            | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
+| `Retriever`  | `QueryRAG`        | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
+| `MemorySync` | `Hydrate`, `Push` | Optional (mirror only)                            | **nil** → local-only memory                      | HTTP `GET`/`PUT /agents/memory`  |
 
 Three capabilities deliberately are **not** ports:
 
 - **Status & liveness** — not self-reported. A boot failure exits the process
-  and a crash stops the container; Ranger (the nucleus) observes the container
+  and a crash stops the container; Ranger (the ranger) observes the container
   state and reports it to the backend. There is no outbound status / heartbeat
   seam — the engine had a `Supervisor` port for this, now removed.
 - **Local memory persistence** — owned unconditionally by
@@ -72,7 +72,7 @@ yet**.
 Memory is **local-first (edge-primary)**. `engine/memory.Manager` owns a
 durable directory of `<uid>.json` records and is the source of truth: it
 reads them at boot and writes through on every mutation. `MemorySync` is
-*only* the optional remote mirror.
+_only_ the optional remote mirror.
 
 - **`Hydrate`** — pulls the agent's accumulated content. Called by the
   Manager **only on a cold start** (empty local directory) to seed a fresh
@@ -95,7 +95,7 @@ declared seed**:
 3. Otherwise the workflow's declared `MemoryFile.Content` is used.
 
 So **`MemoryFile.Content` is initial content only — it never overwrites an
-existing file.** Declared *metadata* (label, description, size cap) is always
+existing file.** Declared _metadata_ (label, description, size cap) is always
 authoritative; only content is preserved.
 
 > **Durability boundary:** with `Push` but no reverse path, the backend holds

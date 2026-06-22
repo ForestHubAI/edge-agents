@@ -11,7 +11,7 @@ package engine
 // for the full required/optional matrix and standalone behavior.
 //
 // Status and liveness are NOT a port: a boot failure exits the process and a
-// crash stops the container, both observed externally by Ranger (the nucleus),
+// crash stops the container, both observed externally by Ranger (the ranger),
 // so the engine self-reports neither — there is no Supervisor seam.
 //
 // Memory is deliberately NOT a "where it's stored" port: local filesystem

@@ -1,7 +1,7 @@
 // The spec resolver: (workflow + bindings) -> DeploymentSpec. The shared
 // "packaging library" the migration doc calls for — component-set derivation
 // and device-grant resolution computed once here, frozen into the contract spec,
-// so neither renderer (OSS one-shot CLI, paid nucleus) re-derives them.
+// so neither renderer (OSS one-shot CLI, paid ranger) re-derives them.
 //
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
@@ -193,11 +193,7 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
 // contract-defined DeploymentSpec. Throws (via assertDeployable) if any declared
 // resource is unbound. The embedded engine config carries the serialized (and
 // thereby pruned) workflow; device grants and privileged are resolved here.
-export function buildDeploymentSpec(
-  workflow: Workflow,
-  inputs: DeploymentInputs,
-  meta: DeploymentSpecMeta,
-): DeploymentSpecResult {
+export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs, meta: DeploymentSpecMeta): DeploymentSpecResult {
   const req = deriveRequirements(workflow);
   assertDeployable(req, inputs);
 

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config / log-ingest / memory-sync / RAG-query. Status and liveness are observed by Ranger (the nucleus) via the device-state channel, not self-reported by the engine."
+  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config / log-ingest / memory-sync / RAG-query. Status and liveness are observed by Ranger (the ranger) via the device-state channel, not self-reported by the engine."
 
 paths: {}
 components:

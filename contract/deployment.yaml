@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Deployment Spec Contract
   version: 0.1.0
-  description: "Resolved, contract-defined description of a device's component set for one deployment (types only). Produced once by a packaging step (the CLI for the OSS path, the FE/backend for the paid path) and consumed two ways: the OSS one-shot CLI renders it to containers and exits; the paid nucleus reconciles desired-vs-actual against it. Components are generic: the spec never names engine, llama-server, or any specific component, so a new OSS or paid component is added without touching this contract."
+  description: "Resolved, contract-defined description of a device's component set for one deployment (types only). Produced once by a packaging step (the CLI for the OSS path, the FE/backend for the paid path) and consumed two ways: the OSS one-shot CLI renders it to containers and exits; the paid ranger reconciles desired-vs-actual against it. Components are generic: the spec never names engine, llama-server, or any specific component, so a new OSS or paid component is added without touching this contract."
 
 paths: {}
 components:
@@ -43,7 +43,7 @@ components:
           description: 'Unique component name within the deployment. Doubles as the container/service name the renderer emits, the basename of any device-local env file the operator supplies ("<name>.env"), and the address other components reach this one by over the container network.'
         image:
           type: string
-          description: 'OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the nucleus resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.'
+          description: 'OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.'
         config:
           type: object
           additionalProperties: true

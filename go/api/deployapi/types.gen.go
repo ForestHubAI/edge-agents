@@ -36,7 +36,7 @@ type DeployComponent struct {
 	// Devices Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the component binds, computed once from the workflow's hardware against the device manifest. Empty when the component uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead.
 	Devices *[]string `json:"devices,omitempty"`
 
-	// Image OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the nucleus resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.
+	// Image OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.
 	Image string `json:"image"`
 
 	// Name Unique component name within the deployment. Doubles as the container/service name the renderer emits, the basename of any device-local env file the operator supplies ("<name>.env"), and the address other components reach this one by over the container network.
