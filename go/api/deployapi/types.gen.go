@@ -27,6 +27,9 @@ func (e DeploymentSpecStatus) Valid() bool {
 
 // DeployComponent One resolved container to run as part of a deployment. Generic by design: it carries only runtime-neutral container knobs the renderer passes through, never a component-typed config schema. A component's own config shape lives in that component's contract (e.g. the engine's EngineConfig in engine.yaml), referenced directly by whoever produces and consumes that config; this spec only transports the rendered config content as opaque file bytes. Adding a component, OSS or paid, means producing one of these, not editing this contract.
 type DeployComponent struct {
+	// Command Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/models/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container's command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image's own default command.
+	Command *[]string `json:"command,omitempty"`
+
 	// Config Structured config for the component, frozen at packaging time. The renderer serializes it to JSON, writes it to a device-local file, bind-mounts that file read-only at configPath, and hashes it into a recreate trigger (compose does not track bind-mount content). How the component interprets the file — read it as JSON, convert it to CLI args, expand it into several native config files — is the image's entrypoint, not this spec; a non-JSON image is wrapped with a thin entrypoint that converts. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets; those arrive as environment variables from the device-local env file.
 	Config *map[string]interface{} `json:"config,omitempty"`
 
@@ -47,6 +50,9 @@ type DeployComponent struct {
 
 	// Privileged Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none.
 	Privileged *bool `json:"privileged,omitempty"`
+
+	// User Container user as "UID[:GID]", e.g. "0:0" for root. The renderer passes it through verbatim. Needed when a nonroot image must reach root-owned resources: the engine image runs nonroot but has to open the root-owned device nodes / sysfs files granted via devices/privileged, so its component sets "0:0". Omit to use the image's own default user.
+	User *string `json:"user,omitempty"`
 
 	// Volumes Persistent or host volume mounts in compose short form, e.g. "engine-memory:/var/lib/foresthub/memory" or "./models:/models:ro". Empty when the component is stateless and mounts nothing beyond its config files.
 	Volumes *[]string `json:"volumes,omitempty"`
