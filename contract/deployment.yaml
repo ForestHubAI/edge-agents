@@ -9,24 +9,13 @@ components:
   schemas:
     DeploymentSpec:
       type: object
-      required: [schemaVersion, id, status, components]
-      description: "The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline."
+      required: [schemaVersion, components]
+      description: "The resolved set of components to run on one device for one deployment — a pure desired-state payload. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. Identity and lifecycle (which deployment this is, when it was produced, whether it is currently active) are NOT in the payload: they belong to the envelope that stores it — relational columns on the paid path, the deploy directory name/layout on the OSS path — so the store's own keys are never duplicated and each path owns history its own way. Payload + cached images + device-local env files are all a device needs to (re)start offline."
       properties:
         schemaVersion:
           type: integer
           minimum: 1
-          description: "Spec format version. Bumped when the spec shape changes incompatibly."
-        id:
-          type: string
-          description: "Stable identifier for this deployment, used as the rollback/history key."
-        createdAt:
-          type: string
-          format: date-time
-          description: "When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering."
-        status:
-          type: string
-          enum: [active, inactive]
-          description: "Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates."
+          description: "Payload format version. Bumped when the spec shape changes incompatibly; travels with the payload so a reader knows how to parse components."
         components:
           type: array
           description: "The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here."
