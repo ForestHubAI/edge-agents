@@ -6,7 +6,7 @@ import { configFromPartial, loadValues, missingRequired, parseFlags, partialFrom
 import type { DeployRequirements, RawFlags } from "./types";
 
 function flagsOf(p: Partial<RawFlags> = {}): RawFlags {
-  return { llmKeys: {}, force: false, help: false, ...p };
+  return { llmKeys: {}, component: [], force: false, help: false, ...p };
 }
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {

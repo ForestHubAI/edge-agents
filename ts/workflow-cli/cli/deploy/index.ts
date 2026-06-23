@@ -16,18 +16,19 @@ import { deriveRequirements, buildDeploymentSpec } from "@foresthubai/workflow-c
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { promptMissing } from "./prompts";
+import { promptMissing, promptComponentPaths } from "./prompts";
+import { parseDeployComponents, readComponentJson, resolveComponentEnv } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
 import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // Resolved component images the spec pins. The engine is currently built locally
-// (bare repository → local daemon, pull_policy never); the llama sidecar is a
+// (bare name → local daemon, renderer's pull_policy never); the llama sidecar is a
 // pinned upstream tag. When engine images are published to a registry, this gains
 // a registry host and the renderer's pull_policy flips to missing.
-const ENGINE_IMAGE = { repository: "fh-engine", tag: "latest" };
-const LLAMA_SERVER_IMAGE = { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" };
+const ENGINE_IMAGE = "fh-engine:latest";
+const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -42,6 +43,9 @@ autonomously. Missing values are filled in interactively, or supplied via
 
 LLM provider keys (set one for each catalog model an Agent uses):
 ${ALL_PROVIDERS.map((p) => `  --${p}-key KEY`).join("\n")}
+
+Custom components (extra containers to run alongside the engine):
+  --component DIR                 folder with a component.json (repeatable)
 
 Output:
   --output DIR                    default: ./<workflow-name>-bundle
@@ -68,6 +72,7 @@ export function parseFlags(args: string[]): RawFlags {
       output: { type: "string" },
       "log-level": { type: "string" },
       values: { type: "string" },
+      component: { type: "string", multiple: true },
       force: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -87,6 +92,7 @@ export function parseFlags(args: string[]): RawFlags {
     output: values.output,
     logLevel: values["log-level"],
     values: values.values,
+    component: values.component ?? [],
     force: values.force ?? false,
     help: values.help ?? false,
   };
@@ -304,16 +310,52 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     cfg = configFromPartial(partial, outputDirDefault);
   }
 
+  // Custom components: operator-authored containers merged in beside the engine.
+  // Paths come from --component (any context) plus, at a terminal, an interactive
+  // loop. Each folder's component.json is validated against the contract.
+  const componentDirs = [...flags.component];
+  if (process.stdin.isTTY) componentDirs.push(...(await promptComponentPaths()));
+  let customComponents;
+  try {
+    const raw = await Promise.all(
+      componentDirs.map(async (dir) => ({
+        source: path.join(dir, "component.json"),
+        data: await readComponentJson(dir),
+      })),
+    );
+    customComponents = parseDeployComponents(raw);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
+  // Per custom component, turn its <name>.env.example into <name>.env text (empty
+  // values prompted at a terminal, stubbed otherwise). componentDirs and
+  // customComponents are index-aligned — both built from the same path list.
+  const componentEnv: Record<string, string> = {};
+  for (let i = 0; i < customComponents.length; i++) {
+    const c = customComponents[i];
+    const dir = componentDirs[i];
+    if (!c || dir === undefined) continue;
+    const text = await resolveComponentEnv(dir, c.name, { interactive: process.stdin.isTTY });
+    if (text !== null) componentEnv[c.name] = text;
+  }
+
   // Resolve the deployment spec. buildDeploymentSpec re-validates completeness
   // and throws on a gap — turn that into a clean exit rather than a stack trace.
   let built;
   try {
-    built = buildDeploymentSpec(domain, cfg, {
-      id: slugify(workflowName),
-      status: "active",
-      engineImage: ENGINE_IMAGE,
-      llamaServerImage: LLAMA_SERVER_IMAGE,
-    });
+    built = buildDeploymentSpec(
+      domain,
+      cfg,
+      {
+        id: slugify(workflowName),
+        status: "active",
+        engineImage: ENGINE_IMAGE,
+        llamaServerImage: LLAMA_SERVER_IMAGE,
+      },
+      customComponents,
+    );
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
@@ -322,7 +364,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // Write the bundle. Secrets (resourceSecrets) go to .env, never the spec.
   let files: string[];
   try {
-    files = await writeOutput(built.spec, built.resourceSecrets, cfg, req);
+    files = await writeOutput(built.spec, built.resourceSecrets, cfg, req, componentEnv);
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

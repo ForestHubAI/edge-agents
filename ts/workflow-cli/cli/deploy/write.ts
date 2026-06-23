@@ -4,7 +4,7 @@
 
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { composeYaml, envFile, readme } from "./generate";
+import { composeYaml, configFileName, envFile, readme } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
@@ -16,6 +16,7 @@ export async function writeOutput(
   resourceSecrets: ResourceSecrets,
   cfg: DeployConfig,
   req: DeployRequirements,
+  componentEnv: Record<string, string> = {},
 ): Promise<string[]> {
   const dir = path.resolve(process.cwd(), cfg.outputDir);
 
@@ -36,10 +37,10 @@ export async function writeOutput(
   }
 
   const written: string[] = [];
-  // secret=true -> mode 0o600. Only .env is secret-bearing now: it carries the
-  // provider keys and FH_RESOURCE_SECRETS (broker passwords / endpoint keys).
-  // engine-config.json and deployment-spec.json are secret-free by construction —
-  // safe to read, commit, or share.
+  // secret=true -> mode 0o600. The env files are secret-bearing: engine.env
+  // carries the provider keys, web-search key, and FH_RESOURCE_SECRETS, and a
+  // custom component's <name>.env may carry its own. The <name>-config.json files
+  // and deployment-spec.json are secret-free by construction — safe to share.
   const emit = async (name: string, content: string, secret = false): Promise<void> => {
     const out = path.join(dir, name);
     const opts = secret ? { encoding: "utf-8" as const, mode: 0o600 } : { encoding: "utf-8" as const };
@@ -48,16 +49,22 @@ export async function writeOutput(
   };
   const json = (v: unknown): string => JSON.stringify(v, null, 2) + "\n";
 
-  const engine = spec.components.engine;
-  if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
-
-  // The engine's single boot file (workflow + bindings + manifest, unified) and
-  // the full resolved spec (deployment record) — both secret-free.
-  await emit("engine-config.json", json(engine.config));
+  // One <name>-config.json per component carrying a config blob (the engine's boot
+  // file today) — bind-mounted read-only by the renderer, secret-free. The full
+  // resolved spec is the deployment record.
+  for (const c of spec.components) {
+    if (c.config !== undefined) await emit(configFileName(c.name), json(c.config));
+  }
   await emit("deployment-spec.json", json(spec));
-  await emit("docker-compose.yml", composeYaml(spec, cfg));
-  await emit(".env", envFile(cfg, resourceSecrets), true);
+  await emit("docker-compose.yml", composeYaml(spec));
+  await emit("engine.env", envFile(cfg, resourceSecrets), true);
   await emit("README.md", readme(spec, cfg, req.hasProviderModel));
+
+  // One <name>.env per custom component that ships a <name>.env.example —
+  // secret-bearing, so 0600 like engine.env.
+  for (const [name, text] of Object.entries(componentEnv)) {
+    await emit(`${name}.env`, text, true);
+  }
 
   // On-device models bind-mount ./models/ — create it so the operator has a place
   // to drop the GGUF file(s) and docker doesn't create it root-owned on first up.

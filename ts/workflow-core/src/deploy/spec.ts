@@ -8,23 +8,31 @@
 
 import type { Workflow } from "../workflow";
 import { serialize } from "../workflow";
-import type { DeploymentSchemas } from "../api";
+import type { DeploymentSchemas, EngineSchemas } from "../api";
 import { deriveRequirements } from "./requirements";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
-type EngineConfig = DeploymentSchemas["EngineConfig"];
+type DeployComponent = DeploymentSchemas["DeployComponent"];
+// Typed against the engine's own contract (engine.yaml), not the deployment one:
+// the spec carries it as an opaque blob in DeployComponent.config.
+type EngineConfig = EngineSchemas["EngineConfig"];
+
+// Mount path for the engine's memory volume — matches the image's ENGINE_MEMORY_DIR
+// default, so the renderer mounts here without wiring an env var.
+const ENGINE_MEMORY_PATH = "/var/lib/foresthub/memory";
 
 // Deploy-time metadata the resolver cannot derive from the workflow: identity,
-// lifecycle, and the resolved OCI image each component runs (registry-qualified,
-// frozen here so the renderer pulls a coordinate rather than assembling one).
+// lifecycle, and the full image reference each component runs (frozen here so the
+// renderer emits a coordinate rather than assembling one). llamaServerImage is
+// used only when the workflow has an on-device model.
 export interface DeploymentSpecMeta {
   id: string;
   status: DeploymentSpec["status"];
   createdAt?: string;
-  engineImage: DeploymentSchemas["ComponentImage"];
-  llamaServerImage: DeploymentSchemas["ComponentImage"];
+  engineImage: string;
+  llamaServerImage: string;
 }
 
 // One external resource's credentials. Secrets are NEVER part of the spec (not
@@ -189,11 +197,28 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   }
 }
 
+// One compose service per name: a duplicate name would collapse two components
+// onto one service and silently drop the loser. Names only — same image under
+// different names is legitimate (e.g. two grafanas).
+function assertNoNameCollisions(components: DeployComponent[]): void {
+  const seen = new Set<string>();
+  for (const c of components) {
+    if (seen.has(c.name)) throw new Error(`duplicate component name "${c.name}"`);
+    seen.add(c.name);
+  }
+}
+
 // buildDeploymentSpec resolves a workflow plus its bindings into a complete,
 // contract-defined DeploymentSpec. Throws (via assertDeployable) if any declared
 // resource is unbound. The embedded engine config carries the serialized (and
 // thereby pruned) workflow; device grants and privileged are resolved here.
-export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs, meta: DeploymentSpecMeta): DeploymentSpecResult {
+// customComponents are operator-authored containers, merged in verbatim.
+export function buildDeploymentSpec(
+  workflow: Workflow,
+  inputs: DeploymentInputs,
+  meta: DeploymentSpecMeta,
+  customComponents: DeployComponent[] = [],
+): DeploymentSpecResult {
   const req = deriveRequirements(workflow);
   assertDeployable(req, inputs);
 
@@ -202,18 +227,18 @@ export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs
 
   // DeviceManifest is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
-  const gpios: Record<string, DeploymentSchemas["GPIOConfig"]> = {};
-  const adcs: Record<string, DeploymentSchemas["ADCConfig"]> = {};
-  const dacs: Record<string, DeploymentSchemas["DACConfig"]> = {};
-  const pwms: Record<string, DeploymentSchemas["PWMConfig"]> = {};
-  const serials: Record<string, DeploymentSchemas["SerialConfig"]> = {};
+  const gpios: Record<string, EngineSchemas["GPIOConfig"]> = {};
+  const adcs: Record<string, EngineSchemas["ADCConfig"]> = {};
+  const dacs: Record<string, EngineSchemas["DACConfig"]> = {};
+  const pwms: Record<string, EngineSchemas["PWMConfig"]> = {};
+  const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
 
-  const externalResources: DeploymentSchemas["ExternalResources"] = {};
-  const mapping: DeploymentSchemas["DeploymentMapping"] = {};
+  const externalResources: EngineSchemas["ExternalResources"] = {};
+  const mapping: EngineSchemas["DeploymentMapping"] = {};
 
   // Container-level hardware access, resolved once: cdev nodes (GPIO, UART) map
-  // one-to-one into deviceGrants; sysfs families (ADC/DAC/PWM) have no single
-  // node, so the engine container runs privileged.
+  // one-to-one into the engine component's devices; sysfs families (ADC/DAC/PWM)
+  // have no single node, so the engine container runs privileged.
   const cdev = new Set<string>();
   let privileged = false;
 
@@ -259,7 +284,7 @@ export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs
   for (const ch of req.mqttChannels) {
     const b = inputs.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
-    const conn: DeploymentSchemas["MQTTConnection"] = { type: "mqtt", brokerUrl: b.brokerUrl };
+    const conn: EngineSchemas["MQTTConnection"] = { type: "mqtt", brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
     // The password is a secret — kept out of conn (and thus the spec). It still
     // participates in the dedup key, so two channels differing only by password
@@ -271,29 +296,46 @@ export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs
   }
 
   // Custom models: one self-hosted provider per model id. A device model points
-  // at the sidecar we run (over the container network, no key); a network model
-  // at the operator's endpoint. `model` is left off — the endpoint serves under
-  // the workflow id (no upstream-name aliasing yet).
-  const llamaModels: DeploymentSchemas["LlamaModel"][] = [];
+  // at the sidecar we run (over the container network, no key) and gets its own
+  // llama-server component; a network model points at the operator's endpoint and
+  // runs no component here. `model` is left off — the endpoint serves under the
+  // workflow id (no upstream-name aliasing yet).
+  const llamaComponents: DeployComponent[] = [];
   for (const m of req.customModels) {
     const b = inputs.models[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
-    const url = b.location === "device" ? `http://${sidecarServiceName(m.id)}:${b.port ?? 8080}` : b.url;
-    const provider: DeploymentSchemas["LLMProviderConfig"] = { type: "selfhosted", url };
     const ref = refs.alloc(`model:${m.id}`, basename(m.id));
-    externalResources[ref] = provider;
     mapping[m.id] = { ref };
-    // The endpoint bearer is a secret — out of the spec, returned separately.
-    if (b.location === "network" && b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
+
     if (b.location === "device") {
-      const model: DeploymentSchemas["LlamaModel"] = { id: m.id, modelFile: b.modelFile };
-      if (b.port !== undefined) model.port = b.port;
-      if (b.ctxSize !== undefined) model.ctxSize = b.ctxSize;
-      llamaModels.push(model);
+      const port = b.port ?? 8080;
+      const service = sidecarServiceName(m.id);
+      externalResources[ref] = { type: "selfhosted", url: `http://${service}:${port}` };
+      // The whole config is CLI flags, so it rides in `command` (no config blob).
+      // ctx-size is frozen here — retuning it is a re-deploy, not an env edit.
+      llamaComponents.push({
+        name: service,
+        image: meta.llamaServerImage,
+        command: [
+          "--model",
+          `/models/${b.modelFile}`,
+          "--host",
+          "0.0.0.0",
+          "--port",
+          String(port),
+          "--ctx-size",
+          String(b.ctxSize ?? 4096),
+        ],
+        volumes: ["./models:/models:ro"],
+      });
+    } else {
+      externalResources[ref] = { type: "selfhosted", url: b.url };
+      // The endpoint bearer is a secret — out of the spec, returned separately.
+      if (b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
     }
   }
 
-  const manifest: DeploymentSchemas["DeviceManifest"] = {};
+  const manifest: EngineSchemas["DeviceManifest"] = {};
   if (Object.keys(gpios).length) manifest.gpios = gpios;
   if (Object.keys(adcs).length) manifest.adcs = adcs;
   if (Object.keys(dacs).length) manifest.dacs = dacs;
@@ -308,14 +350,23 @@ export function buildDeploymentSpec(workflow: Workflow, inputs: DeploymentInputs
   if (Object.keys(externalResources).length) config.externalResources = externalResources;
   if (Object.keys(manifest).length) config.manifest = manifest;
 
-  const engine: DeploymentSchemas["EngineComponent"] = { image: meta.engineImage, config };
-  if (cdev.size > 0) engine.deviceGrants = [...cdev];
+  // The engine component. configPath is omitted (the image reads the convention
+  // path it defaults to); the config blob is mounted there by the renderer. cdev
+  // nodes pass through as devices; sysfs families force privileged; either case
+  // needs root to open the root-owned nodes the nonroot image otherwise can't.
+  const engine: DeployComponent = {
+    name: "engine",
+    image: meta.engineImage,
+    pull: "never", // built locally before deploy, in no registry
+    config,
+    volumes: [`engine-memory:${ENGINE_MEMORY_PATH}`],
+  };
+  if (cdev.size > 0) engine.devices = [...cdev];
   if (privileged) engine.privileged = true;
+  if (cdev.size > 0 || privileged) engine.user = "0:0";
 
-  const components: DeploymentSchemas["ComponentSet"] = { engine };
-  if (llamaModels.length > 0) {
-    components.llamaServer = { image: meta.llamaServerImage, models: llamaModels };
-  }
+  const components = [engine, ...llamaComponents, ...customComponents];
+  assertNoNameCollisions(components);
 
   const spec: DeploymentSpec = {
     schemaVersion: 1,

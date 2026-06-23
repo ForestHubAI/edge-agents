@@ -1,7 +1,7 @@
 // Interactive prompt layer: fills any value the flags didn't provide.
 // This is the "ask" step. Flags pre-fill; prompts cover the rest.
 
-import { checkbox, input, password, select } from "@inquirer/prompts";
+import { checkbox, confirm, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
@@ -179,6 +179,34 @@ async function promptWebSearch(seed: WebSearchBinding | undefined): Promise<WebS
   const provider = (await input({ message: "Web search provider", default: "brave" })).trim() || "brave";
   const apiKey = await password({ message: "Web search API key", mask: "*" });
   return { provider, apiKey };
+}
+
+// Collects additional custom-component folder paths interactively: a yes/no gate
+// (default no — most workflows have none) guards each addition, then asks the
+// path. Only gathers paths; reading and contract-validation happen in the caller.
+export async function promptComponentPaths(): Promise<string[]> {
+  const paths: string[] = [];
+  while (
+    await confirm({
+      message: paths.length === 0 ? "Add a custom component?" : "Add another custom component?",
+      default: false,
+    })
+  ) {
+    const entry = await input({
+      message: "Custom component folder",
+      // Instant feedback on a wrong path, with a message matching the actual
+      // problem; the real read + contract-validation happens in the caller
+      // (which also covers the non-interactive --component path).
+      validate: (v) => {
+        const t = v.trim();
+        if (!t) return "enter a folder path";
+        if (!existsSync(t)) return `folder not found: ${t}`;
+        return existsSync(path.join(t, "component.json")) || `no component.json in ${t}`;
+      },
+    });
+    paths.push(entry.trim());
+  }
+  return paths;
 }
 
 export async function promptMissing(

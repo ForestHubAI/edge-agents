@@ -44,10 +44,11 @@ await build({
   logLevel: "info",
 });
 
-// Ship the contract next to the bundle so `check-schema` works when installed
-// (check-schema.ts prefers these siblings over the repo-relative source path).
-// workflow.yaml cross-references llmproxy.yaml, so both must travel together.
-for (const contractFile of ["workflow.yaml", "llmproxy.yaml"]) {
+// Ship the contract next to the bundle so `check-schema` and the deploy
+// component validator work when installed (contract.ts prefers these siblings
+// over the repo-relative source path). workflow.yaml cross-references
+// llmproxy.yaml, so both must travel together; deployment.yaml is self-contained.
+for (const contractFile of ["workflow.yaml", "llmproxy.yaml", "deployment.yaml"]) {
   await copyFile(
     path.join(repoRoot, "contract", contractFile),
     path.join(appRoot, "dist-cli", contractFile),

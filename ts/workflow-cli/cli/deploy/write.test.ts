@@ -4,11 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { writeOutput } from "./write";
 import type { DeployConfig, DeployRequirements } from "./types";
-import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
-type EngineComponent = DeploymentSchemas["EngineComponent"];
-type LlamaServer = DeploymentSchemas["LlamaServerComponent"];
+type DeployComponent = DeploymentSchemas["DeployComponent"];
 
 const bareWorkflow = {
   schemaVersion: 1,
@@ -19,18 +18,21 @@ const bareWorkflow = {
   channels: [],
   memory: [],
   models: [],
-} as DeploymentSchemas["EngineConfig"]["workflow"];
+} as EngineSchemas["EngineConfig"]["workflow"];
 
-function specOf(engine: Partial<EngineComponent> = {}, llama?: LlamaServer): Spec {
+function engineComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    schemaVersion: 1,
-    id: "test",
-    status: "active",
-    components: {
-      engine: { image: { repository: "fh-engine", tag: "latest" }, config: { workflow: bareWorkflow }, ...engine },
-      ...(llama ? { llamaServer: llama } : {}),
-    },
+    name: "engine",
+    image: "fh-engine:latest",
+    pull: "never",
+    config: { workflow: bareWorkflow },
+    volumes: ["engine-memory:/var/lib/foresthub/memory"],
+    ...overrides,
   };
+}
+
+function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
+  return { schemaVersion: 1, id: "test", status: "active", components };
 }
 
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
@@ -52,36 +54,36 @@ const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), "fhwrite-"));
 const names = async (dir: string) => (await fs.readdir(dir)).sort();
 const mode = async (file: string) => (await fs.stat(file)).mode & 0o777;
 
+const BUNDLE = ["README.md", "deployment-spec.json", "docker-compose.yml", "engine-config.json", "engine.env"].sort();
+
 describe("writeOutput", () => {
-  it("writes the unified config, the spec, compose, env and readme", async () => {
+  it("writes a per-component config, the spec, compose, env and readme", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     await writeOutput(specOf(), {}, cfgOf(out), reqOf());
-    expect(await names(out)).toEqual(
-      [".env", "README.md", "deployment-spec.json", "docker-compose.yml", "engine-config.json"].sort(),
-    );
+    expect(await names(out)).toEqual(BUNDLE);
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  // Only .env is secret now (provider keys + FH_RESOURCE_SECRETS); the spec and
-  // engine config are secret-free by construction. Windows ignores POSIX modes
+  // Only engine.env is secret now (provider keys + FH_RESOURCE_SECRETS); the spec
+  // and config files are secret-free by construction. Windows ignores POSIX modes
   // (every file reports 0o666), so the bit-level check is POSIX-only.
-  it.skipIf(process.platform === "win32")(".env is the only 0o600 file; the JSON artifacts are not", async () => {
+  it.skipIf(process.platform === "win32")("engine.env is the only 0o600 file; the JSON artifacts are not", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     await writeOutput(specOf(), { "mqtt-1": { password: "p" } }, cfgOf(out), reqOf());
-    expect(await mode(path.join(out, ".env"))).toBe(0o600);
+    expect(await mode(path.join(out, "engine.env"))).toBe(0o600);
     expect(await mode(path.join(out, "engine-config.json"))).not.toBe(0o600);
     expect(await mode(path.join(out, "deployment-spec.json"))).not.toBe(0o600);
     expect(await mode(path.join(out, "docker-compose.yml"))).not.toBe(0o600);
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  it("writes resource secrets into .env, never into the spec or engine config", async () => {
+  it("writes resource secrets into engine.env, never into the spec or config", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     await writeOutput(specOf(), { "mqtt-1": { password: "brokerpw" } }, cfgOf(out), reqOf());
-    const env = await fs.readFile(path.join(out, ".env"), "utf-8");
+    const env = await fs.readFile(path.join(out, "engine.env"), "utf-8");
     expect(env).toContain("FH_RESOURCE_SECRETS=");
     expect(env).toContain("brokerpw");
     const spec = await fs.readFile(path.join(out, "deployment-spec.json"), "utf-8");
@@ -93,19 +95,37 @@ describe("writeOutput", () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     const files = await writeOutput(specOf(), {}, cfgOf(out), reqOf());
-    expect(files.map((f) => path.basename(f)).sort()).toEqual(
-      [".env", "README.md", "deployment-spec.json", "docker-compose.yml", "engine-config.json"].sort(),
-    );
+    expect(files.map((f) => path.basename(f)).sort()).toEqual(BUNDLE);
     await fs.rm(base, { recursive: true, force: true });
   });
 
   it("creates a models/ directory for an on-device model", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    const spec = specOf({}, { image: { repository: "ghcr.io/ggml-org/llama.cpp", tag: "server-b8589" }, models: [{ id: "llm", modelFile: "m.gguf" }] });
     const cfg = cfgOf(out, { models: { llm: { location: "device", modelFile: "m.gguf" } } });
-    await writeOutput(spec, {}, cfg, reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
+    await writeOutput(specOf(), {}, cfg, reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
     expect((await fs.stat(path.join(out, "models"))).isDirectory()).toBe(true);
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
+  it.skipIf(process.platform === "win32")("writes a custom component's <name>.env with mode 0o600", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const grafana: DeployComponent = { name: "grafana", image: "grafana/grafana:11.3.0" };
+    await writeOutput(specOf([engineComponent(), grafana]), {}, cfgOf(out), reqOf(), {
+      grafana: "GF_SECURITY_ADMIN_PASSWORD=secret\n",
+    });
+    expect(await mode(path.join(out, "grafana.env"))).toBe(0o600);
+    expect(await fs.readFile(path.join(out, "grafana.env"), "utf-8")).toContain("GF_SECURITY_ADMIN_PASSWORD=secret");
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
+  it("writes a <name>-config.json for a custom component carrying config", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const custom: DeployComponent = { name: "dash", image: "x", config: { foo: "bar" } };
+    await writeOutput(specOf([engineComponent(), custom]), {}, cfgOf(out), reqOf());
+    expect(JSON.parse(await fs.readFile(path.join(out, "dash-config.json"), "utf-8"))).toEqual({ foo: "bar" });
     await fs.rm(base, { recursive: true, force: true });
   });
 });

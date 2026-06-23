@@ -43,7 +43,16 @@ components:
           description: 'Unique component name within the deployment. Doubles as the container/service name the renderer emits, the basename of any device-local env file the operator supplies ("<name>.env"), and the address other components reach this one by over the container network.'
         image:
           type: string
-          description: 'OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy and run with pull_policy never, e.g. "foresthub/engine:local" (a bare name resolves against the local daemon, never pulled). Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.'
+          description: 'OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.'
+        pull:
+          type: string
+          enum: [always, missing, never]
+          description: 'Image pull policy, emitted as the renderer''s pull_policy. Omit to default to "missing" (pull only if absent locally — correct for any registry image). Use "never" for an image built locally and present in no registry (the OSS engine); "always" re-pulls on every start.'
+        command:
+          type: array
+          description: 'Overrides the image''s default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/models/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container''s command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image''s own default command.'
+          items:
+            type: string
         config:
           type: object
           additionalProperties: true
@@ -69,3 +78,6 @@ components:
         privileged:
           type: boolean
           description: "Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none."
+        user:
+          type: string
+          description: 'Container user as "UID[:GID]", e.g. "0:0" for root. The renderer passes it through verbatim. Needed when a nonroot image must reach root-owned resources: the engine image runs nonroot but has to open the root-owned device nodes / sysfs files granted via devices/privileged, so its component sets "0:0". Omit to use the image''s own default user.'

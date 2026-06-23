@@ -115,6 +115,7 @@ export interface RawFlags {
   output?: string;
   logLevel?: string;
   values?: string;
+  component: string[];
   force: boolean;
   help: boolean;
 }

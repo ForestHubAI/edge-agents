@@ -5,146 +5,113 @@
 // (.env, controller) pair.
 
 import { createHash } from "node:crypto";
-import { sidecarServiceName } from "./types";
 import { ALL_PROVIDERS } from "./types";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
+type DeployComponent = DeploymentSchemas["DeployComponent"];
 
-// Container-internal paths. The engine reads ONE config file (workflow + bindings
-// + manifest, unified) — Phase 1 collapsed the former four files into it.
-const ENGINE_CONFIG_PATH = "/etc/foresthub/engine-config.json";
-const MEMORY_PATH = "/var/lib/foresthub/memory";
+// Convention mount path for a component's config file when it sets no configPath —
+// matches the path first-party images (the engine) default to reading.
+const DEFAULT_CONFIG_PATH = "/etc/foresthub/config.json";
 
-// Render a resolved component image coordinate to a docker image reference: pin
-// by digest when present (immutable), else by tag. The repository carries its
-// registry, so this is the whole reference.
-function imageRef(img: DeploymentSchemas["ComponentImage"]): string {
-  return img.digest ? `${img.repository}@${img.digest}` : `${img.repository}:${img.tag}`;
+// The config-file basename a component's config blob is written to (write.ts) and
+// bind-mounted from. One source of truth so the renderer and writer agree.
+export function configFileName(name: string): string {
+  return `${name}-config.json`;
 }
 
-// Exported for testing purposes only.
-export function composeYaml(spec: DeploymentSpec, cfg: DeployConfig): string {
-  const engine = spec.components.engine;
-  if (!engine) throw new Error("spec has no engine component"); // buildDeploymentSpec always sets it
-  const llama = spec.components.llamaServer;
-  const deviceGrants = engine.deviceGrants ?? [];
-  const privileged = engine.privileged ?? false;
+// A volume mount's source is a named volume (vs a host bind mount) when it is not
+// a path — bind mounts start with "." or "/". Named sources need a top-level
+// `volumes:` declaration; bind mounts do not.
+function namedVolumeSource(mount: string): string | null {
+  const src = mount.split(":")[0] ?? "";
+  return src && !src.startsWith(".") && !src.startsWith("/") ? src : null;
+}
 
-  // environment block. Operator values are ${VAR:-} interpolations (filled from
-  // .env); container-internal paths are literal. Provider keys and the web-search
-  // key are device env, not spec fields.
-  const env: string[] = ["ENGINE_LOG_LEVEL: ${ENGINE_LOG_LEVEL:-info}"];
-  for (const p of ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]))) {
-    env.push(`${p.toUpperCase()}_API_KEY: \${${p.toUpperCase()}_API_KEY:-}`);
-  }
-  if (cfg.webSearch) {
-    env.push("ENGINE_WEB_SEARCH_PROVIDER: ${ENGINE_WEB_SEARCH_PROVIDER:-brave}");
-    env.push("ENGINE_WEB_SEARCH_API_KEY: ${ENGINE_WEB_SEARCH_API_KEY:-}");
-  }
-  // External-resource secrets (broker passwords / endpoint keys) ride in env,
-  // keyed by resource id — never in the spec or engine-config.json. Always wired
-  // (empty-safe via :-) so compose never errors when no secrets are set; the
-  // value is filled into .env only when there are secrets.
-  env.push("FH_RESOURCE_SECRETS: ${FH_RESOURCE_SECRETS:-}");
-  env.push(`ENGINE_CONFIG_FILE: ${ENGINE_CONFIG_PATH}`);
-  env.push(`ENGINE_MEMORY_DIR: ${MEMORY_PATH}`);
+// Render one DeployComponent to a compose service block, by a single uniform field
+// mapping — NO branching on which component it is, so a custom component renders
+// exactly like a first-party one. Component-specific knowledge lives in the
+// resolver (which produced this) and in the image's own entrypoint, never here.
+function serviceBlock(c: DeployComponent): string {
+  // pull_policy comes straight from the component; "missing" (Docker's default)
+  // pulls a registry image if absent, the right default for any stock image.
+  const lines: string[] = [`  ${c.name}:`, `    image: ${c.image}`, `    pull_policy: ${c.pull ?? "missing"}`, "    restart: unless-stopped"];
 
-  // volume mounts — the single engine config file (read-only) + memory.
-  const vols: string[] = [`./engine-config.json:${ENGINE_CONFIG_PATH}:ro`, `engine-memory:${MEMORY_PATH}`];
-
-  // Content hash of the engine's boot config, stamped as a label so the engine's
-  // compose config-hash changes when engine-config.json changes. Compose hashes
+  // Content hash of the config blob, stamped as a label so the service's compose
+  // config-hash changes when the bind-mounted config file changes. Compose hashes
   // the service definition (labels included) but NOT the contents of bind-mounted
-  // files, so without this a workflow/binding edit — same image, same env — would
-  // leave `docker compose up -d` thinking the engine is up-to-date and never
-  // recreate it. (llama needs no such label: its config is inline in `command`.)
-  const configHash = createHash("sha256").update(JSON.stringify(engine.config)).digest("hex");
-  const labelsBlock = `\n    labels:\n      com.foresthub.engine-config-hash: "${configHash}"`;
+  // files, so without this a config edit — same image, same env — would leave
+  // `docker compose up -d` thinking the container is up-to-date and never recreate
+  // it. Omitted for a component with no config (e.g. llama: config rides in command).
+  if (c.config !== undefined) {
+    const hash = createHash("sha256").update(JSON.stringify(c.config)).digest("hex");
+    lines.push("    labels:", `      com.foresthub.config-hash: "${hash}"`);
+  }
 
-  const envBlock = env.map((l) => `      ${l}`).join("\n");
-  const volBlock = vols.map((v) => `      - ${v}`).join("\n");
+  // Run as root only when the resolver asked for it (a nonroot image reaching
+  // root-owned device nodes / sysfs files passed through below).
+  if (c.user) lines.push(`    user: "${c.user}"`);
 
-  // device passthrough — resolved into the spec: cdev nodes (GPIO, UART) map
-  // one-to-one; sysfs families (ADC/DAC/PWM) have no single node, so privileged.
-  const deviceBlock =
-    deviceGrants.length > 0 ? `\n    devices:\n${deviceGrants.map((d) => `      - "${d}:${d}"`).join("\n")}` : "";
-  const privilegedBlock = privileged
-    ? "\n    # ADC/DAC/PWM need sysfs access (/sys/class/pwm, /sys/bus/iio). privileged is" +
-      "\n    # the simple default — tighten to specific bind-mounts if your policy requires." +
-      "\n    privileged: true"
-    : "";
+  // Exec-form command override, frozen in the spec (e.g. llama's CLI flags).
+  if (c.command && c.command.length > 0) {
+    lines.push("    command:");
+    for (const arg of c.command) lines.push(`      - "${arg}"`);
+  }
 
-  // The image is distroless:nonroot, so the engine process cannot open the
-  // root-owned device nodes / sysfs files mapped above. Run it as root whenever
-  // any hardware is passed through.
-  const needsRoot = deviceGrants.length > 0 || privileged;
-  const userBlock = needsRoot
-    ? "\n    # The engine image runs as nonroot and can't open root-owned device nodes /" +
-      "\n    # sysfs files; root is the host-agnostic way to reach the mapped hardware below." +
-      '\n    user: "0:0"'
-    : "";
+  // Operator secrets/values are device-local, never in the spec — they arrive
+  // through a "<name>.env" file the operator supplies (the CLI pre-fills one for
+  // components that need it). required:false so a component with no env file (most
+  // sidecars) does not break `up`.
+  lines.push("    env_file:", `      - path: ${c.name}.env`, "        required: false");
 
-  // On-device models each get a llama-server sidecar the engine reaches by service
-  // name over the compose network — no host networking.
-  const deviceModels = (llama?.models ?? []).map((m) => ({
-    service: sidecarServiceName(m.id),
-    modelFile: m.modelFile ?? "",
-    port: m.port ?? 8080,
-    ctxVar: ctxSizeVar(m.id),
-    ctxDefault: m.ctxSize ?? 4096,
-  }));
-  const llamaImage = llama ? imageRef(llama.image) : "";
-  const dependsBlock = deviceModels.length
-    ? "\n    depends_on:\n" +
-      deviceModels.map((d) => `      ${d.service}:\n        condition: service_healthy`).join("\n")
-    : "";
-  const sidecars = deviceModels
-    .map(
-      (d) => `  ${d.service}:
-    image: ${llamaImage}
-    pull_policy: missing
-    restart: unless-stopped
-    command:
-      - --model
-      - /models/${d.modelFile}
-      - --host
-      - "0.0.0.0"
-      - --port
-      - "${d.port}"
-      - --ctx-size
-      - "\${${d.ctxVar}:-${d.ctxDefault}}"
-    volumes:
-      - ./models:/models:ro
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:${d.port}/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 60s`,
-    )
-    .join("\n\n");
-  const sidecarBlock = sidecars ? `\n\n${sidecars}` : "";
+  // Config blob: bind-mount the file write.ts wrote at the component's configPath
+  // (read-only), plus the component's own volume mounts.
+  const volumes = [...(c.config !== undefined ? [`./${configFileName(c.name)}:${c.configPath ?? DEFAULT_CONFIG_PATH}:ro`] : []), ...(c.volumes ?? [])];
+  if (volumes.length > 0) {
+    lines.push("    volumes:");
+    for (const v of volumes) lines.push(`      - ${v}`);
+  }
 
-  return `# ForestHub engine — minimal standalone Compose deployment.
+  // cdev nodes (GPIO, UART) pass through one-to-one; sysfs families (ADC/DAC/PWM)
+  // have no single node, so the resolver set privileged instead.
+  if (c.devices && c.devices.length > 0) {
+    lines.push("    devices:");
+    for (const d of c.devices) lines.push(`      - "${d}:${d}"`);
+  }
+  if (c.ports && c.ports.length > 0) {
+    lines.push("    ports:");
+    for (const p of c.ports) lines.push(`      - "${p}"`);
+  }
+  if (c.privileged) {
+    lines.push(
+      "    # ADC/DAC/PWM need sysfs access (/sys/class/pwm, /sys/bus/iio). privileged is",
+      "    # the simple default — tighten to specific bind-mounts if your policy requires.",
+      "    privileged: true",
+    );
+  }
+
+  return lines.join("\n");
+}
+
+// Exported for testing purposes only. A total function of the spec — operator
+// values live in the .env files the renderer references, never in the compose shape.
+export function composeYaml(spec: DeploymentSpec): string {
+  const services = spec.components.map(serviceBlock).join("\n\n");
+
+  // Top-level named volumes, deduped across every component's mounts.
+  const named = [...new Set(spec.components.flatMap((c) => (c.volumes ?? []).map(namedVolumeSource).filter((s): s is string => s !== null)))];
+  const volumesBlock = named.length > 0 ? `\nvolumes:\n${named.map((n) => `  ${n}:`).join("\n")}\n` : "";
+
+  return `# ForestHub deployment — minimal standalone Compose file.
 # See README.md for the build/transfer/run workflow.
-# See .env for operator-set values.
+# See the <component>.env files for operator-set values.
 
 services:
-  engine:
-    image: ${imageRef(engine.image)}
-    pull_policy: never
-    restart: unless-stopped${labelsBlock}${userBlock}${dependsBlock}
-    environment:
-${envBlock}
-    volumes:
-${volBlock}${deviceBlock}${privilegedBlock}${sidecarBlock}
-
-volumes:
-  engine-memory:
-`;
+${services}
+${volumesBlock}`;
 }
 
 // Exported for testing purposes only.
@@ -168,19 +135,6 @@ ENGINE_WEB_SEARCH_API_KEY=${cfg.webSearch.apiKey}
 `
     : "";
 
-  // One context-size var per on-device model (llama-server sidecar), so each is
-  // tunable on its own.
-  const deviceModelLines = Object.entries(cfg.models).flatMap(([id, b]) =>
-    b.location === "device" ? [`${ctxSizeVar(id)}=${b.ctxSize ?? 4096}`] : [],
-  );
-  const onDeviceSection = deviceModelLines.length
-    ? `# ----- On-device models -----
-# Context window per llama-server sidecar.
-${deviceModelLines.join("\n")}
-
-`
-    : "";
-
   // Broker passwords / endpoint keys as one JSON blob, keyed by resolved resource
   // id. Injected into the engine at runtime; never written to the spec. JSON
   // starts with `{`, so docker compose .env reads it verbatim (no quote stripping).
@@ -193,10 +147,10 @@ FH_RESOURCE_SECRETS=${JSON.stringify(resourceSecrets)}
       : "";
 
   return `# ForestHub engine — operator configuration.
-# Auto-generated by \`fh-workflow deploy\`. \`docker compose\` auto-loads this file.
-# Secret values: chmod 600 .env after editing.
+# Auto-generated by \`fh-workflow deploy\`. Loaded into the engine via the compose
+# \`env_file\`. Secret values: chmod 600 this file after editing.
 
-${providerSection}${webSearchSection}${resourceSecretsSection}${onDeviceSection}# ----- Runtime -----
+${providerSection}${webSearchSection}${resourceSecretsSection}# ----- Runtime -----
 ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 `;
 }
@@ -206,12 +160,12 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const localProviders = ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]));
   const providerBlock =
     localProviders.length === 0
-      ? "_No local API keys set._ An Agent that uses a catalog model will fail at build — set the matching key in `.env`."
+      ? "_No local API keys set._ An Agent that uses a catalog model will fail at build — set the matching key in `engine.env`."
       : localProviders.map((p) => `- **${p}** — runs locally (your API key)`).join("\n");
 
-  const engine = spec.components.engine;
-  const hasHardware = (engine?.deviceGrants?.length ?? 0) > 0 || Boolean(engine?.privileged);
-  const deviceModelFiles = (spec.components.llamaServer?.models ?? []).map((m) => m.modelFile ?? "");
+  const engine = spec.components.find((c) => c.name === "engine");
+  const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
+  const deviceModelFiles = Object.values(cfg.models).flatMap((b) => (b.location === "device" ? [b.modelFile] : []));
   const hasNetworkModel = Object.values(cfg.models).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
@@ -226,8 +180,8 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
 
 ${providerBlock}
 
-The engine calls each provider directly with the API key from \`.env\`. Without a
-key, an Agent node that uses that provider's catalog model fails at build.`);
+The engine calls each provider directly with the API key from \`engine.env\`. Without
+a key, an Agent node that uses that provider's catalog model fails at build.`);
   }
   if (hasHardware) {
     notes.push(`## Hardware access
@@ -240,9 +194,10 @@ and tighten it to your security policy before deploying.`);
   if (hasExternalService) {
     notes.push(`## External resources
 
-\`engine-config.json\` holds the broker/endpoint credentials the engine connects with —
-keep it \`chmod 600\`. This bundle does not start those services; it assumes the
-broker/endpoint already exists and is reachable from the controller.`);
+The broker/endpoint credentials the engine connects with live in \`engine.env\`
+(\`FH_RESOURCE_SECRETS\`) — keep it \`chmod 600\`. This bundle does not start those
+services; it assumes the broker/endpoint already exists and is reachable from the
+controller.`);
   }
   if (deviceModelFiles.length > 0) {
     notes.push(`## On-device models
@@ -262,7 +217,7 @@ Ollama, ...) on another machine. This bundle does not start that server for you.
   if (cfg.webSearch) {
     notes.push(`## Web search
 
-The web-search API key is in \`.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
+The web-search API key is in \`engine.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
   }
   const notesBlock = notes.length ? "\n" + notes.join("\n\n") + "\n" : "";
 
@@ -276,14 +231,15 @@ scp -r models/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
 # ...or download them directly into ~/fh-engine/models/ on the controller.`
     : "";
 
-  // With an on-device sidecar the engine waits on its health before starting, so
-  // show every container; otherwise the engine log alone is enough.
+  // With an on-device sidecar there is no start-ordering: the engine connects to
+  // the llama-server over the compose network at runtime, retrying until it is up,
+  // so show every container while it settles. Otherwise the engine log alone does.
   const runBlock = deviceModelFiles.length
     ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 
-# The engine only starts once the llama-server sidecar reports healthy. If the engine
-# stays "created", inspect the sidecar — these show every container, not just the engine:
+# The engine and the llama-server sidecar start independently; the engine reaches the
+# model once it is up. These show every container, not just the engine:
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose ps'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f'`
     : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
@@ -297,9 +253,9 @@ run one engine instance on an edge controller, **standalone** — the engine boo
 the workflow from \`engine-config.json\` and runs it autonomously:
 
 - \`docker-compose.yml\` — deployment template
-- \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest; **secrets — \`chmod 600\`**)
+- \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest)
 - \`deployment-spec.json\` — the full resolved deployment spec (deployment record)
-- \`.env\` — operator configuration (already filled in, \`chmod 600\` it)
+- \`engine.env\` — operator configuration loaded into the engine (already filled in, \`chmod 600\` it)
 - \`fh-engine.tar\` — image tarball (you build this in step 1 below)
 ${notesBlock}
 ## 1. Build the image (on the dev machine)
@@ -316,10 +272,10 @@ docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
 docker buildx build --platform linux/amd64 -t fh-engine:latest --load .
 \`\`\`
 
-## 2. Review the generated \`.env\`
+## 2. Review the generated \`engine.env\`
 
 \`\`\`bash
-chmod 600 .env engine-config.json deployment-spec.json
+chmod 600 engine.env
 \`\`\`
 
 The wizard already filled in your operator values. Double-check before
@@ -337,7 +293,7 @@ docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
-scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json .env \\
+scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json engine.env \\
     $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 
@@ -356,17 +312,6 @@ compose project name, which defaults to the bundle directory's name — keep it
 stable across updates, or pin it via \`COMPOSE_PROJECT_NAME\`. In this standalone
 bundle the volume is the only copy of the memory.
 `;
-}
-
-// Exported for testing purposes only.
-// Per-sidecar env var for a model's llama-server context size, derived from the
-// model id so each on-device model is tunable on its own.
-export function ctxSizeVar(modelId: string): string {
-  const suffix = modelId
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return `LLAMA_CTX_SIZE_${suffix || "MODEL"}`;
 }
 
 // Exported for testing purposes only.
