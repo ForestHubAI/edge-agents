@@ -1,73 +1,72 @@
-# Example components
+# Custom components
 
-`DeploymentSpec` (see `contract/deployment.yaml`) runs a **generic** list of
-`DeployComponent`s. The contract never names a specific component — engine,
-llama-server, an MQTT broker, or anything you bring yourself are all just a
-`DeployComponent`. That means you add a component by **producing one of these
-objects**, not by editing the contract.
+`fh-workflow deploy` runs the engine (and a llama-server per on-device model) for
+you. A **custom component** is any extra container you co-deploy alongside them —
+a dashboard, an MQTT broker, a metrics exporter — that the workflow graph does not
+summon. You author it; the wizard merges it in and renders it exactly like the
+first-party components.
 
-Each folder here is a worked example of one component's "plumbing": the image
-it runs, the config it gets, the secrets it expects, and the `DeployComponent`
-that wires it up.
+You hand the wizard a **folder**, via `--component <dir>` (repeatable) or the
+interactive prompt. It reads at most **two files** from that folder:
 
-- [`grafana/`](./grafana) — a third-party image (a local dashboard) shown as the
-  *wrapped* case: Grafana's config is INI/`GF_*` env, not JSON, so it gets a thin
-  wrapper entrypoint that translates the spec's JSON `config` into Grafana's own
-  env vars. Demonstrates `config`, a device-local secret, a port, a volume, and a
-  `Dockerfile` carrying the healthcheck.
+| File | Required | Role |
+| --- | :--: | --- |
+| `component.json` | yes | A `DeployComponent` (see `contract/deployment.yaml`), merged verbatim into the spec. Validated against the contract — unknown or misspelled keys are rejected. |
+| `<name>.env.example` | no | Env template for the operator's values. The wizard turns it into `<name>.env` in the bundle. |
 
-## The component contract in one screen
+Nothing else in the folder is read. Building the image is **your** job, offline —
+the wizard never builds anything (just as the engine image is built by hand).
 
-A `DeployComponent` is runtime-neutral container knobs only — `name, image,
-config?, configPath?, volumes?, devices?, ports?, privileged?`. Everything
-specific to your component lives in **your image**, not in the spec's type system:
+See [`grafana/`](./grafana) for a complete worked example.
 
-| Concern | Where it lives | In the spec? |
-| --- | --- | --- |
-| Non-secret config (endpoints, ports, flags) | `config` (a JSON object), rendered to a file and mounted at `configPath` | Yes — frozen, committable |
-| Secrets / device tunables (API keys, passwords) | device-local `<name>.env`, attached via compose `env_file` | **No** — operator-supplied, never committed |
-| Where the container reads its config | `configPath`, default `/etc/foresthub/config.json` | Only if non-default |
-| How the container starts / interprets config / reports health | the image's entrypoint + `HEALTHCHECK` | No |
-| Start ordering between components | nothing — components are an unordered set | No |
+## Three ways to configure your component
 
-Two rules follow from this and are worth internalizing:
+Pick whichever your image already supports — they are not exclusive:
 
-1. **Config is spec-derived; env is device-supplied.** `config` is computed by the
-   packaging step and frozen into the spec (reproducible, shareable), rendered to
-   JSON and bind-mounted *into* the container at `configPath`. A secret's *value*
-   never enters the spec — it lives only in `<name>.env` on the device and is
-   injected as environment variables by compose (the env file is never mounted
-   into the container). Opposite ends, different mechanisms.
+1. **`command`** — CLI flags, frozen in the spec (`"command": ["--port", "8080"]`).
+   Best for servers configured entirely by flags (llama-server, many exporters).
+2. **env** — a `<name>.env.example` of `KEY=value` lines. Best for images that read
+   their settings from environment variables (Grafana's `GF_*`, Postgres's `POSTGRES_*`).
+3. **native JSON `config`** — a `config` object, rendered to a JSON file and
+   bind-mounted at `configPath` (default `/etc/foresthub/config.json`). Only useful
+   if your image already reads JSON from that path.
 
-2. **The spec is self-contained and restartable.** Spec + cached images +
-   device `<name>.env` files are everything a device needs to (re)start, offline,
-   across reboots. No resolver, no control plane, no network.
+## The `<name>.env.example` convention
 
-## JSON-native vs wrapped
+The file is a key list **and** a default source. Per line:
 
-The renderer always writes `config` as **JSON** to `configPath`. So:
+- `KEY=value` → a default; taken silently (use for non-secret tunables).
+- `KEY=` (empty) → prompted at a terminal, left blank otherwise (use for secrets).
+- `# comment` / blank → passed through into the generated `<name>.env`.
 
-- A component whose app **reads JSON config** (like the engine) uses the stock
-  image unchanged — it just reads `/etc/foresthub/config.json`. No wrapper.
-- A component whose app reads some **other format** (INI, conf, CLI flags) gets a
-  **thin wrapper entrypoint** baked into its image that converts the JSON into
-  what the app wants, then `exec`s it. The `grafana/` example shows this. The
-  conversion is the image's business; the spec stays generic.
+The generated `<name>.env` is written mode `0600` and attached to the service as an
+optional `env_file`. **Leave secrets empty here** — `<name>.env.example` is
+committable, `<name>.env` is device-local and never committed. A component with no
+secrets needs no `<name>.env.example` at all.
 
-## Adding your own component
+## When your image speaks neither flags, env, nor JSON
 
-1. Build/choose an image. If it reads JSON config from `/etc/foresthub/config.json`,
-   you're done. If not, add a thin wrapper entrypoint that translates the JSON and
-   bake the `HEALTHCHECK` into the image.
-2. Document the secret env vars it needs in a `<name>.env.example` — there is no
-   spec field enumerating them, so this doc *is* the interface for the operator.
-3. Produce a `DeployComponent` (see `grafana/component.json`) and add it to a
-   `DeploymentSpec`'s `components` list.
+If your image reads some other format (an INI file, a bespoke config), none of the
+three paths fits directly. You then build a **thin wrapper image**: a small
+`Dockerfile` whose entrypoint translates one of the above into what your app wants,
+then `exec`s it. That is ordinary image authoring, done by you, **outside** the
+wizard — the wizard only ever consumes the resulting `image` tag. Keep the
+conversion in the image; the spec stays generic.
 
-## No component dependencies — on purpose
+A bundled MQTT broker (mosquitto) is a typical custom component: stock image, a
+published port, a config file or env for its listener/auth — co-deployed so a
+workflow's MQTT channels have a broker to reach.
 
-Components do not declare dependencies. When one component needs another (e.g.
-the engine calling an on-device model), that coupling is a **URL the consumer
-connects to at runtime with retry**, not a start-ordering edge. This is what lets
-the dependency live on this device *or* another one with no change to the model:
-local is just a different URL. See `contract/deployment.yaml` for the rationale.
+## Rules worth internalizing
+
+- **`name` must be unique** across the deployment (engine, every llama sidecar, and
+  your other customs). It is the compose service name; a duplicate is a hard error.
+  The same `image` under two different names is fine (e.g. two dashboards).
+- **`pull` controls image fetching.** Omit it for a stock registry image — it
+  defaults to `missing` (pulled if absent), correct for any Hub or registry tag.
+  Set `"pull": "never"` only for an image you build locally that lives in no registry.
+- **N instances = N folders**, each with a distinct `name`. There is no auto-fan-out
+  for custom components.
+- **Secrets only in `<name>.env`** — never in `component.json`, `config`, or the spec.
+- **No start ordering.** Components are an unordered set; when one needs another it
+  connects to a URL at runtime with retry, never a `depends_on` edge.
