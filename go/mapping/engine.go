@@ -13,7 +13,13 @@ import (
 // deploy-time configs) onto the engine domain type at the HTTP boundary,
 // routing each arm by its discriminator: MQTT connections into MQTTs, custom
 // LLM provider configs into Providers. Unknown arms are skipped.
-func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.ExternalResources {
+//
+// The wire configs are secret-free (secrets are never stored in the deployment
+// spec). Credentials arrive separately in secrets, keyed by the same resource
+// id, and are merged in here so the domain connection the engine builds from is
+// complete. A missing secret leaves the credential empty (the connection may
+// still be valid — e.g. an anonymous broker or a keyless endpoint).
+func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.ResourceSecrets) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
@@ -36,7 +42,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.External
 				BrokerURL:       c.BrokerURL,
 				ClientID:        pointer.Val(c.ClientID),
 				Username:        pointer.Val(c.Username),
-				Password:        pointer.Val(c.Password),
+				Password:        secrets[id].Password,
 				PublishPrefix:   pointer.Val(c.PublishPrefix),
 				SubscribePrefix: pointer.Val(c.SubscribePrefix),
 			}
@@ -56,7 +62,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources) *engine.External
 			}
 			out.Providers[id] = engine.LLMProviderConfig{
 				URL:    c.Url,
-				APIKey: pointer.Val(c.ApiKey),
+				APIKey: secrets[id].APIKey,
 				Model:  pointer.Val(c.Model),
 			}
 		}
@@ -77,12 +83,45 @@ func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) engine.Deploymen
 	return out
 }
 
-// StatusToAPI maps the engine domain Status onto the wire State enum.
-func StatusToAPI(running bool) engineapi.State {
-	if running {
-		return engineapi.Running
+// DeviceManifestToDomain maps the wire DeviceManifest (the device hardware
+// catalog bundled into EngineConfig) onto the engine domain type the driver
+// registry consumes. A nil input yields a zero manifest (no drivers).
+func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest {
+	out := engine.DeviceManifest{}
+	if in == nil {
+		return out
 	}
-	return engineapi.Idle
+	if in.Gpios != nil {
+		out.GPIOs = make(map[string]engine.GPIOConfig, len(*in.Gpios))
+		for id, c := range *in.Gpios {
+			out.GPIOs[id] = engine.GPIOConfig{Chip: c.Chip}
+		}
+	}
+	if in.Adcs != nil {
+		out.ADCs = make(map[string]engine.ADCConfig, len(*in.Adcs))
+		for id, c := range *in.Adcs {
+			out.ADCs[id] = engine.ADCConfig{Device: c.Device}
+		}
+	}
+	if in.Dacs != nil {
+		out.DACs = make(map[string]engine.DACConfig, len(*in.Dacs))
+		for id, c := range *in.Dacs {
+			out.DACs[id] = engine.DACConfig{Device: c.Device}
+		}
+	}
+	if in.Serials != nil {
+		out.Serials = make(map[string]engine.SerialConfig, len(*in.Serials))
+		for id, c := range *in.Serials {
+			out.Serials[id] = engine.SerialConfig{Port: c.Device, Baud: pointer.Val(c.Baud)}
+		}
+	}
+	if in.Pwms != nil {
+		out.PWMs = make(map[string]engine.PWMConfig, len(*in.Pwms))
+		for id, c := range *in.Pwms {
+			out.PWMs[id] = engine.PWMConfig{Chip: c.Chip}
+		}
+	}
+	return out
 }
 
 // TickerInterval converts a wire ticker (value + unit) into a runtime duration.

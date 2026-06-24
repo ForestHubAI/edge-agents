@@ -20,6 +20,7 @@ import (
 // custom-model providers into a fresh client scoped to each Runner.
 type Builder struct {
 	Drivers      *driver.Registry
+	Transports   *transport.Registry
 	LLMProviders []llmproxy.Provider
 	Memory       *memory.Manager
 	Retriever    engine.Retriever
@@ -41,10 +42,8 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 		}
 	}
 	// Compose a per-deploy LLM client: the boot providers plus any custom-model
-	// providers resolved from this deploy's externalResources. Done before
-	// transports so a provider-resolution error fails fast without leaking a
-	// transport registry. The client is scoped to this Runner and GC'd on the
-	// next deploy, so the boot set is never mutated.
+	// providers resolved from this deploy's externalResources. The client is
+	// scoped to this Runner and GC'd on shutdown, so the boot set is never mutated.
 	deployProviders, err := buildDeployProviders(wf, dm, ext)
 	if err != nil {
 		return nil, fmt.Errorf("resolving deploy llm providers: %w", err)
@@ -54,13 +53,8 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
 
-	transports, err := transport.NewRegistry(ext)
+	runner, err := buildRunner(ctx, wf, dm, ext, b.Transports, b.Drivers, llmClient, b.Memory, b.Retriever, b.WebSearch)
 	if err != nil {
-		return nil, fmt.Errorf("creating transport registry: %w", err)
-	}
-	runner, err := buildRunner(ctx, wf, dm, ext, transports, b.Drivers, llmClient, b.Memory, b.Retriever, b.WebSearch)
-	if err != nil {
-		transports.CloseAll()
 		return nil, err
 	}
 	return runner, nil
@@ -225,7 +219,5 @@ func buildRunner(ctx context.Context, wf *workflow.Workflow, dm engine.Deploymen
 		Triggers:     mainGraph.triggers,
 		InitialState: initialState,
 	}
-	// Ownership transfers to Runner; Run's defer chain releases on ctx cancellation.
-	r.Transports = transports
 	return r, nil
 }

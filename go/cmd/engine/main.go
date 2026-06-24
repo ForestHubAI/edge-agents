@@ -3,26 +3,25 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
+	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 	"github.com/ForestHubAI/edge-agents/go/mapping"
 	"github.com/rs/zerolog"
-
-	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -37,7 +36,7 @@ func main() {
 
 	// Re-configure with the user-requested level and the optional HTTPWriter
 	// once cfg is available. Closer drains in-flight HTTP sends so Fatal
-	// events reach the backend before exit.
+	// events reach the HTTPWriter before exit.
 	level, err := logging.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		logging.Logger.Warn().Err(err).Str("input", cfg.LogLevel).Msg("invalid log level; falling back to info")
@@ -53,41 +52,16 @@ func main() {
 		logging.Logger.Warn().Msg("FH_BACKEND_URL set but ENGINE_SECRET empty — HTTP log pushes will 401")
 	}
 
-	// Create backend client only when an endpoint is actually configured.
-	// A nil client signals "standalone mode" to every downstream consumer
-	// (LLM provider discovery, memory store, retriever, lifecycle goroutine)
-	// so they fall back to the offline defaults in engine/local.
+	// Create backend client only when configured
 	var backendClient *backend.Client
 	if cfg.BackendURL != "" {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
 
-	// loadedManifest tracks the device manifest once it parses, so a boot error
-	// after that point can report it; it stays nil if the manifest itself fails
-	// to load (matching AgentBootCallback's "null on booterror" contract).
-	var loadedManifest *engine.DeviceManifest
-
-	// bootFail reports a booterror callback to the backend (best-effort, single
-	// bounded attempt) when one is configured, then exits. Used for every
-	// boot-sequence failure so the backend records status=error instead of
-	// inferring it from a missed heartbeat. Reached only before the online
-	// registration below, so the two never contradict each other.
+	// bootFail logs a fatal boot error and exits nonzero. In the immutable model a
+	// boot failure ends the process; Ranger (or the container runtime) observes the
+	// nonzero exit as a failed container — the engine no longer self-reports status.
 	bootFail := func(cause error, msg string) {
-		if backendClient != nil {
-			errStr := cause.Error()
-			reportCtx, cancel := context.WithTimeout(context.Background(), backend.BootCallbackTimeout)
-			rerr := backendClient.Register(reportCtx, engine.AgentRegistration{
-				Address:      cfg.PublicAddress,
-				Status:       engine.StatusBootError,
-				Manifest:     loadedManifest,
-				Error:        &errStr,
-				DeploymentID: cfg.DeploymentID,
-			})
-			cancel()
-			if rerr != nil {
-				logging.Logger.Warn().Err(rerr).Msg("reporting boot error to backend")
-			}
-		}
 		logging.Logger.Fatal().Err(cause).Msg(msg)
 	}
 
@@ -98,25 +72,44 @@ func main() {
 	llmProviders := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
 	cancelLoad() // Release loadCtx resources
 
-	// Only normalise if the operator actually opted into file mode. An empty
-	// path stays empty so the deploy handler can surface a clear "not configured"
-	// error instead of trying to read the process working directory.
-	workflowFile := cfg.WorkflowFile
-	if workflowFile != "" {
-		if abs, err := filepath.Abs(workflowFile); err == nil {
-			workflowFile = abs
+	// Load the single boot config file: workflow + bindings + device manifest.
+	// A workflow is mandatory — the engine exists only to run one — so a missing
+	// config or workflow is a boot error, not an idle engine.
+	configFile := cfg.ConfigFile
+	if configFile != "" {
+		if abs, err := filepath.Abs(configFile); err == nil {
+			configFile = abs
 		}
 	}
-
-	// Load device manifest and build driver registry
-	manifest, err := loadManifest(cfg.DeviceManifestFile)
+	ec, err := loadEngineConfig(configFile)
 	if err != nil {
-		bootFail(err, "loading driver manifest")
+		bootFail(err, "loading engine config")
 	}
-	loadedManifest = &manifest
+	// A present config with no workflow is still a boot error, not an idle engine:
+	// an empty workflow builds into a runner with no triggers that blocks forever
+	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
+	// requires schemaVersion >= 1).
+	if ec.Workflow.SchemaVersion == 0 {
+		bootFail(errors.New("engine config has no workflow"), "validating engine config")
+	}
+
+	// Build the I/O registries main owns for the engine's lifetime: drivers from
+	// the device manifest, MQTT transports from the deploy's external resources.
+	// Both are injected into the builder, borrowed by the workflow's channels,
+	// and closed by main at shutdown.
+	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
 		bootFail(err, "initialising driver registry")
+	}
+	resourceSecrets, err := parseResourceSecrets(cfg.ResourceSecrets)
+	if err != nil {
+		bootFail(err, "parsing resource secrets")
+	}
+	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, resourceSecrets)
+	transports, err := transport.NewRegistry(ext)
+	if err != nil {
+		bootFail(err, "opening transports")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at
@@ -153,168 +146,91 @@ func main() {
 		retriever = backendClient
 	}
 
-	// Create builder and engine
+	// Create the builder for the workflow runner.
 	builder := &build.Builder{
 		Drivers:      drivers,
+		Transports:   transports,
 		LLMProviders: llmProviders,
 		Memory:       memoryManager,
 		WebSearch:    webSearchProvider,
 		Retriever:    retriever,
 	}
-	eng := &engine.Engine{
-		Secret:  cfg.Secret,
-		Builder: builder.Build,
-	}
 
-	// Deploy workflow from file if configured
-	if workflowFile != "" {
-		wfData, err := os.ReadFile(workflowFile)
-		if err != nil {
-			bootFail(err, "reading workflow file")
-		}
-		var wf workflow.Workflow
-		if err := json.Unmarshal(wfData, &wf); err != nil {
-			bootFail(err, "parsing workflow file")
-		}
-		ext, err := loadExternalResources(cfg.ExternalResourcesFile)
-		if err != nil {
-			bootFail(err, "loading external resources")
-		}
-		dm, err := loadDeploymentMapping(cfg.DeploymentMappingFile)
-		if err != nil {
-			bootFail(err, "loading deployment mapping")
-		}
-		if err := eng.Deploy(&wf, dm, ext); err != nil {
-			bootFail(err, "deploying workflow from file")
-		}
-	}
-
-	// HTTP surface is the oapi-codegen strict server generated from
-	// openapi.yaml. The bearer-secret check runs as a strict middleware so
-	// it applies uniformly to every operation.
-	r := chi.NewRouter()
-	strictHandler := engineapi.NewStrictHandler(
-		NewStrictServer(eng),
-		[]engineapi.StrictMiddlewareFunc{AuthMiddleware(cfg.Secret)},
-	)
-	engineapi.HandlerFromMux(strictHandler, r)
-
-	server := &http.Server{Addr: cfg.ListenAddr, Handler: r}
-
-	// Boot-time self-registration: RegisterWithRetry runs in its own goroutine
-	// so a cold-started backend does not delay the listen-port. Once Register
-	// succeeds, HeartbeatLoop takes over for periodic liveness. Both share
-	// liveCtx, which is canceled on SIGTERM.
-	liveCtx, cancelLive := context.WithCancel(context.Background())
-	defer cancelLive()
-	// PublicAddress is optional. Cloud-mode engines sit behind NAT and leave it
-	// empty; the backend then rejects push deploys for this agent but still
-	// tracks liveness through heartbeats and accepts bundle deploys.
-	if backendClient != nil {
-		reg := engine.AgentRegistration{
-			Address:      cfg.PublicAddress,
-			Status:       engine.StatusOnline,
-			Manifest:     &manifest,
-			DeploymentID: cfg.DeploymentID,
-		}
-		registerCfg := engine.RetryConfig{
-			AttemptTimeout: backend.BootCallbackTimeout,
-			Interval:       backend.RegisterRetryInterval,
-		}
-		heartbeatCfg := engine.RetryConfig{
-			AttemptTimeout: backend.HeartbeatTimeout,
-			Interval:       backend.HeartbeatInterval,
-		}
-		go func() {
-			engine.RegisterWithRetry(liveCtx, backendClient, reg, registerCfg)
-			if liveCtx.Err() != nil {
-				return
-			}
-			engine.HeartbeatLoop(liveCtx, backendClient, cfg.PublicAddress, heartbeatCfg)
-		}()
-	} else {
-		logging.Logger.Info().Msg("FH_BACKEND_URL or ENGINE_SECRET not set, skipping self-registration")
-	}
-
-	// Graceful shutdown: cancel the boot+heartbeat goroutine, then tear down
-	// engine + drivers + HTTP server. The backend marks the agent offline once
-	// last_seen_at crosses the online threshold; no explicit deactivate call
-	// is needed.
+	// One lifecycle context for the whole process: a termination signal cancels it
+	// (graceful shutdown); the runner exiting on its own ends the process just the
+	// same. The engine serves no inbound HTTP and self-reports no status — liveness
+	// is observed externally (Ranger / the container runtime) from its process state.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-		logging.Logger.Info().Msg("shutting down")
-		cancelLive()
-		eng.Stop()
-		if err := drivers.CloseAll(); err != nil {
-			logging.Logger.Warn().Err(err).Msg("closing driver registry")
+		select {
+		case <-sigCh:
+			logging.Logger.Info().Msg("shutting down")
+			cancel()
+		case <-ctx.Done():
 		}
-		server.Close()
 	}()
 
-	logging.Logger.Info().Str("addr", cfg.ListenAddr).Str("config-file", workflowFile).Msg("engine server starting")
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		logging.Logger.Fatal().Err(err).Msg("server error")
+	// Build the runner. A build failure exits nonzero (Ranger observes a failed
+	// container); there is no "online" callback for it to contradict.
+	dm := mapping.DeploymentMappingToDomain(ec.Mapping)
+	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
+	if err != nil {
+		bootFail(err, "building workflow runner")
+	}
+
+	// Run the workflow, BLOCKING until it exits — on its own (terminal: the
+	// workflow stopped or hit a fatal error) or because ctx was cancelled
+	// (graceful shutdown). A runner exit is terminal in the immutable model;
+	// the exit code surfaces the outcome (nonzero on error) to the supervisor.
+	logging.Logger.Info().Str("config-file", configFile).Msg("engine running")
+	runErr := runner.Run(ctx)
+
+	cancel() // also stops the heartbeat on the natural-exit path
+	if err := drivers.CloseAll(); err != nil {
+		logging.Logger.Warn().Err(err).Msg("closing driver registry")
+	}
+	if err := transports.CloseAll(); err != nil {
+		logging.Logger.Warn().Err(err).Msg("closing transports")
+	}
+	if runErr != nil && !errors.Is(runErr, context.Canceled) {
+		logging.Logger.Fatal().Err(runErr).Msg("runner exited with error")
 	}
 }
 
-// loadManifest reads a JSON DriverManifest from the given path. An empty path
-// returns an empty manifest; the workflow must then not declare any channels
-// (every channel needs a driverId that resolves into this manifest). A missing
-// file at an explicit path is a fatal misconfiguration.
-func loadManifest(path string) (engine.DeviceManifest, error) {
+// loadEngineConfig reads the engine's single boot config file (the EngineConfig
+// wire shape: workflow + bindings + device manifest). The path defaults to the
+// deployment convention (/etc/foresthub/config.json); an explicitly empty path,
+// or a missing or malformed file, is a fatal boot error — the engine exists only
+// to run the workflow this file carries.
+func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
 	if path == "" {
-		return engine.DeviceManifest{}, nil
+		return nil, errors.New("engine config path is empty (ENGINE_CONFIG_FILE explicitly set to empty)")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return engine.DeviceManifest{}, err
+		return nil, err
 	}
-	var m engine.DeviceManifest
-	if err := json.Unmarshal(data, &m); err != nil {
-		return engine.DeviceManifest{}, err
+	var ec engineapi.EngineConfig
+	if err := json.Unmarshal(data, &ec); err != nil {
+		return nil, err
 	}
-	return m, nil
+	return &ec, nil
 }
 
-// loadExternalResources reads the deploy's external-resource configs (wire
-// shape) from path and maps them to the engine domain. An empty path is the
-// only "optional" signal — the engine boots without transports and waits for
-// the next /deploy push to supply them. A non-empty path pointing at a missing
-// or malformed file is a fatal misconfiguration; matches loadManifest's
-// strictness.
-func loadExternalResources(path string) (*engine.ExternalResources, error) {
-	if path == "" {
+// parseResourceSecrets decodes the FH_RESOURCE_SECRETS env (a JSON map of
+// external-resource id -> credentials) into the domain secrets the api->domain
+// mapping merges into connections. Secrets travel out-of-band, never in the
+// deployment spec. An empty/unset value yields no secrets.
+func parseResourceSecrets(raw string) (engine.ResourceSecrets, error) {
+	if raw == "" {
 		return nil, nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+	var s engine.ResourceSecrets
+	if err := json.Unmarshal([]byte(raw), &s); err != nil {
+		return nil, fmt.Errorf("FH_RESOURCE_SECRETS: %w", err)
 	}
-	var ext engineapi.ExternalResources
-	if err := json.Unmarshal(data, &ext); err != nil {
-		return nil, err
-	}
-	return mapping.ExternalResourcesToDomain(&ext), nil
-}
-
-// loadDeploymentMapping reads the deploy mapping that binds a file-mounted
-// workflow's logical resource ids to this environment. An empty path yields a
-// nil mapping — fine for workflows with no channels; channel-bearing workflows
-// will then hard-fail at build with a clear "no binding" error. A non-empty
-// path pointing at a missing or malformed file is fatal.
-func loadDeploymentMapping(path string) (engine.DeploymentMapping, error) {
-	if path == "" {
-		return nil, nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var dm engine.DeploymentMapping
-	if err := json.Unmarshal(data, &dm); err != nil {
-		return nil, err
-	}
-	return dm, nil
+	return s, nil
 }

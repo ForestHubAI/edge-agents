@@ -4,6 +4,8 @@
 import { checkbox, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
+import { promptCustomComponents } from "./components";
+import type { DeployComponent, LoadedComponent } from "./components";
 import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
 import type {
   CustomModel,
@@ -149,7 +151,14 @@ async function promptModels(
         message: `${m.label}: model filename in ./models/ (e.g. model.gguf)`,
         validate: (v) => ggufNameError(v) ?? true,
       });
-      result[m.id] = { location: "device", modelFile: modelFile.trim() };
+      const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });
+      const port = await input({ message: `${m.label}: sidecar port`, default: "8080", validate: isUint });
+      result[m.id] = {
+        location: "device",
+        modelFile: modelFile.trim(),
+        ctxSize: Number(ctxSize.trim()),
+        port: Number(port.trim()),
+      };
       continue;
     }
 
@@ -174,12 +183,23 @@ async function promptWebSearch(seed: WebSearchBinding | undefined): Promise<WebS
   return { provider, apiKey };
 }
 
+// Everything the interactive wizard gathers: the operator-answer config plus the
+// custom components (and their generated env files). The three are kept apart —
+// DeployConfig stays exactly what buildDeploymentSpec's inputs need; the
+// components ride alongside as a separate resolver argument.
+export interface InteractiveResult {
+  config: DeployConfig;
+  customComponents: DeployComponent[];
+  componentEnv: Record<string, string>;
+}
+
 export async function promptMissing(
   partial: Partial<DeployConfig>,
   outputDirDefault: string,
   req: DeployRequirements,
-  workflowName?: string,
-): Promise<DeployConfig> {
+  workflowName: string,
+  preloadedComponents: LoadedComponent[],
+): Promise<InteractiveResult> {
   // Work out which sections will actually ask something this run. A section the
   // partial (flags / --values) already pre-filled stays silent, so it must get
   // neither a header nor a slot in the [step/total] denominator.
@@ -198,9 +218,10 @@ export async function promptMissing(
     askOut = nonEmpty && !(partial.force ?? false);
   }
 
-  const total = [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(
-    Boolean,
-  ).length;
+  // +1: the custom-components section is always offered (a yes/no gate), so it
+  // always occupies a slot in the denominator, before Output.
+  const total =
+    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(Boolean).length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.
@@ -248,6 +269,12 @@ export async function promptMissing(
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
+  // Custom components — operator-authored containers, unrelated to the workflow
+  // graph, so always offered rather than derived. --component folders arrive
+  // pre-validated and are shown as already added; the loop adds any more.
+  section("Custom components");
+  const { components: customComponents, env: componentEnv } = await promptCustomComponents(preloadedComponents);
+
   // Output directory — with collision handling. If the dir exists and is
   // non-empty, the operator can overwrite, pick another dir, or abort.
   if (askOut) section("Output");
@@ -285,7 +312,7 @@ export async function promptMissing(
     }
   }
 
-  return {
+  const config: DeployConfig = {
     llmKeys,
     outputDir,
     force,
@@ -295,4 +322,5 @@ export async function promptMissing(
     models,
     webSearch,
   };
+  return { config, customComponents, componentEnv };
 }

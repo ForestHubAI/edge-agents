@@ -4,9 +4,7 @@
 package engineapi
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -15,38 +13,11 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Deploy or hot-swap a workflow.
-	// (POST /deploy)
-	Deploy(w http.ResponseWriter, r *http.Request)
-	// Engine runner state.
-	// (GET /status)
-	Status(w http.ResponseWriter, r *http.Request)
-	// Stop the running workflow (idempotent when idle).
-	// (POST /stop)
-	Stop(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
-
-// Deploy or hot-swap a workflow.
-// (POST /deploy)
-func (_ Unimplemented) Deploy(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Engine runner state.
-// (GET /status)
-func (_ Unimplemented) Status(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Stop the running workflow (idempotent when idle).
-// (POST /stop)
-func (_ Unimplemented) Stop(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
 
 // ServerInterfaceWrapper converts contexts to parameters.
 type ServerInterfaceWrapper struct {
@@ -56,48 +27,6 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
-
-// Deploy operation middleware
-func (siw *ServerInterfaceWrapper) Deploy(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Deploy(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Status operation middleware
-func (siw *ServerInterfaceWrapper) Status(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Status(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Stop operation middleware
-func (siw *ServerInterfaceWrapper) Stop(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Stop(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
 
 type UnescapedCookieParamError struct {
 	ParamName string
@@ -206,116 +135,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	}
-	wrapper := ServerInterfaceWrapper{
-		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
-		ErrorHandlerFunc:   options.ErrorHandlerFunc,
-	}
-
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/deploy", wrapper.Deploy)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/status", wrapper.Status)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/stop", wrapper.Stop)
-	})
 
 	return r
 }
 
-type DeployRequestObject struct {
-	Body *DeployJSONRequestBody
-}
-
-type DeployResponseObject interface {
-	VisitDeployResponse(w http.ResponseWriter) error
-}
-
-type Deploy204Response struct {
-}
-
-func (response Deploy204Response) VisitDeployResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type Deploy400JSONResponse EngineError
-
-func (response Deploy400JSONResponse) VisitDeployResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type Deploy422JSONResponse EngineError
-
-func (response Deploy422JSONResponse) VisitDeployResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(422)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type StatusRequestObject struct {
-}
-
-type StatusResponseObject interface {
-	VisitStatusResponse(w http.ResponseWriter) error
-}
-
-type Status200JSONResponse StatusResponse
-
-func (response Status200JSONResponse) VisitStatusResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type StopRequestObject struct {
-}
-
-type StopResponseObject interface {
-	VisitStopResponse(w http.ResponseWriter) error
-}
-
-type Stop204Response struct {
-}
-
-func (response Stop204Response) VisitStopResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Deploy or hot-swap a workflow.
-	// (POST /deploy)
-	Deploy(ctx context.Context, request DeployRequestObject) (DeployResponseObject, error)
-	// Engine runner state.
-	// (GET /status)
-	Status(ctx context.Context, request StatusRequestObject) (StatusResponseObject, error)
-	// Stop the running workflow (idempotent when idle).
-	// (POST /stop)
-	Stop(ctx context.Context, request StopRequestObject) (StopResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -345,83 +170,4 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
-}
-
-// Deploy operation middleware
-func (sh *strictHandler) Deploy(w http.ResponseWriter, r *http.Request) {
-	var request DeployRequestObject
-
-	var body DeployJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Deploy(ctx, request.(DeployRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Deploy")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeployResponseObject); ok {
-		if err := validResponse.VisitDeployResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Status operation middleware
-func (sh *strictHandler) Status(w http.ResponseWriter, r *http.Request) {
-	var request StatusRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Status(ctx, request.(StatusRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Status")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(StatusResponseObject); ok {
-		if err := validResponse.VisitStatusResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// Stop operation middleware
-func (sh *strictHandler) Stop(w http.ResponseWriter, r *http.Request) {
-	var request StopRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.Stop(ctx, request.(StopRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "Stop")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(StopResponseObject); ok {
-		if err := validResponse.VisitStopResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
 }

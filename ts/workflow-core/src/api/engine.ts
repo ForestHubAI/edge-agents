@@ -3,79 +3,16 @@
  * Do not make direct changes to the file.
  */
 
-export interface paths {
-    "/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Engine runner state. */
-        get: operations["status"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/deploy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Deploy or hot-swap a workflow. */
-        post: operations["deploy"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Stop the running workflow (idempotent when idle). */
-        post: operations["stop"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-}
+export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * @description Engine runner state.
-         * @enum {string}
-         */
-        State: "idle" | "running";
-        StatusResponse: {
-            status: components["schemas"]["State"];
-        };
-        /** @description Error body for /deploy 400/422. Distinct from control-plane ErrorResponse. */
-        EngineError: {
-            error: string;
-        };
-        /** @description Engine-served POST /deploy body: a binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, and the resolved external-resource configs those bindings point at. workflow is intentionally NOT required so it generates as a pointer (the handler nil-checks it). */
-        DeployRequest: {
-            workflow?: components["schemas"]["Workflow"];
+        /** @description The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields. */
+        EngineConfig: {
+            workflow: components["schemas"]["Workflow"];
             mapping?: components["schemas"]["DeploymentMapping"];
             externalResources?: components["schemas"]["ExternalResources"];
+            manifest?: components["schemas"]["DeviceManifest"];
         };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id). */
         DeploymentMapping: {
@@ -94,7 +31,7 @@ export interface components {
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
         ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"];
-        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. */
+        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. */
         LLMProviderConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -103,14 +40,10 @@ export interface components {
             type: "selfhosted";
             /** @description Base URL of the inference endpoint (http:// or https://). */
             url: string;
-            /**
-             * Format: password
-             * @description Optional bearer credential for the endpoint.
-             */
-            apiKey?: string;
             /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
             model?: string;
         };
+        /** @description Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays. */
         MQTTConnection: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -120,8 +53,6 @@ export interface components {
             brokerUrl: string;
             clientId?: string;
             username?: string;
-            /** Format: password */
-            password?: string;
             /** @description Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/). */
             publishPrefix?: string;
             /** @description Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/). */
@@ -186,36 +117,6 @@ export interface components {
             time: string;
         } & {
             [key: string]: unknown;
-        };
-        AgentBootCallback: {
-            /**
-             * Format: uuid
-             * @description The deployment the engine booted for backend to register.
-             */
-            deploymentId?: string;
-            /**
-             * Format: uri
-             * @description Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the backend then stores the address as SQL NULL and rejects push deploys for this agent, while bundle deploys and liveness still work.
-             * @example http://10.0.1.50:8081
-             */
-            address?: string;
-            /**
-             * @description Boot result reported by the engine. 'online' when the manifest loaded cleanly and the engine is ready to accept deploy requests; 'booterror' when something blocked startup (missing driver, invalid manifest, etc.).
-             * @enum {string}
-             */
-            status: "online" | "booterror";
-            /** @description The manifest the engine loaded into its driver registry at boot. Set on a successful boot; may be null on booterror if the engine could not even parse the manifest. */
-            loadedDeviceManifest?: components["schemas"]["DeviceManifest"];
-            /** @description Human-readable failure detail. Set when status='booterror', null otherwise. */
-            error?: string | null;
-        };
-        AgentHeartbeatRequest: {
-            /**
-             * Format: uri
-             * @description Externally reachable HTTP(S) URL of the engine. Optional — Cloud-mode engines behind NAT may omit this; the heartbeat then only refreshes liveness via the AgentKeyAuth middleware without writing the address column.
-             * @example http://10.0.1.50:8081/
-             */
-            address?: string;
         };
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
@@ -836,83 +737,4 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export interface operations {
-    status: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current runner state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StatusResponse"];
-                };
-            };
-        };
-    };
-    deploy: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeployRequest"];
-            };
-        };
-        responses: {
-            /** @description Workflow deployed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request (e.g. missing workflow). */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EngineError"];
-                };
-            };
-            /** @description Build failure. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EngineError"];
-                };
-            };
-        };
-    };
-    stop: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Runner stopped. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-}
+export type operations = Record<string, never>;

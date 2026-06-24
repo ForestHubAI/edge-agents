@@ -1,6 +1,5 @@
-// Single source of truth for the engine version. Read by
-// scripts/publish-engine.sh (grep) to drive the AR push tag and the
-// gs://fh-engine/<version>/ upload path. Bump on every release.
+// Version is injected at build time via -ldflags "-X main.Version=..." (see the
+// ENGINE_VERSION build-arg in go/Dockerfile). Local builds report "dev".
 package main
 
-const Version = "0.1.0"
+var Version = "dev"

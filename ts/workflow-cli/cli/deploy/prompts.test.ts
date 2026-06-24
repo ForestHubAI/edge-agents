@@ -9,11 +9,12 @@ vi.mock("@inquirer/prompts", () => ({
   password: vi.fn(),
   select: vi.fn(),
   checkbox: vi.fn(),
+  confirm: vi.fn(),
 }));
 
-import { input, password, select, checkbox } from "@inquirer/prompts";
+import { input, password, select, checkbox, confirm } from "@inquirer/prompts";
 import { promptMissing } from "./prompts";
-import type { DeployRequirements } from "./types";
+import type { DeployConfig, DeployRequirements } from "./types";
 
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
@@ -40,12 +41,25 @@ const respond =
   };
 const setMock = (fn: unknown, r: Responder) => (fn as { mockImplementation: (f: Responder) => void }).mockImplementation(r);
 
-function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][] }) {
+function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][]; confirm?: [RegExp, unknown][] }) {
   setMock(input, respond(p.input ?? []));
   setMock(password, respond(p.password ?? []));
   setMock(select, respond(p.select ?? []));
   setMock(checkbox, respond(p.checkbox ?? []));
+  // The custom-components section always asks its yes/no gate; default to no so a
+  // test that doesn't care about components is never forced to script it.
+  setMock(confirm, respond(p.confirm ?? [[/custom component/, false]]));
 }
+
+// promptMissing now returns the whole interactive result (config + custom
+// components + their env); these tests assert on the config, with no preloaded
+// --component folders. The component section itself is covered in components.test.ts.
+const run = async (
+  partial: Partial<DeployConfig>,
+  def: string,
+  req: DeployRequirements,
+  name = "wf",
+): Promise<DeployConfig> => (await promptMissing(partial, def, req, name, [])).config;
 
 const noExistDir = path.join(os.tmpdir(), "fhprompt-does-not-exist-xyz");
 
@@ -61,7 +75,7 @@ afterEach(() => stdout.mockRestore());
 describe("promptMissing", () => {
   it("asks nothing when the partial pre-filled everything", async () => {
     script({});
-    const cfg = await promptMissing(
+    const cfg = await run(
       { hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, outputDir: noExistDir },
       "def",
       reqOf({ hardwareChannels: [hwGpio("btn")] }),
@@ -79,7 +93,7 @@ describe("promptMissing", () => {
         [/Output directory/, "bundle"],
       ],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }));
+    const cfg = await run({}, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }));
     expect(cfg.hardware.btn).toEqual({ chipOrDevice: "/dev/gpiochip0", index: 7 });
     expect(cfg.outputDir).toBe("bundle");
   });
@@ -92,7 +106,7 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ hardwareChannels: [hwSerial("u")] }));
+    const cfg = await run({}, "def", reqOf({ hardwareChannels: [hwSerial("u")] }));
     expect(cfg.hardware.u).toEqual({ chipOrDevice: "/dev/ttyUSB0", baud: 9600 });
   });
 
@@ -102,7 +116,7 @@ describe("promptMissing", () => {
       password: [[/anthropic API key/, "sk-x"]],
       input: [[/Output directory/, "b"]],
     });
-    const cfg = await promptMissing({ llmKeys: { openai: "flag-o" } }, "def", reqOf({ hasProviderModel: true }));
+    const cfg = await run({ llmKeys: { openai: "flag-o" } }, "def", reqOf({ hasProviderModel: true }));
     expect(cfg.llmKeys).toEqual({ anthropic: "sk-x" });
   });
 
@@ -115,7 +129,7 @@ describe("promptMissing", () => {
       ],
       password: [[/password/, ""]],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ mqttChannels: [{ id: "m", label: "m" }] }));
+    const cfg = await run({}, "def", reqOf({ mqttChannels: [{ id: "m", label: "m" }] }));
     expect(cfg.mqtt.m).toEqual({ brokerUrl: "tcp://b:1883" });
   });
 
@@ -127,20 +141,22 @@ describe("promptMissing", () => {
       ],
       password: [[/Web search API key/, "ws"]],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ hasWebSearch: true }));
+    const cfg = await run({}, "def", reqOf({ hasWebSearch: true }));
     expect(cfg.webSearch).toEqual({ provider: "brave", apiKey: "ws" });
   });
 
-  it("device model: asks where it runs, then the model filename", async () => {
+  it("device model: asks where it runs, filename, context size, and port", async () => {
     script({
       select: [[/where does this model run/, "device"]],
       input: [
         [/model filename/, "gemma.gguf"],
+        [/context window/, "8192"],
+        [/sidecar port/, "9090"],
         [/Output directory/, "b"],
       ],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.models.llm).toEqual({ location: "device", modelFile: "gemma.gguf" });
+    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
+    expect(cfg.models.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
   });
 
   it("network model: asks where it runs, then url + key", async () => {
@@ -152,7 +168,7 @@ describe("promptMissing", () => {
       ],
       password: [[/API key/, "sk-1"]],
     });
-    const cfg = await promptMissing({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
+    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
     expect(cfg.models.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
   });
 
@@ -170,7 +186,7 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
+    await run({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
     const validate = promptCalls(/index/)[1]?.validate;
     expect(validate?.("17")).toMatch(/already used by "a"/);
     expect(validate?.("18")).toBe(true);
@@ -184,7 +200,7 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    await promptMissing(
+    await run(
       { hardware: { a: { chipOrDevice: "/dev/gpiochip0", index: 17 } } },
       "def",
       reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }),
@@ -201,7 +217,7 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwSerial("u1"), hwSerial("u2")] }));
+    await run({}, "def", reqOf({ hardwareChannels: [hwSerial("u1"), hwSerial("u2")] }));
     const validate = promptCalls(/device path/)[1]?.validate;
     expect(validate?.("/dev/ttyUSB0")).toMatch(/already used by "u1"/);
     expect(validate?.("/dev/ttyUSB1")).toBe(true);
@@ -218,23 +234,25 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }), "test123");
+    await run({}, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }), "test123");
     const out = printed();
     expect(out).toContain('Standalone deployment bundle for "test123"');
-    expect(out).toContain("[1/2] Hardware channels");
-    expect(out).toContain("[2/2] Output");
+    expect(out).toContain("[1/3] Hardware channels");
+    expect(out).toContain("[2/3] Custom components");
+    expect(out).toContain("[3/3] Output");
   });
 
   it("counts only sections that ask — a pre-filled section gets no header or slot", async () => {
     script({ input: [[/Output directory/, "b"]] });
-    await promptMissing(
+    await run(
       { hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 1 } } },
       "def",
       reqOf({ hardwareChannels: [hwGpio("btn")] }),
     );
     const out = printed();
     expect(out).not.toContain("Hardware channels");
-    expect(out).toContain("[1/1] Output");
+    expect(out).toContain("[1/2] Custom components");
+    expect(out).toContain("[2/2] Output");
   });
 
   it("skips the Output section when the directory is pre-filled and free", async () => {
@@ -244,9 +262,10 @@ describe("promptMissing", () => {
         [/index/, "1"],
       ],
     });
-    await promptMissing({ outputDir: noExistDir }, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }));
+    await run({ outputDir: noExistDir }, "def", reqOf({ hardwareChannels: [hwGpio("btn")] }));
     const out = printed();
-    expect(out).toContain("[1/1] Hardware channels");
+    expect(out).toContain("[1/2] Hardware channels");
+    expect(out).toContain("[2/2] Custom components");
     expect(out).not.toContain("Output");
   });
 
@@ -254,8 +273,8 @@ describe("promptMissing", () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhprompt-"));
     await fs.writeFile(path.join(dir, "stale.txt"), "x");
     script({ select: [[/is not empty/, "overwrite"]] });
-    const cfg = await promptMissing({ outputDir: dir }, "def", reqOf());
-    expect(printed()).toContain("[1/1] Output");
+    const cfg = await run({ outputDir: dir }, "def", reqOf());
+    expect(printed()).toContain("[2/2] Output");
     expect(cfg.force).toBe(true);
     await fs.rm(dir, { recursive: true, force: true });
   });
@@ -268,7 +287,7 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    await promptMissing({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
-    expect(printed()).toContain("[1/2] Hardware channels — 2 to configure");
+    await run({}, "def", reqOf({ hardwareChannels: [hwGpio("a"), hwGpio("b")] }));
+    expect(printed()).toContain("[1/3] Hardware channels — 2 to configure");
   });
 });

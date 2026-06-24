@@ -8,26 +8,19 @@ import (
 
 // Config holds engine boot configuration. All values come from env vars
 type Config struct {
-	// ListenAddr is the local bind address for the engine's HTTP server
-	ListenAddr string `env:"ENGINE_ADDR" envDefault:":8081"`
-	// PublicAddress is the externally reachable URL the backend uses to call this engine
-	PublicAddress string `env:"ENGINE_PUBLIC_ADDRESS"`
-	// BackendURL is the URL of the backend to call home to and push logs to
-	BackendURL string `env:"FH_BACKEND_URL"`
+	// ConfigFile is the path to the engine's single boot config file. The engine is immutable and reads it once at startup; this is the only way config is supplied. Defaults to the deployment convention path the renderer mounts config at, so the spec needs no env var to point at it; set ENGINE_CONFIG_FILE only to override.
+	ConfigFile string `env:"ENGINE_CONFIG_FILE" envDefault:"/etc/foresthub/config.json"`
 	// ID identifies this engine to hosted-MQTT brokers, acting as 'username'
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
 	Secret string `env:"ENGINE_SECRET"`
-	// DeviceManifestFile is the path to a JSON file describing this engine's physical device and its drivers
-	DeviceManifestFile string `env:"ENGINE_DEVICE_MANIFEST_FILE"`
-	// ExternalResourcesFile is the optional path to the deploy's resolved external-resource configs (wire shape) the engine reads on boot. When set and the file exists, the engine starts its workflow with transports already established; absent or missing, the engine waits for them to arrive with the first /deploy push.
-	ExternalResourcesFile string `env:"ENGINE_EXTERNAL_RESOURCES_FILE"`
-	// DeploymentMappingFile is the optional path to the deploy mapping that binds the file-mounted workflow's logical resource ids (channels/memory/models) to this environment. Required alongside WorkflowFile whenever the workflow declares hardware or MQTT channels, since the workflow itself is binding-free.
-	DeploymentMappingFile string `env:"ENGINE_DEPLOYMENT_MAPPING_FILE"`
-	// WorkflowFile is the optional path used to mount a workflow directly on engine start, skipping the need for a deploy API call.
-	WorkflowFile string `env:"ENGINE_CONFIG_FILE"`
-	// DeploymentID is an opaque correlation token minted by the backend and baked into the bundle. The engine does not interpret it (it does not select the workflow — ENGINE_CONFIG_FILE does); it only echoes it back in the boot callback so the backend can record which deployment is running.
-	DeploymentID string `env:"ENGINE_DEPLOYMENT_ID"`
+	// ResourceSecrets is the raw JSON for FH_RESOURCE_SECRETS: a map of external-
+	// resource id -> {password, apiKey}, delivered out-of-band (never in the
+	// deployment spec, so it stays rotation-safe and breach-safe) and merged into
+	// the matching connection at boot. Empty when no external resource needs a credential.
+	ResourceSecrets string `env:"FH_RESOURCE_SECRETS"`
+	// BackendURL is the URL of the backend to push logs to and sync memory with
+	BackendURL string `env:"FH_BACKEND_URL"`
 	// LogLevel is the zerolog level name (debug/info/warn/error). Empty and
 	// unknown values fall back to info via logging.ParseLevel.
 	LogLevel string `env:"ENGINE_LOG_LEVEL"`

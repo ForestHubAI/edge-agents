@@ -15,39 +15,26 @@ const StateIdle = ""
 // which retries on the next iteration).
 const defaultEventBufSize = 64
 
-// Runner is the workflow graph interpreter. One Runner executes one workflow
-// and owns the per-deploy transport connections it was built against.
-// Construct via build/ package.
-// Run releases every owned resource via its defer chain on ctx cancellation
-// TransportRegistry is the per-deploy set of transports the Runner owns and
-// releases on shutdown. *transport.Registry satisfies it; kept as an
-// interface so package engine does not import package transport (which would
-// cycle now that transport depends on engine domain types).
-type TransportRegistry interface {
-	CloseAll() error
-}
-
+// Runner is the workflow graph interpreter. One Runner executes one workflow;
+// construct via the build/ package. It borrows the driver and transport
+// registries (owned and closed by main); on exit it releases only what it
+// spawns — the trigger goroutines, via their individual Close.
 type Runner struct {
 	Scope        *Scope
 	Nodes        map[string]Executable
 	Triggers     map[string]Trigger
 	InitialState string
-	Transports   TransportRegistry // released by Run's defer chain on ctx cancellation
 }
 
 // Run starts all trigger goroutines and the state-runner loop. One iteration
 // = one node execution or one event consumed. Runs indefinitely until ctx is
-// cancelled by the caller. On exit (ctx cancellation), every owned resource
-// is released — triggers via their individual Close, transports via
-// Registry.CloseAll. The single ctx is the only lifecycle handle the caller
-// needs.
+// cancelled by the caller. On exit it joins and closes the trigger goroutines;
+// the driver and transport registries it borrowed are closed by their owner
+// (main) after Run returns. The single ctx is the only lifecycle handle the
+// caller needs.
 func (r *Runner) Run(ctx context.Context) error {
 	events := make(chan Event, defaultEventBufSize)
 
-	// Set up defer chain to release owned resources on exit
-	if r.Transports != nil {
-		defer r.Transports.CloseAll()
-	}
 	wait := r.spawnTriggers(ctx, events)
 	defer wait()
 

@@ -11,15 +11,25 @@
 
 import { migrate } from "@foresthubai/workflow-core";
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
+import { deserialize } from "@foresthubai/workflow-core/workflow";
+import { deriveRequirements, buildDeploymentSpec } from "@foresthubai/workflow-core/deploy";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { inspect } from "./inspect";
 import { promptMissing } from "./prompts";
+import { parseDeployComponents, readComponentJson, resolveComponentEnv } from "./components";
+import type { DeployComponent, LoadedComponent } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
 import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
+
+// Resolved component images the spec pins. The engine is currently built locally
+// (bare name → local daemon, renderer's pull_policy never); the llama sidecar is a
+// pinned upstream tag. When engine images are published to a registry, this gains
+// a registry host and the renderer's pull_policy flips to missing.
+const ENGINE_IMAGE = "fh-engine:latest";
+const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -34,6 +44,9 @@ autonomously. Missing values are filled in interactively, or supplied via
 
 LLM provider keys (set one for each catalog model an Agent uses):
 ${ALL_PROVIDERS.map((p) => `  --${p}-key KEY`).join("\n")}
+
+Custom components (extra containers to run alongside the engine):
+  --component DIR                 folder with a component.json (repeatable)
 
 Output:
   --output DIR                    default: ./<workflow-name>-bundle
@@ -60,6 +73,7 @@ export function parseFlags(args: string[]): RawFlags {
       output: { type: "string" },
       "log-level": { type: "string" },
       values: { type: "string" },
+      component: { type: "string", multiple: true },
       force: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -79,6 +93,7 @@ export function parseFlags(args: string[]): RawFlags {
     output: values.output,
     logLevel: values["log-level"],
     values: values.values,
+    component: values.component ?? [],
     force: values.force ?? false,
     help: values.help ?? false,
   };
@@ -196,6 +211,42 @@ export function configFromPartial(p: Partial<DeployConfig>, outputDirDefault: st
   };
 }
 
+// Read and validate the --component folders once, up front, so a bad component.json
+// fails before any prompting (in either mode). Identical folders are deduped
+// (passing one twice is accidental); two distinct folders declaring the same name
+// collide — surfaced here rather than late at spec assembly. Each component is
+// paired with its folder for the later <name>.env step.
+async function loadFlagComponents(dirs: string[]): Promise<LoadedComponent[]> {
+  const uniqueDirs = [...new Set(dirs.map((d) => path.resolve(process.cwd(), d)))];
+  const entries = await Promise.all(
+    uniqueDirs.map(async (dir) => ({ source: path.join(dir, "component.json"), data: await readComponentJson(dir), dir })),
+  );
+  parseDeployComponents(entries); // validates all at once; throws on any gap
+  const seen = new Set<string>();
+  const loaded: LoadedComponent[] = [];
+  for (const e of entries) {
+    const component = e.data as DeployComponent;
+    if (seen.has(component.name)) {
+      throw new Error(`duplicate component name "${component.name}" (two --component folders declare it)`);
+    }
+    seen.add(component.name);
+    loaded.push({ component, dir: e.dir });
+  }
+  return loaded;
+}
+
+// Turn each component's <name>.env.example into <name>.env text. The non-interactive
+// path's env step (stubs empty values); the interactive path resolves env inline as
+// each component is added.
+async function resolveComponentsEnv(loaded: LoadedComponent[]): Promise<Record<string, string>> {
+  const env: Record<string, string> = {};
+  for (const { component, dir } of loaded) {
+    const text = await resolveComponentEnv(dir, component.name, { interactive: false });
+    if (text !== null) env[component.name] = text;
+  }
+  return env;
+}
+
 // ---------------------------------------------------------------------------
 // Entry point — wired into cli/index.ts
 // ---------------------------------------------------------------------------
@@ -246,8 +297,17 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(0);
   }
 
-  // Inspect workflow to derive requirements
-  const req = inspect(workflow);
+  // Deserialize to the domain model, then derive requirements from it. The
+  // resolver (buildDeploymentSpec) is domain-based; deserialize also re-validates
+  // node/channel shapes, failing here rather than mid-build.
+  let domain;
+  try {
+    domain = deserialize(workflow);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+  const req = deriveRequirements(domain);
 
   // Custom models are handled per model in the prompts (on-device sidecar vs. an
   // endpoint the operator runs) and explained accurately in the generated README —
@@ -271,11 +331,30 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   const fileValues = flags.values ? await loadValues(flags.values) : {};
   const partial = partialFromFlags(flags, fileValues);
 
+  // Custom components passed via --component are read and validated up front, so a
+  // bad component.json fails before any prompting (in either mode).
+  let preloaded: LoadedComponent[];
+  try {
+    preloaded = await loadFlagComponents(flags.component);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
   // Interactive at a terminal; otherwise (skill / CI) fail fast on any missing
-  // required value — the values must all arrive via --values.
+  // required value — the values must all arrive via --values. Both modes produce
+  // the same three results: the operator config, the custom components, their env.
   let cfg: DeployConfig;
+  let customComponents: DeployComponent[];
+  let componentEnv: Record<string, string>;
   if (process.stdin.isTTY) {
-    cfg = await promptMissing(partial, outputDirDefault, req, workflowName);
+    ({ config: cfg, customComponents, componentEnv } = await promptMissing(
+      partial,
+      outputDirDefault,
+      req,
+      workflowName,
+      preloaded,
+    ));
   } else {
     const missing = missingRequired(req, partial);
     if (missing.length > 0) {
@@ -285,14 +364,34 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
       process.exit(1);
     }
     cfg = configFromPartial(partial, outputDirDefault);
+    customComponents = preloaded.map((c) => c.component);
+    componentEnv = await resolveComponentsEnv(preloaded);
   }
 
-  // Write the bundle. buildDeployArtifacts (inside writeOutput) re-validates
-  // completeness and throws on a gap — turn that into a clean exit rather than
-  // letting the raw error surface as a stack trace.
+  // Resolve the deployment spec. buildDeploymentSpec re-validates completeness
+  // and throws on a gap — turn that into a clean exit rather than a stack trace.
+  let built;
+  try {
+    built = buildDeploymentSpec(
+      domain,
+      cfg,
+      {
+        id: slugify(workflowName),
+        status: "active",
+        engineImage: ENGINE_IMAGE,
+        llamaServerImage: LLAMA_SERVER_IMAGE,
+      },
+      customComponents,
+    );
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
+  // Write the bundle. Secrets (resourceSecrets) go to .env, never the spec.
   let files: string[];
   try {
-    files = await writeOutput(workflow, cfg, req);
+    files = await writeOutput(built.spec, built.resourceSecrets, cfg, req, componentEnv);
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

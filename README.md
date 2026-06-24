@@ -75,7 +75,13 @@ docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
 docker save fh-engine:latest -o fh-engine.tar
 #   scp fh-engine.tar device:/tmp/   ← then, on the device:
 docker load -i fh-engine.tar
-docker run --rm -p 8081:8081 fh-engine:latest
+
+# The engine boots exactly one workflow, read once from ENGINE_CONFIG_FILE.
+# A `fh-workflow deploy` bundle wires this up for you (see "Deploy a workflow").
+docker run --rm \
+  -v "$PWD/engine-config.json:/etc/foresthub/engine-config.json:ro" \
+  -e ENGINE_CONFIG_FILE=/etc/foresthub/engine-config.json \
+  fh-engine:latest
 ```
 
 Building for the same architecture you're already on? A plain
@@ -86,12 +92,13 @@ The `fh-engine:latest` tag is the one a `fh-workflow deploy` bundle expects (its
 `docker-compose.yml` loads the image with `pull_policy: never`), so an image built here
 drops straight into a generated bundle.
 
-The engine HTTP API listens on `:8081` **on all interfaces**. It runs **standalone by
-default** — no control plane, no account, no outbound calls beyond LLM provider APIs.
-The deploy API is gated by a bearer token: set `ENGINE_SECRET` to enable `/deploy` and
-`/stop` (without it those endpoints are closed and you load a workflow via
-`ENGINE_CONFIG_FILE` instead). `:8081` is meant to sit behind your own network controls,
-not face the public internet. Configure via `ENGINE_*` env vars; see
+The engine is a **headless, immutable runner** — it serves no inbound HTTP. It reads its
+single boot config (workflow + bindings + device manifest) once from `ENGINE_CONFIG_FILE`,
+runs that one workflow, and exits when the workflow does; a boot failure exits the process.
+It runs **standalone by default** — no control plane, no account, no inbound port, no
+outbound calls beyond LLM provider APIs. Setting `FH_BACKEND_URL` (with `ENGINE_SECRET`)
+opts into outbound log shipping and memory sync only; liveness is observed externally from
+the container's exit, not self-reported. Configure via `ENGINE_*` env vars; see
 [`go/cmd/engine/config.go`](go/cmd/engine/config.go).
 
 **Hardware access:** the image runs as a nonroot distroless user, so reaching real GPIO,
@@ -259,8 +266,8 @@ cd edge-agents
 ```sh
 cd go
 go build ./cmd/engine
-./engine                 # runs standalone by default
-go test ./...            # testify-based tests
+ENGINE_CONFIG_FILE=engine-config.json ./engine   # boots the one workflow it's given
+go test ./...                                     # testify-based tests
 ```
 
 **TypeScript packages** (Node ≥ 20):
