@@ -1,6 +1,6 @@
-# Contributing to edge-agents
+# Contributing to Edge Agents
 
-Thanks for your interest in edge-agents! Please read our
+Thanks for your interest in Edge Agents! Please read our
 [Code of Conduct](./CODE_OF_CONDUCT.md) before participating.
 
 > Structure and APIs are still moving. Issues and discussion
@@ -99,7 +99,7 @@ Use clear, prefixed messages: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 
 ## License and Contributor Agreement
 
-edge-agents uses a **two-tier license model**: the `contract/` and
+Edge Agents uses a **two-tier license model**: the `contract/` and
 `ts/workflow-core/` subdirectories are released under [Apache-2.0](../contract/LICENSE),
 and all other components (engine, LLM proxy, workflow-builder, workflow-cli) are released
 under [AGPL-3.0](../LICENSE) with the option for ForestHub to also offer them under a

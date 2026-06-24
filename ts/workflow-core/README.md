@@ -1,7 +1,7 @@
 # @foresthubai/workflow-core
 
 Headless workflow model, serialization, and pure validation for the ForestHub
-[edge-agents](https://github.com/ForestHubAI/edge-agents) platform. No React,
+[Edge Agents](https://github.com/ForestHubAI/edge-agents) platform. No React,
 no DOM, no browser dependencies — this package is the language-neutral
 TypeScript binding for the workflow graph format defined in
 [`contract/workflow.yaml`](https://github.com/ForestHubAI/edge-agents/tree/main/contract).

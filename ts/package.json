@@ -1,7 +1,7 @@
 {
   "name": "@foresthubai/ts",
   "private": true,
-  "description": "TypeScript workspace for the ForestHub open platform (workflow-core, workflow-builder).",
+  "description": "TypeScript workspace for the Edge Agents open platform (workflow-core, workflow-builder).",
   "workspaces": [
     "workflow-core",
     "workflow-builder",
