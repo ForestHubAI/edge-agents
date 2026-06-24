@@ -53,18 +53,15 @@ export function useWorkflowSerialization() {
       store.getState().setVariables(() => canvas.variables);
     }
 
+    // Reconcile project-scoped resources to exactly what this workflow declares.
+    // The editor stores are module-level and outlive the previously loaded project,
+    // so a workflow that declares none of a given kind must still reset it —
+    // otherwise the prior project's channels/memory/models bleed in (the canvas
+    // stores get this for free via clearAllCanvasStores above, as does setFunctions).
     const { channels, memory, models } = state;
-    if (channels && Object.keys(channels).length > 0) {
-      useEditorStore.getState().setChannels(() => channels);
-    }
-    if (memory && Object.keys(memory).length > 0) {
-      useEditorStore.getState().setMemory(() => memory);
-    }
-    if (models && Object.keys(models).length > 0) {
-      useEditorStore.getState().setModels(() => models);
-    }
-    // Replace the full function set (bodies are already initialized above, so the
-    // migration subscription on setFunctions sees populated canvases).
+    useEditorStore.getState().setChannels(() => channels);
+    useEditorStore.getState().setMemory(() => memory);
+    useEditorStore.getState().setModels(() => models);
     useEditorStore.getState().setFunctions(() => state.functions);
 
     // The function canvas stores were created after clearAllCanvasStores' notify,

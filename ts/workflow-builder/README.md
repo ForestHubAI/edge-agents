@@ -1,6 +1,6 @@
 # @foresthubai/workflow-builder
 
-The ForestHub workflow **canvas/editor** — a reusable React component library. It
+The Edge Agents workflow **canvas/editor** — a reusable React component library. It
 renders the visual builder (node graph, panels, dialogs) and pairs with the
 headless [`@foresthubai/workflow-core`](../workflow-core) for the model, serialization
 and validation. Core owns the data; this package owns the UI.
@@ -95,7 +95,7 @@ language, but it never reaches into things the host owns.
 ## License
 
 **AGPL-3.0-only** or a separate commercial license — same dual-license terms as the
-edge-agents engine.
+Edge Agents engine.
 
 Read this before embedding: AGPL-3.0 is **network copyleft (§13)**. Because
 `<WorkflowBuilder>` is a React component you bundle into your own web app, serving that

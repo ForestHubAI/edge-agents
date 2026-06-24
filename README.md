@@ -1,4 +1,4 @@
-# edge-agents
+# Edge Agents
 
 **The 30 MB open-source edge AI agent runtime. Run AI agents offline, on Linux.**
 
@@ -6,7 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/ForestHubAI/edge-agents/go.svg)](https://pkg.go.dev/github.com/ForestHubAI/edge-agents/go)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
-![edge-agents demo](docs/assets/hero.gif)
+![Edge Agents demo](docs/assets/hero.gif)
 
 > *Build an edge agent visually, deploy it to a Raspberry Pi, and let it talk to GPIO, MQTT and local SLMs — no cloud required.*
 
@@ -16,7 +16,7 @@ Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside 
 
 ⭐ **Star the repo** if you think AI agents belong beyond the cloud.
 
-> Today's AI agents live in datacenters. The interesting workloads — sensors, machines, vehicles, gateways — live everywhere else. **edge-agents** brings the agent paradigm to the devices that interact with the real world: small enough to run on a Pi 5, capable enough to drive an industrial controller, with hardware I/O as native primitives instead of REST shims.
+> Today's AI agents live in datacenters. The interesting workloads — sensors, machines, vehicles, gateways — live everywhere else. **Edge Agents** brings the agent paradigm to the devices that interact with the real world: small enough to run on a Pi 5, capable enough to drive an industrial controller, with hardware I/O as native primitives instead of REST shims.
 
 ## What you can build
 
@@ -24,9 +24,9 @@ Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside 
 - **Predictive maintenance on industrial gear** — live vibration stream over MQTT → LLM decides → MQTT alert
 - **Local RAG on a Jetson** *(on the roadmap)* — answers grounded in live sensor and machine state instead of the public web (today the retriever runs against an external backend; a fully on-device RAG path is in progress)
 
-## edge-agents vs other agent frameworks
+## Edge Agents vs other agent frameworks
 
-|                                             | edge-agents             | n8n             | LangGraph        | Dify           | OpenClaw           |
+|                                             | Edge Agents             | n8n             | LangGraph        | Dify           | OpenClaw           |
 | ------------------------------------------- | ----------------------- | --------------- | ---------------- | -------------- | ------------------ |
 | **Runtime size**                            | ~30 MB container        | ~500 MB Docker  | Python library   | ~500 MB Docker | ~1 GB Docker       |
 | **Offline by default**                      | ✅                      | ❌              | depends on host  | ❌             | ❌ datacenter-only |
@@ -38,7 +38,7 @@ Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside 
 
 ---
 
-# Using edge-agents
+# Using Edge Agents
 
 Two pieces: the **engine** (a small container that runs your workflows) and the
 **`fh-workflow` CLI** (authors, validates, and visually edits workflow files). You can
@@ -249,7 +249,7 @@ Digital and analog signal types are first-class in the workflow contract.
 
 ---
 
-# Developing edge-agents
+# Developing Edge Agents
 
 Want to hack on the engine, the builder, or the contract? Clone the repo — `go/` and
 `ts/` are independently buildable and releasable; only `contract/` edits touch both.
@@ -350,7 +350,7 @@ Do not open public issues for security vulnerabilities. Use [GitHub private vuln
 
 ## Learn more
 
-New to edge AI? These guides on foresthub.ai define the concepts edge-agents builds on:
+New to edge AI? These guides on foresthub.ai define the concepts Edge Agents builds on:
 
 - [What is edge AI?](https://www.foresthub.ai/en/glossary#edge-ai) and the [edge agents guide](https://www.foresthub.ai/en/edge-agents): running models and autonomous agents on local devices.
 - [On-device inference](https://www.foresthub.ai/en/glossary#on-device-inference) and [small language models](https://www.foresthub.ai/en/glossary#slm): deciding locally without a cloud round trip.
@@ -360,7 +360,7 @@ New to edge AI? These guides on foresthub.ai define the concepts edge-agents bui
 
 ## Talk to the team
 
-Using `edge-agents` in a product, need a license that isn't AGPL-compatible, or want
+Using Edge Agents in a product, need a license that isn't AGPL-compatible, or want
 help getting an agent onto your hardware? Talk to the people who build it at
 [ForestHub](https://foresthub.ai):
 
@@ -371,13 +371,13 @@ help getting an agent onto your hardware? Talk to the people who build it at
 
 ## License
 
-`edge-agents` uses a **two-tier license model** designed to make the wire format and the headless workflow model maximally reusable while keeping the engine and the visual builder protected under copyleft.
+Edge Agents uses a **two-tier license model** designed to make the wire format and the headless workflow model maximally reusable while keeping the engine and the visual builder protected under copyleft.
 
 | Component                                                                          | License                             | Why                                                                                                                                       |
 | ---------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | [`contract/`](contract) (OpenAPI schemas)                                          | **Apache-2.0**                      | Wire format. Third-party Python, Rust, or Java clients should be free to implement against it.                                            |
 | [`ts/workflow-core`](ts/workflow-core) (headless model)                            | **Apache-2.0**                      | Workflow model and validation. Same reasoning — should be embeddable into any TypeScript/JavaScript project without copyleft friction.    |
-| [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "edge-agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
+| [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "Edge Agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
 | [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                    |
 | [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                        |
 

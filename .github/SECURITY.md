@@ -4,7 +4,7 @@
 
 **Please do NOT open a public issue for security vulnerabilities.**
 
-If you discover a security vulnerability in edge-agents, please report it responsibly:
+If you discover a security vulnerability in Edge Agents, please report it responsibly:
 
 1. Use GitHub's [private vulnerability reporting](https://github.com/ForestHubAI/edge-agents/security/advisories/new), or
 2. Email us at **root@foresthub.ai**.
@@ -25,7 +25,7 @@ We take security reports seriously and will respond as soon as we can.
 
 ## Scope
 
-edge-agents is a workflow runtime engine plus an LLM proxy. Examples of issues we consider
+Edge Agents is a workflow runtime engine plus an LLM proxy. Examples of issues we consider
 security-relevant:
 
 - **Credential leakage** — LLM provider keys (OpenAI / Anthropic / Gemini / …) or
