@@ -16,8 +16,9 @@ import { deriveRequirements, buildDeploymentSpec } from "@foresthubai/workflow-c
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { promptMissing, promptComponentPaths } from "./prompts";
+import { promptMissing } from "./prompts";
 import { parseDeployComponents, readComponentJson, resolveComponentEnv } from "./components";
+import type { DeployComponent, LoadedComponent } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
 import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
@@ -210,6 +211,42 @@ export function configFromPartial(p: Partial<DeployConfig>, outputDirDefault: st
   };
 }
 
+// Read and validate the --component folders once, up front, so a bad component.json
+// fails before any prompting (in either mode). Identical folders are deduped
+// (passing one twice is accidental); two distinct folders declaring the same name
+// collide — surfaced here rather than late at spec assembly. Each component is
+// paired with its folder for the later <name>.env step.
+async function loadFlagComponents(dirs: string[]): Promise<LoadedComponent[]> {
+  const uniqueDirs = [...new Set(dirs.map((d) => path.resolve(process.cwd(), d)))];
+  const entries = await Promise.all(
+    uniqueDirs.map(async (dir) => ({ source: path.join(dir, "component.json"), data: await readComponentJson(dir), dir })),
+  );
+  parseDeployComponents(entries); // validates all at once; throws on any gap
+  const seen = new Set<string>();
+  const loaded: LoadedComponent[] = [];
+  for (const e of entries) {
+    const component = e.data as DeployComponent;
+    if (seen.has(component.name)) {
+      throw new Error(`duplicate component name "${component.name}" (two --component folders declare it)`);
+    }
+    seen.add(component.name);
+    loaded.push({ component, dir: e.dir });
+  }
+  return loaded;
+}
+
+// Turn each component's <name>.env.example into <name>.env text. The non-interactive
+// path's env step (stubs empty values); the interactive path resolves env inline as
+// each component is added.
+async function resolveComponentsEnv(loaded: LoadedComponent[]): Promise<Record<string, string>> {
+  const env: Record<string, string> = {};
+  for (const { component, dir } of loaded) {
+    const text = await resolveComponentEnv(dir, component.name, { interactive: false });
+    if (text !== null) env[component.name] = text;
+  }
+  return env;
+}
+
 // ---------------------------------------------------------------------------
 // Entry point — wired into cli/index.ts
 // ---------------------------------------------------------------------------
@@ -294,11 +331,30 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   const fileValues = flags.values ? await loadValues(flags.values) : {};
   const partial = partialFromFlags(flags, fileValues);
 
+  // Custom components passed via --component are read and validated up front, so a
+  // bad component.json fails before any prompting (in either mode).
+  let preloaded: LoadedComponent[];
+  try {
+    preloaded = await loadFlagComponents(flags.component);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  }
+
   // Interactive at a terminal; otherwise (skill / CI) fail fast on any missing
-  // required value — the values must all arrive via --values.
+  // required value — the values must all arrive via --values. Both modes produce
+  // the same three results: the operator config, the custom components, their env.
   let cfg: DeployConfig;
+  let customComponents: DeployComponent[];
+  let componentEnv: Record<string, string>;
   if (process.stdin.isTTY) {
-    cfg = await promptMissing(partial, outputDirDefault, req, workflowName);
+    ({ config: cfg, customComponents, componentEnv } = await promptMissing(
+      partial,
+      outputDirDefault,
+      req,
+      workflowName,
+      preloaded,
+    ));
   } else {
     const missing = missingRequired(req, partial);
     if (missing.length > 0) {
@@ -308,37 +364,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
       process.exit(1);
     }
     cfg = configFromPartial(partial, outputDirDefault);
-  }
-
-  // Custom components: operator-authored containers merged in beside the engine.
-  // Paths come from --component (any context) plus, at a terminal, an interactive
-  // loop. Each folder's component.json is validated against the contract.
-  const componentDirs = [...flags.component];
-  if (process.stdin.isTTY) componentDirs.push(...(await promptComponentPaths()));
-  let customComponents;
-  try {
-    const raw = await Promise.all(
-      componentDirs.map(async (dir) => ({
-        source: path.join(dir, "component.json"),
-        data: await readComponentJson(dir),
-      })),
-    );
-    customComponents = parseDeployComponents(raw);
-  } catch (err) {
-    process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
-    process.exit(1);
-  }
-
-  // Per custom component, turn its <name>.env.example into <name>.env text (empty
-  // values prompted at a terminal, stubbed otherwise). componentDirs and
-  // customComponents are index-aligned — both built from the same path list.
-  const componentEnv: Record<string, string> = {};
-  for (let i = 0; i < customComponents.length; i++) {
-    const c = customComponents[i];
-    const dir = componentDirs[i];
-    if (!c || dir === undefined) continue;
-    const text = await resolveComponentEnv(dir, c.name, { interactive: process.stdin.isTTY });
-    if (text !== null) componentEnv[c.name] = text;
+    customComponents = preloaded.map((c) => c.component);
+    componentEnv = await resolveComponentsEnv(preloaded);
   }
 
   // Resolve the deployment spec. buildDeploymentSpec re-validates completeness

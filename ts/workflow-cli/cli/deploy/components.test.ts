@@ -1,9 +1,25 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseDeployComponents, parseEnvExample, resolveComponentEnv } from "./components";
+
+// The custom-components loop prompts interactively; mock the prompt lib. The
+// non-interactive resolveComponentEnv tests below never reach these.
+vi.mock("@inquirer/prompts", () => ({
+  confirm: vi.fn(),
+  input: vi.fn(),
+  password: vi.fn(),
+}));
+
+import { confirm, input } from "@inquirer/prompts";
+import {
+  parseDeployComponents,
+  parseEnvExample,
+  promptCustomComponents,
+  resolveComponentEnv,
+  validateComponent,
+} from "./components";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "../../../..");
@@ -55,6 +71,82 @@ describe("parseDeployComponents", () => {
   it("validates the bundled grafana example (self-test)", async () => {
     const raw = await fs.readFile(path.join(repoRoot, "examples/components/grafana/component.json"), "utf-8");
     expect(ok(JSON.parse(raw))).toHaveLength(1);
+  });
+});
+
+describe("validateComponent", () => {
+  it("returns no errors for a valid component", () => {
+    expect(validateComponent({ name: "a", image: "b" })).toEqual([]);
+  });
+  it("names a missing required field", () => {
+    expect(validateComponent({ name: "a" }).join(" ")).toMatch(/image/);
+  });
+  it("names an unknown key", () => {
+    expect(validateComponent({ name: "a", image: "b", oops: 1 }).join(" ")).toMatch(/oops/);
+  });
+});
+
+describe("promptCustomComponents", () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  const withDir = async (fn: (dir: string) => Promise<void>) => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fhcomp-"));
+    try {
+      await fn(dir);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  };
+  const quiet = () => vi.spyOn(process.stdout, "write").mockReturnValue(true);
+
+  it("adds nothing when the operator declines the gate", async () => {
+    vi.mocked(confirm).mockResolvedValue(false);
+    const out = quiet();
+    const result = await promptCustomComponents([]);
+    out.mockRestore();
+    expect(result).toEqual({ components: [], env: {} });
+  });
+
+  it("keeps a preloaded component and resolves its env", async () => {
+    vi.mocked(confirm).mockResolvedValue(false);
+    await withDir(async (dir) => {
+      await fs.writeFile(path.join(dir, "grafana.env.example"), "GF_USER=admin\n");
+      const out = quiet();
+      const result = await promptCustomComponents([{ component: { name: "grafana", image: "g" }, dir }]);
+      out.mockRestore();
+      expect(result.components).toEqual([{ name: "grafana", image: "g" }]);
+      expect(result.env.grafana).toContain("GF_USER=admin");
+    });
+  });
+
+  it("adds a component entered in the loop", async () => {
+    await withDir(async (dir) => {
+      await fs.writeFile(path.join(dir, "component.json"), JSON.stringify({ name: "extra", image: "e" }));
+      vi.mocked(confirm).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      vi.mocked(input).mockResolvedValue(dir);
+      const out = quiet();
+      const result = await promptCustomComponents([]);
+      out.mockRestore();
+      expect(result.components).toEqual([{ name: "extra", image: "e" }]);
+    });
+  });
+
+  it("validates the entered folder at the prompt (path, contract, dedup)", async () => {
+    await withDir(async (dir) => {
+      await fs.writeFile(path.join(dir, "component.json"), JSON.stringify({ name: "extra", image: "e" }));
+      vi.mocked(confirm).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      vi.mocked(input).mockResolvedValue(dir);
+      const out = quiet();
+      await promptCustomComponents([]);
+      out.mockRestore();
+
+      // Pull the recorded folder-prompt validator and exercise its branches. "extra"
+      // is in the seen set now, so re-entering the same folder is rejected.
+      const arg = vi.mocked(input).mock.calls[0]?.[0] as { validate: (v: string) => Promise<string | boolean> };
+      expect(await arg.validate("")).toMatch(/enter a folder/);
+      expect(await arg.validate(path.join(dir, "nope"))).toMatch(/folder not found/);
+      expect(await arg.validate(dir)).toMatch(/already added/);
+    });
   });
 });
 

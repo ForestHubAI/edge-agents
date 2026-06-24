@@ -1,9 +1,11 @@
 // Interactive prompt layer: fills any value the flags didn't provide.
 // This is the "ask" step. Flags pre-fill; prompts cover the rest.
 
-import { checkbox, confirm, input, password, select } from "@inquirer/prompts";
+import { checkbox, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
+import { promptCustomComponents } from "./components";
+import type { DeployComponent, LoadedComponent } from "./components";
 import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
 import type {
   CustomModel,
@@ -181,40 +183,23 @@ async function promptWebSearch(seed: WebSearchBinding | undefined): Promise<WebS
   return { provider, apiKey };
 }
 
-// Collects additional custom-component folder paths interactively: a yes/no gate
-// (default no — most workflows have none) guards each addition, then asks the
-// path. Only gathers paths; reading and contract-validation happen in the caller.
-export async function promptComponentPaths(): Promise<string[]> {
-  const paths: string[] = [];
-  while (
-    await confirm({
-      message: paths.length === 0 ? "Add a custom component?" : "Add another custom component?",
-      default: false,
-    })
-  ) {
-    const entry = await input({
-      message: "Custom component folder",
-      // Instant feedback on a wrong path, with a message matching the actual
-      // problem; the real read + contract-validation happens in the caller
-      // (which also covers the non-interactive --component path).
-      validate: (v) => {
-        const t = v.trim();
-        if (!t) return "enter a folder path";
-        if (!existsSync(t)) return `folder not found: ${t}`;
-        return existsSync(path.join(t, "component.json")) || `no component.json in ${t}`;
-      },
-    });
-    paths.push(entry.trim());
-  }
-  return paths;
+// Everything the interactive wizard gathers: the operator-answer config plus the
+// custom components (and their generated env files). The three are kept apart —
+// DeployConfig stays exactly what buildDeploymentSpec's inputs need; the
+// components ride alongside as a separate resolver argument.
+export interface InteractiveResult {
+  config: DeployConfig;
+  customComponents: DeployComponent[];
+  componentEnv: Record<string, string>;
 }
 
 export async function promptMissing(
   partial: Partial<DeployConfig>,
   outputDirDefault: string,
   req: DeployRequirements,
-  workflowName?: string,
-): Promise<DeployConfig> {
+  workflowName: string,
+  preloadedComponents: LoadedComponent[],
+): Promise<InteractiveResult> {
   // Work out which sections will actually ask something this run. A section the
   // partial (flags / --values) already pre-filled stays silent, so it must get
   // neither a header nor a slot in the [step/total] denominator.
@@ -233,9 +218,10 @@ export async function promptMissing(
     askOut = nonEmpty && !(partial.force ?? false);
   }
 
-  const total = [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(
-    Boolean,
-  ).length;
+  // +1: the custom-components section is always offered (a yes/no gate), so it
+  // always occupies a slot in the denominator, before Output.
+  const total =
+    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(Boolean).length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.
@@ -283,6 +269,12 @@ export async function promptMissing(
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
+  // Custom components — operator-authored containers, unrelated to the workflow
+  // graph, so always offered rather than derived. --component folders arrive
+  // pre-validated and are shown as already added; the loop adds any more.
+  section("Custom components");
+  const { components: customComponents, env: componentEnv } = await promptCustomComponents(preloadedComponents);
+
   // Output directory — with collision handling. If the dir exists and is
   // non-empty, the operator can overwrite, pick another dir, or abort.
   if (askOut) section("Output");
@@ -320,7 +312,7 @@ export async function promptMissing(
     }
   }
 
-  return {
+  const config: DeployConfig = {
     llmKeys,
     outputDir,
     force,
@@ -330,4 +322,5 @@ export async function promptMissing(
     models,
     webSearch,
   };
+  return { config, customComponents, componentEnv };
 }
