@@ -2,6 +2,7 @@ package main
 
 import (
 	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
+	"github.com/ForestHubAI/edge-agents/go/logging"
 
 	"github.com/caarlos0/env/v9"
 )
@@ -19,11 +20,14 @@ type Config struct {
 	// deployment spec, so it stays rotation-safe and breach-safe) and merged into
 	// the matching connection at boot. Empty when no external resource needs a credential.
 	ResourceSecrets string `env:"FH_RESOURCE_SECRETS"`
-	// BackendURL is the URL of the backend to push logs to and sync memory with
+	// BackendURL is the URL of the backend the engine syncs memory with and routes
+	// LLM/RAG ports through. NOT the log destination — log shipping is a separate,
+	// backend-agnostic sink (see Log / FH_LOG_HTTP_URL).
 	BackendURL string `env:"FH_BACKEND_URL"`
-	// LogLevel is the zerolog level name (debug/info/warn/error). Empty and
-	// unknown values fall back to info via logging.ParseLevel.
-	LogLevel string `env:"ENGINE_LOG_LEVEL"`
+	// Log configures the shared logger's sinks (stdout always; opt-in rotating
+	// file + HTTP shipper) via FH_LOG_* env vars. env.Parse recurses in; main sets
+	// Log.Component to "engine" in code before wiring.
+	Log logging.Config
 	// MemoryDir is the local working-copy directory for memory files. The
 	// backend remains the durable source of truth; this is just a
 	// container-local cache.

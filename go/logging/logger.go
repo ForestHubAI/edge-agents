@@ -1,5 +1,7 @@
-// Package logging configures a structured zerolog logger and supplies an
-// HTTP writer for shipping log lines to an arbitrary endpoint.
+// Package logging configures a structured zerolog logger shared by any
+// component (engine, ranger, …). Configure wires the sinks declared by a
+// Config — stdout always, plus an opt-in rotating file and an opt-in HTTP
+// shipper — and returns an io.Closer that drains them at shutdown.
 package logging
 
 import (
@@ -14,16 +16,15 @@ import (
 
 const httpCloseTimeout = 3 * time.Second
 
-// Logger is the engine's package-level logger. Call Configure once
-// at boot to wire the writer graph; read it from anywhere in
-// the engine layer
+// Logger is the package-level logger any component
+// shares. Call Configure once at boot to wire the writer graph; read it
+// from anywhere thereafter.
 var Logger = zerolog.Nop()
 
-// Configure wires the package Logger. Call once from main before any
-// code emits. Writers are fanned in via zerolog.MultiLevelWriter; an
-// empty list discards. The returned io.Closer aggregates Close() over
-// every writer that implements io.Closer.
-func Configure(level zerolog.Level, writers ...io.Writer) io.Closer {
+// wire fans writers into the package Logger via zerolog.MultiLevelWriter; an
+// empty list discards. The returned io.Closer aggregates Close() over every
+// writer that implements io.Closer. Configure (config.go) is the public entry.
+func wire(level zerolog.Level, writers ...io.Writer) io.Closer {
 	var writer io.Writer
 	switch len(writers) {
 	case 0:

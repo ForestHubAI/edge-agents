@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,36 +20,28 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 	"github.com/ForestHubAI/edge-agents/go/mapping"
-	"github.com/rs/zerolog"
 )
 
 func main() {
-	// Bootstrap a stderr logger before LoadConfig so config-load failures
+	// Bootstrap logger (stdout @ info) before LoadConfig so config-load failures
 	// are visible. Re-configured below once cfg is available.
-	logging.Configure(zerolog.InfoLevel, os.Stderr)
+	logging.Configure(logging.Config{})
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		logging.Logger.Fatal().Err(err).Msg("loading configuration")
 	}
 
-	// Re-configure with the user-requested level and the optional HTTPWriter
-	// once cfg is available. Closer drains in-flight HTTP sends so Fatal
-	// events reach the HTTPWriter before exit.
-	level, err := logging.ParseLevel(cfg.LogLevel)
-	if err != nil {
-		logging.Logger.Warn().Err(err).Str("input", cfg.LogLevel).Msg("invalid log level; falling back to info")
-	}
-	writers := []io.Writer{os.Stderr}
-	if cfg.BackendURL != "" && cfg.Secret != "" {
-		writers = append(writers, logging.NewHTTPWriter(cfg.BackendURL+"/agents/logs", "Agent-Key", cfg.Secret))
-	}
-	closer := logging.Configure(level, writers...)
+	// Wire the real sinks from cfg.Log (stdout always; opt-in file + HTTP). The
+	// component name is a code constant, not env; the deployment dimension is never
+	// a logger field — it is structural, carried by the on-device log path Ranger
+	// assigns (device-filesystem.md §5). The closer drains in-flight HTTP sends so
+	// Fatal events land before exit.
+	cfg.Log.Component = "engine"
+	closer := logging.Configure(cfg.Log)
 	defer closer.Close()
+
 	logging.Logger.Info().Str("version", Version).Msg("starting engine")
-	if cfg.BackendURL != "" && cfg.Secret == "" {
-		logging.Logger.Warn().Msg("FH_BACKEND_URL set but ENGINE_SECRET empty — HTTP log pushes will 401")
-	}
 
 	// Create backend client only when configured
 	var backendClient *backend.Client

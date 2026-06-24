@@ -185,27 +185,6 @@ components:
           minLength: 1
           description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
 
-    # ===== Engine events =====
-
-    LogEntry:
-      type: object
-      required: [level, action, summary, msg, time]
-      additionalProperties: true
-      description: "Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest."
-      properties:
-        level:
-          type: string
-          enum: [debug, info, warn, error, fatal]
-        action:
-          type: string
-        summary:
-          type: string
-        msg:
-          type: string
-        time:
-          type: string
-          format: date-time
-
     MemoryFileWrite:
       type: object
       description: Body of PUT /agents/memory/{name}.

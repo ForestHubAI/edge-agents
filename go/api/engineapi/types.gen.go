@@ -6,8 +6,6 @@ package engineapi
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"time"
 
 	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/workflow"
 	"github.com/oapi-codegen/runtime"
@@ -22,33 +20,6 @@ const (
 func (e LLMProviderConfigType) Valid() bool {
 	switch e {
 	case Selfhosted:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for LogEntryLevel.
-const (
-	Debug LogEntryLevel = "debug"
-	Error LogEntryLevel = "error"
-	Fatal LogEntryLevel = "fatal"
-	Info  LogEntryLevel = "info"
-	Warn  LogEntryLevel = "warn"
-)
-
-// Valid indicates whether the value is a known member of the LogEntryLevel enum.
-func (e LogEntryLevel) Valid() bool {
-	switch e {
-	case Debug:
-		return true
-	case Error:
-		return true
-	case Fatal:
-		return true
-	case Info:
-		return true
-	case Warn:
 		return true
 	default:
 		return false
@@ -136,19 +107,6 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// LogEntry Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest.
-type LogEntry struct {
-	Action               string                 `json:"action"`
-	Level                LogEntryLevel          `json:"level"`
-	Msg                  string                 `json:"msg"`
-	Summary              string                 `json:"summary"`
-	Time                 time.Time              `json:"time"`
-	AdditionalProperties map[string]interface{} `json:"-"`
-}
-
-// LogEntryLevel defines model for LogEntry.Level.
-type LogEntryLevel string
-
 // MQTTConnection Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays.
 type MQTTConnection struct {
 	BrokerURL string  `json:"brokerUrl"`
@@ -224,124 +182,6 @@ type SerialConfig struct {
 
 	// Device Serial device path, e.g. "/dev/ttyUSB0" or "COM3"
 	Device string `json:"device"`
-}
-
-// Getter for additional properties for LogEntry. Returns the specified
-// element and whether it was found
-func (a LogEntry) Get(fieldName string) (value interface{}, found bool) {
-	if a.AdditionalProperties != nil {
-		value, found = a.AdditionalProperties[fieldName]
-	}
-	return
-}
-
-// Setter for additional properties for LogEntry
-func (a *LogEntry) Set(fieldName string, value interface{}) {
-	if a.AdditionalProperties == nil {
-		a.AdditionalProperties = make(map[string]interface{})
-	}
-	a.AdditionalProperties[fieldName] = value
-}
-
-// Override default JSON handling for LogEntry to handle AdditionalProperties
-func (a *LogEntry) UnmarshalJSON(b []byte) error {
-	object := make(map[string]json.RawMessage)
-	err := json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["action"]; found {
-		err = json.Unmarshal(raw, &a.Action)
-		if err != nil {
-			return fmt.Errorf("error reading 'action': %w", err)
-		}
-		delete(object, "action")
-	}
-
-	if raw, found := object["level"]; found {
-		err = json.Unmarshal(raw, &a.Level)
-		if err != nil {
-			return fmt.Errorf("error reading 'level': %w", err)
-		}
-		delete(object, "level")
-	}
-
-	if raw, found := object["msg"]; found {
-		err = json.Unmarshal(raw, &a.Msg)
-		if err != nil {
-			return fmt.Errorf("error reading 'msg': %w", err)
-		}
-		delete(object, "msg")
-	}
-
-	if raw, found := object["summary"]; found {
-		err = json.Unmarshal(raw, &a.Summary)
-		if err != nil {
-			return fmt.Errorf("error reading 'summary': %w", err)
-		}
-		delete(object, "summary")
-	}
-
-	if raw, found := object["time"]; found {
-		err = json.Unmarshal(raw, &a.Time)
-		if err != nil {
-			return fmt.Errorf("error reading 'time': %w", err)
-		}
-		delete(object, "time")
-	}
-
-	if len(object) != 0 {
-		a.AdditionalProperties = make(map[string]interface{})
-		for fieldName, fieldBuf := range object {
-			var fieldVal interface{}
-			err := json.Unmarshal(fieldBuf, &fieldVal)
-			if err != nil {
-				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
-			}
-			a.AdditionalProperties[fieldName] = fieldVal
-		}
-	}
-	return nil
-}
-
-// Override default JSON handling for LogEntry to handle AdditionalProperties
-func (a LogEntry) MarshalJSON() ([]byte, error) {
-	var err error
-	object := make(map[string]json.RawMessage)
-
-	object["action"], err = json.Marshal(a.Action)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'action': %w", err)
-	}
-
-	object["level"], err = json.Marshal(a.Level)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'level': %w", err)
-	}
-
-	object["msg"], err = json.Marshal(a.Msg)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'msg': %w", err)
-	}
-
-	object["summary"], err = json.Marshal(a.Summary)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'summary': %w", err)
-	}
-
-	object["time"], err = json.Marshal(a.Time)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling 'time': %w", err)
-	}
-
-	for fieldName, field := range a.AdditionalProperties {
-		object[fieldName], err = json.Marshal(field)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
-		}
-	}
-	return json.Marshal(object)
 }
 
 // AsMQTTConnection returns the union data inside the ExternalResourceConfig as a MQTTConnection

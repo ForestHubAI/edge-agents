@@ -106,18 +106,6 @@ export interface components {
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
         };
-        /** @description Single log event emitted by the engine. The reserved keys (level/action/summary/msg/time) populate dedicated agent_activity columns; any extra top-level keys are bucketed into the details JSONB column on ingest. */
-        LogEntry: {
-            /** @enum {string} */
-            level: "debug" | "info" | "warn" | "error" | "fatal";
-            action: string;
-            summary: string;
-            msg: string;
-            /** Format: date-time */
-            time: string;
-        } & {
-            [key: string]: unknown;
-        };
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
             content: string;

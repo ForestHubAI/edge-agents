@@ -19,6 +19,7 @@ require (
 	github.com/warthog618/go-gpiocdev v0.9.1
 	go.bug.st/serial v1.6.4
 	google.golang.org/genai v1.57.0
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
