@@ -61,14 +61,15 @@ these and lists any gap before refusing to run:
 | `Agent` using a catalog model | nothing *blocking* — but the matching `llmKeys` entry is needed at **build** time | **yes** |
 
 **Secret fields:** `llmKeys.*`, `mqtt.*.password`, `webSearch.apiKey`, `models.*.apiKey` (network).
-These end up in `.env` / `external_resources.json`, both written `chmod 600`. The skill never asks
+These all end up in `engine.env` (the provider/web-search keys directly; the MQTT passwords and
+network-model keys inside the `FH_RESOURCE_SECRETS` blob), written `chmod 600`. The skill never asks
 for or writes a real secret — it writes a **sentinel placeholder** (see below) so the value is
 present (the command runs) but obviously not real, and the operator swaps it in afterwards.
 
 Note the last row: a provider key is **not** blocking — the bundle generates without it — but an
 `Agent` that references a catalog model (e.g. `claude-haiku-4-5`, a model **not** declared in
-`workflow.models`) will fail at engine build time if the key is absent from `.env`. So treat it as
-required-for-a-working-bundle and surface a placeholder.
+`workflow.models`) will fail at engine build time if the key is absent from `engine.env`. So treat it
+as required-for-a-working-bundle and surface a placeholder.
 
 ## Reading the workflow to know what to fill
 
@@ -117,8 +118,8 @@ REPLACE_ME_MODEL_API_KEY
 ```
 
 A placeholder is non-empty, so the deploy command's required-checks pass and the value flows into
-`.env` / `external_resources.json` (already `chmod 600`). The final report lists every placeholder
-the operator must replace there before the bundle will actually run.
+`engine.env` (already `chmod 600`). The final report lists every placeholder the operator must replace
+there before the bundle will actually run.
 
 ## A complete annotated example
 

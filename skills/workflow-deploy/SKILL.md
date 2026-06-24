@@ -1,27 +1,30 @@
 ---
 name: workflow-deploy
-description: Turn a finished ForestHub *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama-server sidecars) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
+description: Turn a finished ForestHub *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama-server sidecars + any operator-authored custom components) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
 ---
 
 # workflow-deploy
 
 Take a validated `*.workflow.json` and produce a **standalone deployment bundle** the operator can
-build and run on an edge controller: `docker-compose.yml`, the workflow, a filled-in `.env`, a
-`README.md`, and — depending on what the workflow uses — a device manifest, external-resources, a
-deployment mapping, and one `llama-server` sidecar per on-device model.
+build and run on an edge controller: `docker-compose.yml`, the engine's boot config
+(`engine-config.json` — workflow + device manifest + mappings + external resources, all in one blob),
+a filled-in `engine.env`, a `deployment-spec.json` record, a `README.md`, and — depending on what the
+workflow uses — one `llama-server` sidecar per on-device model, plus any operator-authored custom
+components.
 
-The bundle is always **standalone**: the engine boots straight from `workflow.json` and runs on its
-own, no control plane. There is no clever first draft to get right — correctness comes from a
+The bundle is always **standalone**: the engine boots straight from `engine-config.json` and runs on
+its own, no control plane. There is no clever first draft to get right — correctness comes from a
 **read → ask/confirm → deploy → fix loop**, where the `fh-workflow deploy` command's own validation
 is the ground truth. You read the workflow to know _what_ to ask, the operator supplies the physical
 values, and the command tells you the moment anything required is missing.
 
 **What you actually produce is one file — the `--values` JSON.** From that file plus the workflow,
-`fh-workflow deploy` generates the _whole_ bundle on its own: the compose file, the `.env`, the
-`README.md`, the device manifest, the mappings, the sidecars. You never hand-write any of those. So
-the task reduces to exactly this: read the workflow, ask the operator for **every** value that can go
-into the values file — required and optional alike — write the file in the right shape, and run one
-command. Get the values file right and the bundle is right.
+`fh-workflow deploy` generates the _whole_ bundle on its own: the compose file, `engine.env`, the
+`engine-config.json` (workflow + manifest + mappings + resources), `deployment-spec.json`, the
+`README.md`, the sidecars. You never hand-write any of those. So the task reduces to exactly this:
+read the workflow, ask the operator for **every** value that can go into the values file — required
+and optional alike — write the file in the right shape, point at any custom-component folders, and
+run one command. Get the values file right and the bundle is right.
 
 ## When to use
 
@@ -66,8 +69,8 @@ the conversation.** Concretely:
   replace. They fill the real values directly in the bundle's `chmod 600` files.
 - **Never read secrets from the environment** to "be helpful" — no `cat`-ing `.env`-like files, no
   `printenv`. The operator's shell secrets are not yours to pick up.
-- **Never `cat` or print `.env` or `external_resources.json`** (the bundle's two `chmod 600` files).
-  Inspect them by `ls -l` / mode only, never content.
+- **Never `cat` or print `engine.env` or any custom component's `<name>.env`** (the bundle's `chmod
+  600` files). Inspect them by `ls -l` / mode only, never content.
 - The `--values` file you assemble may still be sensitive — write it `chmod 600`, never echo it, and
   remove it after the deploy.
 
@@ -158,8 +161,8 @@ Fields that have no sensible default (no default — pure input, or _skip_ if op
 - every **secret** (provider key, MQTT password, web-search key) — never a value, only a
   `REPLACE_ME_…` placeholder (see Step 3)
 
-**`logLevel` is not a question** — default it to `info` silently (the operator tweaks `.env` on the
-controller). **`force` is not a standalone question** either; it only arises from the output-dir
+**`logLevel` is not a question** — default it to `info` silently (the operator tweaks `engine.env` on
+the controller). **`force` is not a standalone question** either; it only arises from the output-dir
 collision flow above. Use the type→family→device-path table in `reference/values.md` so hardware
 questions stay concrete ("`gpioin` is a GPIO channel — which `gpiochip` and line?"), not open-ended.
 
@@ -168,8 +171,9 @@ network-model key, don't request the value — ask only _whether it applies_ (e.
 need auth?"), and if so write a `REPLACE_ME_…` placeholder in Step 3 and report it in Step 5. The
 operator fills the real secret afterward.
 
-Not a values-file field: per-model context size (`LLAMA_CTX_SIZE`) is a line in the generated `.env`,
-not something you set here — leave it; the operator can tweak it on the controller.
+Not a values-file field: a device model's context window is **not** something you set here — the
+deploy freezes it into the sidecar's compose `command` (default 4096), and changing it is a re-deploy,
+not an env edit.
 
 ## Step 3: Assemble the `--values` file
 
@@ -185,9 +189,33 @@ VALUES="$(mktemp)"; chmod 600 "$VALUES"
 ```
 
 Put **everything the operator chose** into this one file — including `outputDir`, `logLevel`, and
-`force` — so the values file is the single source of truth and the command line stays just
-`--values`. Omit only the optional fields the operator skipped (the command fills their defaults).
-Don't print the file's contents back.
+`force` — so the values file is the single source of truth and the command line stays just `--values`
+(plus any `--component` folders from the next step). Omit only the optional fields the operator skipped
+(the command fills their defaults). Don't print the file's contents back.
+
+## Step 3b: Custom components (optional)
+
+Beyond what the workflow needs, the operator may want to **co-deploy extra containers** alongside the
+engine — a dashboard, a local metrics agent, a companion service. These are **custom components**, and
+they are deliberately separate from everything above: they do **not** go in the `--values` file, and
+they are **never** matched against the workflow graph — they just ride along in the same
+`docker-compose.yml`.
+
+A custom component is a **folder the operator already authored**, holding a `component.json` (the
+container's declaration: name, image, `pull` policy, ports, volumes, an optional `config` blob) and
+optionally a `<name>.env.example`. So this step is purely: **ask whether they have any such folders to
+include**, and if so collect the path(s) — one per component. Pass each with a repeatable
+`--component <folder>` flag on the deploy command (Step 4). If they have none, **skip this entirely**.
+
+- **Never author a `component.json` yourself** and never invent a folder — a custom component is the
+  operator's artifact; you only point at it.
+- **Secrets stay folder-local.** A component's `<name>.env.example` becomes a `chmod 600` `<name>.env`
+  in the bundle: filled (non-secret) defaults are taken, and any **empty** value is left blank — never
+  prompted, never invented. These are placeholders the operator fills, exactly like `engine.env`; list
+  the `<name>.env` files in Step 5.
+- The deploy **validates each `component.json` against the contract**. A wrong shape, an unknown key,
+  or two folders declaring the same name makes it exit non-zero with a precise message (Step 4) — fix
+  the named folder or drop its `--component` flag, then re-run.
 
 ## Step 4: Deploy — run it, then fix what it reports
 
@@ -195,10 +223,13 @@ Run the command headlessly (no terminal ⇒ it takes the `--values` path):
 
 ```bash
 fh-workflow deploy <workflow.json> --values "$VALUES"
+# with custom components (Step 3b), add one --component per folder:
+#   fh-workflow deploy <workflow.json> --values "$VALUES" --component ./grafana --component ./broker
 ```
 
 The output dir and log level live in the values file, so the command line needs nothing but
-`--values`. This is the gate. On a **non-zero exit**, read the message and resolve it, then run again:
+`--values` (plus any `--component` folders). This is the gate. On a **non-zero exit**, read the
+message and resolve it, then run again:
 
 - **`Invalid values file (not a partial deploy config)`** — the file failed schema validation; each
   line names the exact spot and reason (e.g. `hardware.btn.index: expected number, received string`,
@@ -214,6 +245,9 @@ The output dir and log level live in the values file, so the command line needs 
   _wipes_ the dir. Set the result in the values file and re-run.
 - **references a Retriever node** — the hard stop from Step 1; a standalone bundle can't run it.
   Don't try to force it; report it.
+- **`invalid custom component(s)`** / **`duplicate component name`** — a `--component` folder's
+  `component.json` failed contract validation (wrong shape, unknown key) or two folders declare the
+  same name. Fix the named folder or drop its `--component` flag, re-run.
 
 Cap at ~5 iterations. If gaps remain, report them honestly rather than claiming success — never
 finish on a red exit. **Remove the values file on the way out either way** — `rm -f "$VALUES"` after
@@ -225,13 +259,15 @@ a successful deploy *and* when you give up — so the throwaway never lingers. (
 Give the operator:
 
 1. **The bundle path and its files** — take this verbatim from the command's own success output;
-   don't reason about which files "should" be there. The CLI always writes `workflow.json`,
-   `docker-compose.yml`, `.env`, and `README.md` (even a no-secrets bundle has a `.env` — it carries
-   the log level), and adds the manifest / mapping / external-resources files when the workflow needs
-   them. Never claim a file is absent that the command listed.
-2. **The placeholders they must still fill** — prominently. List every `REPLACE_ME_…` you wrote and
-   where it landed (`.env` for provider/web-search keys; `external_resources.json` for MQTT
-   passwords / network-model keys). Remind them both files are `chmod 600` and to keep them so.
+   don't reason about which files "should" be there. The CLI always writes `engine-config.json`,
+   `docker-compose.yml`, `engine.env`, `deployment-spec.json`, and `README.md` (even a no-secrets
+   bundle has an `engine.env` — it carries the log level), and adds a `models/` folder, a custom
+   component's `<name>.env` / `<name>-config.json`, etc. when the setup needs them. Never claim a file
+   is absent that the command listed.
+2. **The placeholders they must still fill** — prominently. List every `REPLACE_ME_…` you wrote; they
+   all land in `engine.env` (provider/web-search keys directly, MQTT passwords and network-model keys
+   inside the `FH_RESOURCE_SECRETS` blob). Also flag any custom component's `<name>.env`, where empty
+   values were left blank. Remind them every such file is `chmod 600` and to keep it so.
 3. **The defaultable values you set** (output dir, log level, and any baud), each with its
    value, and ask plainly whether any should change — so nothing was decided silently.
 4. **The next step, without doing it**: build, transfer, and run are manual and documented in the
@@ -244,7 +280,7 @@ Give the operator:
   shape — let `fh-workflow deploy` write the bundle and let its validation drive you. A bundle you
   assembled by hand is not done.
 - **Secrets never touch the chat.** Placeholders only; never ask for, read, or print a real secret;
-  never `cat` `.env` / `external_resources.json`. This is the one firm rule.
+  never `cat` `engine.env` or a custom component's `<name>.env`. This is the one firm rule.
 - **Retriever ⇒ no standalone deploy.** Stop and say so; don't work around it.
 - **Standalone only.** This bundle has no control plane — the engine runs the one workflow it was
   built with.
