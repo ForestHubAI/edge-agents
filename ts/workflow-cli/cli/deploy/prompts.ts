@@ -28,6 +28,7 @@ const HARDWARE_EXAMPLE: Record<HardwareFamily, string> = {
   dac: "/sys/bus/iio/devices/iio:device1",
   pwm: "/sys/class/pwm/pwmchip0",
   serial: "/dev/ttyUSB0",
+  camera: "/dev/video0",
 };
 
 const isUint = (v: string) => /^\d+$/.test(v.trim()) || "enter a non-negative integer";
@@ -80,6 +81,15 @@ async function promptHardware(
     if (ch.family === "serial") {
       const baud = await input({ message: `${ch.label}: baud rate`, default: "115200", validate: isUint });
       binding.baud = Number(baud.trim());
+    }
+    if (ch.family === "camera") {
+      binding.backend = await select({
+        message: `${ch.label}: capture backend`,
+        choices: [
+          { value: "v4l2", name: "v4l2 — USB / UVC cameras" },
+          { value: "gstreamer", name: "gstreamer — CSI / libcamera (ISP) cameras" },
+        ],
+      });
     }
     result[ch.id] = binding;
     claim(hardwareAddressKey(ch.family, dev, binding.index), ch.label);

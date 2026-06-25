@@ -62,6 +62,15 @@ type PWMDriver interface {
 	WriteAnalog(channel int, duty float64) error
 }
 
+// CameraDriver captures still frames from one camera. The capture backend
+// is selected per camera from the device manifest.
+type CameraDriver interface {
+	Driver
+	// Capture grabs one frame at width×height and returns the encoded image
+	// bytes. A zero width or height requests the source's native resolution.
+	Capture(ctx context.Context, width, height int) ([]byte, error)
+}
+
 // SerialDriver handles one serial port. Read and WatchRead share the same
 // line stream with stealing semantics — an in-flight Read takes a line
 // before the WatchRead callback.

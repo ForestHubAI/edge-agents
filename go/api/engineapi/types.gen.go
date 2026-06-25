@@ -11,6 +11,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CameraConfigBackend.
+const (
+	Gstreamer CameraConfigBackend = "gstreamer"
+	V4l2      CameraConfigBackend = "v4l2"
+)
+
+// Valid indicates whether the value is a known member of the CameraConfigBackend enum.
+func (e CameraConfigBackend) Valid() bool {
+	switch e {
+	case Gstreamer:
+		return true
+	case V4l2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LLMProviderConfigType.
 const (
 	Selfhosted LLMProviderConfigType = "selfhosted"
@@ -47,6 +65,18 @@ type ADCConfig struct {
 	Device string `json:"device"`
 }
 
+// CameraConfig defines model for CameraConfig.
+type CameraConfig struct {
+	// Backend Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+	Backend CameraConfigBackend `json:"backend"`
+
+	// Device Capture source. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc".
+	Device string `json:"device"`
+}
+
+// CameraConfigBackend Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+type CameraConfigBackend string
+
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
@@ -59,6 +89,7 @@ type DeploymentMapping map[string]ResourceBinding
 // DeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 type DeviceManifest struct {
 	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
+	Cameras *map[string]CameraConfig `json:"cameras,omitempty"`
 	Dacs    *map[string]DACConfig    `json:"dacs,omitempty"`
 	Gpios   *map[string]GPIOConfig   `json:"gpios,omitempty"`
 	Pwms    *map[string]PWMConfig    `json:"pwms,omitempty"`

@@ -293,6 +293,16 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           output: data.arguments.output,
         },
       };
+    case "CameraCapture":
+      return {
+        id: data.id,
+        type: data.type,
+        position: position,
+        arguments: {
+          cameraReference: data.arguments.cameraReference!,
+          output: data.arguments.output,
+        },
+      };
   }
 }
 
@@ -523,7 +533,8 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          // MQTT carries scalar payloads only; `image` is not a valid MQTT dataType.
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
           value: apiNode.arguments.value,
           qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
           retain: apiNode.arguments.retain,
@@ -536,7 +547,18 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          // MQTT carries scalar payloads only; `image` is not a valid MQTT dataType.
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
+          output: apiNode.arguments.output as OutputBinding,
+        },
+      };
+    case "CameraCapture":
+      return {
+        id: apiNode.id,
+        type: apiNode.type,
+        label: apiNode.label,
+        arguments: {
+          cameraReference: apiNode.arguments.cameraReference ?? "",
           output: apiNode.arguments.output as OutputBinding,
         },
       };

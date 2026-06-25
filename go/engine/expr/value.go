@@ -19,13 +19,16 @@ import (
 // host language's compiler.
 type Value struct {
 	Type workflow.DataType
-	Raw  any // int64, float64, bool, or string
+	Raw  any // int64, float64, bool, string, or []byte (image)
 }
 
 func IntVal(v int64) Value     { return Value{Type: workflow.Int, Raw: v} }
 func FloatVal(v float64) Value { return Value{Type: workflow.Float, Raw: v} }
 func BoolVal(v bool) Value     { return Value{Type: workflow.Bool, Raw: v} }
 func StringVal(v string) Value { return Value{Type: workflow.String, Raw: v} }
+
+// ImageVal wraps captured image bytes as an opaque value — no Cast/AsX path.
+func ImageVal(v []byte) Value { return Value{Type: workflow.Image, Raw: v} }
 
 // ZeroValue returns the zero value for a given data type.
 func ZeroValue(dt workflow.DataType) Value {
@@ -36,6 +39,8 @@ func ZeroValue(dt workflow.DataType) Value {
 		return FloatVal(0)
 	case workflow.Bool:
 		return BoolVal(false)
+	case workflow.Image:
+		return ImageVal(nil)
 	default:
 		return StringVal("")
 	}

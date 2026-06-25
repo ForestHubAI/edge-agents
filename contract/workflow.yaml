@@ -8,7 +8,7 @@ components:
   schemas:
     DataType:
       type: string
-      enum: [int, float, bool, string]
+      enum: [int, float, bool, string, image]
 
     SignalType:
       type: string
@@ -346,6 +346,7 @@ components:
         - $ref: "#/components/schemas/SetVariableNode"
         - $ref: "#/components/schemas/MqttPublishNode"
         - $ref: "#/components/schemas/OnMqttMessageNode"
+        - $ref: "#/components/schemas/CameraCaptureNode"
       discriminator:
         propertyName: type
         mapping:
@@ -370,6 +371,7 @@ components:
           SetVariable: "#/components/schemas/SetVariableNode"
           MqttPublish: "#/components/schemas/MqttPublishNode"
           OnMqttMessage: "#/components/schemas/OnMqttMessageNode"
+          CameraCapture: "#/components/schemas/CameraCaptureNode"
 
     WebSearchToolNode:
       type: object
@@ -648,6 +650,24 @@ components:
             value:
               $ref: "#/components/schemas/Expression"
 
+    CameraCaptureNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [CameraCapture] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [output]
+          properties:
+            cameraReference:
+              type: string
+              description: Reference to a CAMERA channel ID (the channel carries optional capture defaults; resolved to a camera driver at deploy time)
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
     AgentNode:
       type: object
       required: [id, type, arguments, position]
@@ -815,6 +835,7 @@ components:
         - $ref: "#/components/schemas/UARTChannel"
         - $ref: "#/components/schemas/MQTTChannel"
         - $ref: "#/components/schemas/LOGChannel"
+        - $ref: "#/components/schemas/CAMERAChannel"
       discriminator:
         propertyName: type
         mapping:
@@ -826,6 +847,7 @@ components:
           UART: "#/components/schemas/UARTChannel"
           MQTT: "#/components/schemas/MQTTChannel"
           LOG: "#/components/schemas/LOGChannel"
+          CAMERA: "#/components/schemas/CAMERAChannel"
 
     GPIOINChannel:
       type: object
@@ -910,3 +932,17 @@ components:
         tag:
           type: string
           description: Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.
+
+    CAMERAChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [CAMERA] }
+        id: { type: string }
+        label: { type: string }
+        width:
+          type: integer
+          description: Default capture width in pixels. The source picks its native resolution when omitted.
+        height:
+          type: integer
+          description: Default capture height in pixels. The source picks its native resolution when omitted.

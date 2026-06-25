@@ -63,6 +63,7 @@ export function getPorts(node: NodeData): PortDefinitions {
     case "WritePin":
     case "SerialWrite":
     case "MqttPublish":
+    case "CameraCapture":
       return {
         input: [{ id: "ctrl", type: "control" }],
         output: [{ id: "ctrl", type: "control" }],

@@ -83,6 +83,9 @@ export interface components {
             pwms?: {
                 [key: string]: components["schemas"]["PWMConfig"];
             };
+            cameras?: {
+                [key: string]: components["schemas"]["CameraConfig"];
+            };
         };
         GPIOConfig: {
             /** @description cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0" */
@@ -105,6 +108,15 @@ export interface components {
         PWMConfig: {
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
+        };
+        CameraConfig: {
+            /**
+             * @description Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+             * @enum {string}
+             */
+            backend: "v4l2" | "gstreamer";
+            /** @description Capture source. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc". */
+            device: string;
         };
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
@@ -167,7 +179,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "image";
         Expression: {
             expression: string;
             /** @description A list of referenced variable IDs used in the expression */
@@ -535,7 +547,22 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        CameraCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CameraCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a CAMERA channel ID (the channel carries optional capture defaults; resolved to a camera driver at deploy time) */
+                cameraReference?: string;
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"] | components["schemas"]["CameraCaptureNode"];
         /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
         Vertex: {
@@ -669,7 +696,20 @@ export interface components {
             /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
             tag?: string;
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        CAMERAChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CAMERA";
+            id: string;
+            label: string;
+            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
+            width?: number;
+            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
+            height?: number;
+        };
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"] | components["schemas"]["CAMERAChannel"];
         /** @description One .md file that agent nodes can read and write to. */
         MemoryFile: {
             /**

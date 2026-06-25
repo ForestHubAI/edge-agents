@@ -27,6 +27,7 @@ type channels struct {
 	uarts       map[string]*channel.UART
 	mqtts       map[string]*channel.MQTT
 	logs        map[string]*channel.Log
+	cameras     map[string]*channel.Camera
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
@@ -47,6 +48,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 		uarts:       make(map[string]*channel.UART),
 		mqtts:       make(map[string]*channel.MQTT),
 		logs:        make(map[string]*channel.Log),
+		cameras:     make(map[string]*channel.Camera),
 	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
@@ -152,6 +154,20 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
+		case workflow.CAMERAChannel:
+			b, err := bindingFor(dm, x.Id)
+			if err != nil {
+				return nil, err
+			}
+			d, err := drvs.Camera(b.Ref)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+			}
+			ch.cameras[x.Id] = &channel.Camera{
+				Driver: d,
+				Width:  pointer.Val(x.Width),
+				Height: pointer.Val(x.Height),
+			}
 		case workflow.MQTTChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
@@ -263,6 +279,11 @@ func (ch *channels) SetupAll() error {
 			return fmt.Errorf("log %q: %w", id, err)
 		}
 	}
+	for id, v := range ch.cameras {
+		if err := v.Setup(); err != nil {
+			return fmt.Errorf("camera %q: %w", id, err)
+		}
+	}
 	return nil
 }
 
@@ -310,6 +331,14 @@ func (ch *channels) uart(id string) (*channel.UART, error) {
 	v, ok := ch.uarts[id]
 	if !ok {
 		return nil, fmt.Errorf("no UART channel %q", id)
+	}
+	return v, nil
+}
+
+func (ch *channels) camera(id string) (*channel.Camera, error) {
+	v, ok := ch.cameras[id]
+	if !ok {
+		return nil, fmt.Errorf("no CAMERA channel %q", id)
 	}
 	return v, nil
 }

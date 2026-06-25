@@ -15,6 +15,7 @@ type Registry struct {
 	dacs    map[string]DACDriver
 	pwms    map[string]PWMDriver
 	serials map[string]SerialDriver
+	cameras map[string]CameraDriver
 }
 
 // NewRegistry opens every driver declared in the manifest. On any failure,
@@ -28,6 +29,7 @@ func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
 		dacs:    make(map[string]DACDriver),
 		pwms:    make(map[string]PWMDriver),
 		serials: make(map[string]SerialDriver),
+		cameras: make(map[string]CameraDriver),
 	}
 	for id, cfg := range m.GPIOs {
 		d, err := OpenGPIO(cfg.Chip)
@@ -69,6 +71,14 @@ func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
 		}
 		r.pwms[id] = d
 	}
+	for id, cfg := range m.Cameras {
+		d, err := OpenCamera(CameraBackend(cfg.Backend), cfg.Device)
+		if err != nil {
+			r.CloseAll()
+			return nil, fmt.Errorf("camera %q: %w", id, err)
+		}
+		r.cameras[id] = d
+	}
 	return r, nil
 }
 
@@ -80,6 +90,7 @@ func (r *Registry) ADC(id string) (ADCDriver, error)       { return lookup(r.adc
 func (r *Registry) DAC(id string) (DACDriver, error)       { return lookup(r.dacs, "dac", id) }
 func (r *Registry) PWM(id string) (PWMDriver, error)       { return lookup(r.pwms, "pwm", id) }
 func (r *Registry) Serial(id string) (SerialDriver, error) { return lookup(r.serials, "serial", id) }
+func (r *Registry) Camera(id string) (CameraDriver, error) { return lookup(r.cameras, "camera", id) }
 
 // CloseAll shuts down every driver. Returns the first error encountered;
 // keeps going on failures so no handle leaks.
@@ -90,6 +101,7 @@ func (r *Registry) CloseAll() error {
 	closeFamily(r.dacs, "dac", &firstErr)
 	closeFamily(r.pwms, "pwm", &firstErr)
 	closeFamily(r.serials, "serial", &firstErr)
+	closeFamily(r.cameras, "camera", &firstErr)
 	return firstErr
 }
 

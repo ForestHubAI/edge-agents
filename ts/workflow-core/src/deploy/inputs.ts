@@ -10,11 +10,13 @@
 // them resolved inline.
 
 // One hardware channel's physical address. `index` = sub-address (addressable
-// families: GPIO line, ADC/DAC/PWM channel); `baud` = serial only.
+// families: GPIO line, ADC/DAC/PWM channel); `baud` = serial only; `backend` =
+// camera only (which engine capture driver runs).
 export interface HardwareBinding {
   chipOrDevice: string;
   index?: number;
   baud?: number;
+  backend?: "v4l2" | "gstreamer";
 }
 
 // One MQTT channel's broker connection.

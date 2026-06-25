@@ -176,6 +176,15 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
+		case workflow.CameraCaptureNode:
+			cam, err := b.channels.camera(pointer.Val(nd.Arguments.CameraReference))
+			if err != nil {
+				return "", fmt.Errorf("node %s: %w", nd.Id, err)
+			}
+			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, cam)
+			b.allNodes[nd.Id] = n
+			b.actions[nd.Id] = n
+
 		case workflow.MqttPublishNode:
 			if nd.Arguments.ChannelReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "channelReference"}

@@ -245,6 +245,7 @@ export function buildDeploymentSpec(
   const dacs: Record<string, EngineSchemas["DACConfig"]> = {};
   const pwms: Record<string, EngineSchemas["PWMConfig"]> = {};
   const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
+  const cameras: Record<string, EngineSchemas["CameraConfig"]> = {};
 
   const externalResources: EngineSchemas["ExternalResources"] = {};
   const mapping: EngineSchemas["DeploymentMapping"] = {};
@@ -283,6 +284,10 @@ export function buildDeploymentSpec(
       case "dac":
         dacs[ref] = { device: dev };
         privileged = true;
+        break;
+      case "camera":
+        if (!b.backend) throw new Error(`camera channel ${ch.id} has no capture backend`);
+        cameras[ref] = { backend: b.backend, device: dev };
         break;
       default:
         return assertNeverFamily(ch.family);
@@ -356,6 +361,7 @@ export function buildDeploymentSpec(
   if (Object.keys(dacs).length) manifest.dacs = dacs;
   if (Object.keys(pwms).length) manifest.pwms = pwms;
   if (Object.keys(serials).length) manifest.serials = serials;
+  if (Object.keys(cameras).length) manifest.cameras = cameras;
 
   // The engine's boot input. workflow is serialized (and thereby pruned) from
   // the domain. The optional sections attach only when non-empty — an absent

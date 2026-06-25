@@ -56,6 +56,36 @@ func (e AlarmNodeType) Valid() bool {
 	}
 }
 
+// Defines values for CAMERAChannelType.
+const (
+	CAMERA CAMERAChannelType = "CAMERA"
+)
+
+// Valid indicates whether the value is a known member of the CAMERAChannelType enum.
+func (e CAMERAChannelType) Valid() bool {
+	switch e {
+	case CAMERA:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CameraCaptureNodeType.
+const (
+	CameraCapture CameraCaptureNodeType = "CameraCapture"
+)
+
+// Valid indicates whether the value is a known member of the CameraCaptureNodeType enum.
+func (e CameraCaptureNodeType) Valid() bool {
+	switch e {
+	case CameraCapture:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DACChannelType.
 const (
 	DAC DACChannelType = "DAC"
@@ -75,6 +105,7 @@ func (e DACChannelType) Valid() bool {
 const (
 	Bool   DataType = "bool"
 	Float  DataType = "float"
+	Image  DataType = "image"
 	Int    DataType = "int"
 	String DataType = "string"
 )
@@ -85,6 +116,8 @@ func (e DataType) Valid() bool {
 	case Bool:
 		return true
 	case Float:
+		return true
+	case Image:
 		return true
 	case Int:
 		return true
@@ -804,6 +837,37 @@ type AlarmNode struct {
 
 // AlarmNodeType defines model for AlarmNode.Type.
 type AlarmNodeType string
+
+// CAMERAChannel defines model for CAMERAChannel.
+type CAMERAChannel struct {
+	// Height Default capture height in pixels. The source picks its native resolution when omitted.
+	Height *int              `json:"height,omitempty"`
+	Id     string            `json:"id"`
+	Label  string            `json:"label"`
+	Type   CAMERAChannelType `json:"type"`
+
+	// Width Default capture width in pixels. The source picks its native resolution when omitted.
+	Width *int `json:"width,omitempty"`
+}
+
+// CAMERAChannelType defines model for CAMERAChannel.Type.
+type CAMERAChannelType string
+
+// CameraCaptureNode defines model for CameraCaptureNode.
+type CameraCaptureNode struct {
+	Arguments struct {
+		// CameraReference Reference to a CAMERA channel ID (the channel carries optional capture defaults; resolved to a camera driver at deploy time)
+		CameraReference *string       `json:"cameraReference,omitempty"`
+		Output          OutputBinding `json:"output"`
+	} `json:"arguments"`
+	Id       string                `json:"id"`
+	Label    *string               `json:"label,omitempty"`
+	Position NodePosition          `json:"position"`
+	Type     CameraCaptureNodeType `json:"type"`
+}
+
+// CameraCaptureNodeType defines model for CameraCaptureNode.Type.
+type CameraCaptureNodeType string
 
 // Channel defines model for Channel.
 type Channel struct {
@@ -1670,6 +1734,34 @@ func (t *Channel) MergeLOGChannel(v LOGChannel) error {
 	return err
 }
 
+// AsCAMERAChannel returns the union data inside the Channel as a CAMERAChannel
+func (t Channel) AsCAMERAChannel() (CAMERAChannel, error) {
+	var body CAMERAChannel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCAMERAChannel overwrites any union data inside the Channel as the provided CAMERAChannel
+func (t *Channel) FromCAMERAChannel(v CAMERAChannel) error {
+	v.Type = "CAMERA"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCAMERAChannel performs a merge with any union data inside the Channel, using the provided CAMERAChannel
+func (t *Channel) MergeCAMERAChannel(v CAMERAChannel) error {
+	v.Type = "CAMERA"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Channel) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1686,6 +1778,8 @@ func (t Channel) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "ADC":
 		return t.AsADCChannel()
+	case "CAMERA":
+		return t.AsCAMERAChannel()
 	case "DAC":
 		return t.AsDACChannel()
 	case "GPIOIN":
@@ -2451,6 +2545,34 @@ func (t *Node) MergeOnMqttMessageNode(v OnMqttMessageNode) error {
 	return err
 }
 
+// AsCameraCaptureNode returns the union data inside the Node as a CameraCaptureNode
+func (t Node) AsCameraCaptureNode() (CameraCaptureNode, error) {
+	var body CameraCaptureNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCameraCaptureNode overwrites any union data inside the Node as the provided CameraCaptureNode
+func (t *Node) FromCameraCaptureNode(v CameraCaptureNode) error {
+	v.Type = "CameraCapture"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCameraCaptureNode performs a merge with any union data inside the Node, using the provided CameraCaptureNode
+func (t *Node) MergeCameraCaptureNode(v CameraCaptureNode) error {
+	v.Type = "CameraCapture"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Node) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2469,6 +2591,8 @@ func (t Node) ValueByDiscriminator() (interface{}, error) {
 		return t.AsAgentNode()
 	case "Alarm":
 		return t.AsAlarmNode()
+	case "CameraCapture":
+		return t.AsCameraCaptureNode()
 	case "Delay":
 		return t.AsDelayNode()
 	case "FunctionCall":

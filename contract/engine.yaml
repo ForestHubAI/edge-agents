@@ -136,6 +136,10 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/PWMConfig"
+        cameras:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/CameraConfig"
 
     GPIOConfig:
       type: object
@@ -184,6 +188,19 @@ components:
           type: string
           minLength: 1
           description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
+
+    CameraConfig:
+      type: object
+      required: [backend, device]
+      properties:
+        backend:
+          type: string
+          enum: [v4l2, gstreamer]
+          description: Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+        device:
+          type: string
+          minLength: 1
+          description: 'Capture source. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc".'
 
     MemoryFileWrite:
       type: object

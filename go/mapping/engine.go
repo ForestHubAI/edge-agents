@@ -121,6 +121,12 @@ func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest 
 			out.PWMs[id] = engine.PWMConfig{Chip: c.Chip}
 		}
 	}
+	if in.Cameras != nil {
+		out.Cameras = make(map[string]engine.CameraConfig, len(*in.Cameras))
+		for id, c := range *in.Cameras {
+			out.Cameras[id] = engine.CameraConfig{Backend: string(c.Backend), Device: c.Device}
+		}
+	}
 	return out
 }
 

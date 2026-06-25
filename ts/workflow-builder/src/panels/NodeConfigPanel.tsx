@@ -241,6 +241,7 @@ const DATA_TYPE_LABELS: Record<DataType, string> = {
   float: "float",
   bool: "bool",
   string: "string",
+  image: "image",
 };
 
 /** Stable synthetic outputId used to key list-entry diagnostics (matches diagnostics.ts). */
