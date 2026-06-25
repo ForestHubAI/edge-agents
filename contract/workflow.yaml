@@ -814,6 +814,7 @@ components:
         - $ref: "#/components/schemas/DACChannel"
         - $ref: "#/components/schemas/UARTChannel"
         - $ref: "#/components/schemas/MQTTChannel"
+        - $ref: "#/components/schemas/LOGChannel"
       discriminator:
         propertyName: type
         mapping:
@@ -824,6 +825,7 @@ components:
           DAC: "#/components/schemas/DACChannel"
           UART: "#/components/schemas/UARTChannel"
           MQTT: "#/components/schemas/MQTTChannel"
+          LOG: "#/components/schemas/LOGChannel"
 
     GPIOINChannel:
       type: object
@@ -893,3 +895,18 @@ components:
         topic:
           type: string
           description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.
+
+    LOGChannel:
+      type: object
+      required: [type, id, label, level]
+      properties:
+        type: { type: string, enum: [LOG] }
+        id: { type: string }
+        label: { type: string }
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+          description: Severity the engine records messages written to this channel at.
+        tag:
+          type: string
+          description: Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.

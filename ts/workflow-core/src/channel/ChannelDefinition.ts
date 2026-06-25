@@ -72,5 +72,27 @@ export const CHANNEL_DEFINITION: ChannelDefinition = {
       type: "string",
       activationRules: [{ type: "parameterIn", parameterId: "type", values: ["MQTT"] }],
     },
+    {
+      id: "level",
+      label: "Level",
+      description: "Severity the engine records messages written to this channel at",
+      type: "selection",
+      default: "info",
+      options: [
+        { value: "debug", label: "Debug" },
+        { value: "info", label: "Info" },
+        { value: "warn", label: "Warn" },
+        { value: "error", label: "Error" },
+      ],
+      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["LOG"] }],
+    },
+    {
+      id: "tag",
+      label: "Tag",
+      description: "Optional category stamped on each line so the backend can group workflow-emitted logs",
+      type: "string",
+      optional: true,
+      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["LOG"] }],
+    },
   ],
 };

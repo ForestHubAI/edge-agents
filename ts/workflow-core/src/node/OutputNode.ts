@@ -71,9 +71,9 @@ export const SerialWriteNodeDefinition: NodeDefinition = {
     {
       id: "portReference",
       label: "Port",
-      description: "Serial port to write to",
+      description: "Serial port or log channel to write to",
       type: "channelSelect",
-      channelType: ["UART"],
+      channelType: ["UART", "LOG"],
     },
     {
       id: "value",

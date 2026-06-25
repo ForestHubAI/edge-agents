@@ -233,6 +233,45 @@ func (e LLMModelType) Valid() bool {
 	}
 }
 
+// Defines values for LOGChannelLevel.
+const (
+	Debug LOGChannelLevel = "debug"
+	Error LOGChannelLevel = "error"
+	Info  LOGChannelLevel = "info"
+	Warn  LOGChannelLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the LOGChannelLevel enum.
+func (e LOGChannelLevel) Valid() bool {
+	switch e {
+	case Debug:
+		return true
+	case Error:
+		return true
+	case Info:
+		return true
+	case Warn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LOGChannelType.
+const (
+	LOG LOGChannelType = "LOG"
+)
+
+// Valid indicates whether the value is a known member of the LOGChannelType enum.
+func (e LOGChannelType) Valid() bool {
+	switch e {
+	case LOG:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTChannelType.
 const (
 	MQTT MQTTChannelType = "MQTT"
@@ -921,6 +960,25 @@ type LLMModel struct {
 // LLMModelType defines model for LLMModel.Type.
 type LLMModelType string
 
+// LOGChannel defines model for LOGChannel.
+type LOGChannel struct {
+	Id    string `json:"id"`
+	Label string `json:"label"`
+
+	// Level Severity the engine records messages written to this channel at.
+	Level LOGChannelLevel `json:"level"`
+
+	// Tag Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.
+	Tag  *string        `json:"tag,omitempty"`
+	Type LOGChannelType `json:"type"`
+}
+
+// LOGChannelLevel Severity the engine records messages written to this channel at.
+type LOGChannelLevel string
+
+// LOGChannelType defines model for LOGChannel.Type.
+type LOGChannelType string
+
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
 	Id    string `json:"id"`
@@ -1584,6 +1642,34 @@ func (t *Channel) MergeMQTTChannel(v MQTTChannel) error {
 	return err
 }
 
+// AsLOGChannel returns the union data inside the Channel as a LOGChannel
+func (t Channel) AsLOGChannel() (LOGChannel, error) {
+	var body LOGChannel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLOGChannel overwrites any union data inside the Channel as the provided LOGChannel
+func (t *Channel) FromLOGChannel(v LOGChannel) error {
+	v.Type = "LOG"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLOGChannel performs a merge with any union data inside the Channel, using the provided LOGChannel
+func (t *Channel) MergeLOGChannel(v LOGChannel) error {
+	v.Type = "LOG"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Channel) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1606,6 +1692,8 @@ func (t Channel) ValueByDiscriminator() (interface{}, error) {
 		return t.AsGPIOINChannel()
 	case "GPIOOUT":
 		return t.AsGPIOOUTChannel()
+	case "LOG":
+		return t.AsLOGChannel()
 	case "MQTT":
 		return t.AsMQTTChannel()
 	case "PWM":

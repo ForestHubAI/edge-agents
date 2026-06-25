@@ -9,6 +9,8 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/logging"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
 
 // channels is the per-build typed registry of channel instances. One
@@ -24,6 +26,7 @@ type channels struct {
 	pwms        map[string]*channel.PWM
 	uarts       map[string]*channel.UART
 	mqtts       map[string]*channel.MQTT
+	logs        map[string]*channel.Log
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
@@ -43,6 +46,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 		pwms:        make(map[string]*channel.PWM),
 		uarts:       make(map[string]*channel.UART),
 		mqtts:       make(map[string]*channel.MQTT),
+		logs:        make(map[string]*channel.Log),
 	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
@@ -173,6 +177,17 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 				PublishPrefix:   cfg.PublishPrefix,
 				SubscribePrefix: cfg.SubscribePrefix,
 			}
+		case workflow.LOGChannel:
+			// No bindingFor: a log channel resolves to the ambient engine logger,
+			// not a device driver or external resource, so the deploy carries no
+			// mapping for it. Level is contract-constrained to a known enum; parse
+			// defensively and hard-fail rather than silently logging at the wrong
+			// severity.
+			level, err := logging.ParseLevel(string(x.Level))
+			if err != nil {
+				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
+			}
+			ch.logs[x.Id] = &channel.Log{Level: level, Tag: pointer.Val(x.Tag)}
 		default:
 			return nil, fmt.Errorf("channel: unsupported type %T", val)
 		}
@@ -243,6 +258,11 @@ func (ch *channels) SetupAll() error {
 			return fmt.Errorf("mqtt %q: %w", id, err)
 		}
 	}
+	for id, v := range ch.logs {
+		if err := v.Setup(); err != nil {
+			return fmt.Errorf("log %q: %w", id, err)
+		}
+	}
 	return nil
 }
 
@@ -292,6 +312,19 @@ func (ch *channels) uart(id string) (*channel.UART, error) {
 		return nil, fmt.Errorf("no UART channel %q", id)
 	}
 	return v, nil
+}
+
+// textWriter resolves a channel a text-writing node can target: a UART (serial
+// bytes) or a Log (logger line). It checks both pools so SerialWrite accepts
+// either kind from one reference.
+func (ch *channels) textWriter(id string) (channel.TextWriter, error) {
+	if v, ok := ch.uarts[id]; ok {
+		return v, nil
+	}
+	if v, ok := ch.logs[id]; ok {
+		return v, nil
+	}
+	return nil, fmt.Errorf("no UART or LOG channel %q", id)
 }
 
 func (ch *channels) mqtt(id string) (*channel.MQTT, error) {

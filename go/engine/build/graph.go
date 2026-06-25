@@ -168,11 +168,11 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.SerialWriteNode:
-			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
+			dst, err := b.channels.textWriter(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewSerialWrite(nd.Id, nd.Arguments.Value, uart)
+			n := node.NewSerialWrite(nd.Id, nd.Arguments.Value, dst)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 

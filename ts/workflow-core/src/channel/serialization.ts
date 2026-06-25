@@ -40,6 +40,8 @@ export function serialize(ch: Channel): ApiChannel {
       return { type, id, label };
     case "MQTT":
       return { type, id, label, topic: args.topic as string };
+    case "LOG":
+      return { type, id, label, level: args.level as Schemas["LOGChannel"]["level"], tag: args.tag as string | undefined };
   }
 }
 
@@ -57,6 +59,10 @@ export function deserialize(api: ApiChannel): Channel {
       break;
     case "MQTT":
       args.topic = api.topic;
+      break;
+    case "LOG":
+      args.level = api.level;
+      args.tag = api.tag;
       break;
     case "GPIOOUT":
     case "ADC":

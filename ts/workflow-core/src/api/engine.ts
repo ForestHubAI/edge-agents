@@ -653,7 +653,23 @@ export interface components {
             /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
             topic: string;
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"];
+        LOGChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "LOG";
+            id: string;
+            label: string;
+            /**
+             * @description Severity the engine records messages written to this channel at.
+             * @enum {string}
+             */
+            level: "debug" | "info" | "warn" | "error";
+            /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
+            tag?: string;
+        };
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
         /** @description One .md file that agent nodes can read and write to. */
         MemoryFile: {
             /**

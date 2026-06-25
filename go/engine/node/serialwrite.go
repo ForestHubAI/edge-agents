@@ -15,20 +15,21 @@ import (
 var _ engine.Executable = (*SerialWrite)(nil)
 
 // SerialWrite evaluates a value expression and writes the resulting string
-// to a UART channel. No terminator is appended — the caller's expression
-// is responsible for any newline / framing.
+// to a text channel — a UART (raw serial bytes) or a Log (a logger line).
+// No terminator is appended — the caller's expression is responsible for any
+// newline / framing.
 type SerialWrite struct {
 	engine.LinearNode
 	value workflow.Expression
-	uart  *channel.UART
+	dst   channel.TextWriter
 }
 
-// NewSerialWrite builds a SerialWrite bound to the given UART channel.
-func NewSerialWrite(id string, value workflow.Expression, uart *channel.UART) *SerialWrite {
+// NewSerialWrite builds a SerialWrite bound to the given text channel.
+func NewSerialWrite(id string, value workflow.Expression, dst channel.TextWriter) *SerialWrite {
 	return &SerialWrite{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,
-		uart:       uart,
+		dst:        dst,
 	}
 }
 
@@ -37,7 +38,7 @@ func (w *SerialWrite) Execute(_ context.Context, scope *engine.Scope) (string, e
 	if err != nil {
 		return "", fmt.Errorf("serialWrite %s: evaluating value: %w", w.ID(), err)
 	}
-	if err := w.uart.Write(s); err != nil {
+	if err := w.dst.Write(s); err != nil {
 		return "", fmt.Errorf("serialWrite %s: %w", w.ID(), err)
 	}
 	return w.Next(engine.PortCtrl, scope)

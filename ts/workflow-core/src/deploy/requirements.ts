@@ -125,6 +125,10 @@ export function deriveRequirements(workflow: Workflow): DeployRequirements {
       case "MQTT":
         mqttChannels.push({ id: channel.id, label: channel.label });
         break;
+      case "LOG":
+        // Resolves to the ambient engine logger — no platform resource to bind, so
+        // it demands nothing of the deploy environment.
+        break;
       default:
         return assertNeverChannel(channel.type);
     }

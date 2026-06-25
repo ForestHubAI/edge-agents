@@ -10,6 +10,13 @@ type Channel interface {
 	Setup() error // Setup configures the underlying driver according to the registered nodes. Called once during engine setup, after all nodes have registered.
 }
 
+// TextWriter is the write side shared by channels that take a string payload:
+// UART (raw serial bytes) and Log (a logger line). Nodes that write text target
+// this instead of a concrete channel so one node serves every such channel.
+type TextWriter interface {
+	Write(data string) error
+}
+
 // SubBufSize is the buffer size used in subscription channels. Events are dropped when this buffer size is exceeded.
 const SubBufSize = 64
 

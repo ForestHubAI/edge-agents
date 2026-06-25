@@ -519,7 +519,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"];
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
         GPIOINChannel: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -593,6 +593,22 @@ export interface components {
             label: string;
             /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
             topic: string;
+        };
+        LOGChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "LOG";
+            id: string;
+            label: string;
+            /**
+             * @description Severity the engine records messages written to this channel at.
+             * @enum {string}
+             */
+            level: "debug" | "info" | "warn" | "error";
+            /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
+            tag?: string;
         };
         /** @enum {string} */
         ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";
