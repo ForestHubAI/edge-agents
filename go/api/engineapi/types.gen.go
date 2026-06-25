@@ -11,14 +11,14 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for CameraConfigBackend.
+// Defines values for CameraConfigSource.
 const (
-	Gstreamer CameraConfigBackend = "gstreamer"
-	V4l2      CameraConfigBackend = "v4l2"
+	Gstreamer CameraConfigSource = "gstreamer"
+	V4l2      CameraConfigSource = "v4l2"
 )
 
-// Valid indicates whether the value is a known member of the CameraConfigBackend enum.
-func (e CameraConfigBackend) Valid() bool {
+// Valid indicates whether the value is a known member of the CameraConfigSource enum.
+func (e CameraConfigSource) Valid() bool {
 	switch e {
 	case Gstreamer:
 		return true
@@ -67,15 +67,15 @@ type ADCConfig struct {
 
 // CameraConfig defines model for CameraConfig.
 type CameraConfig struct {
-	// Backend Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
-	Backend CameraConfigBackend `json:"backend"`
-
-	// Device Capture source. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc".
+	// Device Capture device. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc".
 	Device string `json:"device"`
+
+	// Source Capture source that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+	Source CameraConfigSource `json:"source"`
 }
 
-// CameraConfigBackend Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
-type CameraConfigBackend string
+// CameraConfigSource Capture source that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+type CameraConfigSource string
 
 // DACConfig defines model for DACConfig.
 type DACConfig struct {

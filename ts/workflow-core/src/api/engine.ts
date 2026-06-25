@@ -111,11 +111,11 @@ export interface components {
         };
         CameraConfig: {
             /**
-             * @description Capture backend that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
+             * @description Capture source that interprets `device`; both run through GStreamer. v4l2 = a V4L2 device path (USB/UVC) wrapped as v4l2src; gstreamer = a GStreamer source fragment, e.g. libcamerasrc (CSI/ISP).
              * @enum {string}
              */
-            backend: "v4l2" | "gstreamer";
-            /** @description Capture source. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc". */
+            source: "v4l2" | "gstreamer";
+            /** @description Capture device. v4l2: device path, e.g. "/dev/video0". gstreamer: source fragment, e.g. "libcamerasrc". */
             device: string;
         };
         /** @description Body of PUT /agents/memory/{name}. */

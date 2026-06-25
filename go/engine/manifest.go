@@ -33,8 +33,8 @@ type PWMConfig struct {
 }
 
 type CameraConfig struct {
-	Backend string `json:"backend"`
-	Device  string `json:"device"`
+	Source string `json:"source"`
+	Device string `json:"device"`
 }
 
 // DeploymentMapping binds a binding-free workflow's logical resource ids to

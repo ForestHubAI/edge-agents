@@ -83,8 +83,8 @@ async function promptHardware(
       binding.baud = Number(baud.trim());
     }
     if (ch.family === "camera") {
-      binding.backend = await select({
-        message: `${ch.label}: capture backend`,
+      binding.source = await select({
+        message: `${ch.label}: capture source`,
         choices: [
           { value: "v4l2", name: "v4l2 — USB / UVC cameras" },
           { value: "gstreamer", name: "gstreamer — CSI / libcamera (ISP) cameras" },

@@ -286,8 +286,8 @@ export function buildDeploymentSpec(
         privileged = true;
         break;
       case "camera":
-        if (!b.backend) throw new Error(`camera channel ${ch.id} has no capture backend`);
-        cameras[ref] = { backend: b.backend, device: dev };
+        if (!b.source) throw new Error(`camera channel ${ch.id} has no capture source`);
+        cameras[ref] = { source: b.source, device: dev };
         break;
       default:
         return assertNeverFamily(ch.family);

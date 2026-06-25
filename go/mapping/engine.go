@@ -124,7 +124,7 @@ func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest 
 	if in.Cameras != nil {
 		out.Cameras = make(map[string]engine.CameraConfig, len(*in.Cameras))
 		for id, c := range *in.Cameras {
-			out.Cameras[id] = engine.CameraConfig{Backend: string(c.Backend), Device: c.Device}
+			out.Cameras[id] = engine.CameraConfig{Source: string(c.Source), Device: c.Device}
 		}
 	}
 	return out
