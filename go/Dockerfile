@@ -18,17 +18,17 @@ COPY . .
 
 ARG TARGETOS
 ARG TARGETARCH
-# Optional release tag baked into the binary; defaults to "dev" for local builds.
-# Pass --build-arg ENGINE_VERSION=X.Y.Z to stamp a real version.
-ARG ENGINE_VERSION=dev
+# No version is baked into the binary: the component version is the image tag,
+# known to whoever deployed it (Ranger / the registry), not self-reported.
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -ldflags="-s -w -X main.Version=${ENGINE_VERSION}" -o /engine ./cmd/engine
+    go build -ldflags="-s -w" -o /engine ./cmd/engine
 
 RUN mkdir -p /staging/workspace
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /engine /engine
-# The workspace mount (component.Workspace = /var/lib/foresthub/workspace): a named
-# volume mounted here inherits this dir's nonroot ownership on first use.
+# Pre-create the workspace mountpoint (component.Workspace), owned by the nonroot
+# user so a bare `docker run` with no mount is still writable. A bind mount or named
+# volume mounted here shadows this dir with the host source's ownership instead.
 COPY --from=builder --chown=65532:65532 /staging/workspace /var/lib/foresthub/workspace
 ENTRYPOINT ["/engine"]

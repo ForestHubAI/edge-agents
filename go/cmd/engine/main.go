@@ -42,8 +42,6 @@ func main() {
 	closer := logging.Configure(cfg.Log)
 	defer closer.Close()
 
-	logging.Logger.Info().Str("version", Version).Msg("starting engine")
-
 	// Create backend client only when configured
 	var backendClient *backend.Client
 	if cfg.BackendURL != "" {
