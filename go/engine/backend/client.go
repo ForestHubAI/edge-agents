@@ -20,16 +20,16 @@ const (
 // Client is the engine-side HTTP client for backend interactions.
 // All requests carry the Agent-Key authorization header.
 type Client struct {
-	BackendURL  string
-	AgentSecret string
-	http        *httpclient.Client
+	BackendURL string
+	Secret     string
+	http       *httpclient.Client
 }
 
 // NewClient constructs a Client backed by the shared httpclient.
-func NewClient(backendURL, agentSecret string) *Client {
+func NewClient(backendURL, secret string) *Client {
 	return &Client{
-		BackendURL:  backendURL,
-		AgentSecret: agentSecret,
-		http:        httpclient.NewClient(backendURL, "Agent-Key", agentSecret),
+		BackendURL: backendURL,
+		Secret:     secret,
+		http:       httpclient.NewClient(backendURL, "Agent-Key", secret),
 	}
 }

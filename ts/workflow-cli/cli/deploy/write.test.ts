@@ -26,7 +26,7 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
     image: "fh-engine:latest",
     pull: "never",
     config: { workflow: bareWorkflow },
-    volumes: ["engine-memory:/var/lib/foresthub/memory"],
+    volumes: ["./workspaces/engine:/var/lib/foresthub/workspace"],
     ...overrides,
   };
 }
@@ -54,6 +54,8 @@ const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), "fhwrite-"));
 const names = async (dir: string) => (await fs.readdir(dir)).sort();
 const mode = async (file: string) => (await fs.stat(file)).mode & 0o777;
 
+// The written-file artifacts (writeOutput's return value). The on-disk bundle also
+// has a "workspaces" dir (pre-created bind-mount dirs), which is not a written file.
 const BUNDLE = ["README.md", "deployment-spec.json", "docker-compose.yml", "engine-config.json", "engine.env"].sort();
 
 describe("writeOutput", () => {
@@ -61,7 +63,7 @@ describe("writeOutput", () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     await writeOutput(specOf(), {}, cfgOf(out), reqOf());
-    expect(await names(out)).toEqual(BUNDLE);
+    expect(await names(out)).toEqual([...BUNDLE, "workspaces"].sort());
     await fs.rm(base, { recursive: true, force: true });
   });
 
@@ -99,12 +101,13 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  it("creates a models/ directory for an on-device model", async () => {
+  it("creates each component's workspace dir from its bind mounts", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    const cfg = cfgOf(out, { models: { llm: { location: "device", modelFile: "m.gguf" } } });
-    await writeOutput(specOf(), {}, cfg, reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect((await fs.stat(path.join(out, "models"))).isDirectory()).toBe(true);
+    const llama: DeployComponent = { name: "llama-x", image: "llama", volumes: ["./workspaces/llama-x:/var/lib/foresthub/workspace:ro"] };
+    await writeOutput(specOf([engineComponent(), llama]), {}, cfgOf(out), reqOf());
+    expect((await fs.stat(path.join(out, "workspaces", "engine"))).isDirectory()).toBe(true);
+    expect((await fs.stat(path.join(out, "workspaces", "llama-x"))).isDirectory()).toBe(true);
     await fs.rm(base, { recursive: true, force: true });
   });
 

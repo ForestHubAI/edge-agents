@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { ALL_PROVIDERS } from "./types";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import { sidecarServiceName } from "@foresthubai/workflow-core/deploy";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -165,7 +166,11 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
 
   const engine = spec.components.find((c) => c.name === "engine");
   const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
-  const deviceModelFiles = Object.values(cfg.models).flatMap((b) => (b.location === "device" ? [b.modelFile] : []));
+  // Each on-device model's GGUF lives in its sidecar's own workspace dir
+  // (./workspaces/<service>/) — the host bind mount the llama container reads.
+  const deviceModels = Object.entries(cfg.models).flatMap(([id, b]) =>
+    b.location === "device" ? [{ dir: `./workspaces/${sidecarServiceName(id)}`, file: b.modelFile }] : [],
+  );
   const hasNetworkModel = Object.values(cfg.models).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
@@ -199,14 +204,14 @@ The broker/endpoint credentials the engine connects with live in \`engine.env\`
 services; it assumes the broker/endpoint already exists and is reachable from the
 controller.`);
   }
-  if (deviceModelFiles.length > 0) {
+  if (deviceModels.length > 0) {
     notes.push(`## On-device models
 
 This bundle runs a llama-server container per on-device model; the engine reaches it
-over the compose network by service name. The GGUF file(s) below must sit in a
-\`models/\` folder next to the compose file on the controller. They are too large for
-the main \`scp\` line, so step 3 transfers them separately:
-${deviceModelFiles.map((f) => `- \`./models/${f}\``).join("\n")}`);
+over the compose network by service name. Each GGUF must sit in that model's workspace
+dir below (read-only mounted into its container). They are too large for the main
+\`scp\` line, so step 3 transfers them separately:
+${deviceModels.map((m) => `- \`${m.dir}/${m.file}\``).join("\n")}`);
   }
   if (hasNetworkModel) {
     notes.push(`## Network models
@@ -222,19 +227,19 @@ The web-search API key is in \`engine.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
   const notesBlock = notes.length ? "\n" + notes.join("\n\n") + "\n" : "";
 
   // On-device model weights ship outside the main scp line (GGUF can be several GB).
-  const modelsTransfer = deviceModelFiles.length
+  const modelsTransfer = deviceModels.length
     ? `
 
 # On-device model weights — too large for the line above (GGUF can be several GB).
-# Copy them from this bundle:
-scp -r models/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
-# ...or download them directly into ~/fh-engine/models/ on the controller.`
+# Put each GGUF in its model's workspace dir, then copy the workspaces tree:
+scp -r workspaces/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
+# ...or download them directly into ~/fh-engine/workspaces/<model>/ on the controller.`
     : "";
 
   // With an on-device sidecar there is no start-ordering: the engine connects to
   // the llama-server over the compose network at runtime, retrying until it is up,
   // so show every container while it settles. Otherwise the engine log alone does.
-  const runBlock = deviceModelFiles.length
+  const runBlock = deviceModels.length
     ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 
@@ -303,14 +308,18 @@ scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json eng
 ${runBlock}
 \`\`\`
 
-## Agent memory
+## Agent memory & durable data
 
-The workflow's memory files live in the named volume \`engine-memory\` (mounted at
-\`/var/lib/foresthub/memory\`). They survive restarts and \`docker compose down\`;
-only \`docker compose down -v\` deletes them. The volume is namespaced by the
-compose project name, which defaults to the bundle directory's name — keep it
-stable across updates, or pin it via \`COMPOSE_PROJECT_NAME\`. In this standalone
-bundle the volume is the only copy of the memory.
+Each container's durable data is a plain host directory in this bundle,
+\`./workspaces/<container>/\` (mounted read-write at \`/var/lib/foresthub/workspace\`):
+
+- \`./workspaces/engine/\` — the engine's memory files.
+- \`./workspaces/<model>/\` — an on-device model's GGUF weights (see above).
+
+These are ordinary files: back them up by copying the folder, inspect them directly.
+They persist across restarts and redeploys **as long as you keep this bundle directory
+stable** — deploy into the same path each time; a fresh directory starts empty. This
+bundle is the only copy; there is no backend mirror.
 `;
 }
 

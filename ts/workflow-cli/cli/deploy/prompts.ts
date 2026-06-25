@@ -148,7 +148,7 @@ async function promptModels(
 
     if (location === "device") {
       const modelFile = await input({
-        message: `${m.label}: model filename in ./models/ (e.g. model.gguf)`,
+        message: `${m.label}: model filename, dropped in its workspace dir (e.g. model.gguf)`,
         validate: (v) => ggufNameError(v) ?? true,
       });
       const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });

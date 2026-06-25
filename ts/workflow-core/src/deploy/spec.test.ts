@@ -102,8 +102,8 @@ describe("buildDeploymentSpec", () => {
     expect(llamaOf(spec, "local-llm")).toMatchObject({
       name: sidecarServiceName("local-llm"),
       image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-      command: ["--model", "/models/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
-      volumes: ["./models:/models:ro"],
+      command: ["--model", "/var/lib/foresthub/workspace/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
+      volumes: ["./workspaces/llama-local-llm:/var/lib/foresthub/workspace:ro"],
     });
     // The external-resource provider URL must point at the sidecar service name.
     const ext = engineConfigOf(spec).externalResources!;

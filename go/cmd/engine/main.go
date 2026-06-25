@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
+	"github.com/ForestHubAI/edge-agents/go/component"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
@@ -66,11 +67,9 @@ func main() {
 	// Load the single boot config file: workflow + bindings + device manifest.
 	// A workflow is mandatory — the engine exists only to run one — so a missing
 	// config or workflow is a boot error, not an idle engine.
-	configFile := cfg.ConfigFile
-	if configFile != "" {
-		if abs, err := filepath.Abs(configFile); err == nil {
-			configFile = abs
-		}
+	configFile := component.ConfigFile
+	if abs, err := filepath.Abs(configFile); err == nil {
+		configFile = abs
 	}
 	ec, err := loadEngineConfig(configFile)
 	if err != nil {
@@ -103,17 +102,17 @@ func main() {
 		bootFail(err, "opening transports")
 	}
 
-	// Memory subsystem: the Manager owns durable local storage rooted at
-	// cfg.MemoryDir (declared memory survives engine restarts with no
-	// backend). The backend, when configured, is an optional remote mirror —
-	// it hydrates an empty local copy on a cold start and receives best-effort
-	// pushes; nil means local-only. Restore is invoked on every Build (deploy
-	// or initial), so no eager call here.
+	// Memory subsystem: the Manager owns durable local storage rooted at the
+	// workspace mount (component.Workspace; declared memory survives engine
+	// restarts with no backend). The backend, when configured, is an optional
+	// remote mirror — it hydrates an empty local copy on a cold start and receives
+	// best-effort pushes; nil means local-only. Restore is invoked on every Build
+	// (deploy or initial), so no eager call here.
 	var memorySync engine.MemorySync
 	if backendClient != nil {
 		memorySync = backendClient
 	}
-	memoryManager := memory.NewManager(cfg.MemoryDir, memorySync)
+	memoryManager := memory.NewManager(component.Workspace, memorySync)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
@@ -192,14 +191,10 @@ func main() {
 }
 
 // loadEngineConfig reads the engine's single boot config file (the EngineConfig
-// wire shape: workflow + bindings + device manifest). The path defaults to the
-// deployment convention (/etc/foresthub/config.json); an explicitly empty path,
-// or a missing or malformed file, is a fatal boot error — the engine exists only
-// to run the workflow this file carries.
+// wire shape: workflow + bindings + device manifest). The path is the contract
+// mount constant (component.ConfigFile); a missing or malformed file is a fatal
+// boot error — the engine exists only to run the workflow this file carries.
 func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
-	if path == "" {
-		return nil, errors.New("engine config path is empty (ENGINE_CONFIG_FILE explicitly set to empty)")
-	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

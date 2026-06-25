@@ -66,10 +66,19 @@ export async function writeOutput(
     await emit(`${name}.env`, text, true);
   }
 
-  // On-device models bind-mount ./models/ — create it so the operator has a place
-  // to drop the GGUF file(s) and docker doesn't create it root-owned on first up.
-  if (Object.values(cfg.models).some((b) => b.location === "device")) {
-    await fs.mkdir(path.join(dir, "models"), { recursive: true });
+  // Pre-create each component's workspace bind-mount dir (./workspaces/<container>/)
+  // so the operator has a place to drop model GGUFs and docker doesn't create them
+  // root-owned on first `up`. Sources are relative bind mounts in the spec; the
+  // leading "./" is stripped to join under the bundle dir.
+  const workspaceSources = new Set(
+    spec.components.flatMap((c) =>
+      (c.volumes ?? [])
+        .map((v) => v.split(":")[0] ?? "")
+        .filter((src) => src.startsWith("./workspaces/")),
+    ),
+  );
+  for (const src of workspaceSources) {
+    await fs.mkdir(path.join(dir, src), { recursive: true });
   }
 
   return written;

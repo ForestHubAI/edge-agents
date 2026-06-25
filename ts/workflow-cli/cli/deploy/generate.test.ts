@@ -27,7 +27,7 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
     image: "fh-engine:latest",
     pull: "never",
     config: { workflow: bareWorkflow },
-    volumes: ["engine-memory:/var/lib/foresthub/memory"],
+    volumes: ["./workspaces/engine:/var/lib/foresthub/workspace"],
     ...overrides,
   };
 }
@@ -37,8 +37,8 @@ function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployCompone
   return {
     name: "llama-gemma-3",
     image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-    command: ["--model", "/models/gemma.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
-    volumes: ["./models:/models:ro"],
+    command: ["--model", "/var/lib/foresthub/workspace/gemma.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
+    volumes: ["./workspaces/llama-gemma-3:/var/lib/foresthub/workspace:ro"],
     ...overrides,
   };
 }
@@ -140,7 +140,7 @@ describe("composeYaml", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
     expect(yaml).toContain("llama-gemma-3:");
     expect(yaml).toContain("image: ghcr.io/ggml-org/llama.cpp:server-b8589");
-    expect(yaml).toContain("/models/gemma.gguf");
+    expect(yaml).toContain("/var/lib/foresthub/workspace/gemma.gguf");
     // Dropped: the engine connects at runtime with retry, so no health gate.
     expect(yaml).not.toContain("depends_on:");
     expect(yaml).not.toContain("healthcheck:");
@@ -149,7 +149,7 @@ describe("composeYaml", () => {
   });
 
   it("renders the sidecar's port and context size frozen in the command", () => {
-    const llama = llamaComponent({ command: ["--model", "/models/gemma.gguf", "--host", "0.0.0.0", "--port", "9090", "--ctx-size", "8192"] });
+    const llama = llamaComponent({ command: ["--model", "/var/lib/foresthub/workspace/gemma.gguf", "--host", "0.0.0.0", "--port", "9090", "--ctx-size", "8192"] });
     const yaml = composeYaml(specOf([engineComponent(), llama]));
     expect(yaml).toContain('- "9090"');
     expect(yaml).toContain('- "8192"');
@@ -160,10 +160,10 @@ describe("composeYaml", () => {
     expect(composeYaml(specOf())).not.toContain("container_name");
   });
 
-  it("declares the engine memory named volume", () => {
+  it("mounts the engine workspace as a host bind dir, not a named volume", () => {
     const yaml = composeYaml(specOf());
-    expect(yaml).toContain("volumes:");
-    expect(yaml).toContain("  engine-memory:");
+    expect(yaml).toContain("- ./workspaces/engine:/var/lib/foresthub/workspace");
+    expect(yaml).not.toContain("engine-memory");
   });
 
   it("stamps a config-hash label that changes with the config content", () => {
@@ -225,7 +225,7 @@ describe("readme", () => {
   it("an on-device model adds the on-device note with the model file", () => {
     const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("## On-device models");
-    expect(md).toContain("- `./models/gemma.gguf`");
+    expect(md).toContain("- `./workspaces/llama-gemma-3/gemma.gguf`");
     expect(md).not.toContain("## Network models");
   });
 
@@ -249,7 +249,7 @@ describe("readme", () => {
 
   it("a device model adds the model scp transfer and inspects all containers on run", () => {
     const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
-    expect(md).toContain("scp -r models/");
+    expect(md).toContain("scp -r workspaces/");
     expect(md).toContain("docker compose ps");
   });
 

@@ -50,7 +50,7 @@ components:
           description: 'Image pull policy, emitted as the renderer''s pull_policy. Omit to default to "missing" (pull only if absent locally — correct for any registry image). Use "never" for an image built locally and present in no registry (the OSS engine); "always" re-pulls on every start.'
         command:
           type: array
-          description: 'Overrides the image''s default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/models/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container''s command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image''s own default command.'
+          description: 'Overrides the image''s default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/var/lib/foresthub/workspace/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container''s command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image''s own default command.'
           items:
             type: string
         config:
@@ -62,7 +62,7 @@ components:
           description: 'Absolute in-container path to mount the config file at. Omit to use the convention default "/etc/foresthub/config.json", which first-party components read by default. Set it to drop in a JSON-configured third-party image that reads its config elsewhere, e.g. "/app/config.json". Ignored when config is absent.'
         volumes:
           type: array
-          description: 'Persistent or host volume mounts in compose short form, e.g. "engine-memory:/var/lib/foresthub/memory" or "./models:/models:ro". Empty when the component is stateless and mounts nothing beyond its config files.'
+          description: 'Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files.'
           items:
             type: string
         devices:

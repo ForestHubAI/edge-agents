@@ -19,9 +19,22 @@ type DeployComponent = DeploymentSchemas["DeployComponent"];
 // the spec carries it as an opaque blob in DeployComponent.config.
 type EngineConfig = EngineSchemas["EngineConfig"];
 
-// Mount path for the engine's memory volume — matches the image's ENGINE_MEMORY_DIR
-// default, so the renderer mounts here without wiring an env var.
-const ENGINE_MEMORY_PATH = "/var/lib/foresthub/memory";
+// In-container mount path for a component's durable workspace. MUST equal the Go
+// component.Workspace contract constant (go/component/paths.go) — the component
+// reads/writes there, so we mount the host workspace dir there and wire no env var.
+// A cross-repo contract: changing it requires changing the Go constant in lockstep.
+const COMPONENT_WORKSPACE_PATH = "/var/lib/foresthub/workspace";
+
+// The OSS renderer's state root (docs/device-filesystem.md §2). Bind-mount sources
+// hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them
+// relative to the compose file, so the bundle stays drop-anywhere; Ranger is a
+// separate renderer that sets root to the absolute `/var/lib/foresthub`.
+const STATE_ROOT = ".";
+
+// Host bind-mount source for a container's workspace under the state root.
+function workspaceDir(container: string): string {
+  return `${STATE_ROOT}/workspaces/${container}`;
+}
 
 // Deploy-time metadata the resolver cannot derive from the workflow: identity,
 // lifecycle, and the full image reference each component runs (frozen here so the
@@ -104,7 +117,7 @@ export function ggufNameError(name: string | undefined): string | null {
   const t = (name ?? "").trim();
   if (!t) return "a model filename is required";
   if (!t.toLowerCase().endsWith(".gguf")) return "must be a .gguf file (llama-server only loads GGUF)";
-  if (t.includes("/")) return "just the filename, not a path — the file goes in ./models/";
+  if (t.includes("/")) return "just the filename, not a path — the file goes in the model's workspace dir (./workspaces/llama-…/)";
   return null;
 }
 
@@ -318,7 +331,7 @@ export function buildDeploymentSpec(
         image: meta.llamaServerImage,
         command: [
           "--model",
-          `/models/${b.modelFile}`,
+          `${COMPONENT_WORKSPACE_PATH}/${b.modelFile}`,
           "--host",
           "0.0.0.0",
           "--port",
@@ -326,7 +339,9 @@ export function buildDeploymentSpec(
           "--ctx-size",
           String(b.ctxSize ?? 4096),
         ],
-        volumes: ["./models:/models:ro"],
+        // The model lives in this sidecar's own workspace; read-only, so no chown
+        // is needed (docs §5). The operator drops the GGUF in workspaceDir(service).
+        volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
       });
     } else {
       externalResources[ref] = { type: "selfhosted", url: b.url };
@@ -351,19 +366,22 @@ export function buildDeploymentSpec(
   if (Object.keys(manifest).length) config.manifest = manifest;
 
   // The engine component. configPath is omitted (the image reads the convention
-  // path it defaults to); the config blob is mounted there by the renderer. cdev
-  // nodes pass through as devices; sysfs families force privileged; either case
-  // needs root to open the root-owned nodes the nonroot image otherwise can't.
+  // path it defaults to); the config blob is mounted there by the renderer.
   const engine: DeployComponent = {
     name: "engine",
     image: meta.engineImage,
     pull: "never", // built locally before deploy, in no registry
     config,
-    volumes: [`engine-memory:${ENGINE_MEMORY_PATH}`],
+    // Durable memory: a host bind mount under the state root, read-write, at the
+    // in-container workspace path (docs/device-filesystem.md §10).
+    volumes: [`${workspaceDir("engine")}:${COMPONENT_WORKSPACE_PATH}`],
+    // Run as root: writes the rw workspace bind mount without a host chown step
+    // (the OSS default, §5), and also opens root-owned device nodes when hardware
+    // (cdev passthrough / sysfs-privileged) is mapped in below.
+    user: "0:0",
   };
   if (cdev.size > 0) engine.devices = [...cdev];
   if (privileged) engine.privileged = true;
-  if (cdev.size > 0 || privileged) engine.user = "0:0";
 
   const components = [engine, ...llamaComponents, ...customComponents];
   assertNoNameCollisions(components);

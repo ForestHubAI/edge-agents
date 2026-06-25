@@ -7,10 +7,10 @@ import (
 	"github.com/caarlos0/env/v9"
 )
 
-// Config holds engine boot configuration. All values come from env vars
+// Config holds engine boot configuration. All values come from env vars. The
+// fixed in-container paths (boot config file, workspace) are not here — they are
+// contract constants in package component, not per-deployment config.
 type Config struct {
-	// ConfigFile is the path to the engine's single boot config file. The engine is immutable and reads it once at startup; this is the only way config is supplied. Defaults to the deployment convention path the renderer mounts config at, so the spec needs no env var to point at it; set ENGINE_CONFIG_FILE only to override.
-	ConfigFile string `env:"ENGINE_CONFIG_FILE" envDefault:"/etc/foresthub/config.json"`
 	// ID identifies this engine to hosted-MQTT brokers, acting as 'username'
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
@@ -28,10 +28,6 @@ type Config struct {
 	// file + HTTP shipper) via FH_LOG_* env vars. env.Parse recurses in; main sets
 	// Log.Component to "engine" in code before wiring.
 	Log logging.Config
-	// MemoryDir is the local working-copy directory for memory files. The
-	// backend remains the durable source of truth; this is just a
-	// container-local cache.
-	MemoryDir string `env:"ENGINE_MEMORY_DIR" envDefault:"/var/lib/foresthub/memory"`
 	// LLM holds direct provider API keys
 	LLM llmcfg.ProviderConfig
 	// WebSearch configures the optional WebSearchTool node. Leaving APIKey empty

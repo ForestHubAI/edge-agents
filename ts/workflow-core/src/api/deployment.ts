@@ -37,7 +37,7 @@ export interface components {
              * @enum {string}
              */
             pull?: "always" | "missing" | "never";
-            /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/models/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container's command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image's own default command. */
+            /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/var/lib/foresthub/workspace/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container's command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image's own default command. */
             command?: string[];
             /** @description Structured config for the component, frozen at packaging time. The renderer serializes it to JSON, writes it to a device-local file, bind-mounts that file read-only at configPath, and hashes it into a recreate trigger (compose does not track bind-mount content). How the component interprets the file — read it as JSON, convert it to CLI args, expand it into several native config files — is the image's entrypoint, not this spec; a non-JSON image is wrapped with a thin entrypoint that converts. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets; those arrive as environment variables from the device-local env file. */
             config?: {
@@ -45,7 +45,7 @@ export interface components {
             };
             /** @description Absolute in-container path to mount the config file at. Omit to use the convention default "/etc/foresthub/config.json", which first-party components read by default. Set it to drop in a JSON-configured third-party image that reads its config elsewhere, e.g. "/app/config.json". Ignored when config is absent. */
             configPath?: string;
-            /** @description Persistent or host volume mounts in compose short form, e.g. "engine-memory:/var/lib/foresthub/memory" or "./models:/models:ro". Empty when the component is stateless and mounts nothing beyond its config files. */
+            /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files. */
             volumes?: string[];
             /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the component binds, computed once from the workflow's hardware against the device manifest. Empty when the component uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead. */
             devices?: string[];

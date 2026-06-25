@@ -22,7 +22,7 @@ describe("ggufNameError", () => {
     expect(ggufNameError("model.bin")).toMatch(/\.gguf/);
   });
 
-  it("rejects a path — only a bare filename belongs in ./models/", () => {
+  it("rejects a path — only a bare filename belongs in the workspace dir", () => {
     expect(ggufNameError("sub/model.gguf")).toMatch(/path/);
   });
 });
