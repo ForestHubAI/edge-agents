@@ -18,9 +18,11 @@ From `ts/`:
 npm run generate
 ```
 
-Regenerates `ts/workflow-core/src/api/workflow.ts` from `contract/workflow.yaml`.
-Never hand-edit that file. If `git status` shows it dirty after this step, that
-diff IS the spec change to react to in the next steps.
+Regenerates the api layer from `contract/` — for node sync the file that matters
+is `ts/workflow-core/src/api/workflow.ts` (from `contract/workflow.yaml`); the same
+script also emits `deployment.ts` and `engine.ts` from the other specs. Never
+hand-edit those files. If `git status` shows `workflow.ts` dirty after this step,
+that diff IS the spec change to react to in the next steps.
 
 ## Step 1 — Internalise the layering before you touch anything
 

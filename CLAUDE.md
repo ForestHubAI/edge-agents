@@ -14,6 +14,7 @@ contract/        SOURCE OF TRUTH. Language-neutral OpenAPI 3.0.3 schemas.
   engine.yaml      engine deploy/control-plane wire (deploy/boot/heartbeat).
   llmproxy.yaml    LLM-proxy request/response types.
   debug.yaml       engine<->editor debug-adapter protocol ($refs workflow.yaml).
+  deployment.yaml  deploy bundle/manifest wire ($refs workflow.yaml).
 
 go/              Go module — go.mod lives HERE, not at repo root, so `go get`
                  consumers never receive the ts/ or contract/ trees.

@@ -35,8 +35,10 @@ From `go/`:
 go generate ./...
 ```
 
-Regenerates `go/api/workflow/types.gen.go` (oapi-codegen) and mockery mocks.
-Never hand-edit the `*.gen.go` files. If `git status` shows
+Regenerates the api layer (oapi-codegen) and mockery mocks. For node sync the file
+that matters is `go/api/workflow/types.gen.go` (from `contract/workflow.yaml`); the
+same directive also regenerates `llmapi`, `engineapi`, `debugapi`, and `deployapi`
+from the other specs. Never hand-edit the `*.gen.go` files. If `git status` shows
 `go/api/workflow/types.gen.go` dirty after this step, that diff IS the spec change
 to react to — a new `XxxNode` struct, its `XxxNodeArguments`, and the
 discriminator wiring in `Node.ValueByDiscriminator`.
