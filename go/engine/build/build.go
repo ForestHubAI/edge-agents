@@ -37,8 +37,8 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 		if err != nil {
 			return nil, fmt.Errorf("memory: reading declared files: %w", err)
 		}
-		if err := b.Memory.Restore(ctx, declared); err != nil {
-			return nil, fmt.Errorf("refreshing memory: %w", err)
+		if err := b.Memory.Reconcile(ctx, declared); err != nil {
+			return nil, fmt.Errorf("reconciling memory: %w", err)
 		}
 	}
 	// Compose a per-deploy LLM client: the boot providers plus any custom-model

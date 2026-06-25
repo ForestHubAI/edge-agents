@@ -185,14 +185,6 @@ components:
           minLength: 1
           description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
 
-    MemoryFileWrite:
-      type: object
-      description: Body of PUT /agents/memory/{name}.
-      required: [content]
-      properties:
-        content:
-          type: string
-
     RagQueryRequest:
       type: object
       required: [collectionId, query]

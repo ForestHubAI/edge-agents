@@ -1,10 +1,8 @@
 // Package memory manages the engine's local copy of an agent's declared
-// memory files. The local filesystem is the source of truth: the manager
-// owns a directory of <uid>.json records, reads them at boot, and writes
-// through to disk on every successful mutation. An optional remote mirror
-// (engine.MemorySync) hydrates an empty local copy on a cold start and
-// receives a best-effort push after each local write; with no mirror the
-// manager is fully functional offline.
+// memory files. The device filesystem is the sole source of truth: the
+// manager owns a directory of <uid>.json records, reads them at boot, and
+// writes through to disk on every successful mutation. Memory is
+// device-storage-only — there is no remote mirror.
 package memory
 
 import (
@@ -19,8 +17,6 @@ import (
 	"sync"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
-	"github.com/ForestHubAI/edge-agents/go/engine"
-	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
 // ErrFileNotFound is returned when the LLM references a memory file that
@@ -64,49 +60,32 @@ type entry struct {
 // LLM-facing tool layer resolves human names to uids via Card.
 type Manager struct {
 	dir   string
-	sync  engine.MemorySync // optional remote mirror; nil → local-only
 	mu    sync.Mutex
 	files map[string]*entry // uid → entry
 }
 
-// NewManager constructs a manager whose durable copy lives in dir. sync is
-// the optional remote mirror; pass nil for local-only operation. The
-// directory is created lazily on Restore.
-func NewManager(dir string, sync engine.MemorySync) *Manager {
+// NewManager constructs a manager whose durable copy lives in dir. The
+// directory is created lazily on Reconcile.
+func NewManager(dir string) *Manager {
 	return &Manager{
 		dir:   dir,
-		sync:  sync,
 		files: make(map[string]*entry),
 	}
 }
 
-// Restore rebuilds the working copy for the files declared by the current
+// Reconcile converges the working copy to the files declared by the current
 // deploy. Called from Builder.Build, so every deploy reconciles state
-// (boot and post-rename redeploy). The local filesystem wins: for each
+// (boot and post-rename redeploy). The device filesystem wins: for each
 // declared file an existing local copy is kept as-is (preserving the
-// agent's accumulated edits). Files with no local copy are seeded — from
-// the remote mirror on a cold start (empty local dir, mirror configured),
-// otherwise from the declared content carried in the workflow. Declared
-// metadata (name, description, size cap) is always authoritative; only
-// content is preserved across redeploys.
-func (m *Manager) Restore(ctx context.Context, declared []workflow.MemoryFile) error {
+// agent's accumulated edits). Files with no local copy are seeded from the
+// declared content carried in the workflow. Declared metadata (name,
+// description, size cap) is always authoritative; only content is preserved
+// across redeploys. ctx is unused today, kept for a future device→cloud
+// backup push.
+func (m *Manager) Reconcile(_ context.Context, declared []workflow.MemoryFile) error {
 	local, err := m.readLocal()
 	if err != nil {
 		return fmt.Errorf("memory: read local: %w", err)
-	}
-
-	// Cold start: no local copy at all. If a mirror is configured, pull the
-	// agent's accumulated state from it to seed the new working copy.
-	var remote map[string]string
-	if len(local) == 0 && m.sync != nil {
-		snapshot, err := m.sync.Hydrate(ctx)
-		if err != nil {
-			return fmt.Errorf("memory: hydrate: %w", err)
-		}
-		remote = make(map[string]string, len(snapshot))
-		for _, f := range snapshot {
-			remote[f.Id] = f.Content
-		}
 	}
 
 	if err := os.MkdirAll(m.dir, 0o755); err != nil {
@@ -120,12 +99,9 @@ func (m *Manager) Restore(ctx context.Context, declared []workflow.MemoryFile) e
 		if !validName.MatchString(d.Label) {
 			return fmt.Errorf("memory: invalid file name %q", d.Label)
 		}
-		// Content precedence: local edits win, then a cold-start mirror
-		// snapshot, then the declared seed from the workflow.
+		// Content precedence: a local edit wins; otherwise the declared seed
+		// from the workflow.
 		content := d.Content
-		if c, ok := remote[d.Id]; ok {
-			content = c
-		}
 		if c, ok := local[d.Id]; ok {
 			content = c
 		}
@@ -197,11 +173,10 @@ func (m *Manager) Edit(ctx context.Context, uid, oldStr, newStr string) error {
 }
 
 // write is the shared mutation path: lock, transform, size-check, persist
-// locally, commit in-memory, then mirror best-effort. The local write is
-// the source of truth — if it fails the mutation fails and nothing is
-// committed. A mirror push failure is logged but does not fail the write,
-// so the agent keeps working when the remote is unreachable.
-func (m *Manager) write(ctx context.Context, uid string, transform func(string) (string, error)) error {
+// locally, commit in-memory. The device write is the source of truth — if it
+// fails the mutation fails and nothing is committed. ctx is unused today,
+// kept for a future device→cloud backup push.
+func (m *Manager) write(_ context.Context, uid string, transform func(string) (string, error)) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -221,11 +196,6 @@ func (m *Manager) write(ctx context.Context, uid string, transform func(string) 
 	if err := m.persist(uid, e); err != nil {
 		e.content = committed // roll back in-memory on local write failure
 		return fmt.Errorf("memory: local write %s: %w", e.name, err)
-	}
-	if m.sync != nil {
-		if err := m.sync.Push(ctx, uid, next); err != nil {
-			logging.Logger.Warn().Err(err).Str("uid", uid).Msg("memory: remote mirror push failed; local write retained")
-		}
 	}
 	return nil
 }

@@ -30,7 +30,7 @@ execute node → transition. Triggers run as parallel goroutines.
 
 The engine serves no inbound HTTP. It is a headless process that boots from a
 single `EngineConfig` file (workflow + bindings + device manifest, read once at
-boot) and reports OUT (log shipping + memory sync only); status and liveness are
+boot) and reports OUT (log shipping only); status and liveness are
 observed externally by Ranger (the ranger), not self-reported — a boot failure
 exits the process and Ranger sees a failed container. `engine.yaml` is a
 types-only contract for that outbound wire. Node instantiation is a

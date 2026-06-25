@@ -1,8 +1,8 @@
 // Package backend is the engine-side HTTP client for everything the engine
-// needs from fh-backend: log shipping, memory sync, LLM chat, RAG queries.
-// All requests authenticate with the engine's agent secret via the Agent-Key
-// header (validated by the backend's AgentKeyAuth middleware). Status and
-// liveness are NOT here — Ranger observes the engine container and reports them.
+// needs from fh-backend: LLM chat and RAG queries. All requests authenticate
+// with the engine's device secret via the Device-Key header (validated by the
+// backend's DeviceKeyAuth middleware). Status and liveness are NOT here —
+// Ranger observes the engine container and reports them.
 package backend
 
 import (
@@ -18,7 +18,7 @@ const (
 )
 
 // Client is the engine-side HTTP client for backend interactions.
-// All requests carry the Agent-Key authorization header.
+// All requests carry the Device-Key authorization header.
 type Client struct {
 	BackendURL string
 	Secret     string
@@ -30,6 +30,6 @@ func NewClient(backendURL, secret string) *Client {
 	return &Client{
 		BackendURL: backendURL,
 		Secret:     secret,
-		http:       httpclient.NewClient(backendURL, "Agent-Key", secret),
+		http:       httpclient.NewClient(backendURL, "Device-Key", secret),
 	}
 }

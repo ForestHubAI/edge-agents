@@ -22,7 +22,7 @@ func TestGetProviders_Success(t *testing.T) {
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		gotKey = r.Header.Get("Agent-Key")
+		gotKey = r.Header.Get("Device-Key")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`[{"id":"Anthropic","models":[{"id":"claude-haiku-4-5","label":"Claude Haiku","capabilities":["chat"]}]}]`))
 	}))
@@ -58,7 +58,7 @@ func TestHealth_Success(t *testing.T) {
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		gotKey = r.Header.Get("Agent-Key")
+		gotKey = r.Header.Get("Device-Key")
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`"ok"`))
 	}))

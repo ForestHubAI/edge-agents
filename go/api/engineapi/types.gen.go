@@ -135,11 +135,6 @@ type MQTTWill struct {
 	Topic  string `json:"topic"`
 }
 
-// MemoryFileWrite Body of PUT /agents/memory/{name}.
-type MemoryFileWrite struct {
-	Content string `json:"content"`
-}
-
 // PWMConfig defines model for PWMConfig.
 type PWMConfig struct {
 	// Chip sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"

@@ -101,16 +101,10 @@ func main() {
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at the
-	// workspace mount (component.Workspace; declared memory survives engine
-	// restarts with no backend). The backend, when configured, is an optional
-	// remote mirror — it hydrates an empty local copy on a cold start and receives
-	// best-effort pushes; nil means local-only. Restore is invoked on every Build
-	// (deploy or initial), so no eager call here.
-	var memorySync engine.MemorySync
-	if backendClient != nil {
-		memorySync = backendClient
-	}
-	memoryManager := memory.NewManager(component.Workspace, memorySync)
+	// workspace mount (component.Workspace). Memory is device-storage-only — it
+	// survives engine restarts on a persistent volume, with no backend mirror.
+	// Reconcile is invoked on every Build (deploy or initial), so no eager call here.
+	memoryManager := memory.NewManager(component.Workspace)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
