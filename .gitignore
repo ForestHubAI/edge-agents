@@ -12,6 +12,8 @@ ts/**/dist-cli/
 # Go
 *.test
 *.out
+# Compiled binaries (e.g. engine.exe from `go build ./cmd/engine` on Windows).
+*.exe
 
 # Engine deploy build artifacts (image tarball produced by `docker save`)
 *.tar
@@ -21,6 +23,3 @@ ts/**/dist-cli/
 .env.*
 !.env.example
 .DS_Store
-
-# compiled binary, not for VCS
-go/fh-agent
