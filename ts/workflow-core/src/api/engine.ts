@@ -106,10 +106,6 @@ export interface components {
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
         };
-        /** @description Body of PUT /agents/memory/{name}. */
-        MemoryFileWrite: {
-            content: string;
-        };
         RagQueryRequest: {
             /** @description Collection to query */
             collectionId: string;
