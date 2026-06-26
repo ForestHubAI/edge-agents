@@ -2,26 +2,26 @@ package driver
 
 import "fmt"
 
-// CameraBackend names the capture implementation selected per camera in the
+// CameraSource names the capture implementation selected per camera in the
 // device manifest.
-type CameraBackend string
+type CameraSource string
 
 const (
-	CameraBackendV4L2      CameraBackend = "v4l2"
-	CameraBackendGStreamer CameraBackend = "gstreamer"
+	CameraSourceV4L2      CameraSource = "v4l2"
+	CameraSourceGStreamer CameraSource = "gstreamer"
 )
 
-// OpenCamera opens the camera at device using the named backend. The concrete
-// backends are Linux-only (V4L2 ioctls, GStreamer/libcamera); off Linux both
+// OpenCamera opens the camera at device using the named source. The concrete
+// sources are Linux-only (V4L2 ioctls, GStreamer/libcamera); off Linux both
 // resolve to an in-memory debug driver, so a camera workflow builds and boots on
-// any host. An unknown backend is a manifest error.
-func OpenCamera(backend CameraBackend, device string) (CameraDriver, error) {
-	switch backend {
-	case CameraBackendV4L2:
+// any host. An unknown source is a manifest error.
+func OpenCamera(source CameraSource, device string) (CameraDriver, error) {
+	switch source {
+	case CameraSourceV4L2:
 		return openV4L2(device)
-	case CameraBackendGStreamer:
+	case CameraSourceGStreamer:
 		return openGStreamer(device)
 	default:
-		return nil, fmt.Errorf("camera: unknown backend %q", backend)
+		return nil, fmt.Errorf("camera: unknown source %q", source)
 	}
 }

@@ -17,10 +17,10 @@ import (
 // Compile-time assertion: gstreamerCamera implements CameraDriver.
 var _ CameraDriver = (*gstreamerCamera)(nil)
 
-// Both camera backends capture through GStreamer; they differ only in how the
-// manifest device becomes a pipeline source. v4l2 wraps a /dev path as a
-// v4l2src element (USB/UVC); gstreamer takes the device verbatim as a source
-// fragment (e.g. "libcamerasrc" for CSI/ISP).
+// Both camera sources capture through GStreamer; they differ only in how the
+// manifest device becomes the pipeline's source element. v4l2 wraps a /dev path
+// as a v4l2src element (USB/UVC); gstreamer takes the device verbatim as a source
+// element (e.g. "libcamerasrc" for CSI/ISP).
 
 func openV4L2(device string) (CameraDriver, error) {
 	if device == "" {
@@ -41,17 +41,17 @@ func openGStreamer(device string) (CameraDriver, error) {
 // every frame spawns and tears down its own pipeline, which fits occasional
 // snapshots.
 type gstreamerCamera struct {
-	log    zerolog.Logger
-	source string
+	log           zerolog.Logger
+	sourceElement string
 }
 
-func newGStreamerCamera(source, backend string) *gstreamerCamera {
+func newGStreamerCamera(sourceElement, source string) *gstreamerCamera {
 	return &gstreamerCamera{
-		source: source,
+		sourceElement: sourceElement,
 		log: logging.Logger.With().
 			Str("driver", "camera-gstreamer").
-			Str("backend", backend).
 			Str("source", source).
+			Str("sourceElement", sourceElement).
 			Logger(),
 	}
 }
@@ -74,11 +74,11 @@ func (c *gstreamerCamera) Capture(ctx context.Context, width, height int) ([]byt
 	return stdout.Bytes(), nil
 }
 
-// pipeline assembles the gst-launch arguments: the source limited to one buffer,
-// an optional resolution cap, then JPEG encoding onto stdout. The exact source
-// fragment and caps are device-specific and tuned via the manifest.
+// pipeline assembles the gst-launch arguments: the source element limited to one
+// buffer, an optional resolution cap, then JPEG encoding onto stdout. The exact
+// source element and caps are device-specific and tuned via the manifest.
 func (c *gstreamerCamera) pipeline(width, height int) []string {
-	args := strings.Fields(c.source)
+	args := strings.Fields(c.sourceElement)
 	args = append(args, "num-buffers=1", "!", "videoconvert")
 	if width > 0 && height > 0 {
 		args = append(args, "!", fmt.Sprintf("video/x-raw,width=%d,height=%d", width, height))

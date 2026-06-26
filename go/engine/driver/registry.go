@@ -72,7 +72,7 @@ func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
 		r.pwms[id] = d
 	}
 	for id, cfg := range m.Cameras {
-		d, err := OpenCamera(CameraBackend(cfg.Source), cfg.Device)
+		d, err := OpenCamera(CameraSource(cfg.Source), cfg.Device)
 		if err != nil {
 			r.CloseAll()
 			return nil, fmt.Errorf("camera %q: %w", id, err)

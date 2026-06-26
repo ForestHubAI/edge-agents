@@ -62,7 +62,7 @@ type PWMDriver interface {
 	WriteAnalog(channel int, duty float64) error
 }
 
-// CameraDriver captures still frames from one camera. The capture backend
+// CameraDriver captures still frames from one camera. The capture source
 // is selected per camera from the device manifest.
 type CameraDriver interface {
 	Driver

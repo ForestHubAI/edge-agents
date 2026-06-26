@@ -11,35 +11,35 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Off Linux there is no V4L2 or libcamera, so both capture backends fall back to
+// Off Linux there is no V4L2 or libcamera, so both capture sources fall back to
 // the in-memory debug driver — a camera workflow still builds and boots, it just
 // never produces a real frame.
-func openV4L2(device string) (CameraDriver, error) { return openDebugCamera(CameraBackendV4L2, device) }
+func openV4L2(device string) (CameraDriver, error) { return openDebugCamera(CameraSourceV4L2, device) }
 func openGStreamer(device string) (CameraDriver, error) {
-	return openDebugCamera(CameraBackendGStreamer, device)
+	return openDebugCamera(CameraSourceGStreamer, device)
 }
 
 // Compile-time assertion: debugCamera implements CameraDriver.
 var _ CameraDriver = (*debugCamera)(nil)
 
-// debugCamera is an in-memory CameraDriver standing in for the real backends.
+// debugCamera is an in-memory CameraDriver standing in for the real sources.
 // Capture logs and returns no frame — a debug build never produces image data.
 type debugCamera struct {
-	log     zerolog.Logger
-	backend CameraBackend
-	device  string
+	log    zerolog.Logger
+	source CameraSource
+	device string
 }
 
-func openDebugCamera(backend CameraBackend, device string) (CameraDriver, error) {
+func openDebugCamera(source CameraSource, device string) (CameraDriver, error) {
 	if device == "" {
 		return nil, fmt.Errorf("camera: device is required")
 	}
 	d := &debugCamera{
-		backend: backend,
-		device:  device,
+		source: source,
+		device: device,
 		log: logging.Logger.With().
 			Str("driver", "camera-debug").
-			Str("backend", string(backend)).
+			Str("source", string(source)).
 			Str("device", device).
 			Logger(),
 	}
