@@ -10,11 +10,12 @@ import (
 // ID. Typed per family so a miswired manifest (e.g. GPIO id looked up as
 // ADC) fails at registration, not at first runtime use.
 type Registry struct {
-	gpios   map[string]GPIODriver
-	adcs    map[string]ADCDriver
-	dacs    map[string]DACDriver
-	pwms    map[string]PWMDriver
-	serials map[string]SerialDriver
+	gpios       map[string]GPIODriver
+	adcs        map[string]ADCDriver
+	dacs        map[string]DACDriver
+	pwms        map[string]PWMDriver
+	serials     map[string]SerialDriver
+	microphones map[string]MicrophoneDriver
 }
 
 // NewRegistry opens every driver declared in the manifest. On any failure,
@@ -23,11 +24,12 @@ type Registry struct {
 func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
 	//TODO read from workflow.Manifest
 	r := &Registry{
-		gpios:   make(map[string]GPIODriver),
-		adcs:    make(map[string]ADCDriver),
-		dacs:    make(map[string]DACDriver),
-		pwms:    make(map[string]PWMDriver),
-		serials: make(map[string]SerialDriver),
+		gpios:       make(map[string]GPIODriver),
+		adcs:        make(map[string]ADCDriver),
+		dacs:        make(map[string]DACDriver),
+		pwms:        make(map[string]PWMDriver),
+		serials:     make(map[string]SerialDriver),
+		microphones: make(map[string]MicrophoneDriver),
 	}
 	for id, cfg := range m.GPIOs {
 		d, err := OpenGPIO(cfg.Chip)
@@ -69,6 +71,14 @@ func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
 		}
 		r.pwms[id] = d
 	}
+	for id, cfg := range m.Microphones {
+		d, err := OpenMicrophone(MicrophoneSource(cfg.Source), cfg.Device)
+		if err != nil {
+			r.CloseAll()
+			return nil, fmt.Errorf("microphone %q: %w", id, err)
+		}
+		r.microphones[id] = d
+	}
 	return r, nil
 }
 
@@ -80,6 +90,9 @@ func (r *Registry) ADC(id string) (ADCDriver, error)       { return lookup(r.adc
 func (r *Registry) DAC(id string) (DACDriver, error)       { return lookup(r.dacs, "dac", id) }
 func (r *Registry) PWM(id string) (PWMDriver, error)       { return lookup(r.pwms, "pwm", id) }
 func (r *Registry) Serial(id string) (SerialDriver, error) { return lookup(r.serials, "serial", id) }
+func (r *Registry) Microphone(id string) (MicrophoneDriver, error) {
+	return lookup(r.microphones, "microphone", id)
+}
 
 // CloseAll shuts down every driver. Returns the first error encountered;
 // keeps going on failures so no handle leaks.
@@ -90,6 +103,7 @@ func (r *Registry) CloseAll() error {
 	closeFamily(r.dacs, "dac", &firstErr)
 	closeFamily(r.pwms, "pwm", &firstErr)
 	closeFamily(r.serials, "serial", &firstErr)
+	closeFamily(r.microphones, "microphone", &firstErr)
 	return firstErr
 }
 

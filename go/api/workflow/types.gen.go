@@ -73,6 +73,7 @@ func (e DACChannelType) Valid() bool {
 
 // Defines values for DataType.
 const (
+	Audio  DataType = "audio"
 	Bool   DataType = "bool"
 	Float  DataType = "float"
 	Int    DataType = "int"
@@ -82,6 +83,8 @@ const (
 // Valid indicates whether the value is a known member of the DataType enum.
 func (e DataType) Valid() bool {
 	switch e {
+	case Audio:
+		return true
 	case Bool:
 		return true
 	case Float:
@@ -272,6 +275,21 @@ func (e LOGChannelType) Valid() bool {
 	}
 }
 
+// Defines values for MICROPHONEChannelType.
+const (
+	MICROPHONE MICROPHONEChannelType = "MICROPHONE"
+)
+
+// Valid indicates whether the value is a known member of the MICROPHONEChannelType enum.
+func (e MICROPHONEChannelType) Valid() bool {
+	switch e {
+	case MICROPHONE:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTChannelType.
 const (
 	MQTT MQTTChannelType = "MQTT"
@@ -314,6 +332,21 @@ func (e MemoryRefMode) Valid() bool {
 	case R:
 		return true
 	case Rw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MicrophoneCaptureNodeType.
+const (
+	MicrophoneCapture MicrophoneCaptureNodeType = "MicrophoneCapture"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneCaptureNodeType enum.
+func (e MicrophoneCaptureNodeType) Valid() bool {
+	switch e {
+	case MicrophoneCapture:
 		return true
 	default:
 		return false
@@ -979,6 +1012,21 @@ type LOGChannelLevel string
 // LOGChannelType defines model for LOGChannel.Type.
 type LOGChannelType string
 
+// MICROPHONEChannel defines model for MICROPHONEChannel.
+type MICROPHONEChannel struct {
+	// DurationMs Recording duration in milliseconds.
+	DurationMs int    `json:"durationMs"`
+	Id         string `json:"id"`
+	Label      string `json:"label"`
+
+	// SampleRate Capture sample rate in Hz (16000 is the speech/ASR standard).
+	SampleRate int                   `json:"sampleRate"`
+	Type       MICROPHONEChannelType `json:"type"`
+}
+
+// MICROPHONEChannelType defines model for MICROPHONEChannel.Type.
+type MICROPHONEChannelType string
+
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
 	Id    string `json:"id"`
@@ -1027,6 +1075,22 @@ type MemoryRef struct {
 
 // MemoryRefMode r = read-only; rw = read + write.
 type MemoryRefMode string
+
+// MicrophoneCaptureNode defines model for MicrophoneCaptureNode.
+type MicrophoneCaptureNode struct {
+	Arguments struct {
+		// MicrophoneReference Reference to a MICROPHONE channel ID (the channel carries the capture sample rate and duration; resolved to a microphone driver at deploy time)
+		MicrophoneReference *string       `json:"microphoneReference,omitempty"`
+		Output              OutputBinding `json:"output"`
+	} `json:"arguments"`
+	Id       string                    `json:"id"`
+	Label    *string                   `json:"label,omitempty"`
+	Position NodePosition              `json:"position"`
+	Type     MicrophoneCaptureNodeType `json:"type"`
+}
+
+// MicrophoneCaptureNodeType defines model for MicrophoneCaptureNode.Type.
+type MicrophoneCaptureNodeType string
 
 // Model defines model for Model.
 type Model struct {
@@ -1670,6 +1734,34 @@ func (t *Channel) MergeLOGChannel(v LOGChannel) error {
 	return err
 }
 
+// AsMICROPHONEChannel returns the union data inside the Channel as a MICROPHONEChannel
+func (t Channel) AsMICROPHONEChannel() (MICROPHONEChannel, error) {
+	var body MICROPHONEChannel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMICROPHONEChannel overwrites any union data inside the Channel as the provided MICROPHONEChannel
+func (t *Channel) FromMICROPHONEChannel(v MICROPHONEChannel) error {
+	v.Type = "MICROPHONE"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMICROPHONEChannel performs a merge with any union data inside the Channel, using the provided MICROPHONEChannel
+func (t *Channel) MergeMICROPHONEChannel(v MICROPHONEChannel) error {
+	v.Type = "MICROPHONE"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Channel) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1694,6 +1786,8 @@ func (t Channel) ValueByDiscriminator() (interface{}, error) {
 		return t.AsGPIOOUTChannel()
 	case "LOG":
 		return t.AsLOGChannel()
+	case "MICROPHONE":
+		return t.AsMICROPHONEChannel()
 	case "MQTT":
 		return t.AsMQTTChannel()
 	case "PWM":
@@ -2451,6 +2545,34 @@ func (t *Node) MergeOnMqttMessageNode(v OnMqttMessageNode) error {
 	return err
 }
 
+// AsMicrophoneCaptureNode returns the union data inside the Node as a MicrophoneCaptureNode
+func (t Node) AsMicrophoneCaptureNode() (MicrophoneCaptureNode, error) {
+	var body MicrophoneCaptureNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMicrophoneCaptureNode overwrites any union data inside the Node as the provided MicrophoneCaptureNode
+func (t *Node) FromMicrophoneCaptureNode(v MicrophoneCaptureNode) error {
+	v.Type = "MicrophoneCapture"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMicrophoneCaptureNode performs a merge with any union data inside the Node, using the provided MicrophoneCaptureNode
+func (t *Node) MergeMicrophoneCaptureNode(v MicrophoneCaptureNode) error {
+	v.Type = "MicrophoneCapture"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Node) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -2475,6 +2597,8 @@ func (t Node) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFunctionCallNode()
 	case "If":
 		return t.AsIfNode()
+	case "MicrophoneCapture":
+		return t.AsMicrophoneCaptureNode()
 	case "MqttPublish":
 		return t.AsMqttPublishNode()
 	case "OnFunctionCall":

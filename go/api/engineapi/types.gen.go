@@ -41,6 +41,21 @@ func (e MQTTConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for MicrophoneConfigSource.
+const (
+	Alsa MicrophoneConfigSource = "alsa"
+)
+
+// Valid indicates whether the value is a known member of the MicrophoneConfigSource enum.
+func (e MicrophoneConfigSource) Valid() bool {
+	switch e {
+	case Alsa:
+		return true
+	default:
+		return false
+	}
+}
+
 // ADCConfig defines model for ADCConfig.
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
@@ -58,11 +73,12 @@ type DeploymentMapping map[string]ResourceBinding
 
 // DeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 type DeviceManifest struct {
-	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
-	Dacs    *map[string]DACConfig    `json:"dacs,omitempty"`
-	Gpios   *map[string]GPIOConfig   `json:"gpios,omitempty"`
-	Pwms    *map[string]PWMConfig    `json:"pwms,omitempty"`
-	Serials *map[string]SerialConfig `json:"serials,omitempty"`
+	Adcs        *map[string]ADCConfig        `json:"adcs,omitempty"`
+	Dacs        *map[string]DACConfig        `json:"dacs,omitempty"`
+	Gpios       *map[string]GPIOConfig       `json:"gpios,omitempty"`
+	Microphones *map[string]MicrophoneConfig `json:"microphones,omitempty"`
+	Pwms        *map[string]PWMConfig        `json:"pwms,omitempty"`
+	Serials     *map[string]SerialConfig     `json:"serials,omitempty"`
 }
 
 // EngineConfig The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields.
@@ -139,6 +155,18 @@ type MQTTWill struct {
 type MemoryFileWrite struct {
 	Content string `json:"content"`
 }
+
+// MicrophoneConfig defines model for MicrophoneConfig.
+type MicrophoneConfig struct {
+	// Device ALSA capture device name, e.g. "plughw:0,0" or "default".
+	Device string `json:"device"`
+
+	// Source Capture source that interprets `device`. alsa = an ALSA sound device.
+	Source MicrophoneConfigSource `json:"source"`
+}
+
+// MicrophoneConfigSource Capture source that interprets `device`. alsa = an ALSA sound device.
+type MicrophoneConfigSource string
 
 // PWMConfig defines model for PWMConfig.
 type PWMConfig struct {

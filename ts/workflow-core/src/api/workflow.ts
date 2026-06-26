@@ -8,7 +8,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "audio";
         /** @enum {string} */
         SignalType: "digital" | "analog";
         /** @enum {string} */
@@ -160,7 +160,7 @@ export interface components {
             /** @description Capabilities this model supports (used to filter model pickers). */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"] | components["schemas"]["MicrophoneCaptureNode"];
         WebSearchToolNode: {
             id: string;
             /**
@@ -363,6 +363,21 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
+        MicrophoneCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MicrophoneCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a MICROPHONE channel ID (the channel carries the capture sample rate and duration; resolved to a microphone driver at deploy time) */
+                microphoneReference?: string;
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
         ReadPinNode: {
             id: string;
             /**
@@ -519,7 +534,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"] | components["schemas"]["MICROPHONEChannel"];
         GPIOINChannel: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -609,6 +624,19 @@ export interface components {
             level: "debug" | "info" | "warn" | "error";
             /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
             tag?: string;
+        };
+        MICROPHONEChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MICROPHONE";
+            id: string;
+            label: string;
+            /** @description Capture sample rate in Hz (16000 is the speech/ASR standard). */
+            sampleRate: number;
+            /** @description Recording duration in milliseconds. */
+            durationMs: number;
         };
         /** @enum {string} */
         ModelCapability: "chat" | "embedding" | "function_call" | "vision" | "fine_tuning" | "reasoning" | "classification" | "code";

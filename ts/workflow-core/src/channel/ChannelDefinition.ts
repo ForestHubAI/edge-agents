@@ -94,5 +94,21 @@ export const CHANNEL_DEFINITION: ChannelDefinition = {
       optional: true,
       activationRules: [{ type: "parameterIn", parameterId: "type", values: ["LOG"] }],
     },
+    {
+      id: "sampleRate",
+      label: "Sample Rate (Hz)",
+      description: "Capture sample rate in Hz (16000 is the speech/ASR standard)",
+      type: "int",
+      default: 16000,
+      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["MICROPHONE"] }],
+    },
+    {
+      id: "durationMs",
+      label: "Duration (ms)",
+      description: "Recording duration in milliseconds",
+      type: "int",
+      default: 3000,
+      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["MICROPHONE"] }],
+    },
   ],
 };

@@ -136,6 +136,10 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/PWMConfig"
+        microphones:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MicrophoneConfig"
 
     GPIOConfig:
       type: object
@@ -184,6 +188,19 @@ components:
           type: string
           minLength: 1
           description: sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
+
+    MicrophoneConfig:
+      type: object
+      required: [source, device]
+      properties:
+        source:
+          type: string
+          enum: [alsa]
+          description: Capture source that interprets `device`. alsa = an ALSA sound device.
+        device:
+          type: string
+          minLength: 1
+          description: ALSA capture device name, e.g. "plughw:0,0" or "default".
 
     MemoryFileWrite:
       type: object

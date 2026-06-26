@@ -121,6 +121,12 @@ func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest 
 			out.PWMs[id] = engine.PWMConfig{Chip: c.Chip}
 		}
 	}
+	if in.Microphones != nil {
+		out.Microphones = make(map[string]engine.MicrophoneConfig, len(*in.Microphones))
+		for id, c := range *in.Microphones {
+			out.Microphones[id] = engine.MicrophoneConfig{Source: string(c.Source), Device: c.Device}
+		}
+	}
 	return out
 }
 

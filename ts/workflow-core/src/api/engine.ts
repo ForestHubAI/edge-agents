@@ -83,6 +83,9 @@ export interface components {
             pwms?: {
                 [key: string]: components["schemas"]["PWMConfig"];
             };
+            microphones?: {
+                [key: string]: components["schemas"]["MicrophoneConfig"];
+            };
         };
         GPIOConfig: {
             /** @description cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0" */
@@ -105,6 +108,15 @@ export interface components {
         PWMConfig: {
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
+        };
+        MicrophoneConfig: {
+            /**
+             * @description Capture source that interprets `device`. alsa = an ALSA sound device.
+             * @enum {string}
+             */
+            source: "alsa";
+            /** @description ALSA capture device name, e.g. "plughw:0,0" or "default". */
+            device: string;
         };
         /** @description Body of PUT /agents/memory/{name}. */
         MemoryFileWrite: {
@@ -167,7 +179,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "audio";
         Expression: {
             expression: string;
             /** @description A list of referenced variable IDs used in the expression */
@@ -535,7 +547,22 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        MicrophoneCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MicrophoneCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a MICROPHONE channel ID (the channel carries the capture sample rate and duration; resolved to a microphone driver at deploy time) */
+                microphoneReference?: string;
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"] | components["schemas"]["MicrophoneCaptureNode"];
         /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
         Vertex: {
@@ -669,7 +696,20 @@ export interface components {
             /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
             tag?: string;
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        MICROPHONEChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MICROPHONE";
+            id: string;
+            label: string;
+            /** @description Capture sample rate in Hz (16000 is the speech/ASR standard). */
+            sampleRate: number;
+            /** @description Recording duration in milliseconds. */
+            durationMs: number;
+        };
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"] | components["schemas"]["MICROPHONEChannel"];
         /** @description One .md file that agent nodes can read and write to. */
         MemoryFile: {
             /**

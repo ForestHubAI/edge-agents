@@ -40,9 +40,9 @@ export function getReferencedCatalogModelIds(workflow: Workflow): string[] {
   return [...catalogIds];
 }
 
-// The five hardware-channel families the engine has a driver for. UART is the
-// odd one out: it carries no per-channel sub-address (see `addressable`).
-export type HardwareFamily = "gpio" | "adc" | "dac" | "pwm" | "serial";
+// The hardware-channel families the engine has a driver for. UART and MICROPHONE
+// are the odd ones out: they carry no per-channel sub-address (see `addressable`).
+export type HardwareFamily = "gpio" | "adc" | "dac" | "pwm" | "serial" | "microphone";
 
 // One hardware channel the workflow declares. `family` is derived from the
 // channel type; `addressable` is false only for serial/UART (every
@@ -121,6 +121,9 @@ export function deriveRequirements(workflow: Workflow): DeployRequirements {
         break;
       case "UART":
         hardwareChannels.push({ id: channel.id, label: channel.label, family: "serial", addressable: false });
+        break;
+      case "MICROPHONE":
+        hardwareChannels.push({ id: channel.id, label: channel.label, family: "microphone", addressable: false });
         break;
       case "MQTT":
         mqttChannels.push({ id: channel.id, label: channel.label });

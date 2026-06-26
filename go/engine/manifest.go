@@ -6,8 +6,9 @@ type DeviceManifest struct {
 	GPIOs   map[string]GPIOConfig   `json:"gpios,omitempty"`
 	ADCs    map[string]ADCConfig    `json:"adcs,omitempty"`
 	DACs    map[string]DACConfig    `json:"dacs,omitempty"`
-	Serials map[string]SerialConfig `json:"serials,omitempty"`
-	PWMs    map[string]PWMConfig    `json:"pwms,omitempty"`
+	Serials     map[string]SerialConfig     `json:"serials,omitempty"`
+	PWMs        map[string]PWMConfig        `json:"pwms,omitempty"`
+	Microphones map[string]MicrophoneConfig `json:"microphones,omitempty"`
 }
 
 type GPIOConfig struct {
@@ -29,6 +30,11 @@ type SerialConfig struct {
 
 type PWMConfig struct {
 	Chip string `json:"chip"`
+}
+
+type MicrophoneConfig struct {
+	Source string `json:"source"`
+	Device string `json:"device"`
 }
 
 // DeploymentMapping binds a binding-free workflow's logical resource ids to

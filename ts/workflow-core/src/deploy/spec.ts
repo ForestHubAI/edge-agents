@@ -245,6 +245,7 @@ export function buildDeploymentSpec(
   const dacs: Record<string, EngineSchemas["DACConfig"]> = {};
   const pwms: Record<string, EngineSchemas["PWMConfig"]> = {};
   const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
+  const microphones: Record<string, EngineSchemas["MicrophoneConfig"]> = {};
 
   const externalResources: EngineSchemas["ExternalResources"] = {};
   const mapping: EngineSchemas["DeploymentMapping"] = {};
@@ -283,6 +284,12 @@ export function buildDeploymentSpec(
       case "dac":
         dacs[ref] = { device: dev };
         privileged = true;
+        break;
+      case "microphone":
+        // `dev` is an ALSA PCM name (e.g. "plughw:0,0"), not a filesystem path;
+        // the device node to map is always the sound dir /dev/snd.
+        microphones[ref] = { source: "alsa", device: dev };
+        cdev.add("/dev/snd");
         break;
       default:
         return assertNeverFamily(ch.family);
@@ -356,6 +363,7 @@ export function buildDeploymentSpec(
   if (Object.keys(dacs).length) manifest.dacs = dacs;
   if (Object.keys(pwms).length) manifest.pwms = pwms;
   if (Object.keys(serials).length) manifest.serials = serials;
+  if (Object.keys(microphones).length) manifest.microphones = microphones;
 
   // The engine's boot input. workflow is serialized (and thereby pruned) from
   // the domain. The optional sections attach only when non-empty — an absent

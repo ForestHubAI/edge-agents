@@ -167,6 +167,15 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
+		case workflow.MicrophoneCaptureNode:
+			mic, err := b.channels.microphone(pointer.Val(nd.Arguments.MicrophoneReference))
+			if err != nil {
+				return "", fmt.Errorf("node %s: %w", nd.Id, err)
+			}
+			n := node.NewMicrophoneCapture(nd.Id, nd.Arguments.Output, mic)
+			b.allNodes[nd.Id] = n
+			b.actions[nd.Id] = n
+
 		case workflow.SerialWriteNode:
 			dst, err := b.channels.textWriter(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {

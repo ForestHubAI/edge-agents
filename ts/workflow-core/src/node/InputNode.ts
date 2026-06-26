@@ -45,8 +45,17 @@ export interface WebFetchNode extends NodeBase {
   };
 }
 
-export type InputNodeType = "ReadPin" | "SerialRead" | "Retriever" | "WebFetch";
-export type InputNode = ReadPinNode | SerialReadNode | RetrieverNode | WebFetchNode;
+// MicrophoneCapture - records an audio clip from a microphone channel
+export interface MicrophoneCaptureNode extends NodeBase {
+  type: "MicrophoneCapture";
+  arguments: {
+    microphoneReference: string | undefined;
+    output: OutputBinding;
+  };
+}
+
+export type InputNodeType = "ReadPin" | "SerialRead" | "Retriever" | "WebFetch" | "MicrophoneCapture";
+export type InputNode = ReadPinNode | SerialReadNode | RetrieverNode | WebFetchNode | MicrophoneCaptureNode;
 
 // Node Definitions
 
@@ -180,6 +189,23 @@ export const SerialReadNodeDefinition: NodeDefinition = {
       description: "Prompt for the serial read operation",
       type: "string",
       optional: true,
+    },
+  ],
+};
+
+export const MicrophoneCaptureNodeDefinition: NodeDefinition = {
+  type: "MicrophoneCapture",
+  label: "Microphone Capture",
+  category: NodeCategory.Input,
+  description: "Record an audio clip from a microphone",
+  outputs: [{ id: "output", label: "Audio", type: "static", dataType: "audio" }],
+  parameters: [
+    {
+      id: "microphoneReference",
+      label: "Microphone",
+      description: "Microphone to record from",
+      type: "channelSelect",
+      channelType: ["MICROPHONE"],
     },
   ],
 };

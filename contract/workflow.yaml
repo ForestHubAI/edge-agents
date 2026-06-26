@@ -8,7 +8,7 @@ components:
   schemas:
     DataType:
       type: string
-      enum: [int, float, bool, string]
+      enum: [int, float, bool, string, audio]
 
     SignalType:
       type: string
@@ -346,6 +346,7 @@ components:
         - $ref: "#/components/schemas/SetVariableNode"
         - $ref: "#/components/schemas/MqttPublishNode"
         - $ref: "#/components/schemas/OnMqttMessageNode"
+        - $ref: "#/components/schemas/MicrophoneCaptureNode"
       discriminator:
         propertyName: type
         mapping:
@@ -370,6 +371,7 @@ components:
           SetVariable: "#/components/schemas/SetVariableNode"
           MqttPublish: "#/components/schemas/MqttPublishNode"
           OnMqttMessage: "#/components/schemas/OnMqttMessageNode"
+          MicrophoneCapture: "#/components/schemas/MicrophoneCaptureNode"
 
     WebSearchToolNode:
       type: object
@@ -605,6 +607,24 @@ components:
             output:
               $ref: "#/components/schemas/OutputBinding"
 
+    MicrophoneCaptureNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [MicrophoneCapture] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [output]
+          properties:
+            microphoneReference:
+              type: string
+              description: Reference to a MICROPHONE channel ID (the channel carries the capture sample rate and duration; resolved to a microphone driver at deploy time)
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
     ReadPinNode:
       type: object
       required: [id, type, arguments, position]
@@ -815,6 +835,7 @@ components:
         - $ref: "#/components/schemas/UARTChannel"
         - $ref: "#/components/schemas/MQTTChannel"
         - $ref: "#/components/schemas/LOGChannel"
+        - $ref: "#/components/schemas/MICROPHONEChannel"
       discriminator:
         propertyName: type
         mapping:
@@ -826,6 +847,7 @@ components:
           UART: "#/components/schemas/UARTChannel"
           MQTT: "#/components/schemas/MQTTChannel"
           LOG: "#/components/schemas/LOGChannel"
+          MICROPHONE: "#/components/schemas/MICROPHONEChannel"
 
     GPIOINChannel:
       type: object
@@ -910,3 +932,17 @@ components:
         tag:
           type: string
           description: Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.
+
+    MICROPHONEChannel:
+      type: object
+      required: [type, id, label, sampleRate, durationMs]
+      properties:
+        type: { type: string, enum: [MICROPHONE] }
+        id: { type: string }
+        label: { type: string }
+        sampleRate:
+          type: integer
+          description: Capture sample rate in Hz (16000 is the speech/ASR standard).
+        durationMs:
+          type: integer
+          description: Recording duration in milliseconds.

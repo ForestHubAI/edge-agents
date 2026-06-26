@@ -227,6 +227,16 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           output: data.arguments.output,
         },
       };
+    case "MicrophoneCapture":
+      return {
+        id: data.id,
+        type: data.type,
+        position: position,
+        arguments: {
+          microphoneReference: data.arguments.microphoneReference!,
+          output: data.arguments.output,
+        },
+      };
     case "FunctionCall": {
       // Frontend stores FunctionCall args flat (unified with every other node), but
       // the API schema keeps the nested { inputBindings, outputBindings } shape.
@@ -475,6 +485,16 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
           output: apiNode.arguments.output as OutputBinding,
         },
       };
+    case "MicrophoneCapture":
+      return {
+        id: apiNode.id,
+        type: apiNode.type,
+        label: apiNode.label,
+        arguments: {
+          microphoneReference: apiNode.arguments.microphoneReference ?? "",
+          output: apiNode.arguments.output as OutputBinding,
+        },
+      };
     case "SetVariable":
       return {
         id: apiNode.id,
@@ -523,7 +543,8 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          // MQTT carries scalar payloads only; `audio` is not a valid MQTT dataType.
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
           value: apiNode.arguments.value,
           qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
           retain: apiNode.arguments.retain,
@@ -536,7 +557,8 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          // MQTT carries scalar payloads only; `audio` is not a valid MQTT dataType.
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
           output: apiNode.arguments.output as OutputBinding,
         },
       };

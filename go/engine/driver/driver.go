@@ -75,3 +75,12 @@ type SerialDriver interface {
 	Flush() error
 	Write(data string) error
 }
+
+// MicrophoneDriver records audio clips from one microphone. The capture source
+// is selected per microphone from the device manifest.
+type MicrophoneDriver interface {
+	Driver
+	// Capture records one durationMs-long clip and returns the encoded audio
+	// bytes. A zero sampleRate requests the source's native rate.
+	Capture(ctx context.Context, sampleRate, durationMs int) ([]byte, error)
+}

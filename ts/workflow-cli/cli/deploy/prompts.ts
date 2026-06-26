@@ -28,6 +28,7 @@ const HARDWARE_EXAMPLE: Record<HardwareFamily, string> = {
   dac: "/sys/bus/iio/devices/iio:device1",
   pwm: "/sys/class/pwm/pwmchip0",
   serial: "/dev/ttyUSB0",
+  microphone: "plughw:0,0",
 };
 
 const isUint = (v: string) => /^\d+$/.test(v.trim()) || "enter a non-negative integer";

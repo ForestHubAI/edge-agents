@@ -27,6 +27,7 @@ type channels struct {
 	uarts       map[string]*channel.UART
 	mqtts       map[string]*channel.MQTT
 	logs        map[string]*channel.Log
+	microphones map[string]*channel.Microphone
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
@@ -47,6 +48,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 		uarts:       make(map[string]*channel.UART),
 		mqtts:       make(map[string]*channel.MQTT),
 		logs:        make(map[string]*channel.Log),
+		microphones: make(map[string]*channel.Microphone),
 	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
@@ -152,6 +154,20 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
+		case workflow.MICROPHONEChannel:
+			b, err := bindingFor(dm, x.Id)
+			if err != nil {
+				return nil, err
+			}
+			d, err := drvs.Microphone(b.Ref)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+			}
+			ch.microphones[x.Id] = &channel.Microphone{
+				Driver:     d,
+				SampleRate: x.SampleRate,
+				DurationMs: x.DurationMs,
+			}
 		case workflow.MQTTChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
@@ -263,6 +279,11 @@ func (ch *channels) SetupAll() error {
 			return fmt.Errorf("log %q: %w", id, err)
 		}
 	}
+	for id, v := range ch.microphones {
+		if err := v.Setup(); err != nil {
+			return fmt.Errorf("microphone %q: %w", id, err)
+		}
+	}
 	return nil
 }
 
@@ -331,6 +352,14 @@ func (ch *channels) mqtt(id string) (*channel.MQTT, error) {
 	v, ok := ch.mqtts[id]
 	if !ok {
 		return nil, fmt.Errorf("no MQTT channel %q", id)
+	}
+	return v, nil
+}
+
+func (ch *channels) microphone(id string) (*channel.Microphone, error) {
+	v, ok := ch.microphones[id]
+	if !ok {
+		return nil, fmt.Errorf("no MICROPHONE channel %q", id)
 	}
 	return v, nil
 }
