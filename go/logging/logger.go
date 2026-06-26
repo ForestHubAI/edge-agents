@@ -14,34 +14,54 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const httpCloseTimeout = 3 * time.Second
-
 // Logger is the package-level logger any component
 // shares. Call Configure once at boot to wire the writer graph; read it
 // from anywhere thereafter.
 var Logger = zerolog.Nop()
 
-// wire fans writers into the package Logger via zerolog.MultiLevelWriter; an
-// empty list discards. The returned io.Closer aggregates Close() over every
-// writer that implements io.Closer. Configure (config.go) is the public entry.
-func wire(level zerolog.Level, writers ...io.Writer) io.Closer {
-	var writer io.Writer
-	switch len(writers) {
-	case 0:
-		writer = io.Discard
-	case 1:
-		writer = writers[0]
-	default:
-		writer = zerolog.MultiLevelWriter(writers...)
-	}
+// sink pairs a writer with the minimum level it accepts. Configure (config.go)
+// builds one per enabled sink and hands them to wire.
+type sink struct {
+	level  zerolog.Level
+	writer io.Writer
+}
 
+// wire fans the sinks into the package Logger. Each sink is wrapped in a
+// zerolog.FilteredLevelWriter at its own level, so one log line fans to every
+// sink and each drops what falls below its floor. The Logger's own level is the
+// most permissive floor across the sinks — events below it reach no sink, so
+// zerolog discards them before any writer runs. An empty list discards. The
+// returned io.Closer aggregates Close() over every writer that implements
+// io.Closer. Configure (config.go) is the public entry.
+func wire(sinks ...sink) io.Closer {
 	zerolog.MessageFieldName = "msg"
 	zerolog.TimeFieldFormat = time.RFC3339Nano
-	Logger = zerolog.New(writer).Level(level).With().Timestamp().Logger()
+
+	if len(sinks) == 0 {
+		Logger = zerolog.New(io.Discard).Level(zerolog.Disabled).With().Timestamp().Logger()
+		return nopCloser{}
+	}
+
+	floor := zerolog.Disabled
+	writers := make([]io.Writer, len(sinks))
+	for i, s := range sinks {
+		if s.level < floor {
+			floor = s.level
+		}
+		writers[i] = &zerolog.FilteredLevelWriter{Writer: levelWriter(s.writer), Level: s.level}
+	}
+
+	var writer io.Writer
+	if len(writers) == 1 {
+		writer = writers[0]
+	} else {
+		writer = zerolog.MultiLevelWriter(writers...)
+	}
+	Logger = zerolog.New(writer).Level(floor).With().Timestamp().Logger()
 
 	var closers multiCloser
-	for _, w := range writers {
-		if c, ok := w.(io.Closer); ok {
+	for _, s := range sinks {
+		if c, ok := s.writer.(io.Closer); ok {
 			closers = append(closers, c)
 		}
 	}
@@ -49,6 +69,17 @@ func wire(level zerolog.Level, writers ...io.Writer) io.Closer {
 		return nopCloser{}
 	}
 	return closers
+}
+
+// levelWriter adapts a plain io.Writer to zerolog.LevelWriter so a
+// FilteredLevelWriter can gate it. A writer that already carries WriteLevel
+// (e.g. HTTPWriter, whose Fatal path is synchronous) is used as-is, preserving
+// that behavior through the filter.
+func levelWriter(w io.Writer) zerolog.LevelWriter {
+	if lw, ok := w.(zerolog.LevelWriter); ok {
+		return lw
+	}
+	return zerolog.LevelWriterAdapter{Writer: w}
 }
 
 // ParseLevel parses a case-insensitive level name. Empty input yields
@@ -61,6 +92,21 @@ func ParseLevel(s string) (zerolog.Level, error) {
 	lvl, err := zerolog.ParseLevel(s)
 	if err != nil || lvl == zerolog.NoLevel {
 		return zerolog.InfoLevel, fmt.Errorf("unknown log level %q", s)
+	}
+	return lvl, nil
+}
+
+// resolveLevel parses a per-sink level name, falling back to def on empty input
+// and reporting an error — while still returning def — on an unknown name, so a
+// bad sink level degrades to its default rather than failing the boot.
+func resolveLevel(s string, def zerolog.Level) (zerolog.Level, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return def, nil
+	}
+	lvl, err := zerolog.ParseLevel(s)
+	if err != nil || lvl == zerolog.NoLevel {
+		return def, fmt.Errorf("unknown log level %q", s)
 	}
 	return lvl, nil
 }

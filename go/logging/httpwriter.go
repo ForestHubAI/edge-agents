@@ -9,6 +9,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const httpCloseTimeout = 3 * time.Second
+
 // HTTPWriter posts log lines to a configured URL. Implements
 // zerolog.LevelWriter so Fatal events block until the POST completes
 // while everything else is fire-and-forget.
