@@ -324,11 +324,12 @@ See [`go/CLAUDE.md`](go/CLAUDE.md) and [`ts/CLAUDE.md`](ts/CLAUDE.md) for deeper
 
 | Path                                         | What it contains                                                                                            |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go and TS.                                               |
+| [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go, TS and Python.                                       |
 | [`go/`](go)                                  | Engine binary, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
 | [`ts/workflow-core`](ts/workflow-core)       | `@foresthubai/workflow-core` — headless workflow model, validation, (de)serialization. No React.            |
 | [`ts/workflow-builder`](ts/workflow-builder) | `@foresthubai/workflow-builder` — React canvas component.                                                   |
 | [`ts/workflow-cli`](ts/workflow-cli)         | `@foresthubai/workflow-cli` — the `fh-workflow` CLI + the reference SPA it serves.                          |
+| [`py/ml-inference`](py/ml-inference)         | `fh-onnx` — generic ONNX inference sidecar (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`. |
 
 ## Releases
 

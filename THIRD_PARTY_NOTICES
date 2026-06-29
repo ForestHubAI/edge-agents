@@ -23,8 +23,8 @@ Per-license obligations satisfied here:
   * Eclipse Paho is taken under its Eclipse Distribution License v1.0
     (BSD-3-Clause) option, not the EPL-2.0 option.
 
-This file is generated from go/go.mod, go/go.sum and ts/package-lock.json.
-Regenerate it after dependency changes.
+This file is generated from go/go.mod, go/go.sum, ts/package-lock.json and
+py/ml-inference/requirements.txt. Regenerate it after dependency changes.
 
 
 ================================================================================
@@ -155,6 +155,31 @@ under MIT. Representative components by license:
 
 
 ================================================================================
+D. PYTHON SIDECAR DEPENDENCIES (py/ml-inference)
+================================================================================
+
+Runtime stack of the fh-onnx ONNX inference sidecar, pinned in
+py/ml-inference/requirements.txt. All permissive; transitive dependencies carry
+their own MIT/BSD/Apache-2.0 licenses.
+
+-- Apache-2.0 [A] (NOTICE / attribution obligation) --
+  opencv-python-headless 4.13.0.92   (OpenCV core Apache-2.0; Python bindings MIT)
+  python-multipart       0.0.32
+
+-- MIT --
+  onnxruntime  1.27.0
+  fastapi      0.138.1
+  pyyaml       6.0.3
+  pydantic     2.13.4
+
+-- BSD-3-Clause --
+  uvicorn       0.49.0
+  numpy         2.5.0
+  scipy         1.18.0
+  scikit-learn  1.9.0
+
+
+================================================================================
 Full license texts for every component above are available in each package's
-source distribution (Go module cache / node_modules).
+source distribution (Go module cache / node_modules / Python wheels).
 ================================================================================
