@@ -1,0 +1,14 @@
+# Model weights and downloaded test assets are not committed (placed/fetched locally).
+*.onnx
+examples/bus.jpg
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Build artifacts (editable install / wheel build)
+*.egg-info/
+build/
+dist/
