@@ -24,3 +24,15 @@ const (
 	// files, broker state), persisted across deployments.
 	Workspace = "/var/lib/foresthub/workspace"
 )
+
+// Process exit codes a first-party component uses to tell the orchestrator how to
+// react to a failure. Only a permanent failure gets a dedicated code; any other
+// nonzero exit is treated as transient — the orchestrator may restart the
+// container — and 0 is a clean shutdown.
+const (
+	// ExitConfigError signals a permanent boot failure where the provided config can not start the component.
+	// Restarting the container unchanged fails the same way. The orchestrator marks the deployment failed as
+	// instead of retrying.
+	// Value 78 is sysexits.h EX_CONFIG.
+	ExitConfigError = 78
+)

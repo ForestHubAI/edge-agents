@@ -12,6 +12,7 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
 	"github.com/ForestHubAI/edge-agents/go/component"
+	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
@@ -30,7 +31,7 @@ func main() {
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Msg("loading configuration")
+		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
 
 	// Wire the real sinks from cfg.Log (stdout always; opt-in file + HTTP). The
@@ -46,13 +47,6 @@ func main() {
 	var backendClient *backend.Client
 	if cfg.BackendURL != "" {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
-	}
-
-	// bootFail logs a fatal boot error and exits nonzero. In the immutable model a
-	// boot failure ends the process; Ranger (or the container runtime) observes the
-	// nonzero exit as a failed container — the engine no longer self-reports status.
-	bootFail := func(cause error, msg string) {
-		logging.Logger.Fatal().Err(cause).Msg(msg)
 	}
 
 	// Create LLM provider registry and client. Locally-configured providers
@@ -71,14 +65,14 @@ func main() {
 	}
 	ec, err := loadEngineConfig(configFile)
 	if err != nil {
-		bootFail(err, "loading engine config")
+		boot.Fail(err, "loading engine config")
 	}
 	// A present config with no workflow is still a boot error, not an idle engine:
 	// an empty workflow builds into a runner with no triggers that blocks forever
 	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
 	// requires schemaVersion >= 1).
 	if ec.Workflow.SchemaVersion == 0 {
-		bootFail(errors.New("engine config has no workflow"), "validating engine config")
+		boot.Fail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
 	// Build the I/O registries main owns for the engine's lifetime: drivers from
@@ -88,16 +82,17 @@ func main() {
 	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
-		bootFail(err, "initialising driver registry")
+		boot.Fail(err, "initialising driver registry")
 	}
 	resourceSecrets, err := parseResourceSecrets(cfg.ResourceSecrets)
 	if err != nil {
-		bootFail(err, "parsing resource secrets")
+		boot.Fail(err, "parsing resource secrets")
 	}
 	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, resourceSecrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
-		bootFail(err, "opening transports")
+		// A broker unreachable at boot may come back; let the orchestrator retry.
+		boot.Retry(err, "opening transports")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at the
@@ -113,7 +108,7 @@ func main() {
 	if cfg.WebSearch.APIKey != "" {
 		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
 		if err != nil {
-			bootFail(err, "configuring web search provider")
+			boot.Fail(err, "configuring web search provider")
 		}
 		webSearchProvider = p
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
@@ -155,12 +150,11 @@ func main() {
 		}
 	}()
 
-	// Build the runner. A build failure exits nonzero (Ranger observes a failed
-	// container); there is no "online" callback for it to contradict.
+	// Build the runner.
 	dm := mapping.DeploymentMappingToDomain(ec.Mapping)
 	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
 	if err != nil {
-		bootFail(err, "building workflow runner")
+		boot.Fail(err, "building workflow runner")
 	}
 
 	// Run the workflow, BLOCKING until it exits — on its own (terminal: the

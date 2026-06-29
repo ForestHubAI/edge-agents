@@ -55,6 +55,20 @@ export interface components {
             privileged?: boolean;
             /** @description Container user as "UID[:GID]", e.g. "0:0" for root. The renderer passes it through verbatim. Needed when a nonroot image must reach root-owned resources: the engine image runs nonroot but has to open the root-owned device nodes / sysfs files granted via devices/privileged, so its component sets "0:0". Omit to use the image's own default user. */
             user?: string;
+            healthcheck?: components["schemas"]["HealthCheck"];
+        };
+        /** @description In-container readiness/liveness probe the orchestrator runs, emitted as the renderer's healthcheck. Carries a probe only when the image ships one (Tier 1: a probe tool present in the image); when it does not, omit the whole healthcheck and let the orchestrator probe out-of-band (Tier 2). Either way the universal backstop holds with no per-image work: a container that exits, or is still not healthy when startPeriod elapses, is a failed deployment, not an endless restart. A first-party component reporting a permanent boot failure short-circuits even that, exiting with the EX_CONFIG (78) code so the orchestrator fails the deployment without waiting out the probe. */
+        HealthCheck: {
+            /** @description The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely. */
+            test: string[];
+            /** @description How often to run the probe once the container is up, as a compose/Go duration, e.g. "30s". Omit to use the renderer default. */
+            interval?: string;
+            /** @description How long one probe may run before it counts as a failure, e.g. "10s". Omit to use the renderer default. */
+            timeout?: string;
+            /** @description Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default. */
+            retries?: number;
+            /** @description Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s". */
+            startPeriod?: string;
         };
     };
     responses: never;

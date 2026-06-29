@@ -60,6 +60,9 @@ type DeployComponent struct {
 	// Devices Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the component binds, computed once from the workflow's hardware against the device manifest. Empty when the component uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead.
 	Devices *[]string `json:"devices,omitempty"`
 
+	// Healthcheck In-container readiness/liveness probe the orchestrator runs, emitted as the renderer's healthcheck. Carries a probe only when the image ships one (Tier 1: a probe tool present in the image); when it does not, omit the whole healthcheck and let the orchestrator probe out-of-band (Tier 2). Either way the universal backstop holds with no per-image work: a container that exits, or is still not healthy when startPeriod elapses, is a failed deployment, not an endless restart. A first-party component reporting a permanent boot failure short-circuits even that, exiting with the EX_CONFIG (78) code so the orchestrator fails the deployment without waiting out the probe.
+	Healthcheck *HealthCheck `json:"healthcheck,omitempty"`
+
 	// Image OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string.
 	Image string `json:"image"`
 
@@ -105,3 +108,21 @@ type DeploymentSpec struct {
 
 // DeploymentSpecStatus Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
 type DeploymentSpecStatus string
+
+// HealthCheck In-container readiness/liveness probe the orchestrator runs, emitted as the renderer's healthcheck. Carries a probe only when the image ships one (Tier 1: a probe tool present in the image); when it does not, omit the whole healthcheck and let the orchestrator probe out-of-band (Tier 2). Either way the universal backstop holds with no per-image work: a container that exits, or is still not healthy when startPeriod elapses, is a failed deployment, not an endless restart. A first-party component reporting a permanent boot failure short-circuits even that, exiting with the EX_CONFIG (78) code so the orchestrator fails the deployment without waiting out the probe.
+type HealthCheck struct {
+	// Interval How often to run the probe once the container is up, as a compose/Go duration, e.g. "30s". Omit to use the renderer default.
+	Interval *string `json:"interval,omitempty"`
+
+	// Retries Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default.
+	Retries *int `json:"retries,omitempty"`
+
+	// StartPeriod Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".
+	StartPeriod *string `json:"startPeriod,omitempty"`
+
+	// Test The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely.
+	Test []string `json:"test"`
+
+	// Timeout How long one probe may run before it counts as a failure, e.g. "10s". Omit to use the renderer default.
+	Timeout *string `json:"timeout,omitempty"`
+}
