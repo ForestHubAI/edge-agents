@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: ForestHub ML Inference Sidecar Contract
+  version: 0.1.0
+  description: "Engine<->sidecar inference wire. The sidecar (fh-onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the sidecar's generated Pydantic models."
+
+paths:
+  /infer:
+    post:
+      operationId: infer
+      summary: Run inference on one loaded model, selected by name.
+      description: "Selects the loaded model named by `model`, feeds it the supplied input, and returns the handler-produced result. The handler decides how to read the input (binary blob, numeric tensors, or both). An unknown `model` yields 404; an input the handler cannot process yields 422."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/InferRequest"
+            encoding:
+              binary:
+                contentType: application/octet-stream
+              tensors:
+                contentType: application/json
+              params:
+                contentType: application/json
+      responses:
+        "200":
+          description: Inference result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InferResult"
+        "404":
+          description: No model with the requested name is loaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: The input could not be processed by the selected model's handler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Liveness — the process is up.
+      description: "Always 200 while the process is alive. Says nothing about whether models are loaded; use /readyz for that."
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /readyz:
+    get:
+      operationId: readyz
+      summary: Readiness — the model repository finished loading.
+      description: "200 only once the repository is loaded and inference can be served; 503 while the repository is still loading or empty."
+      responses:
+        "200":
+          description: The repository is loaded and inference can be served.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The repository is not yet loaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /metadata:
+    get:
+      operationId: metadata
+      summary: List the loaded models.
+      description: "Describes every model the repository loaded at startup — the names valid as the /infer `model` selector, plus each one's task, handler, and optional version."
+      responses:
+        "200":
+          description: The repository's loaded models.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryMetadata"
+
+components:
+  schemas:
+    InferRequest:
+      type: object
+      description: "A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both."
+      required: [model]
+      properties:
+        model:
+          type: string
+          description: "Name (id) of the loaded model to run — must match a loaded bundle (a sub-folder of the models repository). See /metadata for valid names."
+        binary:
+          type: string
+          format: binary
+          description: "Opaque binary input (e.g. an encoded image). Read and decoded by the model's handler."
+        tensors:
+          x-go-type-skip-optional-pointer: true
+          type: object
+          description: "Named numeric tensors as nested arrays, for models whose input is not a binary blob. The handler maps these onto the model's input feeds."
+          additionalProperties: true
+        params:
+          x-go-type-skip-optional-pointer: true
+          type: object
+          description: "Free-form per-request overrides (e.g. detection thresholds). Merged over the manifest's params by the handler."
+          additionalProperties: true
+
+    InferResult:
+      type: object
+      description: "A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's task/handler, not by this contract. By convention the object-detection (YOLO) handler returns `{ detections: [ { label, score, box: { x, y, w, h } } ] }` with pixel coordinates in the original image."
+      required: [model, result]
+      properties:
+        model:
+          type: string
+          description: Name of the model that produced this result.
+        result:
+          type: object
+          description: "Handler-produced structured result. Shape depends on the model's task; opaque to this contract."
+          additionalProperties: true
+
+    RepositoryMetadata:
+      type: object
+      description: The set of models the sidecar currently has loaded.
+      required: [models]
+      properties:
+        models:
+          type: array
+          description: Every model loaded into the repository.
+          items:
+            $ref: "#/components/schemas/ModelMetadata"
+
+    ModelMetadata:
+      type: object
+      description: Descriptive metadata for one loaded model.
+      required: [name, task, handler]
+      properties:
+        name:
+          type: string
+          description: "Name (id) of the model — the value to pass as the /infer `model` selector."
+        task:
+          type: string
+          description: Task the model performs (e.g. object-detection).
+        handler:
+          type: string
+          description: "Handler driving the model: `builtin:<name>` or `file:handler.py`."
+        modelVersion:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Optional model/bundle version string.
+
+    Health:
+      type: object
+      description: A simple health-probe response.
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: "Probe status (e.g. ok, loading)."
+
+    Error:
+      type: object
+      description: A structured error response.
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Human-readable error description.
