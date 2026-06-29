@@ -41,6 +41,23 @@ jobs:
       - run: npm run build
       - run: npm test
 
+  python:
+    name: Python (lint + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: py/ml-inference
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: python -m pytest -q
+      - run: python -m compileall app
+
   drift:
     name: Contract codegen drift
     runs-on: ubuntu-latest
@@ -55,6 +72,9 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: ts/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Regenerate Go bindings
         working-directory: go
         run: go generate ./...
@@ -74,5 +94,17 @@ jobs:
         run: |
           if ! git diff --exit-code -- 'ts/workflow-core/src/api/**'; then
             echo "::error::TS bindings are out of sync with contract/. Run 'npm run generate' in ts/ and commit the result."
+            exit 1
+          fi
+      - name: Install Python codegen tool
+        working-directory: py/ml-inference
+        run: pip install -e ".[dev]"
+      - name: Regenerate Python bindings
+        working-directory: py/ml-inference
+        run: datamodel-codegen
+      - name: Check Python bindings in sync
+        run: |
+          if ! git diff --exit-code -- 'py/ml-inference/app/api/models.py'; then
+            echo "::error::Python bindings are out of sync with contract/. Run 'datamodel-codegen' in py/ml-inference/ and commit the result."
             exit 1
           fi
