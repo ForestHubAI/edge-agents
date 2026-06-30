@@ -51,10 +51,11 @@ result. The `handler` field selects one:
 - `builtin:yolo` — object detection for YOLO-family models (image in, detections out).
 - `builtin:raw` — pass named tensors straight through (tensors in, tensors out). The
   zero-code fit for classical ML, time-series and embedding models.
-- `file:handler.py` — a custom handler shipped in the bundle. **This is arbitrary
-  Python executed with the container's privileges — it is loaded under an
-  operator-trusted assumption** (same trust level as the mounted weights and the
-  compose file). Do not mount handler files from untrusted sources.
+- `file:handler.py` — a custom handler shipped in the bundle (runnable example:
+  `examples/models/yolo-custom/`). **This is arbitrary Python executed with the
+  container's privileges — it is loaded under an operator-trusted assumption** (same
+  trust level as the mounted weights and the compose file). Do not mount handler files
+  from untrusted sources.
 
 ## API
 

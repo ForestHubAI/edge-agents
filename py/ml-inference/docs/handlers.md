@@ -103,7 +103,18 @@ For a one-off model whose pre/post-processing doesn't warrant a built-in.
 1. In the bundle, add a `handler.py` defining a `Handler` subclass (import it from the
    installed `app.handlers.base`).
 2. Point the manifest at it: `handler: file:handler.py`.
-3. It may use anything in the image's frozen stack (numpy, opencv, scipy, scikit-learn).
+3. It may use anything in the image's frozen stack (numpy, opencv, scipy, scikit-learn),
+   and may build on a built-in (e.g. `import app.handlers.yolo` and subclass it).
+
+> **Loader tip.** Resolution instantiates the *first* `Handler` subclass found in the
+> file. If you reuse a built-in, import it as a **module** (`import app.handlers.yolo as
+> y`, then subclass `y.YoloHandler`) rather than `from … import YoloHandler` — otherwise
+> the imported class becomes a candidate and may be picked instead of yours.
+
+A runnable example lives in `examples/models/yolo-custom/`: it subclasses the built-in
+YOLO handler and annotates the result with `count` + `summary`. Because the handler
+ships in the mounted bundle, adding or changing it needs **no image rebuild** — just
+restart the container so the repository is rescanned.
 
 > **Trust.** A `file:` handler is arbitrary Python executed with the container's
 > privileges, loaded at startup. It carries the same trust level as the mounted model
