@@ -9,8 +9,8 @@ components:
   schemas:
     DeploymentSpec:
       type: object
-      required: [schemaVersion, id, status, components]
-      description: "The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline."
+      required: [schemaVersion, id, components]
+      description: "The resolved set of components to run on one device for one deployment, plus its identity. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline."
       properties:
         schemaVersion:
           type: integer
@@ -23,10 +23,6 @@ components:
           type: string
           format: date-time
           description: "When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering."
-        status:
-          type: string
-          enum: [active, inactive]
-          description: "Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates."
         components:
           type: array
           description: "The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here."

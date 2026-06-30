@@ -42,7 +42,6 @@ function workspaceDir(container: string): string {
 // used only when the workflow has an on-device model.
 export interface DeploymentSpecMeta {
   id: string;
-  status: DeploymentSpec["status"];
   createdAt?: string;
   engineImage: string;
   llamaServerImage: string;
@@ -389,7 +388,6 @@ export function buildDeploymentSpec(
   const spec: DeploymentSpec = {
     schemaVersion: 1,
     id: meta.id,
-    status: meta.status,
     components,
   };
   if (meta.createdAt) spec.createdAt = meta.createdAt;

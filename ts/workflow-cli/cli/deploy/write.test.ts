@@ -32,7 +32,7 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
 }
 
 function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
-  return { schemaVersion: 1, id: "test", status: "active", components };
+  return { schemaVersion: 1, id: "test", components };
 }
 
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {

@@ -28,24 +28,6 @@ func (e DeployComponentPull) Valid() bool {
 	}
 }
 
-// Defines values for DeploymentSpecStatus.
-const (
-	Active   DeploymentSpecStatus = "active"
-	Inactive DeploymentSpecStatus = "inactive"
-)
-
-// Valid indicates whether the value is a known member of the DeploymentSpecStatus enum.
-func (e DeploymentSpecStatus) Valid() bool {
-	switch e {
-	case Active:
-		return true
-	case Inactive:
-		return true
-	default:
-		return false
-	}
-}
-
 // DeployComponent One resolved container to run as part of a deployment. Generic by design: it carries only runtime-neutral container knobs the renderer passes through, never a component-typed config schema. A component's own config shape lives in that component's contract (e.g. the engine's EngineConfig in engine.yaml), referenced directly by whoever produces and consumes that config; this spec only transports the rendered config content as opaque file bytes. Adding a component, OSS or paid, means producing one of these, not editing this contract.
 type DeployComponent struct {
 	// Command Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/var/lib/foresthub/workspace/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container's command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image's own default command.
@@ -88,7 +70,7 @@ type DeployComponent struct {
 // DeployComponentPull Image pull policy, emitted as the renderer's pull_policy. Omit to default to "missing" (pull only if absent locally — correct for any registry image). Use "never" for an image built locally and present in no registry (the OSS engine); "always" re-pulls on every start.
 type DeployComponentPull string
 
-// DeploymentSpec The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline.
+// DeploymentSpec The resolved set of components to run on one device for one deployment, plus its identity. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline.
 type DeploymentSpec struct {
 	// Components The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here.
 	Components []DeployComponent `json:"components"`
@@ -101,13 +83,7 @@ type DeploymentSpec struct {
 
 	// SchemaVersion Spec format version. Bumped when the spec shape changes incompatibly.
 	SchemaVersion int `json:"schemaVersion"`
-
-	// Status Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
-	Status DeploymentSpecStatus `json:"status"`
 }
-
-// DeploymentSpecStatus Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
-type DeploymentSpecStatus string
 
 // HealthCheck In-container readiness/liveness probe the orchestrator runs, emitted as the renderer's healthcheck. Carries a probe only when the image ships one (Tier 1: a probe tool present in the image); when it does not, omit the whole healthcheck and let the orchestrator probe out-of-band (Tier 2). Either way the universal backstop holds with no per-image work: a container that exits, or is still not healthy when startPeriod elapses, is a failed deployment, not an endless restart. A first-party component reporting a permanent boot failure short-circuits even that, exiting with the EX_CONFIG (78) code so the orchestrator fails the deployment without waiting out the probe.
 type HealthCheck struct {

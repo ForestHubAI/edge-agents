@@ -44,7 +44,7 @@ function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployCompone
 }
 
 function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
-  return { schemaVersion: 1, id: "test", status: "active", components };
+  return { schemaVersion: 1, id: "test", components };
 }
 
 function cfgOf(p: Partial<DeployConfig> = {}): DeployConfig {

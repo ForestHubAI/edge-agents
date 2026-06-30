@@ -7,7 +7,7 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description The resolved set of components to run on one device for one deployment, plus its identity and lifecycle status. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline. */
+        /** @description The resolved set of components to run on one device for one deployment, plus its identity. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline. */
         DeploymentSpec: {
             /** @description Spec format version. Bumped when the spec shape changes incompatibly. */
             schemaVersion: number;
@@ -18,11 +18,6 @@ export interface components {
              * @description When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering.
              */
             createdAt?: string;
-            /**
-             * @description Whether this spec is the one a device should currently be running. The active spec is the reconcile/render target; inactive specs are history or rollback candidates.
-             * @enum {string}
-             */
-            status: "active" | "inactive";
             /** @description The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here. */
             components: components["schemas"]["DeployComponent"][];
         };

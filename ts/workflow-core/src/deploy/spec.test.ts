@@ -57,7 +57,6 @@ const fullInputs: DeploymentInputs = {
 
 const meta = {
   id: "dep-1",
-  status: "active" as const,
   engineImage: "fh-engine:0.4.2",
   llamaServerImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
 };
@@ -68,7 +67,6 @@ describe("buildDeploymentSpec", () => {
 
     expect(spec.schemaVersion).toBe(1);
     expect(spec.id).toBe("dep-1");
-    expect(spec.status).toBe("active");
 
     const engine = engineOf(spec);
     expect(engine.image).toBe("fh-engine:0.4.2");

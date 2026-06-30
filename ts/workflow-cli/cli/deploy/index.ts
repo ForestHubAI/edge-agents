@@ -377,7 +377,6 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
       cfg,
       {
         id: slugify(workflowName),
-        status: "active",
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
       },
