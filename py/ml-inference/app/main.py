@@ -2,7 +2,7 @@
 
 The whole models repository is loaded once during startup (fail-fast — an empty
 or broken repository aborts the process). Each request to `/infer` selects one
-loaded model by name and drives its handler: preprocess -> ONNX session ->
+loaded model by name and drives its handler: preprocess -> infer ->
 postprocess. Responses use the contract-generated Pydantic models, so the wire
 shape stays locked to `contract/mlinference.yaml`.
 """
@@ -97,7 +97,7 @@ async def infer(
 
     try:
         feed, context = lm.handler.preprocess(binary_data, tensor_data, effective_params)
-        outputs = lm.session.run(None, feed)
+        outputs = lm.handler.infer(lm.session, feed, context, effective_params)
         result = lm.handler.postprocess(outputs, context, effective_params)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

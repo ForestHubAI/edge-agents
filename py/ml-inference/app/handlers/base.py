@@ -13,6 +13,9 @@ A handler implements:
   cache the model input shape, ...). Default is a no-op.
 - ``preprocess(binary, tensors, params) -> (feed, context)``: build the ORT feed
   dict; ``context`` is handler-defined state handed on to ``postprocess``.
+- ``infer(session, feed, context, params) -> outputs``: run the model. The default
+  is a single forward pass; override it to own the run loop (multi-session
+  pipelines, autoregressive/generative models).
 - ``postprocess(outputs, context, params) -> result``: turn ORT outputs into the
   structured result object.
 
@@ -54,6 +57,17 @@ class Handler(ABC):
         params: dict[str, Any],
     ) -> tuple[Feed, Any]:
         """Build the ORT feed; return ``(feed, context)`` where context feeds postprocess."""
+
+    def infer(
+        self,
+        session: InferenceSession,
+        feed: Feed,
+        context: Any,
+        params: dict[str, Any],
+    ) -> list[np.ndarray]:
+        """Run the model and return its raw outputs. Default is a single forward pass;
+        override to own the run loop (multi-session or autoregressive models)."""
+        return session.run(None, feed)
 
     @abstractmethod
     def postprocess(
