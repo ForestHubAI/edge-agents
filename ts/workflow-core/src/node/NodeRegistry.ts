@@ -1,5 +1,6 @@
 import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition } from "./InputNode";
 import { AgentNodeDefinition } from "./AgentNode";
+import { MLInferenceNodeDefinition } from "./MLInferenceNode";
 import {
   DelayNodeDefinition,
   TickerNodeDefinition,
@@ -35,6 +36,7 @@ class NodeDefinitionRegistry {
     this.register(WritePinNodeDefinition);
     this.register(SerialWriteNodeDefinition);
     this.register(AgentNodeDefinition);
+    this.register(MLInferenceNodeDefinition);
     this.register(IfNodeDefinition);
     this.register(SetVariableNodeDefinition);
     // Register trigger nodes

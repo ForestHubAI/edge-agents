@@ -42,12 +42,13 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
 function cfgOf(outputDir: string, p: Partial<DeployConfig> = {}): DeployConfig {
-  return { llmKeys: {}, outputDir, force: false, logLevel: "info", hardware: {}, mqtt: {}, models: {}, ...p };
+  return { llmKeys: {}, outputDir, force: false, logLevel: "info", hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, ...p };
 }
 
 const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), "fhwrite-"));

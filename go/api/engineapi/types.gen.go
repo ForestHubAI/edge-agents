@@ -26,6 +26,21 @@ func (e LLMProviderConfigType) Valid() bool {
 	}
 }
 
+// Defines values for MLInferenceConfigType.
+const (
+	MlInference MLInferenceConfigType = "ml-inference"
+)
+
+// Valid indicates whether the value is a known member of the MLInferenceConfigType enum.
+func (e MLInferenceConfigType) Valid() bool {
+	switch e {
+	case MlInference:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTConnectionType.
 const (
 	Mqtt MQTTConnectionType = "mqtt"
@@ -106,6 +121,17 @@ type LLMProviderConfig struct {
 
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
+
+// MLInferenceConfig Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
+type MLInferenceConfig struct {
+	Type MLInferenceConfigType `json:"type"`
+
+	// Url Base URL of the inference sidecar (http:// or https://).
+	Url string `json:"url"`
+}
+
+// MLInferenceConfigType defines model for MLInferenceConfig.Type.
+type MLInferenceConfigType string
 
 // MQTTConnection Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays.
 type MQTTConnection struct {
@@ -235,6 +261,34 @@ func (t *ExternalResourceConfig) MergeLLMProviderConfig(v LLMProviderConfig) err
 	return err
 }
 
+// AsMLInferenceConfig returns the union data inside the ExternalResourceConfig as a MLInferenceConfig
+func (t ExternalResourceConfig) AsMLInferenceConfig() (MLInferenceConfig, error) {
+	var body MLInferenceConfig
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMLInferenceConfig overwrites any union data inside the ExternalResourceConfig as the provided MLInferenceConfig
+func (t *ExternalResourceConfig) FromMLInferenceConfig(v MLInferenceConfig) error {
+	v.Type = "ml-inference"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMLInferenceConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MLInferenceConfig
+func (t *ExternalResourceConfig) MergeMLInferenceConfig(v MLInferenceConfig) error {
+	v.Type = "ml-inference"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ExternalResourceConfig) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -249,6 +303,8 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "ml-inference":
+		return t.AsMLInferenceConfig()
 	case "mqtt":
 		return t.AsMQTTConnection()
 	case "selfhosted":

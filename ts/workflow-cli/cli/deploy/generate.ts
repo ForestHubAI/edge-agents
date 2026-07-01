@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { ALL_PROVIDERS } from "./types";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import { sidecarServiceName } from "@foresthubai/workflow-core/deploy";
+import { llmSidecarServiceName, mlSidecarServiceName } from "@foresthubai/workflow-core/deploy";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -168,12 +168,20 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
   // Each on-device model's GGUF lives in its sidecar's own workspace dir
   // (./workspaces/<service>/) — the host bind mount the llama container reads.
-  const deviceModels = Object.entries(cfg.models).flatMap(([id, b]) =>
-    b.location === "device" ? [{ dir: `./workspaces/${sidecarServiceName(id)}`, file: b.modelFile }] : [],
+  const deviceModels = Object.entries(cfg.llmModels).flatMap(([id, b]) =>
+    b.location === "device" ? [{ dir: `./workspaces/${llmSidecarServiceName(id)}`, file: b.modelFile }] : [],
   );
-  const hasNetworkModel = Object.values(cfg.models).some((b) => b.location === "network");
+  const hasNetworkModel = Object.values(cfg.llmModels).some((b) => b.location === "network");
+  // On-device ML models all share ONE inference sidecar; each model's bundle
+  // lives in its own sub-folder of that sidecar's repository dir.
+  const mlRepoDir = `./workspaces/${mlSidecarServiceName()}`;
+  const mlDeviceModels = Object.entries(cfg.mlModels).flatMap(([id, b]) => (b.location === "device" ? [id] : []));
+  const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
+  // Any on-device sidecar (llama or inference) shifts weights out of the main scp
+  // line and means the engine reaches it over the network at runtime.
+  const hasDeviceSidecar = deviceModels.length > 0 || mlDeviceModels.length > 0;
 
   // Per-workflow operator notes — only the relevant ones, in this order:
   // provider keys, hardware, external services, on-device models, network models,
@@ -213,11 +221,27 @@ dir below (read-only mounted into its container). They are too large for the mai
 \`scp\` line, so step 3 transfers them separately:
 ${deviceModels.map((m) => `- \`${m.dir}/${m.file}\``).join("\n")}`);
   }
+  if (mlDeviceModels.length > 0) {
+    notes.push(`## On-device ML models
+
+This bundle runs one shared inference sidecar (\`${mlSidecarServiceName()}\`) that loads a
+repository of ML models; the engine reaches it over the compose network by service name.
+Drop each model's \`model.onnx\` + \`manifest.yaml\` into its own sub-folder of the shared
+repository dir below (read-only mounted into the sidecar), then transfer the workspaces
+tree in step 3:
+${mlDeviceModels.map((id) => `- \`${mlRepoDir}/${id}/\``).join("\n")}`);
+  }
   if (hasNetworkModel) {
     notes.push(`## Network models
 
 A network model points at an inference endpoint **you run yourself** (llama-server, vLLM,
 Ollama, ...) on another machine. This bundle does not start that server for you.`);
+  }
+  if (hasNetworkMLModel) {
+    notes.push(`## Network ML models
+
+A network ML model points at an inference sidecar **you run yourself** on another machine.
+This bundle does not start that server for you.`);
   }
   if (cfg.webSearch) {
     notes.push(`## Web search
@@ -226,25 +250,26 @@ The web-search API key is in \`engine.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
   }
   const notesBlock = notes.length ? "\n" + notes.join("\n\n") + "\n" : "";
 
-  // On-device model weights ship outside the main scp line (GGUF can be several GB).
-  const modelsTransfer = deviceModels.length
+  // On-device model weights ship outside the main scp line (GGUF/ONNX bundles can
+  // be several GB).
+  const modelsTransfer = hasDeviceSidecar
     ? `
 
-# On-device model weights — too large for the line above (GGUF can be several GB).
-# Put each GGUF in its model's workspace dir, then copy the workspaces tree:
+# On-device model weights — too large for the line above (GGUF/ONNX bundles can be several GB).
+# Put each model's files in its workspace dir, then copy the workspaces tree:
 scp -r workspaces/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
-# ...or download them directly into ~/fh-engine/workspaces/<model>/ on the controller.`
+# ...or download them directly into ~/fh-engine/workspaces/<...>/ on the controller.`
     : "";
 
   // With an on-device sidecar there is no start-ordering: the engine connects to
-  // the llama-server over the compose network at runtime, retrying until it is up,
+  // the sidecar over the compose network at runtime, retrying until it is up,
   // so show every container while it settles. Otherwise the engine log alone does.
-  const runBlock = deviceModels.length
+  const runBlock = hasDeviceSidecar
     ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 
-# The engine and the llama-server sidecar start independently; the engine reaches the
-# model once it is up. These show every container, not just the engine:
+# The engine and its sidecar(s) start independently; the engine reaches them once
+# they are up. These show every container, not just the engine:
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose ps'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f'`
     : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'

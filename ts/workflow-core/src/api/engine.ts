@@ -30,7 +30,7 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"];
         /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. */
         LLMProviderConfig: {
             /**
@@ -42,6 +42,16 @@ export interface components {
             url: string;
             /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
             model?: string;
+        };
+        /** @description Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
+        MLInferenceConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "ml-inference";
+            /** @description Base URL of the inference sidecar (http:// or https://). */
+            url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays. */
         MQTTConnection: {
@@ -314,6 +324,23 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
+        MLInferenceNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLInference";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to an MLModel id. */
+                model?: string;
+                /** @description Input expression fed to the model. */
+                input: components["schemas"]["Expression"];
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
         FunctionCallNode: {
             id: string;
             /**
@@ -531,7 +558,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
         Vertex: {
@@ -712,7 +739,19 @@ export interface components {
             /** @description Capabilities this model supports (used to filter model pickers). */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        Model: components["schemas"]["LLMModel"];
+        /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
+        MLModel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLModel";
+            /** @description Stable identifier; this is the model name nodes reference and the sidecar selects on. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+        };
+        Model: components["schemas"]["LLMModel"] | components["schemas"]["MLModel"];
         /** @description Workflow represents the deployment format of a project, passed to agents. */
         Workflow: {
             /**

@@ -227,6 +227,17 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           output: data.arguments.output,
         },
       };
+    case "MLInference":
+      return {
+        id: data.id,
+        type: data.type,
+        position: position,
+        arguments: {
+          model: data.arguments.model,
+          input: data.arguments.input,
+          output: data.arguments.output,
+        },
+      };
     case "FunctionCall": {
       // Frontend stores FunctionCall args flat (unified with every other node), but
       // the API schema keeps the nested { inputBindings, outputBindings } shape.
@@ -472,6 +483,17 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         arguments: {
           url: apiNode.arguments.url,
           maxChars: apiNode.arguments.maxChars,
+          output: apiNode.arguments.output as OutputBinding,
+        },
+      };
+    case "MLInference":
+      return {
+        id: apiNode.id,
+        type: apiNode.type,
+        label: apiNode.label,
+        arguments: {
+          model: apiNode.arguments.model ?? "",
+          input: apiNode.arguments.input,
           output: apiNode.arguments.output as OutputBinding,
         },
       };

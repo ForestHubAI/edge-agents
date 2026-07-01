@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDeploymentSpec, assertDeployable, sidecarServiceName } from "./spec";
+import { buildDeploymentSpec, assertDeployable, llmSidecarServiceName, mlSidecarServiceName } from "./spec";
 import { deriveRequirements } from "./requirements";
 import type { DeploymentInputs } from "./inputs";
 import { MAIN_CANVAS_ID, type Workflow } from "../workflow";
@@ -19,13 +19,25 @@ function engineOf(spec: Spec): DeploymentSchemas["DeployComponent"] {
 function engineConfigOf(spec: Spec): EngineSchemas["EngineConfig"] {
   return engineOf(spec).config as EngineSchemas["EngineConfig"];
 }
-const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.name === sidecarServiceName(modelId));
+const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.name === llmSidecarServiceName(modelId));
 
 function channel(id: string, type: Channel["type"], args: Record<string, unknown> = {}): Channel {
   return { id, label: id, type, arguments: args };
 }
 
 const customModel: Model = { id: "local-llm", label: "Local", type: "LLMModel", arguments: {} };
+const mlModel = (id: string): Model => ({ id, label: id, type: "MLModel", arguments: {} });
+
+// A workflow declaring only the given ML models (no channels/hardware).
+function mlWorkflow(models: Record<string, Model>): Workflow {
+  return {
+    canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
+    functions: {},
+    channels: {},
+    memory: {},
+    models,
+  };
+}
 
 // One workflow exercising every resource kind: a cdev output (GPIO), a serial
 // device (cdev), a sysfs ADC (privileged), an MQTT channel, and an on-device
@@ -52,7 +64,8 @@ const fullInputs: DeploymentInputs = {
     sensor: { chipOrDevice: "/sys/bus/iio/devices/iio:device0", index: 0 },
   },
   mqtt: { telemetry: { brokerUrl: "mqtt://broker.local:1883", username: "u", password: "p" } },
-  models: { "local-llm": { location: "device", modelFile: "model.gguf" } },
+  llmModels: { "local-llm": { location: "device", modelFile: "model.gguf" } },
+  mlModels: {},
 };
 
 const meta = {
@@ -60,6 +73,7 @@ const meta = {
   status: "active" as const,
   engineImage: "fh-engine:0.4.2",
   llamaServerImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
+  mlSidecarImage: "fh-onnx:latest",
 };
 
 describe("buildDeploymentSpec", () => {
@@ -100,7 +114,7 @@ describe("buildDeploymentSpec", () => {
   it("emits a llama-server component and points the engine's provider at the sidecar", () => {
     const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     expect(llamaOf(spec, "local-llm")).toMatchObject({
-      name: sidecarServiceName("local-llm"),
+      name: llmSidecarServiceName("local-llm"),
       image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
       command: ["--model", "/var/lib/foresthub/workspace/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
       volumes: ["./workspaces/llama-local-llm:/var/lib/foresthub/workspace:ro"],
@@ -108,7 +122,7 @@ describe("buildDeploymentSpec", () => {
     // The external-resource provider URL must point at the sidecar service name.
     const ext = engineConfigOf(spec).externalResources!;
     const provider = Object.values(ext).find((r) => r.type === "selfhosted");
-    expect(provider).toMatchObject({ url: `http://${sidecarServiceName("local-llm")}:8080` });
+    expect(provider).toMatchObject({ url: `http://${llmSidecarServiceName("local-llm")}:8080` });
   });
 
   it("omits privileged and the llama sidecar when neither applies", () => {
@@ -119,7 +133,7 @@ describe("buildDeploymentSpec", () => {
       memory: {},
       models: {},
     };
-    const { spec } = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, models: {} }, meta);
+    const { spec } = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, llmModels: {}, mlModels: {} }, meta);
     const engine = engineOf(spec);
     expect(engine.privileged).toBeUndefined();
     expect(spec.components).toHaveLength(1); // engine only, no sidecar
@@ -137,7 +151,8 @@ describe("buildDeploymentSpec", () => {
     const inputs: DeploymentInputs = {
       hardware: {},
       mqtt: {},
-      models: { "local-llm": { location: "network", url: "https://infer.example/v1", apiKey: "k" } },
+      llmModels: { "local-llm": { location: "network", url: "https://infer.example/v1", apiKey: "k" } },
+      mlModels: {},
     };
     const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no sidecar
@@ -169,7 +184,7 @@ describe("buildDeploymentSpec custom components", () => {
     memory: {},
     models: {},
   };
-  const bareInputs: DeploymentInputs = { hardware: {}, mqtt: {}, models: {} };
+  const bareInputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {} };
 
   it("merges custom components after engine (and llama)", () => {
     const grafana = { name: "grafana", image: "grafana/grafana:11.3.0", ports: ["3000:3000"] };
@@ -184,7 +199,7 @@ describe("buildDeploymentSpec custom components", () => {
   });
 
   it("rejects a custom name colliding with a generated llama sidecar", () => {
-    const dup = { name: sidecarServiceName("local-llm"), image: "x" };
+    const dup = { name: llmSidecarServiceName("local-llm"), image: "x" };
     expect(() => buildDeploymentSpec(fullWorkflow(), fullInputs, meta, [dup])).toThrow(/duplicate component name/);
   });
 
@@ -205,12 +220,12 @@ describe("buildDeploymentSpec custom components", () => {
 describe("assertDeployable", () => {
   it("throws listing every unbound resource", () => {
     const req = deriveRequirements(fullWorkflow());
-    expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, models: {} })).toThrow(/device path[\s\S]*broker URL[\s\S]*model/);
+    expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {} })).toThrow(/device path[\s\S]*broker URL[\s\S]*model/);
   });
 
   it("rejects a non-GGUF on-device model file", () => {
     const req = deriveRequirements(fullWorkflow());
-    const inputs = { ...fullInputs, models: { "local-llm": { location: "device" as const, modelFile: "model.bin" } } };
+    const inputs = { ...fullInputs, llmModels: { "local-llm": { location: "device" as const, modelFile: "model.bin" } } };
     expect(() => assertDeployable(req, inputs)).toThrow(/\.gguf/);
   });
 });
@@ -220,7 +235,58 @@ describe("deriveRequirements", () => {
     const req = deriveRequirements(fullWorkflow());
     expect(req.hardwareChannels.map((c) => c.family).sort()).toEqual(["adc", "gpio", "serial"]);
     expect(req.mqttChannels.map((c) => c.id)).toEqual(["telemetry"]);
-    expect(req.customModels.map((c) => c.id)).toEqual(["local-llm"]);
+    expect(req.customLLMModels.map((c) => c.id)).toEqual(["local-llm"]);
     expect(req.hardwareChannels.find((c) => c.family === "serial")?.addressable).toBe(false);
+  });
+
+  it("classifies declared models into the LLM and ML pools", () => {
+    const req = deriveRequirements(mlWorkflow({ "local-llm": customModel, detector: mlModel("detector") }));
+    expect(req.customLLMModels.map((m) => m.id)).toEqual(["local-llm"]);
+    expect(req.customMLModels.map((m) => m.id)).toEqual(["detector"]);
+  });
+});
+
+describe("buildDeploymentSpec ML inference sidecar", () => {
+  it("emits ONE shared inference sidecar for on-device ML models and points each at it", () => {
+    const wf = mlWorkflow({ detector: mlModel("detector"), classifier: mlModel("classifier") });
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: { detector: { location: "device" }, classifier: { location: "device" } },
+    };
+    const { spec } = buildDeploymentSpec(wf, inputs, meta);
+
+    // Exactly one sidecar for both models — not one per model.
+    const sidecars = spec.components.filter((c) => c.name === mlSidecarServiceName());
+    expect(sidecars).toHaveLength(1);
+    expect(sidecars[0]).toMatchObject({
+      image: "fh-onnx:latest",
+      pull: "never",
+      volumes: [`./workspaces/${mlSidecarServiceName()}:/var/lib/foresthub/models:ro`],
+    });
+
+    // Every on-device model resolves to the same sidecar url; each is mapped by id.
+    const ext = engineConfigOf(spec).externalResources!;
+    const mlUrls = Object.values(ext)
+      .filter((r) => r.type === "ml-inference")
+      .map((r) => (r as { url: string }).url);
+    expect(mlUrls).toEqual([`http://${mlSidecarServiceName()}:8000`, `http://${mlSidecarServiceName()}:8000`]);
+    expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["classifier", "detector"]);
+  });
+
+  it("uses a network ML model's own endpoint and runs no sidecar", () => {
+    const wf = mlWorkflow({ detector: mlModel("detector") });
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: { detector: { location: "network", url: "http://onnx.remote:8000" } },
+    };
+    const { spec } = buildDeploymentSpec(wf, inputs, meta);
+    expect(spec.components).toHaveLength(1); // engine only, no sidecar
+    const ext = engineConfigOf(spec).externalResources!;
+    const mlRes = Object.values(ext).find((r) => r.type === "ml-inference");
+    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000" });
   });
 });

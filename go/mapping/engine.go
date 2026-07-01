@@ -12,7 +12,8 @@ import (
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
 // deploy-time configs) onto the engine domain type at the HTTP boundary,
 // routing each arm by its discriminator: MQTT connections into MQTTs, custom
-// LLM provider configs into Providers. Unknown arms are skipped.
+// LLM provider configs into Providers, ML inference endpoints into MLInference.
+// Unknown arms are skipped.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
 // spec). Credentials arrive separately in secrets, keyed by the same resource
@@ -24,8 +25,9 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 		return nil
 	}
 	out := &engine.ExternalResources{
-		MQTTs:     make(map[string]engine.MQTTConnection),
-		Providers: make(map[string]engine.LLMProviderConfig),
+		MQTTs:       make(map[string]engine.MQTTConnection),
+		Providers:   make(map[string]engine.LLMProviderConfig),
+		MLInference: make(map[string]engine.MLInferenceConfig),
 	}
 	for id, rc := range *in {
 		disc, err := rc.Discriminator()
@@ -65,6 +67,12 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 				APIKey: secrets[id].APIKey,
 				Model:  pointer.Val(c.Model),
 			}
+		case string(engineapi.MlInference):
+			c, err := rc.AsMLInferenceConfig()
+			if err != nil {
+				continue
+			}
+			out.MLInference[id] = engine.MLInferenceConfig{URL: c.Url}
 		}
 	}
 	return out

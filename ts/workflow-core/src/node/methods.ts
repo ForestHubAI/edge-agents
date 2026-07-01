@@ -129,6 +129,11 @@ export function getPorts(node: NodeData): PortDefinitions {
         input: [{ id: "ctrl", type: "control" }],
         output: [{ id: "ctrl", type: "control" }],
       };
+    case "MLInference":
+      return {
+        input: [{ id: "ctrl", type: "control" }],
+        output: [{ id: "ctrl", type: "control" }],
+      };
     case "WebSearchTool":
       return { input: [{ id: "tool", type: "tool", label: "As Tool" }], output: [] };
   }

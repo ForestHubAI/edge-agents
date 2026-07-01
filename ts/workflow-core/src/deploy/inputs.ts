@@ -24,18 +24,25 @@ export interface MqttBinding {
   password?: string;
 }
 
-// One custom model's runtime location. `device` = a llama-server sidecar on this
-// controller (the engine reaches it over the container network by service name);
-// `network` = an inference endpoint the operator runs elsewhere. The endpoint
-// serves the model under its workflow id — no upstream-name aliasing yet.
-export type ModelBinding =
+// One custom LLM model's runtime location. `device` = a llama-server sidecar on
+// this controller (the engine reaches it over the container network by service
+// name); `network` = an inference endpoint the operator runs elsewhere. The
+// endpoint serves the model under its workflow id — no upstream-name aliasing yet.
+export type LLMModelBinding =
   | { location: "device"; modelFile: string; port?: number; ctxSize?: number }
   | { location: "network"; url: string; apiKey?: string };
+
+// One custom ML model's runtime location. `device` = served by the shared
+// inference sidecar on this controller (no per-model settings — the model
+// repository is a directory the operator fills); `network` = an inference
+// endpoint the operator runs elsewhere. Credential-free — a trusted endpoint.
+export type MLModelBinding = { location: "device" } | { location: "network"; url: string };
 
 // The complete set of bindings a deploy supplies, keyed by workflow logical id
 // (channel id / model id). Empty for any resource kind the workflow doesn't use.
 export interface DeploymentInputs {
   hardware: Record<string, HardwareBinding>;
   mqtt: Record<string, MqttBinding>;
-  models: Record<string, ModelBinding>;
+  llmModels: Record<string, LLMModelBinding>;
+  mlModels: Record<string, MLModelBinding>;
 }

@@ -8,13 +8,15 @@ import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
 import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
 import type {
-  CustomModel,
+  CustomLLMModel,
+  CustomMLModel,
   DeployConfig,
   DeployRequirements,
   HardwareBinding,
   HardwareChannel,
   HardwareFamily,
-  ModelBinding,
+  LLMModelBinding,
+  MLModelBinding,
   MqttBinding,
   MqttChannel,
   Provider,
@@ -128,14 +130,14 @@ async function promptMqtt(
   return result;
 }
 
-// Per custom model: first where it runs, then the values that location needs.
+// Per custom LLM model: first where it runs, then the values that location needs.
 // device -> a llama-server sidecar this bundle generates (a model filename);
 // network -> an endpoint the operator runs elsewhere (its URL + optional key).
-async function promptModels(
-  models: CustomModel[],
-  seed: Record<string, ModelBinding>,
-): Promise<Record<string, ModelBinding>> {
-  const result: Record<string, ModelBinding> = { ...seed };
+async function promptLLMModels(
+  models: CustomLLMModel[],
+  seed: Record<string, LLMModelBinding>,
+): Promise<Record<string, LLMModelBinding>> {
+  const result: Record<string, LLMModelBinding> = { ...seed };
   for (const m of models) {
     if (result[m.id]) continue;
     const location = await select<"device" | "network">({
@@ -168,9 +170,43 @@ async function promptModels(
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });
     const apiKey = await password({ message: `${m.label}: API key (optional)`, mask: "*" });
-    const binding: ModelBinding = { location: "network", url: url.trim() };
+    const binding: LLMModelBinding = { location: "network", url: url.trim() };
     if (apiKey) binding.apiKey = apiKey;
     result[m.id] = binding;
+  }
+  return result;
+}
+
+// Per custom ML model: where it runs. device -> served by the shared inference
+// sidecar this bundle generates (nothing more to ask — the model repository is a
+// directory the operator fills, one sub-folder per model id); network -> an
+// endpoint the operator runs elsewhere (its URL, no credential).
+async function promptMLModels(
+  models: CustomMLModel[],
+  seed: Record<string, MLModelBinding>,
+): Promise<Record<string, MLModelBinding>> {
+  const result: Record<string, MLModelBinding> = { ...seed };
+  for (const m of models) {
+    if (result[m.id]) continue;
+    const location = await select<"device" | "network">({
+      message: `${m.label}: where does this model run?`,
+      choices: [
+        { value: "device", name: "on this device (served by the shared inference sidecar)" },
+        { value: "network", name: "on another machine on the network (call its endpoint URL)" },
+      ],
+    });
+
+    if (location === "device") {
+      result[m.id] = { location: "device" };
+      continue;
+    }
+
+    const url = await input({
+      message: `${m.label}: inference endpoint URL (a sidecar you run elsewhere)`,
+      default: "http://localhost:8000",
+      validate: (v) => v.trim().length > 0 || "endpoint URL is required",
+    });
+    result[m.id] = { location: "network", url: url.trim() };
   }
   return result;
 }
@@ -205,7 +241,8 @@ export async function promptMissing(
   // neither a header nor a slot in the [step/total] denominator.
   const hwTodo = req.hardwareChannels.filter((ch) => !partial.hardware?.[ch.id]);
   const mqttTodo = req.mqttChannels.filter((ch) => !partial.mqtt?.[ch.id]);
-  const modelsTodo = req.customModels.filter((m) => !partial.models?.[m.id]);
+  const llmModelsTodo = req.customLLMModels.filter((m) => !partial.llmModels?.[m.id]);
+  const mlModelsTodo = req.customMLModels.filter((m) => !partial.mlModels?.[m.id]);
   const askKeys = req.hasProviderModel;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
@@ -221,7 +258,8 @@ export async function promptMissing(
   // +1: the custom-components section is always offered (a yes/no gate), so it
   // always occupies a slot in the denominator, before Output.
   const total =
-    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(Boolean).length + 1;
+    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, llmModelsTodo.length > 0, mlModelsTodo.length > 0, askWeb, askOut].filter(Boolean)
+      .length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.
@@ -264,8 +302,10 @@ export async function promptMissing(
   const hardware = await promptHardware(req.hardwareChannels, partial.hardware ?? {});
   if (mqttTodo.length > 0) section("MQTT brokers", mqttTodo.length);
   const mqtt = await promptMqtt(req.mqttChannels, partial.mqtt ?? {});
-  if (modelsTodo.length > 0) section("Custom models", modelsTodo.length);
-  const models = await promptModels(req.customModels, partial.models ?? {});
+  if (llmModelsTodo.length > 0) section("Custom LLM models", llmModelsTodo.length);
+  const llmModels = await promptLLMModels(req.customLLMModels, partial.llmModels ?? {});
+  if (mlModelsTodo.length > 0) section("Custom ML models", mlModelsTodo.length);
+  const mlModels = await promptMLModels(req.customMLModels, partial.mlModels ?? {});
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
@@ -319,7 +359,8 @@ export async function promptMissing(
     logLevel: partial.logLevel ?? "info",
     hardware,
     mqtt,
-    models,
+    llmModels,
+    mlModels,
     webSearch,
   };
   return { config, customComponents, componentEnv };

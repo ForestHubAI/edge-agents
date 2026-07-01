@@ -145,7 +145,7 @@ export interface components {
              */
             mode: "r" | "rw";
         };
-        Model: components["schemas"]["LLMModel"];
+        Model: components["schemas"]["LLMModel"] | components["schemas"]["MLModel"];
         /** @description A custom or self-hosted language model that agent nodes can reference. */
         LLMModel: {
             /**
@@ -160,7 +160,19 @@ export interface components {
             /** @description Capabilities this model supports (used to filter model pickers). */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
+        MLModel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLModel";
+            /** @description Stable identifier; this is the model name nodes reference and the sidecar selects on. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+        };
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
             id: string;
             /**
@@ -360,6 +372,23 @@ export interface components {
                 url: components["schemas"]["Expression"];
                 /** @description Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive. */
                 maxChars?: number;
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        MLInferenceNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLInference";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to an MLModel id. */
+                model?: string;
+                /** @description Input expression fed to the model. */
+                input: components["schemas"]["Expression"];
                 output: components["schemas"]["OutputBinding"];
             };
         };

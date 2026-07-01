@@ -1,6 +1,6 @@
 export { getReferencedCatalogModelIds, deriveRequirements } from "./requirements";
-export type { DeployRequirements, HardwareChannel, MqttChannel, CustomModel, HardwareFamily } from "./requirements";
-export type { DeploymentInputs, HardwareBinding, MqttBinding, ModelBinding } from "./inputs";
+export type { DeployRequirements, HardwareChannel, MqttChannel, CustomLLMModel, CustomMLModel, HardwareFamily } from "./requirements";
+export type { DeploymentInputs, HardwareBinding, MqttBinding, LLMModelBinding, MLModelBinding } from "./inputs";
 export {
   buildDeploymentSpec,
   assertDeployable,
@@ -9,6 +9,7 @@ export {
   hardwareAddressKey,
   hardwareAddressLabel,
   ggufNameError,
-  sidecarServiceName,
+  llmSidecarServiceName,
+  mlSidecarServiceName,
 } from "./spec";
 export type { DeploymentSpecMeta, DeploymentSpecResult, ResourceSecret, ResourceSecrets } from "./spec";

@@ -23,7 +23,8 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
@@ -155,8 +156,8 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.models.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
+    const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
+    expect(cfg.llmModels.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
   });
 
   it("network model: asks where it runs, then url + key", async () => {
@@ -168,8 +169,8 @@ describe("promptMissing", () => {
       ],
       password: [[/API key/, "sk-1"]],
     });
-    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.models.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
+    const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
+    expect(cfg.llmModels.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
   });
 
   // The mocks answer prompts without running their validate callbacks; these

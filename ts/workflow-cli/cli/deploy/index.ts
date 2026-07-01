@@ -30,6 +30,7 @@ import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } f
 // a registry host and the renderer's pull_policy flips to missing.
 const ENGINE_IMAGE = "fh-engine:latest";
 const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
+const ML_SIDECAR_IMAGE = "fh-onnx:latest";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -182,13 +183,19 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
   for (const ch of req.mqttChannels) {
     if (!p.mqtt?.[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
-  for (const m of req.customModels) {
-    const b = p.models?.[m.id];
+  for (const m of req.customLLMModels) {
+    const b = p.llmModels?.[m.id];
     if (b?.location === "device") {
       const err = ggufNameError(b.modelFile);
       if (err) missing.push(`model "${m.id}": ${err}`);
     } else if (!b?.url) {
       missing.push(`model "${m.id}": endpoint URL`);
+    }
+  }
+  for (const m of req.customMLModels) {
+    const b = p.mlModels?.[m.id];
+    if (b?.location !== "device" && !b?.url) {
+      missing.push(`model "${m.id}": on-device or endpoint URL`);
     }
   }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
@@ -206,7 +213,8 @@ export function configFromPartial(p: Partial<DeployConfig>, outputDirDefault: st
     logLevel: p.logLevel ?? "info",
     hardware: p.hardware ?? {},
     mqtt: p.mqtt ?? {},
-    models: p.models ?? {},
+    llmModels: p.llmModels ?? {},
+    mlModels: p.mlModels ?? {},
     webSearch: p.webSearch,
   };
 }
@@ -380,6 +388,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
         status: "active",
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
+        mlSidecarImage: ML_SIDECAR_IMAGE,
       },
       customComponents,
     );

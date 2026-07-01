@@ -48,7 +48,7 @@ function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
 }
 
 function cfgOf(p: Partial<DeployConfig> = {}): DeployConfig {
-  return { llmKeys: {}, outputDir: "out", force: false, logLevel: "info", hardware: {}, mqtt: {}, models: {}, ...p };
+  return { llmKeys: {}, outputDir: "out", force: false, logLevel: "info", hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, ...p };
 }
 
 describe("slugify", () => {
@@ -223,14 +223,14 @@ describe("readme", () => {
   });
 
   it("an on-device model adds the on-device note with the model file", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("## On-device models");
     expect(md).toContain("- `./workspaces/llama-gemma-3/gemma.gguf`");
     expect(md).not.toContain("## Network models");
   });
 
   it("a network model adds the network-models note", () => {
-    const md = readme(specOf(), cfgOf({ models: { llm: { location: "network", url: "http://x:8080" } } }), false);
+    const md = readme(specOf(), cfgOf({ llmModels: { llm: { location: "network", url: "http://x:8080" } } }), false);
     expect(md).toContain("## Network models");
     expect(md).not.toContain("## On-device models");
   });
@@ -248,7 +248,7 @@ describe("readme", () => {
   });
 
   it("a device model adds the model scp transfer and inspects all containers on run", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("scp -r workspaces/");
     expect(md).toContain("docker compose ps");
   });

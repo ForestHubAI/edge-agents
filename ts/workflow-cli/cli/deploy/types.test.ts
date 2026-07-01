@@ -110,7 +110,8 @@ const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
   hasRetriever: false,
   hardwareChannels: [],
   mqttChannels: [],
-  customModels: [],
+  customLLMModels: [],
+  customMLModels: [],
   hasWebSearch: false,
   ...p,
 });
@@ -130,7 +131,7 @@ describe("unknownIds", () => {
   it("flags unknown mqtt and model ids with the right noun", () => {
     const m = unknownIds(reqOf(), {
       mqtt: { ghost: { brokerUrl: "tcp://x:1883" } },
-      models: { phantom: { location: "device", modelFile: "x.gguf" } },
+      llmModels: { phantom: { location: "device", modelFile: "x.gguf" } },
     });
     expect(m.join()).toMatch(/mqtt "ghost".*no such channel/);
     expect(m.join()).toMatch(/model "phantom".*no such model/);
@@ -162,8 +163,8 @@ describe("valuesFileSchema", () => {
   });
 
   it("rejects a model binding without a valid location", () => {
-    expect(valuesFileSchema.safeParse({ models: { m: { modelFile: "x.gguf" } } }).success).toBe(false);
-    expect(valuesFileSchema.safeParse({ models: { m: { location: "Device", modelFile: "x.gguf" } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ llmModels: { m: { modelFile: "x.gguf" } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ llmModels: { m: { location: "Device", modelFile: "x.gguf" } } }).success).toBe(false);
   });
 });
 

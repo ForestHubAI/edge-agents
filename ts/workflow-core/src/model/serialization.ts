@@ -14,6 +14,8 @@ export function serialize(model: Model): ApiModel {
         label,
         capabilities: (args.capabilities as ModelCapability[]) ?? ["chat"],
       };
+    case "MLModel":
+      return { type, id, label };
   }
 }
 
@@ -24,6 +26,9 @@ export function deserialize(api: ApiModel): Model {
   switch (type) {
     case "LLMModel":
       args.capabilities = api.capabilities;
+      break;
+    case "MLModel":
+      // No type-specific arguments; the sidecar selects the model by id.
       break;
   }
   return { id, label, type, arguments: args };

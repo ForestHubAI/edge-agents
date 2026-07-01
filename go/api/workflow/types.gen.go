@@ -272,6 +272,36 @@ func (e LOGChannelType) Valid() bool {
 	}
 }
 
+// Defines values for MLInferenceNodeType.
+const (
+	MLInference MLInferenceNodeType = "MLInference"
+)
+
+// Valid indicates whether the value is a known member of the MLInferenceNodeType enum.
+func (e MLInferenceNodeType) Valid() bool {
+	switch e {
+	case MLInference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MLModelType.
+const (
+	MLModelTypeMLModel MLModelType = "MLModel"
+)
+
+// Valid indicates whether the value is a known member of the MLModelType enum.
+func (e MLModelType) Valid() bool {
+	switch e {
+	case MLModelTypeMLModel:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MQTTChannelType.
 const (
 	MQTT MQTTChannelType = "MQTT"
@@ -978,6 +1008,37 @@ type LOGChannelLevel string
 
 // LOGChannelType defines model for LOGChannel.Type.
 type LOGChannelType string
+
+// MLInferenceNode defines model for MLInferenceNode.
+type MLInferenceNode struct {
+	Arguments struct {
+		Input Expression `json:"input"`
+
+		// Model Reference to an MLModel id.
+		Model  *string       `json:"model,omitempty"`
+		Output OutputBinding `json:"output"`
+	} `json:"arguments"`
+	Id       string              `json:"id"`
+	Label    *string             `json:"label,omitempty"`
+	Position NodePosition        `json:"position"`
+	Type     MLInferenceNodeType `json:"type"`
+}
+
+// MLInferenceNodeType defines model for MLInferenceNode.Type.
+type MLInferenceNodeType string
+
+// MLModel A machine-learning model, served by an inference sidecar, that nodes can reference.
+type MLModel struct {
+	// Id Stable identifier; this is the model name nodes reference and the sidecar selects on.
+	Id string `json:"id"`
+
+	// Label Display name.
+	Label string      `json:"label"`
+	Type  MLModelType `json:"type"`
+}
+
+// MLModelType defines model for MLModel.Type.
+type MLModelType string
 
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
@@ -1832,6 +1893,34 @@ func (t *Model) MergeLLMModel(v LLMModel) error {
 	return err
 }
 
+// AsMLModel returns the union data inside the Model as a MLModel
+func (t Model) AsMLModel() (MLModel, error) {
+	var body MLModel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMLModel overwrites any union data inside the Model as the provided MLModel
+func (t *Model) FromMLModel(v MLModel) error {
+	v.Type = "MLModel"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMLModel performs a merge with any union data inside the Model, using the provided MLModel
+func (t *Model) MergeMLModel(v MLModel) error {
+	v.Type = "MLModel"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Model) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1848,6 +1937,8 @@ func (t Model) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "LLMModel":
 		return t.AsLLMModel()
+	case "MLModel":
+		return t.AsMLModel()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -2077,6 +2168,34 @@ func (t *Node) FromWebFetchNode(v WebFetchNode) error {
 // MergeWebFetchNode performs a merge with any union data inside the Node, using the provided WebFetchNode
 func (t *Node) MergeWebFetchNode(v WebFetchNode) error {
 	v.Type = "WebFetch"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMLInferenceNode returns the union data inside the Node as a MLInferenceNode
+func (t Node) AsMLInferenceNode() (MLInferenceNode, error) {
+	var body MLInferenceNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMLInferenceNode overwrites any union data inside the Node as the provided MLInferenceNode
+func (t *Node) FromMLInferenceNode(v MLInferenceNode) error {
+	v.Type = "MLInference"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMLInferenceNode performs a merge with any union data inside the Node, using the provided MLInferenceNode
+func (t *Node) MergeMLInferenceNode(v MLInferenceNode) error {
+	v.Type = "MLInference"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2475,6 +2594,8 @@ func (t Node) ValueByDiscriminator() (interface{}, error) {
 		return t.AsFunctionCallNode()
 	case "If":
 		return t.AsIfNode()
+	case "MLInference":
+		return t.AsMLInferenceNode()
 	case "MqttPublish":
 		return t.AsMqttPublishNode()
 	case "OnFunctionCall":

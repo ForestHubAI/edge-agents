@@ -11,13 +11,21 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
-// buildDeployProviders resolves a workflow's declared models into a single
-// per-deploy self-hosted provider. Every entry in wf.Models is a custom/
-// self-hosted model while catalog models are referenced by id and never declared.
-// An unbound or unconfigured model is a deploy error.
+// buildDeployProviders resolves a workflow's declared LLM models into a single
+// per-deploy self-hosted provider. wf.Models also holds ML models (served by an
+// inference sidecar, resolved separately in buildDeployML); those are skipped
+// here by discriminator. A custom/self-hosted LLM model that is unbound or
+// unconfigured is a deploy error.
 func buildDeployProviders(wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) ([]llmproxy.Provider, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	for _, mu := range wf.Models {
+		disc, err := mu.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("declared model: %w", err)
+		}
+		if disc != string(workflow.LLMModelTypeLLMModel) {
+			continue
+		}
 		m, err := mu.AsLLMModel()
 		if err != nil {
 			return nil, fmt.Errorf("declared model: %w", err)

@@ -15,7 +15,8 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
@@ -102,7 +103,7 @@ describe("missingRequired", () => {
     const m = missingRequired(
       reqOf({
         mqttChannels: [{ id: "m", label: "m" }],
-        customModels: [{ id: "llm", label: "llm" }],
+        customLLMModels: [{ id: "llm", label: "llm" }],
         hasWebSearch: true,
       }),
       {},
@@ -147,16 +148,16 @@ describe("missingRequired", () => {
   });
 
   it("flags a device model whose filename is not a .gguf", () => {
-    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
-      models: { llm: { location: "device", modelFile: "qwen" } },
+    const m = missingRequired(reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }), {
+      llmModels: { llm: { location: "device", modelFile: "qwen" } },
     }).join();
     expect(m).toMatch(/llm/);
     expect(m).toMatch(/\.gguf/);
   });
 
   it("accepts a device model with a valid .gguf filename", () => {
-    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
-      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
+    const m = missingRequired(reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }), {
+      llmModels: { llm: { location: "device", modelFile: "qwen.gguf" } },
     });
     expect(m).toEqual([]);
   });
@@ -171,7 +172,8 @@ describe("configFromPartial", () => {
       logLevel: "info",
       hardware: {},
       mqtt: {},
-      models: {},
+      llmModels: {},
+      mlModels: {},
       webSearch: undefined,
     });
   });
@@ -252,7 +254,7 @@ describe("loadValues", () => {
     const file = path.join(dir, "v.json");
     const values = {
       hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17 } },
-      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
+      llmModels: { llm: { location: "device", modelFile: "qwen.gguf" } },
       logLevel: "debug",
     };
     await fs.writeFile(file, JSON.stringify(values));

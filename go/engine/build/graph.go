@@ -248,6 +248,18 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
+		case workflow.MLInferenceNode:
+			if nd.Arguments.Model == nil {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "model"}
+			}
+			ep, ok := b.ml[*nd.Arguments.Model]
+			if !ok {
+				return "", fmt.Errorf("node %s: ml model %q is not declared or not bound", nd.Id, *nd.Arguments.Model)
+			}
+			n := node.NewMLInference(nd.Id, nd.Arguments.Input, nd.Arguments.Output, ep)
+			b.allNodes[nd.Id] = n
+			b.actions[nd.Id] = n
+
 		case workflow.WebSearchToolNode:
 			if b.webSearch == nil {
 				return "", fmt.Errorf("node %s: web search tool requires ENGINE_WEB_SEARCH_API_KEY to be configured", nd.Id)

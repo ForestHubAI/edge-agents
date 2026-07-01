@@ -298,10 +298,12 @@ components:
     Model:
       oneOf:
         - $ref: "#/components/schemas/LLMModel"
+        - $ref: "#/components/schemas/MLModel"
       discriminator:
         propertyName: type
         mapping:
           LLMModel: "#/components/schemas/LLMModel"
+          MLModel: "#/components/schemas/MLModel"
 
     LLMModel:
       type: object
@@ -321,6 +323,19 @@ components:
           items:
             $ref: "llmproxy.yaml#/components/schemas/ModelCapability"
 
+    MLModel:
+      type: object
+      description: A machine-learning model, served by an inference sidecar, that nodes can reference.
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [MLModel] }
+        id:
+          type: string
+          description: Stable identifier; this is the model name nodes reference and the sidecar selects on.
+        label:
+          type: string
+          description: Display name.
+
     # ====== Nodes ======
 
     Node:
@@ -333,6 +348,7 @@ components:
         - $ref: "#/components/schemas/SerialWriteNode"
         - $ref: "#/components/schemas/RetrieverNode"
         - $ref: "#/components/schemas/WebFetchNode"
+        - $ref: "#/components/schemas/MLInferenceNode"
         - $ref: "#/components/schemas/FunctionCallNode"
         - $ref: "#/components/schemas/OnFunctionCallNode"
         - $ref: "#/components/schemas/DelayNode"
@@ -357,6 +373,7 @@ components:
           SerialWrite: "#/components/schemas/SerialWriteNode"
           Retriever: "#/components/schemas/RetrieverNode"
           WebFetch: "#/components/schemas/WebFetchNode"
+          MLInference: "#/components/schemas/MLInferenceNode"
           FunctionCall: "#/components/schemas/FunctionCallNode"
           OnFunctionCall: "#/components/schemas/OnFunctionCallNode"
           Delay: "#/components/schemas/DelayNode"
@@ -602,6 +619,27 @@ components:
               type: integer
               description: Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
               minimum: 1
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    MLInferenceNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [MLInference] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [input, output]
+          properties:
+            model:
+              type: string
+              description: Reference to an MLModel id.
+            input:
+              $ref: "#/components/schemas/Expression"
+              description: Input expression fed to the model.
             output:
               $ref: "#/components/schemas/OutputBinding"
 

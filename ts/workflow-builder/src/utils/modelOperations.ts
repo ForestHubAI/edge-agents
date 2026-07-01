@@ -5,7 +5,8 @@ import { seedDefaultArguments, uniqueName } from "./resourceHelpers";
 
 /** Default label prefix per model type. */
 const LABEL_PREFIX: Record<ModelType, string> = {
-  LLMModel: "model",
+  LLMModel: "llm-model",
+  MLModel: "ml-model",
 };
 
 /** Create a new declared (custom) model of the given type. Returns the new instance. */

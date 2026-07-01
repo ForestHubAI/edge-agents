@@ -25,6 +25,15 @@ type EngineConfig = EngineSchemas["EngineConfig"];
 // A cross-repo contract: changing it requires changing the Go constant in lockstep.
 const COMPONENT_WORKSPACE_PATH = "/var/lib/foresthub/workspace";
 
+// In-container path the inference sidecar reads its model repository from (its
+// default models dir). The host repository dir is bind-mounted here read-only;
+// mounting at the default means no env var needs wiring. A cross-repo contract
+// with the sidecar image — changing it requires changing the image in lockstep.
+const ML_MODELS_PATH = "/var/lib/foresthub/models";
+
+// The inference sidecar's fixed listen port (baked into its image entrypoint).
+const ML_SIDECAR_PORT = 8000;
+
 // The OSS renderer's state root (docs/device-filesystem.md §2). Bind-mount sources
 // hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them
 // relative to the compose file, so the bundle stays drop-anywhere; Ranger is a
@@ -46,6 +55,7 @@ export interface DeploymentSpecMeta {
   createdAt?: string;
   engineImage: string;
   llamaServerImage: string;
+  mlSidecarImage: string;
 }
 
 // One external resource's credentials. Secrets are NEVER part of the spec (not
@@ -102,12 +112,21 @@ function brokerHost(url: string): string {
 // Single source of truth: the resolver derives the provider URL from it and the
 // renderer emits a service with the same name — they must agree or the URL
 // points at a service that doesn't exist.
-export function sidecarServiceName(modelId: string): string {
+export function llmSidecarServiceName(modelId: string): string {
   const slug = modelId
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return `llama-${slug || "model"}`;
+}
+
+// Compose/container service name for the shared inference sidecar. Unlike the
+// llama sidecar (one per model), a single inference sidecar hosts a repository
+// of ML models and selects one by name per request — so this is a fixed name,
+// not derived from any model id. Every on-device ML model's provider URL points
+// at it.
+export function mlSidecarServiceName(): string {
+  return "fh-onnx";
 }
 
 // Why an on-device model filename is unacceptable, or null when fine. A name
@@ -194,14 +213,20 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   for (const ch of req.mqttChannels) {
     if (!inputs.mqtt[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
-  for (const m of req.customModels) {
-    const b = inputs.models[m.id];
+  for (const m of req.customLLMModels) {
+    const b = inputs.llmModels[m.id];
     if (b?.location === "device") {
       const err = ggufNameError(b.modelFile);
       if (err) missing.push(`model "${m.id}": ${err}`);
     } else if (!b?.url) {
       missing.push(`model "${m.id}": endpoint URL`);
     }
+  }
+  for (const m of req.customMLModels) {
+    const b = inputs.mlModels[m.id];
+    // device needs nothing more (the model repository is a directory the operator
+    // fills); network needs its endpoint URL.
+    if (b?.location !== "device" && !b?.url) missing.push(`model "${m.id}": on-device or endpoint URL`);
   }
   missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
   missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
@@ -314,15 +339,15 @@ export function buildDeploymentSpec(
   // runs no component here. `model` is left off — the endpoint serves under the
   // workflow id (no upstream-name aliasing yet).
   const llamaComponents: DeployComponent[] = [];
-  for (const m of req.customModels) {
-    const b = inputs.models[m.id];
+  for (const m of req.customLLMModels) {
+    const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
     const ref = refs.alloc(`model:${m.id}`, basename(m.id));
     mapping[m.id] = { ref };
 
     if (b.location === "device") {
       const port = b.port ?? 8080;
-      const service = sidecarServiceName(m.id);
+      const service = llmSidecarServiceName(m.id);
       externalResources[ref] = { type: "selfhosted", url: `http://${service}:${port}` };
       // The whole config is CLI flags, so it rides in `command` (no config blob).
       // ctx-size is frozen here — retuning it is a re-deploy, not an env edit.
@@ -348,6 +373,40 @@ export function buildDeploymentSpec(
       // The endpoint bearer is a secret — out of the spec, returned separately.
       if (b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
     }
+  }
+
+  // ML models: every on-device model is served by ONE shared inference sidecar
+  // that loads a repository of model bundles (a sub-folder per model id) and
+  // selects the model by name per request — so they all point at the same service
+  // URL and only a single component is emitted. A network model points at the
+  // operator's own sidecar. Credential-free — a trusted in-deployment endpoint.
+  const mlComponents: DeployComponent[] = [];
+  let mlDeviceModels = 0;
+  for (const m of req.customMLModels) {
+    const b = inputs.mlModels[m.id];
+    if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
+    const ref = refs.alloc(`ml-model:${m.id}`, basename(m.id));
+    mapping[m.id] = { ref };
+
+    if (b.location === "device") {
+      externalResources[ref] = { type: "ml-inference", url: `http://${mlSidecarServiceName()}:${ML_SIDECAR_PORT}` };
+      mlDeviceModels++;
+    } else {
+      externalResources[ref] = { type: "ml-inference", url: b.url };
+    }
+  }
+  // One shared sidecar for all on-device ML models (not one per model). The model
+  // repository is a directory the operator fills, one sub-folder per model id;
+  // read-only, so no chown is needed. The sidecar reads its default models dir,
+  // so no env var is wired.
+  if (mlDeviceModels > 0) {
+    const service = mlSidecarServiceName();
+    mlComponents.push({
+      name: service,
+      image: meta.mlSidecarImage,
+      pull: "never", // built locally before deploy, in no registry
+      volumes: [`${workspaceDir(service)}:${ML_MODELS_PATH}:ro`],
+    });
   }
 
   const manifest: EngineSchemas["DeviceManifest"] = {};
@@ -383,7 +442,7 @@ export function buildDeploymentSpec(
   if (cdev.size > 0) engine.devices = [...cdev];
   if (privileged) engine.privileged = true;
 
-  const components = [engine, ...llamaComponents, ...customComponents];
+  const components = [engine, ...llamaComponents, ...mlComponents, ...customComponents];
   assertNoNameCollisions(components);
 
   const spec: DeploymentSpec = {

@@ -36,3 +36,8 @@ type LlmClient interface {
 type Retriever interface {
 	QueryRAG(ctx context.Context, params RAGQueryParams) ([]RAGQueryResult, error)
 }
+
+// MLInferenceClient is the external service for ML model inference.
+type MLInferenceClient interface {
+	Infer(ctx context.Context, tensors map[string]any) (map[string]any, error)
+}

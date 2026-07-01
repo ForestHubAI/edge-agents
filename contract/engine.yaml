@@ -50,11 +50,13 @@ components:
       oneOf:
         - $ref: "#/components/schemas/MQTTConnection"
         - $ref: "#/components/schemas/LLMProviderConfig"
+        - $ref: "#/components/schemas/MLInferenceConfig"
       discriminator:
         propertyName: type
         mapping:
           mqtt: "#/components/schemas/MQTTConnection"
           selfhosted: "#/components/schemas/LLMProviderConfig"
+          ml-inference: "#/components/schemas/MLInferenceConfig"
 
     LLMProviderConfig:
       type: object
@@ -70,6 +72,18 @@ components:
         model:
           type: string
           description: Upstream model name the endpoint serves; defaults to the workflow model id when empty.
+
+    MLInferenceConfig:
+      type: object
+      description: "Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [ml-inference]
+        url:
+          type: string
+          description: Base URL of the inference sidecar (http:// or https://).
 
     MQTTConnection:
       type: object
