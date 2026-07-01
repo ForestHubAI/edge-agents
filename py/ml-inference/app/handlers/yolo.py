@@ -53,8 +53,6 @@ class _LetterboxCtx:
 class YoloHandler(Handler):
     """Object-detection pre/post-processing for YOLO-family ONNX models."""
 
-    task = "object-detection"
-
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         self._input_name = session.get_inputs()[0].name
         self._width, self._height = self._resolve_input_size(manifest.params, session)

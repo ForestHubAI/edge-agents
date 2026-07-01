@@ -1,5 +1,4 @@
 schemaVersion: 1
-task: object-detection
 handler: builtin:yolo
 model: model.onnx
 params:

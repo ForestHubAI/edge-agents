@@ -56,7 +56,6 @@ def metadata() -> RepositoryMetadata:
         models=[
             ModelMetadata(
                 name=lm.name,
-                task=lm.manifest.task,
                 handler=lm.manifest.handler,
                 modelVersion=lm.manifest.params.get("version"),
             )

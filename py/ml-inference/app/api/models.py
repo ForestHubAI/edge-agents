@@ -33,7 +33,7 @@ class InferRequest(BaseModel):
 
 class InferResult(BaseModel):
     """
-    A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's task/handler, not by this contract. By convention the object-detection (YOLO) handler returns `{ detections: [ { label, score, box: { x, y, w, h } } ] }` with pixel coordinates in the original image.
+    A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's handler, not by this contract.
     """
 
     model: str
@@ -42,7 +42,7 @@ class InferResult(BaseModel):
     """
     result: dict[str, Any]
     """
-    Handler-produced structured result. Shape depends on the model's task; opaque to this contract.
+    Handler-produced structured result. Shape depends on the model's handler; opaque to this contract.
     """
 
 
@@ -54,10 +54,6 @@ class ModelMetadata(BaseModel):
     name: str
     """
     Name (id) of the model — the value to pass as the /infer `model` selector.
-    """
-    task: str
-    """
-    Task the model performs (e.g. object-detection).
     """
     handler: str
     """

@@ -8,7 +8,6 @@ feeds named tensors straight through for models that need no pre/post-processing
 
 A handler implements:
 
-- ``task``: class attribute naming the task the handler implements.
 - ``load(session, manifest, bundle_dir)``: one-time setup at startup (read labels,
   cache the model input shape, ...). Default is a no-op.
 - ``preprocess(binary, tensors, params) -> (feed, context)``: build the ORT feed
@@ -43,8 +42,6 @@ Feed = dict[str, np.ndarray]
 
 class Handler(ABC):
     """Per-model-type pre/post-processing. See the module docstring for the interface."""
-
-    task: str
 
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         """One-time setup at startup. Override to cache labels, input shape, etc."""

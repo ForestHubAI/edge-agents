@@ -45,8 +45,8 @@ import json, sys
 models = json.load(sys.stdin)["models"]
 m = next((m for m in models if m["name"] == "yolo"), None)
 assert m, "yolo not listed in /metadata"
-assert m["task"] == "object-detection", m
-' || fail "/metadata did not list yolo/object-detection"
+assert m["handler"] == "builtin:yolo", m
+' || fail "/metadata did not list yolo"
 
 [ -f "$TEST_IMAGE" ] || { echo "==> fetching test image"; curl -fsSL "$TEST_IMAGE_URL" -o "$TEST_IMAGE"; }
 

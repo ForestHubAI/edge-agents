@@ -1,5 +1,4 @@
 schemaVersion: 1
-task: object-detection
 handler: file:handler.py     # custom handler shipped in this bundle (not a built-in)
 model: model.onnx
 params:

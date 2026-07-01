@@ -79,7 +79,7 @@ paths:
     get:
       operationId: metadata
       summary: List the loaded models.
-      description: "Describes every model the repository loaded at startup — the names valid as the /infer `model` selector, plus each one's task, handler, and optional version."
+      description: "Describes every model the repository loaded at startup — the names valid as the /infer `model` selector, plus each one's handler and optional version."
       responses:
         "200":
           description: The repository's loaded models.
@@ -115,7 +115,7 @@ components:
 
     InferResult:
       type: object
-      description: "A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's task/handler, not by this contract. By convention the object-detection (YOLO) handler returns `{ detections: [ { label, score, box: { x, y, w, h } } ] }` with pixel coordinates in the original image."
+      description: "A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's handler, not by this contract."
       required: [model, result]
       properties:
         model:
@@ -123,7 +123,7 @@ components:
           description: Name of the model that produced this result.
         result:
           type: object
-          description: "Handler-produced structured result. Shape depends on the model's task; opaque to this contract."
+          description: "Handler-produced structured result. Shape depends on the model's handler; opaque to this contract."
           additionalProperties: true
 
     RepositoryMetadata:
@@ -140,14 +140,11 @@ components:
     ModelMetadata:
       type: object
       description: Descriptive metadata for one loaded model.
-      required: [name, task, handler]
+      required: [name, handler]
       properties:
         name:
           type: string
           description: "Name (id) of the model — the value to pass as the /infer `model` selector."
-        task:
-          type: string
-          description: Task the model performs (e.g. object-detection).
         handler:
           type: string
           description: "Handler driving the model: `builtin:<name>` or `file:handler.py`."

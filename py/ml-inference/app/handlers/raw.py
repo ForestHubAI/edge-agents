@@ -45,8 +45,6 @@ _DTYPES = {
 class RawHandler(Handler):
     """Feed named input tensors straight through and return named outputs."""
 
-    task = "raw"
-
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         self._input_dtypes = {i.name: _DTYPES.get(i.type) for i in session.get_inputs()}
         self._output_names = [o.name for o in session.get_outputs()]

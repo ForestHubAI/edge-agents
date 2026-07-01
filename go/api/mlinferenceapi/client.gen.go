@@ -42,12 +42,12 @@ type InferRequest struct {
 	Tensors map[string]interface{} `json:"tensors,omitempty"`
 }
 
-// InferResult A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's task/handler, not by this contract. By convention the object-detection (YOLO) handler returns `{ detections: [ { label, score, box: { x, y, w, h } } ] }` with pixel coordinates in the original image.
+// InferResult A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's handler, not by this contract.
 type InferResult struct {
 	// Model Name of the model that produced this result.
 	Model string `json:"model"`
 
-	// Result Handler-produced structured result. Shape depends on the model's task; opaque to this contract.
+	// Result Handler-produced structured result. Shape depends on the model's handler; opaque to this contract.
 	Result map[string]interface{} `json:"result"`
 }
 
@@ -61,9 +61,6 @@ type ModelMetadata struct {
 
 	// Name Name (id) of the model — the value to pass as the /infer `model` selector.
 	Name string `json:"name"`
-
-	// Task Task the model performs (e.g. object-detection).
-	Task string `json:"task"`
 }
 
 // RepositoryMetadata The set of models the sidecar currently has loaded.

@@ -26,14 +26,13 @@ class ManifestError(Exception):
 class Manifest(BaseModel):
     """A model bundle's self-description (`manifest.yaml`).
 
-    Only universal fields are typed here — identity (`schemaVersion`, `task`,
-    `handler`, `model`) plus a free-form `params` bag. Everything model- or
-    task-specific (input size, labels, thresholds, ...) lives in `params` and is
-    interpreted by the selected handler, so the schema stays model-type-agnostic.
+    Only universal fields are typed here — identity (`schemaVersion`, `handler`,
+    `model`) plus a free-form `params` bag. Everything model- or task-specific
+    (input size, labels, thresholds, ...) lives in `params` and is interpreted by
+    the selected handler, so the schema stays model-type-agnostic.
     """
 
     schemaVersion: int
-    task: str
     handler: str
     model: str
     params: dict = Field(default_factory=dict)
