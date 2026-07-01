@@ -14,6 +14,7 @@ class Handler(ABC):
 
     def load(self, session, manifest, bundle_dir) -> None: ...   # one-time setup; default no-op
     def preprocess(self, binary, tensors, params) -> tuple[Feed, Any]: ...   # → (feed, context)
+    def infer(self, session, feed, context, params) -> list: ...  # run the model; default 1 pass
     def postprocess(self, outputs, context, params) -> dict: ...             # → result object
 ```
 
@@ -23,6 +24,11 @@ class Handler(ABC):
 - **`preprocess`** builds the ORT `feed` (`{input_name: ndarray}`) from the request's
   `binary` and/or `tensors`. It returns `(feed, context)`; `context` is handler-private
   state handed to `postprocess` (e.g. the image geometry needed to map results back).
+- **`infer`** runs the model on the `feed` and returns the raw outputs. The default is
+  a single `session.run` — the right seam for one-graph models. Override it to own the
+  run loop: a multi-session pipeline (a separate encoder/decoder graph opened in
+  `load`) or an autoregressive model that calls the session repeatedly. `main.py` is
+  unchanged either way.
 - **`postprocess`** turns the raw ORT `outputs` into the structured `result` dict.
 - **`params`** is the manifest params merged with the request params (request wins),
   so per-request overrides (thresholds, …) reach both methods.

@@ -78,7 +78,7 @@ multipart: model + (binary and/or tensors) + params
         not found → HTTPException 404
   → effective_params = { **manifest.params, **request_params }   # request wins
   → feed, context = lm.handler.preprocess(binary, tensors, effective_params)
-  → outputs        = lm.session.run(None, feed)    # ONNX Runtime, raw output tensors
+  → outputs        = lm.handler.infer(lm.session, feed, context, effective_params)  # run the model
   → result         = lm.handler.postprocess(outputs, context, effective_params)
   → InferResult(model=model, result=result)        # contract-shaped JSON
 ```
@@ -90,6 +90,10 @@ multipart: model + (binary and/or tensors) + params
   (`{input_name: ndarray}`). `context` is handler-private state remembered from
   preprocessing (for YOLO: the letterbox scale + padding) that `postprocess` needs to
   map results back — e.g. boxes from the model's input space to original-image pixels.
+- **`infer` is the run step.** The default runs one forward pass — the common case.
+  A handler that needs more (a separate encoder and decoder graph, or an
+  autoregressive model that calls the session repeatedly) overrides `infer` and owns
+  the loop; `main` stays the same. Extra graphs are opened by the handler in `load`.
 - **Errors.** A handler raises `ValueError` for bad input (undecodable image, missing
   tensors); `main` maps that to HTTP 400. An unknown model is 404.
 
@@ -99,7 +103,7 @@ handler returns `{ "outputs": { <name>: <nested array> } }`.
 
 ## Why main.py is model-agnostic
 
-`main.infer` only does: **lookup → preprocess → run → postprocess → wrap**. It knows
+`main.infer` only does: **lookup → preprocess → infer → postprocess → wrap**. It knows
 nothing about images, NMS, or tensor layouts — that all lives behind the `Handler`
 interface. Swap the selected model's handler from `yolo` to `raw` and the exact same
 `main.py` serves a decision-tree model. This is the seam that keeps one image generic
