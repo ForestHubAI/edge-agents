@@ -35,7 +35,6 @@ Each bundle carries a `manifest.yaml`, parsed and validated by `manifest.py`. On
 
 ```yaml
 schemaVersion: 1
-task: object-detection      # human-facing task label (shown in /metadata)
 handler: builtin:yolo       # builtin:<name>  or  file:<relative.py>
 model: model.onnx           # the ONNX file, relative to the bundle
 params:                     # free-form; interpreted by the handler
@@ -48,7 +47,6 @@ params:                     # free-form; interpreted by the handler
 | Field | Meaning |
 | --- | --- |
 | `schemaVersion` | Manifest **format** version this build understands (see below). |
-| `task` | Descriptive task label; surfaced in `/metadata`. |
 | `handler` | Which handler drives the model — `builtin:<name>` or `file:<py>`. |
 | `model` | The ONNX file path inside the bundle. |
 | `params` | Free-form bag of handler-specific settings (input size, labels, thresholds, …). Merged under per-request `params` at inference time. |
@@ -80,7 +78,7 @@ free-form.
 2. **Create the folder** under the repository; the folder name is the model id.
 3. **Place the ONNX file** (e.g. `model.onnx`) and any handler assets (a labels file,
    …). Weights are **not** committed to git — they are mounted/placed at deploy time.
-4. **Write `manifest.yaml`** — `schemaVersion: 1`, `task`, `handler`, `model`, and the
+4. **Write `manifest.yaml`** — `schemaVersion: 1`, `handler`, `model`, and the
    `params` the chosen handler reads.
 5. **Verify it loads.** Mount the repository and check `GET /metadata` lists the model,
    then `POST /infer` with `model: <id>`. `scripts/smoke.sh` does this end-to-end for

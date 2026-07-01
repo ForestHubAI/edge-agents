@@ -10,8 +10,6 @@ interface, the two built-ins, and how to add your own.
 
 ```python
 class Handler(ABC):
-    task: str                                          # the task this handler implements
-
     def load(self, session, manifest, bundle_dir) -> None: ...   # one-time setup; default no-op
     def preprocess(self, binary, tensors, params) -> tuple[Feed, Any]: ...   # → (feed, context)
     def infer(self, session, feed, context, params) -> list: ...  # run the model; default 1 pass
@@ -55,8 +53,8 @@ aborts startup.
 
 ## Built-in: `yolo` (object detection)
 
-`yolo.py`, `task = "object-detection"`. For single-stage YOLO-family models (v8/v9/v11)
-exported to ONNX **without** embedded NMS.
+`yolo.py`. For single-stage YOLO-family models (v8/v9/v11) exported to ONNX
+**without** embedded NMS.
 
 - **`load`** resolves the input size (from `params.input` or the model's declared input
   shape) and loads the label list (`params.labels`, a file in the bundle).
@@ -72,7 +70,7 @@ The two thresholds default to `0.25` / `0.45` and are overridable via `params`.
 
 ## Built-in: `raw` (tensor passthrough)
 
-`raw.py`, `task = "raw"`. For models that need no pre/post-processing — classical ML
+`raw.py`. For models that need no pre/post-processing — classical ML
 (skl2onnx), time-series, embeddings. The request supplies the input tensors by name;
 they go straight in, every output comes straight back.
 
@@ -87,12 +85,11 @@ they go straight in, every output comes straight back.
 
 For a task that ships with the image (no per-bundle code).
 
-1. Create `app/handlers/<task>.py` with a `Handler` subclass decorated
-   `@register_builtin("<name>")`, set `task = "<task>"`, and implement
-   `load`/`preprocess`/`postprocess`.
-2. Register it on import: add `from . import <task>` to `app/handlers/__init__.py`
+1. Create `app/handlers/<name>.py` with a `Handler` subclass decorated
+   `@register_builtin("<name>")` and implement `load`/`preprocess`/`postprocess`.
+2. Register it on import: add `from . import <name>` to `app/handlers/__init__.py`
    (alongside `raw`, `yolo`).
-3. Add a unit test `tests/test_<task>.py` — weights-free: build a synthetic output
+3. Add a unit test `tests/test_<name>.py` — weights-free: build a synthetic output
    tensor (and/or a fake session for `load`), assert the `result` shape and the
    tricky math. No ONNX model, no Docker (so it runs in CI). Mirror `tests/test_yolo.py`
    / `tests/test_raw.py`.

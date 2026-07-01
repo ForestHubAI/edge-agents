@@ -33,7 +33,6 @@ model-specific lives in the free-form `params`, interpreted by the handler:
 
 ```yaml
 schemaVersion: 1
-task: object-detection
 handler: builtin:yolo        # builtin:<name> or file:handler.py
 model: model.onnx
 params:
@@ -63,11 +62,11 @@ result. The `handler` field selects one:
 |-----------------|----------------------------------------------------------------|
 | `GET /healthz`  | liveness — always `200`                                        |
 | `GET /readyz`   | readiness — `200` once the repository is loaded, else `503`    |
-| `GET /metadata` | list the loaded models (name, task, handler)                   |
+| `GET /metadata` | list the loaded models (name, handler)                         |
 | `POST /infer`   | run a model: `multipart/form-data` with `model` + `binary` and/or `tensors` |
 
 `POST /infer` returns `{ "model": "...", "result": { ... } }`. The `result` shape is
-defined by the model's task/handler, not by this service — e.g. the YOLO handler
+defined by the model's handler, not by this service — e.g. the YOLO handler
 returns `{ "detections": [ { "label", "score", "box": { x, y, w, h } } ] }`.
 
 ## Build & run
