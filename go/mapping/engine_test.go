@@ -25,9 +25,9 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 
 	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": provider}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
-	secrets := engine.ResourceSecrets{
-		"mqtt-1": {Password: "brokerpw"},
-		"llm-1":  {APIKey: "secret"},
+	secrets := engine.Secrets{
+		"mqtt-1": "brokerpw",
+		"llm-1":  "secret",
 	}
 	out := ExternalResourcesToDomain(&in, secrets)
 

@@ -13,7 +13,7 @@ deploy plumbing. It happens in three layers, joined by two mappings:
 │   "I need a GPIO input `door_sensor`, an MQTT channel `alarm`, model `mistral-7b`" │
 └───────────────────────────────────────────────────────────────────────────┘
             │
-            │  DeploymentMapping : logical id ─► ResourceBinding{ ref, index? }
+            │  ResourceMapping : logical id ─► ResourceBinding{ ref, index? }
             │  (one entry per channel id and per declared model id)
             ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -39,7 +39,7 @@ deploy plumbing. It happens in three layers, joined by two mappings:
 
 The two arrows are the whole story:
 
-1. **DeploymentMapping** binds each *logical id* the workflow declares to a *platform
+1. **ResourceMapping** binds each *logical id* the workflow declares to a *platform
    resource id* (`ref`), plus an optional physical sub-address (`index`).
 2. **Engine registries** turn each platform resource id (and its config) into a live
    code object.
@@ -78,12 +78,12 @@ the inference endpoint are *environment facts* and are supplied separately.
 
 ---
 
-## The join — DeploymentMapping & ResourceBinding
+## The join — ResourceMapping & ResourceBinding
 
 `contract/engine.yaml` → `go/engine/manifest.go`:
 
 ```go
-type DeploymentMapping map[string]ResourceBinding   // keyed by workflow logical id
+type ResourceMapping map[string]ResourceBinding   // keyed by workflow logical id
 
 type ResourceBinding struct {
     Ref   string `json:"ref"`             // shared platform resource id
@@ -252,7 +252,7 @@ instance, so subscriber lists and driver reservations stay consistent.
 
 `contract/engine.yaml` describes a fourth resource class — RAG memory resolving
 "against the boot-configured backend (the ref is the collection id)". In the current
-engine that binding does **not** flow through `DeploymentMapping`: the `Retriever`
+engine that binding does **not** flow through `ResourceMapping`: the `Retriever`
 backend is injected into the `Builder` at boot, and a `RetrieverNode` references its
 collection directly via `arguments.memoryReference` (`go/engine/build/graph.go`).
 Treat memory as boot-bound for now; if a deploy wizard surfaces it, model it as a
@@ -263,7 +263,7 @@ boot/backend concern rather than a per-deploy `ResourceBinding`.
 ## Designing a deploy wizard
 
 The three layers map almost directly onto wizard stages. The wizard's job is to
-**produce a complete `DeploymentMapping` + `ExternalResources`** for a given
+**produce a complete `ResourceMapping` + `ExternalResources`** for a given
 workflow against a given device/environment.
 
 1. **Read the requirements (Layer 1).** Parse the workflow's `Channels[]` and

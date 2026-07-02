@@ -15,11 +15,6 @@ type Config struct {
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
 	Secret string `env:"ENGINE_SECRET"`
-	// ResourceSecrets is the raw JSON for FH_RESOURCE_SECRETS: a map of external-
-	// resource id -> {password, apiKey}, delivered out-of-band (never in the
-	// deployment spec, so it stays rotation-safe and breach-safe) and merged into
-	// the matching connection at boot. Empty when no external resource needs a credential.
-	ResourceSecrets string `env:"FH_RESOURCE_SECRETS"`
 	// BackendURL is the URL of the backend the engine syncs memory with and routes
 	// LLM/RAG ports through. NOT the log destination — log shipping is a separate,
 	// backend-agnostic sink (see Log / FH_LOG_HTTP_URL).

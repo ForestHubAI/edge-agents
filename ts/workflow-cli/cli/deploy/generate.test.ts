@@ -78,13 +78,28 @@ describe("envFile", () => {
     expect(env).toContain("ENGINE_WEB_SEARCH_API_KEY=ws-key");
   });
 
-  it("writes the resource-secrets blob only when there are secrets", () => {
-    expect(envFile(cfgOf(), { "mqtt-b": { password: "pw" } })).toContain("FH_RESOURCE_SECRETS=");
-    expect(envFile(cfgOf())).not.toContain("FH_RESOURCE_SECRETS=");
+  it("never writes resource secrets into env — they ride a mounted file now", () => {
+    expect(envFile(cfgOf())).not.toContain("FH_RESOURCE_SECRETS");
   });
 });
 
 describe("composeYaml", () => {
+  it("mounts the secret doc read-only and stamps a secrets-hash when the owner has secrets", () => {
+    const yaml = composeYaml(specOf(), { engine: { "mqtt-b": "pw" } });
+    expect(yaml).toContain("./engine-secrets.json:/etc/foresthub/secrets.json:ro");
+    expect(yaml).toContain("com.foresthub.secrets-hash:");
+    // The secret value itself never lands in the compose file — only a hash of it.
+    expect(yaml).not.toContain("pw");
+  });
+
+  it("omits the secret mount and label when there is no secret doc", () => {
+    const yaml = composeYaml(specOf());
+    expect(yaml).not.toContain("engine-secrets.json");
+    expect(yaml).not.toContain("secrets-hash");
+    // An empty doc for the owner is treated as no doc (anonymous broker / keyless).
+    expect(composeYaml(specOf(), { engine: {} })).not.toContain("engine-secrets.json");
+  });
+
   it("mounts the config file at the convention path and has no hardware blocks for a bare spec", () => {
     const yaml = composeYaml(specOf());
     expect(yaml).toContain("./engine-config.json:/etc/foresthub/config.json:ro");

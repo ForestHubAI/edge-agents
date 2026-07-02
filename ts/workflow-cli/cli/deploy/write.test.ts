@@ -67,29 +67,42 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  // Only engine.env is secret now (provider keys + FH_RESOURCE_SECRETS); the spec
-  // and config files are secret-free by construction. Windows ignores POSIX modes
-  // (every file reports 0o666), so the bit-level check is POSIX-only.
-  it.skipIf(process.platform === "win32")("engine.env is the only 0o600 file; the JSON artifacts are not", async () => {
+  // Secret-bearing files are 0o600: engine.env (provider/web-search keys) and
+  // engine-secrets.json (resource credentials); the spec and config files are
+  // secret-free by construction. Windows ignores POSIX modes (every file reports
+  // 0o666), so the bit-level check is POSIX-only.
+  it.skipIf(process.platform === "win32")("the secret files are 0o600; the JSON artifacts are not", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    await writeOutput(specOf(), { "mqtt-1": { password: "p" } }, cfgOf(out), reqOf());
+    await writeOutput(specOf(), { "mqtt-1": "p" }, cfgOf(out), reqOf());
     expect(await mode(path.join(out, "engine.env"))).toBe(0o600);
+    expect(await mode(path.join(out, "engine-secrets.json"))).toBe(0o600);
     expect(await mode(path.join(out, "engine-config.json"))).not.toBe(0o600);
     expect(await mode(path.join(out, "deployment-spec.json"))).not.toBe(0o600);
     expect(await mode(path.join(out, "docker-compose.yml"))).not.toBe(0o600);
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  it("writes resource secrets into engine.env, never into the spec or config", async () => {
+  it("writes resource secrets into engine-secrets.json, never into env, spec, or config", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    await writeOutput(specOf(), { "mqtt-1": { password: "brokerpw" } }, cfgOf(out), reqOf());
+    const files = await writeOutput(specOf(), { "mqtt-1": "brokerpw" }, cfgOf(out), reqOf());
+    expect(files.map((f) => path.basename(f))).toContain("engine-secrets.json");
+    const secrets = JSON.parse(await fs.readFile(path.join(out, "engine-secrets.json"), "utf-8"));
+    expect(secrets).toEqual({ "mqtt-1": "brokerpw" });
     const env = await fs.readFile(path.join(out, "engine.env"), "utf-8");
-    expect(env).toContain("FH_RESOURCE_SECRETS=");
-    expect(env).toContain("brokerpw");
+    expect(env).not.toContain("FH_RESOURCE_SECRETS");
+    expect(env).not.toContain("brokerpw");
     const spec = await fs.readFile(path.join(out, "deployment-spec.json"), "utf-8");
     expect(spec).not.toContain("brokerpw");
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
+  it("writes no engine-secrets.json when there are no resource secrets", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const files = await writeOutput(specOf(), {}, cfgOf(out), reqOf());
+    expect(files.map((f) => path.basename(f))).not.toContain("engine-secrets.json");
     await fs.rm(base, { recursive: true, force: true });
   });
 

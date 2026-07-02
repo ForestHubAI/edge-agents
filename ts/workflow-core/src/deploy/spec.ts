@@ -47,20 +47,19 @@ export interface DeploymentSpecMeta {
   llamaServerImage: string;
 }
 
-// One external resource's credentials. Secrets are NEVER part of the spec (not
-// rotation-safe, breach-exposed if stored): the resolver returns them separately,
-// keyed by the same resource ref the spec's externalResources use, for the
-// renderer to deliver out-of-band (engine env FH_RESOURCE_SECRETS).
-export interface ResourceSecret {
-  password?: string; // MQTT broker password
-  apiKey?: string; // self-hosted LLM endpoint bearer
-}
-export type ResourceSecrets = Record<string, ResourceSecret>;
+// The engine's secret store: a flat map of secret id -> opaque secret value,
+// keyed by the same resource ref the spec's externalResources use. Each value is
+// the single credential that resource needs (MQTT password, self-hosted-LLM
+// bearer token). Secrets are NEVER part of the spec (not rotation-safe, breach-
+// exposed if stored): the resolver returns them separately, for the renderer to
+// deliver out-of-band as a mounted secret document (secrets.json). Mirrors the
+// wire EngineSecrets.
+export type EngineSecrets = Record<string, string>;
 
 // buildDeploymentSpec's output: the secret-free spec plus the pulled-out secrets.
 export interface DeploymentSpecResult {
   spec: DeploymentSpec;
-  resourceSecrets: ResourceSecrets;
+  resourceSecrets: EngineSecrets;
 }
 
 // Hands out stable, collision-free ref names. Same dedup key -> same ref (the
@@ -235,7 +234,7 @@ export function buildDeploymentSpec(
   assertDeployable(req, inputs);
 
   const refs = new RefAllocator();
-  const resourceSecrets: ResourceSecrets = {};
+  const resourceSecrets: EngineSecrets = {};
 
   // DeviceManifest is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
@@ -246,7 +245,7 @@ export function buildDeploymentSpec(
   const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
 
   const externalResources: EngineSchemas["ExternalResources"] = {};
-  const mapping: EngineSchemas["DeploymentMapping"] = {};
+  const mapping: EngineSchemas["ResourceMapping"] = {};
 
   // Container-level hardware access, resolved once: cdev nodes (GPIO, UART) map
   // one-to-one into the engine component's devices; sysfs families (ADC/DAC/PWM)
@@ -304,7 +303,7 @@ export function buildDeploymentSpec(
     const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}:${b.password ?? ""}`, `mqtt-${brokerHost(b.brokerUrl)}`);
     externalResources[ref] = conn;
     mapping[ch.id] = { ref };
-    if (b.password) resourceSecrets[ref] = { ...resourceSecrets[ref], password: b.password };
+    if (b.password) resourceSecrets[ref] = b.password;
   }
 
   // Custom models: one self-hosted provider per model id. A device model points
@@ -345,7 +344,7 @@ export function buildDeploymentSpec(
     } else {
       externalResources[ref] = { type: "selfhosted", url: b.url };
       // The endpoint bearer is a secret — out of the spec, returned separately.
-      if (b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
+      if (b.apiKey) resourceSecrets[ref] = b.apiKey;
     }
   }
 

@@ -53,9 +53,6 @@ type DACConfig struct {
 	Device string `json:"device"`
 }
 
-// DeploymentMapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
-type DeploymentMapping map[string]ResourceBinding
-
 // DeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 type DeviceManifest struct {
 	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
@@ -67,25 +64,28 @@ type DeviceManifest struct {
 
 // EngineConfig The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields.
 type EngineConfig struct {
-	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
 	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
 
 	// Manifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
 	Manifest *DeviceManifest `json:"manifest,omitempty"`
 
 	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
-	Mapping *DeploymentMapping `json:"mapping,omitempty"`
+	Mapping *ResourceMapping `json:"mapping,omitempty"`
 
 	// Workflow Workflow represents the deployment format of a project, passed to agents.
 	Workflow externalRef0.Workflow `json:"workflow"`
 }
+
+// EngineSecrets The engine's secret store: a flat map of secret id -> opaque secret value, loaded from the mounted SecretsFile at boot.
+type EngineSecrets map[string]string
 
 // ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
 type ExternalResourceConfig struct {
 	union json.RawMessage
 }
 
-// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
 type ExternalResources map[string]ExternalResourceConfig
 
 // GPIOConfig defines model for GPIOConfig.
@@ -169,6 +169,9 @@ type ResourceBinding struct {
 	// Ref Shared platform resource id this binds to.
 	Ref string `json:"ref"`
 }
+
+// ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+type ResourceMapping map[string]ResourceBinding
 
 // SerialConfig defines model for SerialConfig.
 type SerialConfig struct {

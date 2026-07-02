@@ -84,11 +84,14 @@ func main() {
 	if err != nil {
 		boot.Fail(err, "initialising driver registry")
 	}
-	resourceSecrets, err := parseResourceSecrets(cfg.ResourceSecrets)
+	// Resolve resource credentials from the mounted secret store, not env: a
+	// dynamic, id-keyed JSON doc mounted read-only at component.SecretsFile,
+	// parallel to the boot config file. Absent when no resource needs a secret.
+	secrets, err := loadEngineSecrets(component.SecretsFile)
 	if err != nil {
-		boot.Fail(err, "parsing resource secrets")
+		boot.Fail(err, "loading engine secrets")
 	}
-	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, resourceSecrets)
+	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, secrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		// A broker unreachable at boot may come back; let the orchestrator retry.
@@ -151,7 +154,7 @@ func main() {
 	}()
 
 	// Build the runner.
-	dm := mapping.DeploymentMappingToDomain(ec.Mapping)
+	dm := mapping.ResourceMappingToDomain(ec.Mapping)
 	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
 	if err != nil {
 		boot.Fail(err, "building workflow runner")
@@ -192,17 +195,22 @@ func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
 	return &ec, nil
 }
 
-// parseResourceSecrets decodes the FH_RESOURCE_SECRETS env (a JSON map of
-// external-resource id -> credentials) into the domain secrets the api->domain
-// mapping merges into connections. Secrets travel out-of-band, never in the
-// deployment spec. An empty/unset value yields no secrets.
-func parseResourceSecrets(raw string) (engine.ResourceSecrets, error) {
-	if raw == "" {
+// loadEngineSecrets reads the mounted secret store (a JSON map of secret id ->
+// opaque value) and maps it into the domain secrets the api->domain mapping
+// merges into connections. Secrets travel out-of-band in this file, never in the
+// deployment spec. A missing file yields no secrets (valid: anonymous broker,
+// keyless endpoint); only a present-but-malformed file is a boot error.
+func loadEngineSecrets(path string) (engine.Secrets, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
-	var s engine.ResourceSecrets
-	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		return nil, fmt.Errorf("FH_RESOURCE_SECRETS: %w", err)
+	if err != nil {
+		return nil, err
 	}
-	return s, nil
+	var wire engineapi.EngineSecrets
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return mapping.SecretsToDomain(wire), nil
 }

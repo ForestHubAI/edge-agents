@@ -143,7 +143,7 @@ describe("buildDeploymentSpec", () => {
     const ext = engineConfigOf(spec).externalResources!;
     const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhosted")!;
     expect(provider).toEqual({ type: "selfhosted", url: "https://infer.example/v1" });
-    expect(resourceSecrets[ref]).toEqual({ apiKey: "k" });
+    expect(resourceSecrets[ref]).toEqual("k");
   });
 
   it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
@@ -153,7 +153,7 @@ describe("buildDeploymentSpec", () => {
     const [mqttRef, mqttConn] = Object.entries(ext).find(([, r]) => r.type === "mqtt")!;
     expect(mqttConn).not.toHaveProperty("password");
     expect(mqttConn).toMatchObject({ username: "u" });
-    expect(resourceSecrets[mqttRef]).toEqual({ password: "p" });
+    expect(resourceSecrets[mqttRef]).toEqual("p");
     // Whole spec serialized carries no secret value.
     expect(JSON.stringify(spec)).not.toContain('"p"');
   });

@@ -37,7 +37,7 @@ type channels struct {
 // MQTT config + open transport). Hard-fails when a channel has no binding in the
 // mapping, or an MQTT channel references a config the deploy doesn't carry —
 // silent degradation hides config bugs.
-func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
+func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -200,7 +200,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 // misconfiguration, not silent degradation. The ref resolves against the device
 // driver registry (hardware) or external resources (MQTT) at the call site, by
 // channel type.
-func bindingFor(dm engine.DeploymentMapping, channelID string) (engine.ResourceBinding, error) {
+func bindingFor(dm engine.ResourceMapping, channelID string) (engine.ResourceBinding, error) {
 	if dm == nil {
 		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no deployment mapping provided", channelID)
 	}

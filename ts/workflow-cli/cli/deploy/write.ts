@@ -4,16 +4,16 @@
 
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
-import { composeYaml, configFileName, envFile, readme } from "./generate";
+import { composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
+import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 
 export async function writeOutput(
   spec: DeploymentSpec,
-  resourceSecrets: ResourceSecrets,
+  resourceSecrets: EngineSecrets,
   cfg: DeployConfig,
   req: DeployRequirements,
   componentEnv: Record<string, string> = {},
@@ -37,10 +37,11 @@ export async function writeOutput(
   }
 
   const written: string[] = [];
-  // secret=true -> mode 0o600. The env files are secret-bearing: engine.env
-  // carries the provider keys, web-search key, and FH_RESOURCE_SECRETS, and a
-  // custom component's <name>.env may carry its own. The <name>-config.json files
-  // and deployment-spec.json are secret-free by construction — safe to share.
+  // secret=true -> mode 0o600. The secret-bearing files: engine.env carries the
+  // provider keys + web-search key, a custom component's <name>.env may carry its
+  // own, and <name>-secrets.json is the resource-credential doc. The
+  // <name>-config.json files and deployment-spec.json are secret-free by
+  // construction — safe to share.
   const emit = async (name: string, content: string, secret = false): Promise<void> => {
     const out = path.join(dir, name);
     const opts = secret ? { encoding: "utf-8" as const, mode: 0o600 } : { encoding: "utf-8" as const };
@@ -55,10 +56,19 @@ export async function writeOutput(
   for (const c of spec.components) {
     if (c.config !== undefined) await emit(configFileName(c.name), json(c.config));
   }
+  // The engine is the sole secret-doc owner: resourceSecrets are its resource
+  // credentials, keyed by resource id. Delivered as a mounted file, never via env
+  // or the spec. Empty -> no file, no mount (anonymous broker / keyless endpoint).
+  const secretDocs: Record<string, EngineSecrets> =
+    Object.keys(resourceSecrets).length > 0 ? { engine: resourceSecrets } : {};
+
   await emit("deployment-spec.json", json(spec));
-  await emit("docker-compose.yml", composeYaml(spec));
-  await emit("engine.env", envFile(cfg, resourceSecrets), true);
-  await emit("README.md", readme(spec, cfg, req.hasProviderModel));
+  await emit("docker-compose.yml", composeYaml(spec, secretDocs));
+  await emit("engine.env", envFile(cfg), true);
+  for (const [name, doc] of Object.entries(secretDocs)) {
+    await emit(secretsFileName(name), json(doc), true);
+  }
+  await emit("README.md", readme(spec, cfg, req.hasProviderModel, Object.keys(secretDocs).length > 0));
 
   // One <name>.env per custom component that ships a <name>.env.example —
   // secret-bearing, so 0600 like engine.env.

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Deployment Spec Contract
   version: 0.1.0
-  description: "Resolved, contract-defined description of a device's component set for one deployment (types only). Produced once by a packaging step (the CLI for the OSS path, the FE/backend for the paid path) and consumed two ways: the OSS one-shot CLI renders it to containers and exits; the paid ranger reconciles desired-vs-actual against it. Components are generic: the spec never names engine, llama-server, or any specific component, so a new OSS or paid component is added without touching this contract."
+  description: "Resolved, contract-defined description of a device's component set for one deployment. Component agnostic so a new or user defined component never touches this contract."
 
 paths: {}
 components:
@@ -99,7 +99,7 @@ components:
         retries:
           type: integer
           minimum: 1
-          description: 'Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default.'
+          description: "Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default."
         startPeriod:
           type: string
           description: 'Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component''s worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".'

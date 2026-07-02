@@ -387,7 +387,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(1);
   }
 
-  // Write the bundle. Secrets (resourceSecrets) go to .env, never the spec.
+  // Write the bundle. Secrets (resourceSecrets) ride in a mounted secret document,
+  // never in .env or the spec.
   let files: string[];
   try {
     files = await writeOutput(built.spec, built.resourceSecrets, cfg, req, componentEnv);

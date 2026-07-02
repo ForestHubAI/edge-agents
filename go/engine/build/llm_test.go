@@ -54,7 +54,7 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 
 func TestBuildDeployProviders_ResolvesChatModel(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
-	dm := engine.DeploymentMapping{"my-llama": {Ref: "prov-1"}}
+	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"prov-1": {URL: "http://llm:8000", APIKey: "k"},
 	}}
@@ -86,7 +86,7 @@ func TestBuildDeployProviders_NoModels(t *testing.T) {
 
 func TestBuildDeployProviders_BoundButNoConfig(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
-	dm := engine.DeploymentMapping{"m": {Ref: "missing"}}
+	dm := engine.ResourceMapping{"m": {Ref: "missing"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{}}
 
 	_, err := buildDeployProviders(wf, dm, ext)
@@ -96,7 +96,7 @@ func TestBuildDeployProviders_BoundButNoConfig(t *testing.T) {
 
 func TestBuildDeployProviders_EmbeddingUnsupported(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "embed", llmapi.Embedding)}}
-	dm := engine.DeploymentMapping{"embed": {Ref: "p"}}
+	dm := engine.ResourceMapping{"embed": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": {URL: "http://e:8000"}}}
 
 	_, err := buildDeployProviders(wf, dm, ext)
@@ -106,7 +106,7 @@ func TestBuildDeployProviders_EmbeddingUnsupported(t *testing.T) {
 
 func TestBuildDeployProviders_UpstreamAliasRejected(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
-	dm := engine.DeploymentMapping{"m": {Ref: "p"}}
+	dm := engine.ResourceMapping{"m": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"p": {URL: "http://e:8000", Model: "different-upstream"},
 	}}
@@ -121,7 +121,7 @@ func TestBuildDeployProviders_MultipleModelsOneProvider(t *testing.T) {
 		llmModel(t, "a", llmapi.Chat),
 		llmModel(t, "b", llmapi.Chat),
 	}}
-	dm := engine.DeploymentMapping{"a": {Ref: "p1"}, "b": {Ref: "p2"}}
+	dm := engine.ResourceMapping{"a": {Ref: "p1"}, "b": {Ref: "p2"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"p1": {URL: "http://a:8000"},
 		"p2": {URL: "http://b:8000"},

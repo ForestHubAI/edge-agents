@@ -10,12 +10,16 @@ export interface components {
         /** @description The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields. */
         EngineConfig: {
             workflow: components["schemas"]["Workflow"];
-            mapping?: components["schemas"]["DeploymentMapping"];
+            mapping?: components["schemas"]["ResourceMapping"];
             externalResources?: components["schemas"]["ExternalResources"];
             manifest?: components["schemas"]["DeviceManifest"];
         };
+        /** @description The engine's secret store: a flat map of secret id -> opaque secret value, loaded from the mounted SecretsFile at boot. */
+        EngineSecrets: {
+            [key: string]: string;
+        };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id). */
-        DeploymentMapping: {
+        ResourceMapping: {
             [key: string]: components["schemas"]["ResourceBinding"];
         };
         /** @description How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models. */
@@ -25,7 +29,7 @@ export interface components {
             /** @description Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address. */
             index?: number;
         };
-        /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs. */
+        /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs. */
         ExternalResources: {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };

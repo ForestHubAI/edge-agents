@@ -57,6 +57,100 @@ type Event struct {
 	Apply       func(*Scope) // Optional function to apply event data into the runner's scope
 }
 
+// Secrets is the engine's secret store: a flat map of secret id -> opaque secret
+// value, keyed by the external-resource id ExternalResources and the
+// ResourceMapping share. Each value is the single credential that resource needs
+// (MQTT password, self-hosted LLM bearer token), merged into its connection at
+// the api->domain boundary — the engine interprets a value by the kind of the
+// resource its id resolves to. Populated from the mounted secret document
+// (component.SecretsFile) at boot; deliberately NOT part of the deployment spec
+// (not rotation-safe, breach-exposed if stored); empty when no resource needs one.
+type Secrets map[string]string
+
+// ResourceMapping binds a binding-free workflow's logical resource ids to
+// concrete platform resources for one deploy, keyed by workflow resource id.
+// Mirrors the engineapi wire shape.
+type ResourceMapping map[string]ResourceBinding
+
+// ResourceBinding is how one workflow resource binds to the environment. Ref is
+// the shared platform resource it points at (driver instance id in the boot
+// DeviceManifest, or external resource id in ExternalResources); the engine
+// picks the pool by the workflow resource's type. Index is the optional
+// per-channel physical sub-address within that resource (GPIO line, or ADC/PWM/
+// DAC channel number); nil for UART/MQTT/memory/model.
+type ResourceBinding struct {
+	Ref   string `json:"ref"`
+	Index *int   `json:"index,omitempty"`
+}
+
+// DeviceManifest is the hardware the engine opens drivers for, keyed by
+// driver instance ID. JSON tags match the fh-backend wire shape.
+type DeviceManifest struct {
+	GPIOs   map[string]GPIOConfig   `json:"gpios,omitempty"`
+	ADCs    map[string]ADCConfig    `json:"adcs,omitempty"`
+	DACs    map[string]DACConfig    `json:"dacs,omitempty"`
+	Serials map[string]SerialConfig `json:"serials,omitempty"`
+	PWMs    map[string]PWMConfig    `json:"pwms,omitempty"`
+}
+
+type GPIOConfig struct {
+	Chip string `json:"chip"`
+}
+
+type ADCConfig struct {
+	Device string `json:"device"`
+}
+
+type DACConfig struct {
+	Device string `json:"device"`
+}
+
+type SerialConfig struct {
+	Port string `json:"device"`
+	Baud int    `json:"baud,omitempty"`
+}
+
+type PWMConfig struct {
+	Chip string `json:"chip"`
+}
+
+// ExternalResources holds the resolved, deploy-delivered configs for a
+// workflow's non-device external resources, keyed by the platform resource id
+// the ResourceMapping points at. The engine builds transports from MQTTs and
+// per-deploy LLM providers from Providers (the connection for each declared
+// custom/self-hosted model).
+type ExternalResources struct {
+	MQTTs     map[string]MQTTConnection
+	Providers map[string]LLMProviderConfig
+}
+
+// LLMProviderConfig is the resolved connection to a self-hosted/custom LLM
+// endpoint the llmproxy doesn't ship. The declared workflow model supplies the
+// id and capabilities; this supplies how to reach it. Model is the optional
+// upstream model name the endpoint serves (defaults to the workflow model id).
+type LLMProviderConfig struct {
+	URL    string
+	APIKey string
+	Model  string
+}
+
+type MQTTConnection struct {
+	BrokerURL       string    `json:"brokerUrl"`
+	ClientID        string    `json:"clientId,omitempty"`
+	Username        string    `json:"username,omitempty"`
+	Password        string    `json:"password,omitempty"`
+	PublishPrefix   string    `json:"publishPrefix,omitempty"`
+	SubscribePrefix string    `json:"subscribePrefix,omitempty"`
+	Will            *MQTTWill `json:"will,omitempty"`
+}
+
+type MQTTWill struct {
+	Topic   string `json:"topic"`
+	Payload string `json:"payload"`
+	Qos     int    `json:"qos"`
+	Retain  bool   `json:"retain"`
+}
+
 // RAGQueryParams is a similarity-search request issued through a Retriever.
 type RAGQueryParams struct {
 	CollectionID string

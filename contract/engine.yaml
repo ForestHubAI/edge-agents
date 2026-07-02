@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: "Engine<->control-plane wire (types only; the engine serves no inbound HTTP): boot-config / log-ingest / memory-sync / RAG-query. Status and liveness are observed by Ranger (the ranger) via the device-state channel, not self-reported by the engine."
+  description: "Contract defined types the engine component expects to receive at boot and runtime."
 
 paths: {}
 components:
@@ -15,13 +15,19 @@ components:
         workflow:
           $ref: "workflow.yaml#/components/schemas/Workflow"
         mapping:
-          $ref: "#/components/schemas/DeploymentMapping"
+          $ref: "#/components/schemas/ResourceMapping"
         externalResources:
           $ref: "#/components/schemas/ExternalResources"
         manifest:
           $ref: "#/components/schemas/DeviceManifest"
 
-    DeploymentMapping:
+    EngineSecrets:
+      type: object
+      description: "The engine's secret store: a flat map of secret id -> opaque secret value, loaded from the mounted SecretsFile at boot."
+      additionalProperties:
+        type: string
+
+    ResourceMapping:
       type: object
       description: "Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id)."
       additionalProperties:
@@ -41,7 +47,7 @@ components:
 
     ExternalResources:
       type: object
-      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs."
+      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs."
       additionalProperties:
         $ref: "#/components/schemas/ExternalResourceConfig"
 

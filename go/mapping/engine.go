@@ -19,7 +19,7 @@ import (
 // id, and are merged in here so the domain connection the engine builds from is
 // complete. A missing secret leaves the credential empty (the connection may
 // still be valid — e.g. an anonymous broker or a keyless endpoint).
-func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.ResourceSecrets) *engine.ExternalResources {
+func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.Secrets) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
@@ -42,7 +42,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 				BrokerURL:       c.BrokerURL,
 				ClientID:        pointer.Val(c.ClientID),
 				Username:        pointer.Val(c.Username),
-				Password:        secrets[id].Password,
+				Password:        secrets[id],
 				PublishPrefix:   pointer.Val(c.PublishPrefix),
 				SubscribePrefix: pointer.Val(c.SubscribePrefix),
 			}
@@ -62,7 +62,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 			}
 			out.Providers[id] = engine.LLMProviderConfig{
 				URL:    c.Url,
-				APIKey: secrets[id].APIKey,
+				APIKey: secrets[id],
 				Model:  pointer.Val(c.Model),
 			}
 		}
@@ -70,13 +70,21 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 	return out
 }
 
-// DeploymentMappingToDomain maps the wire DeploymentMapping (workflow resource
-// id -> binding) onto the engine domain type at the HTTP boundary.
-func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) engine.DeploymentMapping {
+// SecretsToDomain maps the wire EngineSecrets (the mounted secret store: secret
+// id -> opaque value) onto the engine domain type ExternalResourcesToDomain
+// merges into connections. Both are a string map, so this is a plain type
+// conversion; a nil input converts to nil (no resource needs a secret).
+func SecretsToDomain(in engineapi.EngineSecrets) engine.Secrets {
+	return engine.Secrets(in)
+}
+
+// ResourceMappingToDomain maps the wire ResourceMapping (workflow resource id ->
+// binding) onto the engine domain type at the HTTP boundary.
+func ResourceMappingToDomain(in *engineapi.ResourceMapping) engine.ResourceMapping {
 	if in == nil {
 		return nil
 	}
-	out := make(engine.DeploymentMapping, len(*in))
+	out := make(engine.ResourceMapping, len(*in))
 	for k, v := range *in {
 		out[k] = engine.ResourceBinding{Ref: v.Ref, Index: v.Index}
 	}

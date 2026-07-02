@@ -10,7 +10,7 @@ import (
 )
 
 func TestBindingFor_ReturnsBinding(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: "res-1", Index: pointer.Ptr(3)}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: "res-1", Index: pointer.Ptr(3)}}
 
 	b, err := bindingFor(dm, "ch-1")
 	require.NoError(t, err)
@@ -23,14 +23,14 @@ func TestBindingFor_NilMappingFails(t *testing.T) {
 }
 
 func TestBindingFor_MissingKeyFails(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: "res-1"}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: "res-1"}}
 
 	_, err := bindingFor(dm, "ch-2")
 	require.Error(t, err)
 }
 
 func TestBindingFor_EmptyRefFails(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: ""}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: ""}}
 
 	_, err := bindingFor(dm, "ch-1")
 	require.Error(t, err)

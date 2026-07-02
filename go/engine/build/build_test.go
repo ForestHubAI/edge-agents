@@ -37,7 +37,7 @@ func memFile(t *testing.T, id string) workflow.Memory {
 
 func TestBuildCollections_ResolvesVectorDatabase(t *testing.T) {
 	wf := &workflow.Workflow{Memory: []workflow.Memory{vectorDB(t, "kb-1")}}
-	dm := engine.DeploymentMapping{"kb-1": {Ref: "collection-abc"}}
+	dm := engine.ResourceMapping{"kb-1": {Ref: "collection-abc"}}
 
 	got, err := buildCollections(wf, dm)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestBuildCollections_MissingBindingFails(t *testing.T) {
 
 func TestBuildCollections_SkipsMemoryFile(t *testing.T) {
 	wf := &workflow.Workflow{Memory: []workflow.Memory{memFile(t, "f-1"), vectorDB(t, "kb-1")}}
-	dm := engine.DeploymentMapping{"kb-1": {Ref: "collection-abc"}}
+	dm := engine.ResourceMapping{"kb-1": {Ref: "collection-abc"}}
 
 	got, err := buildCollections(wf, dm)
 	require.NoError(t, err)

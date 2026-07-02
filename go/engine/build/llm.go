@@ -15,7 +15,7 @@ import (
 // per-deploy self-hosted provider. Every entry in wf.Models is a custom/
 // self-hosted model while catalog models are referenced by id and never declared.
 // An unbound or unconfigured model is a deploy error.
-func buildDeployProviders(wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) ([]llmproxy.Provider, error) {
+func buildDeployProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]llmproxy.Provider, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	for _, mu := range wf.Models {
 		m, err := mu.AsLLMModel()
