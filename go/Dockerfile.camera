@@ -1,0 +1,31 @@
+# Image for the fh-camera capture sidecar. Capture shells out to gst-launch-1.0,
+# so the runtime needs the GStreamer userspace — hence a debian-slim base with
+# apt to install it.
+#
+# Build context must be the go/ directory (where go.mod lives):
+#   docker build -f Dockerfile.camera -t fh-camera:dev .
+
+FROM golang:1.26 AS builder
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /fh-camera ./cmd/camera
+
+FROM debian:bookworm-slim
+# gst-launch-1.0 and the capture-pipeline plugins: v4l2src/videoconvert/jpegenc
+# for USB/UVC cameras (plugins-base/good) and libcamerasrc for CSI/ISP cameras.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-libcamera \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /fh-camera /bin/fh-camera
+
+# Runs as root so capture can reach the host's passed-through /dev/video* devices.
+EXPOSE 8100
+ENTRYPOINT ["/bin/fh-camera"]

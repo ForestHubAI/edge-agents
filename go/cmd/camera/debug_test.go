@@ -1,0 +1,16 @@
+package main
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDebugSource_JPEGMagic(t *testing.T) {
+	data, err := debugSource{}.capture(context.Background(), 0, 0)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(data), 2)
+	assert.Equal(t, []byte{0xFF, 0xD8}, data[:2])
+}
