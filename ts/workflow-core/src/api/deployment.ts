@@ -7,7 +7,7 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description The resolved set of components to run on one device for one deployment, plus its identity. Every decision (which components run, their images, device access, config file content) is computed once by the packaging step and frozen here, so a renderer renders it without re-deriving anything. The spec is the self-contained, restartable source of truth: spec + cached images + device-local env files are all a device needs to (re)start offline. */
+        /** @description The resolved set of components to run on one device for one deployment, plus its identity. Every decision is frozen at packaging time. */
         DeploymentSpec: {
             /** @description Spec format version. Bumped when the spec shape changes incompatibly. */
             schemaVersion: number;
@@ -15,44 +15,42 @@ export interface components {
             id: string;
             /**
              * Format: date-time
-             * @description When the packaging step produced this spec. Stamped by the producer; drives deployment history ordering.
+             * @description When this spec was produced, stamped by the producer.
              */
             createdAt?: string;
-            /** @description The components to run for this deployment, each a fully resolved container. The list is unordered: components do not declare dependencies on one another. Coupling between components (e.g. the engine reaching an on-device model) is expressed as a URL the consumer connects to at runtime with retry, never as a start-ordering edge, so the model works identically whether the dependency runs on this device or another one. The packaging step expands any one-to-many component (e.g. one llama-server image per on-device model) into separate concrete entries here. */
+            /** @description The components to run for this deployment, each a fully resolved container. Unordered — components declare no dependencies on one another. */
             components: components["schemas"]["DeployComponent"][];
         };
-        /** @description One resolved container to run as part of a deployment. Generic by design: it carries only runtime-neutral container knobs the renderer passes through, never a component-typed config schema. A component's own config shape lives in that component's contract (e.g. the engine's EngineConfig in engine.yaml), referenced directly by whoever produces and consumes that config; this spec only transports the rendered config content as opaque file bytes. Adding a component, OSS or paid, means producing one of these, not editing this contract. */
+        /** @description One resolved container to run as part of a deployment. Generic by design: carries only runtime-neutral container knobs, never a component-typed config schema. */
         DeployComponent: {
-            /** @description Unique component name within the deployment. Doubles as the container/service name the renderer emits, the basename of any device-local env file the operator supplies ("<name>.env"), and the address other components reach this one by over the container network. */
+            /** @description Unique component name within the deployment. */
             name: string;
-            /** @description OCI image reference, frozen at packaging time. OSS: a local convention tag built before deploy, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref the ranger resolves and freezes, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:abc123...". Which registry and how the daemon authenticates to it are device-side config, not part of this string. */
+            /** @description OCI image reference, frozen at packaging time. OSS: a locally-built convention tag, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:...". */
             image: string;
             /**
-             * @description Image pull policy, emitted as the renderer's pull_policy. Omit to default to "missing" (pull only if absent locally — correct for any registry image). Use "never" for an image built locally and present in no registry (the OSS engine); "always" re-pulls on every start.
+             * @description Image pull policy. Omit to default to "missing" (pull only if absent locally); "never" for a locally-built image in no registry; "always" re-pulls on every start.
              * @enum {string}
              */
             pull?: "always" | "missing" | "never";
-            /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/var/lib/foresthub/workspace/x.gguf", "--ctx-size", "4096"]. Runtime-neutral: every runtime can override a container's command. Lets a CLI-flag-configured image (llama-server and many third-party servers) run unwrapped — the packaging step puts the flags here instead of baking a JSON-to-flags translation into a wrapper image. Omit to use the image's own default command. */
+            /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/path/x.gguf", "--ctx-size", "4096"]. Omit to use the image's default command. */
             command?: string[];
-            /** @description Structured config for the component, frozen at packaging time. The renderer serializes it to JSON, writes it to a device-local file, bind-mounts that file read-only at configPath, and hashes it into a recreate trigger (compose does not track bind-mount content). How the component interprets the file — read it as JSON, convert it to CLI args, expand it into several native config files — is the image's entrypoint, not this spec; a non-JSON image is wrapped with a thin entrypoint that converts. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets; those arrive as environment variables from the device-local env file. */
+            /** @description Structured config for the component, frozen at packaging time. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets. */
             config?: {
                 [key: string]: unknown;
             };
-            /** @description Absolute in-container path to mount the config file at. Omit to use the convention default "/etc/foresthub/config.json", which first-party components read by default. Set it to drop in a JSON-configured third-party image that reads its config elsewhere, e.g. "/app/config.json". Ignored when config is absent. */
-            configPath?: string;
             /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files. */
             volumes?: string[];
-            /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". One entry per distinct cdev node the component binds, computed once from the workflow's hardware against the device manifest. Empty when the component uses no cdev hardware; ADC/DAC/PWM have no single node and go through privileged instead. */
+            /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". Empty when the component binds no cdev hardware. */
             devices?: string[];
             /** @description Host port publishings in compose short form, e.g. "1883:1883". Empty when the component is reached only over the internal container network (the common case: components address each other by name, no host exposure needed). */
             ports?: string[];
             /** @description Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none. */
             privileged?: boolean;
-            /** @description Container user as "UID[:GID]", e.g. "0:0" for root. The renderer passes it through verbatim. Needed when a nonroot image must reach root-owned resources: the engine image runs nonroot but has to open the root-owned device nodes / sysfs files granted via devices/privileged, so its component sets "0:0". Omit to use the image's own default user. */
+            /** @description Container user as "UID[:GID]", e.g. "0:0" for root. Set when a nonroot image must reach root-owned resources. Omit to use the image's default user. */
             user?: string;
             healthcheck?: components["schemas"]["HealthCheck"];
         };
-        /** @description In-container readiness/liveness probe the orchestrator runs, emitted as the renderer's healthcheck. Carries a probe only when the image ships one (Tier 1: a probe tool present in the image); when it does not, omit the whole healthcheck and let the orchestrator probe out-of-band (Tier 2). Either way the universal backstop holds with no per-image work: a container that exits, or is still not healthy when startPeriod elapses, is a failed deployment, not an endless restart. A first-party component reporting a permanent boot failure short-circuits even that, exiting with the EX_CONFIG (78) code so the orchestrator fails the deployment without waiting out the probe. */
+        /** @description In-container readiness/liveness probe. Present only when the image ships a probe tool; omit otherwise. */
         HealthCheck: {
             /** @description The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely. */
             test: string[];

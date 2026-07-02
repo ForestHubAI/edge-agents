@@ -14,9 +14,9 @@ import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
 
-// Convention mount path for a component's config file when it sets no configPath —
-// matches the path first-party images (the engine) default to reading.
-const DEFAULT_CONFIG_PATH = "/etc/foresthub/config.json";
+// The fixed in-container path the config file is mounted at — the path first-party
+// images (the engine) read. Mirrors go/component's ConfigFile.
+const CONFIG_PATH = "/etc/foresthub/config.json";
 
 // Fixed mount path for a component's secret document — mirrors go/component's
 // SecretsFile. Dynamic, id-keyed resource credentials mounted read-only, resolved
@@ -94,7 +94,7 @@ function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
   // secret doc is out-of-band (never in the spec), so it rides here rather than
   // as a spec field — mounted exactly like config, verbatim, never read here.
   const volumes = [
-    ...(c.config !== undefined ? [`./${configFileName(c.name)}:${c.configPath ?? DEFAULT_CONFIG_PATH}:ro`] : []),
+    ...(c.config !== undefined ? [`./${configFileName(c.name)}:${CONFIG_PATH}:ro`] : []),
     ...(hasSecretDoc ? [`./${secretsFileName(c.name)}:${SECRETS_PATH}:ro`] : []),
     ...(c.volumes ?? []),
   ];

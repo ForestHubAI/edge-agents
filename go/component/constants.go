@@ -20,14 +20,14 @@ const (
 	// ConfigFile is the single boot config, mounted read-only from the host deploy
 	// dir. The component opens exactly this file.
 	ConfigFile = "/etc/foresthub/config.json"
-	// Workspace is the durable, device-authoritative working dir (memory, model
-	// files, broker state), persisted across deployments.
-	Workspace = "/var/lib/foresthub/workspace"
 	// SecretsFile is the resolved resource-credential document, mounted read-only
 	// from the host deploy dir like ConfigFile. Dynamic, id-keyed credentials —
 	// never in the deployment spec, resolved fresh at pull and delivered here
 	// instead of via env. Absent when no external resource needs a secret.
 	SecretsFile = "/etc/foresthub/secrets.json"
+	// Workspace is the durable, device-authoritative working dir (memory, model
+	// files, broker state), persisted across deployments.
+	Workspace = "/var/lib/foresthub/workspace"
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to

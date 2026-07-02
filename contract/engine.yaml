@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Engine Deploy & Control-Plane Contract
   version: 0.1.0
-  description: "Contract defined types the engine component expects to receive at boot and runtime."
+  description: "The types the engine is handed at boot (config + secrets) plus the runtime requests it makes to the backend."
 
 paths: {}
 components:
@@ -10,7 +10,7 @@ components:
     EngineConfig:
       type: object
       required: [workflow]
-      description: "The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields."
+      description: "The engine's complete boot input, loaded once at startup."
       properties:
         workflow:
           $ref: "workflow.yaml#/components/schemas/Workflow"
@@ -23,19 +23,19 @@ components:
 
     EngineSecrets:
       type: object
-      description: "The engine's secret store: a flat map of secret id -> opaque secret value, loaded from the mounted SecretsFile at boot."
+      description: "The engine's secret store: a flat map of secret id -> opaque secret value."
       additionalProperties:
         type: string
 
     ResourceMapping:
       type: object
-      description: "Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id)."
+      description: "Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id."
       additionalProperties:
         $ref: "#/components/schemas/ResourceBinding"
 
     ResourceBinding:
       type: object
-      description: "How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models."
+      description: "How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`."
       required: [ref]
       properties:
         ref:
@@ -47,7 +47,7 @@ components:
 
     ExternalResources:
       type: object
-      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs."
+      description: "Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id."
       additionalProperties:
         $ref: "#/components/schemas/ExternalResourceConfig"
 
@@ -64,7 +64,7 @@ components:
 
     LLMProviderConfig:
       type: object
-      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec."
+      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship."
       required: [type, url]
       properties:
         type:
@@ -79,7 +79,7 @@ components:
 
     MQTTConnection:
       type: object
-      description: "Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays."
+      description: "Resolved connection metadata for an MQTT broker."
       required: [type, brokerUrl]
       properties:
         type:
@@ -96,11 +96,11 @@ components:
         publishPrefix:
           type: string
           x-go-name: PublishPrefix
-          description: Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/).
+          description: Topic prefix for workflow-level publish topics ({networkId}/{agentId}/).
         subscribePrefix:
           type: string
           x-go-name: SubscribePrefix
-          description: Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/).
+          description: Topic prefix for workflow-level subscribe filters ({networkId}/+/).
         will:
           $ref: "#/components/schemas/MQTTWill"
 
@@ -114,13 +114,13 @@ components:
           type: string
         qos:
           type: integer
-          description: MQTT QoS (0,1,2). Cast to byte at the paho call site.
+          description: MQTT QoS (0, 1, or 2).
         retain:
           type: boolean
 
     DeviceManifest:
       type: object
-      description: "Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine."
+      description: "Hardware resources available on the device, keyed by driver instance ID."
       properties:
         gpios:
           type: object

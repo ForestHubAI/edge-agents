@@ -26,7 +26,7 @@ components:
         context:
           type: object
           additionalProperties: true
-          description: Workflow variable values (the Context struct in the generated C++)
+          description: Workflow variable values
         externalState:
           $ref: "#/components/schemas/DebugExternalState"
 
@@ -41,7 +41,7 @@ components:
             type: integer
         serial:
           type: array
-          description: Serial input buffer (consumed in order by ReadLine calls)
+          description: Serial input buffer, consumed in order
           items:
             type: string
 

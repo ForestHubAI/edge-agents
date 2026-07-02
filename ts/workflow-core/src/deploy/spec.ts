@@ -363,8 +363,8 @@ export function buildDeploymentSpec(
   if (Object.keys(externalResources).length) config.externalResources = externalResources;
   if (Object.keys(manifest).length) config.manifest = manifest;
 
-  // The engine component. configPath is omitted (the image reads the convention
-  // path it defaults to); the config blob is mounted there by the renderer.
+  // The engine component. The config blob is mounted at the fixed convention path
+  // (component.ConfigFile) the engine image reads.
   const engine: DeployComponent = {
     name: "engine",
     image: meta.engineImage,

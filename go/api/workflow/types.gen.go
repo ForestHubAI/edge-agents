@@ -775,7 +775,7 @@ type AgentNode struct {
 		// OutputDeclarations Ordered list of structured-output declarations. Names must be unique within this list
 		OutputDeclarations []OutputDeclaration `json:"outputDeclarations"`
 
-		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 	} `json:"arguments"`
 	Id       string        `json:"id"`
@@ -878,7 +878,7 @@ type FunctionCallNode struct {
 		InputBindings  *map[string]Expression    `json:"inputBindings,omitempty"`
 		OutputBindings *map[string]OutputBinding `json:"outputBindings,omitempty"`
 
-		// ToolDescription Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode.
+		// ToolDescription Description used when this function is exposed as a tool; ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 	} `json:"arguments"`
 
@@ -946,7 +946,7 @@ type IfNodeType string
 
 // LLMModel A custom or self-hosted language model that agent nodes can reference.
 type LLMModel struct {
-	// Capabilities Capabilities this model supports (used to filter model pickers).
+	// Capabilities Capabilities this model supports.
 	Capabilities []externalRef0.ModelCapability `json:"capabilities"`
 
 	// Id Stable identifier; this is the ModelID nodes reference.
@@ -965,15 +965,15 @@ type LOGChannel struct {
 	Id    string `json:"id"`
 	Label string `json:"label"`
 
-	// Level Severity the engine records messages written to this channel at.
+	// Level Severity for messages written to this channel.
 	Level LOGChannelLevel `json:"level"`
 
-	// Tag Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.
+	// Tag Optional category label stamped on each line written to this channel.
 	Tag  *string        `json:"tag,omitempty"`
 	Type LOGChannelType `json:"type"`
 }
 
-// LOGChannelLevel Severity the engine records messages written to this channel at.
+// LOGChannelLevel Severity for messages written to this channel.
 type LOGChannelLevel string
 
 // LOGChannelType defines model for LOGChannel.Type.
@@ -984,7 +984,7 @@ type MQTTChannel struct {
 	Id    string `json:"id"`
 	Label string `json:"label"`
 
-	// Topic Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.
+	// Topic Topic this channel publishes to / subscribes on.
 	Topic string          `json:"topic"`
 	Type  MQTTChannelType `json:"type"`
 }
@@ -1005,7 +1005,7 @@ type MemoryFile struct {
 	// Id Stable identifier that survives renames; referenced from MemoryRef.
 	Id string `json:"id"`
 
-	// Label Display name. Unique per agent (LLM tool enums use it).
+	// Label Display name. Unique per agent.
 	Label string `json:"label"`
 
 	// MaxSizeBytes Byte cap; null means unlimited.
@@ -1224,7 +1224,7 @@ type ReadPinNode struct {
 		PinReference *string    `json:"pinReference,omitempty"`
 		SignalType   SignalType `json:"signalType"`
 
-		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 	} `json:"arguments"`
 	Id       string          `json:"id"`
@@ -1250,7 +1250,7 @@ type RetrieverNode struct {
 		Output          OutputBinding `json:"output"`
 		Query           Expression    `json:"query"`
 
-		// ToolDescription Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
 
 		// TopK Number of results to return
@@ -1413,7 +1413,7 @@ type WebSearchToolNode struct {
 // WebSearchToolNodeType defines model for WebSearchToolNode.Type.
 type WebSearchToolNodeType string
 
-// Workflow Workflow represents the deployment format of a project, passed to agents.
+// Workflow The deployment format of a workflow project.
 type Workflow struct {
 	Channels          []Channel  `json:"channels"`
 	DeclaredVariables []Variable `json:"declaredVariables"`

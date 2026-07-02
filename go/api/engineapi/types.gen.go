@@ -53,7 +53,7 @@ type DACConfig struct {
 	Device string `json:"device"`
 }
 
-// DeviceManifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
+// DeviceManifest Hardware resources available on the device, keyed by driver instance ID.
 type DeviceManifest struct {
 	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
 	Dacs    *map[string]DACConfig    `json:"dacs,omitempty"`
@@ -62,22 +62,22 @@ type DeviceManifest struct {
 	Serials *map[string]SerialConfig `json:"serials,omitempty"`
 }
 
-// EngineConfig The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields.
+// EngineConfig The engine's complete boot input, loaded once at startup.
 type EngineConfig struct {
-	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id.
 	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
 
-	// Manifest Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine.
+	// Manifest Hardware resources available on the device, keyed by driver instance ID.
 	Manifest *DeviceManifest `json:"manifest,omitempty"`
 
-	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 	Mapping *ResourceMapping `json:"mapping,omitempty"`
 
-	// Workflow Workflow represents the deployment format of a project, passed to agents.
+	// Workflow The deployment format of a workflow project.
 	Workflow externalRef0.Workflow `json:"workflow"`
 }
 
-// EngineSecrets The engine's secret store: a flat map of secret id -> opaque secret value, loaded from the mounted SecretsFile at boot.
+// EngineSecrets The engine's secret store: a flat map of secret id -> opaque secret value.
 type EngineSecrets map[string]string
 
 // ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
@@ -85,7 +85,7 @@ type ExternalResourceConfig struct {
 	union json.RawMessage
 }
 
-// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the ResourceMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs.
+// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id.
 type ExternalResources map[string]ExternalResourceConfig
 
 // GPIOConfig defines model for GPIOConfig.
@@ -94,7 +94,7 @@ type GPIOConfig struct {
 	Chip string `json:"chip"`
 }
 
-// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec.
+// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship.
 type LLMProviderConfig struct {
 	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
 	Model *string               `json:"model,omitempty"`
@@ -107,15 +107,15 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// MQTTConnection Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays.
+// MQTTConnection Resolved connection metadata for an MQTT broker.
 type MQTTConnection struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
 
-	// PublishPrefix Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/).
+	// PublishPrefix Topic prefix for workflow-level publish topics ({networkId}/{agentId}/).
 	PublishPrefix *string `json:"publishPrefix,omitempty"`
 
-	// SubscribePrefix Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/).
+	// SubscribePrefix Topic prefix for workflow-level subscribe filters ({networkId}/+/).
 	SubscribePrefix *string            `json:"subscribePrefix,omitempty"`
 	Type            MQTTConnectionType `json:"type"`
 	Username        *string            `json:"username,omitempty"`
@@ -129,7 +129,7 @@ type MQTTConnectionType string
 type MQTTWill struct {
 	Payload string `json:"payload"`
 
-	// Qos MQTT QoS (0,1,2). Cast to byte at the paho call site.
+	// Qos MQTT QoS (0, 1, or 2).
 	Qos    int    `json:"qos"`
 	Retain bool   `json:"retain"`
 	Topic  string `json:"topic"`
@@ -161,7 +161,7 @@ type RagQueryResult struct {
 	Score      float64 `json:"score"`
 }
 
-// ResourceBinding How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models.
+// ResourceBinding How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`.
 type ResourceBinding struct {
 	// Index Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
 	Index *int `json:"index,omitempty"`
@@ -170,7 +170,7 @@ type ResourceBinding struct {
 	Ref string `json:"ref"`
 }
 
-// ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id).
+// ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 type ResourceMapping map[string]ResourceBinding
 
 // SerialConfig defines model for SerialConfig.

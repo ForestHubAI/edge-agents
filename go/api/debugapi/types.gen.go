@@ -75,7 +75,7 @@ type DebugExternalState struct {
 	// Gpio Pin number to value map (e.g. {"4": 1, "5": 0})
 	Gpio *map[string]int `json:"gpio,omitempty"`
 
-	// Serial Serial input buffer (consumed in order by ReadLine calls)
+	// Serial Serial input buffer, consumed in order
 	Serial *[]string `json:"serial,omitempty"`
 }
 
@@ -100,13 +100,13 @@ type DebugReadyEventType string
 
 // DebugRequest defines model for DebugRequest.
 type DebugRequest struct {
-	// Workflow Workflow represents the deployment format of a project, passed to agents.
+	// Workflow The deployment format of a workflow project.
 	Workflow externalRef0.Workflow `json:"workflow"`
 }
 
 // DebugStepRequest defines model for DebugStepRequest.
 type DebugStepRequest struct {
-	// Context Workflow variable values (the Context struct in the generated C++)
+	// Context Workflow variable values
 	Context map[string]interface{} `json:"context"`
 
 	// ExternalState Pre-populated hardware I/O values for the debug binary
