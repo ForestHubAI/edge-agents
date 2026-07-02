@@ -545,7 +545,7 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
           value: apiNode.arguments.value,
           qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
           retain: apiNode.arguments.retain,
@@ -558,7 +558,7 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
-          dataType: apiNode.arguments.dataType,
+          dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
           output: apiNode.arguments.output as OutputBinding,
         },
       };

@@ -75,6 +75,7 @@ func (e DACChannelType) Valid() bool {
 const (
 	Bool   DataType = "bool"
 	Float  DataType = "float"
+	Image  DataType = "image"
 	Int    DataType = "int"
 	String DataType = "string"
 )
@@ -85,6 +86,8 @@ func (e DataType) Valid() bool {
 	case Bool:
 		return true
 	case Float:
+		return true
+	case Image:
 		return true
 	case Int:
 		return true

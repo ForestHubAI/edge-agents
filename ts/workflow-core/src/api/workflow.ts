@@ -8,7 +8,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "image";
         /** @enum {string} */
         SignalType: "digital" | "analog";
         /** @enum {string} */

@@ -173,7 +173,7 @@ export interface components {
             };
         };
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "image";
         Expression: {
             expression: string;
             /** @description A list of referenced variable IDs used in the expression */

@@ -234,6 +234,8 @@ export const NodeConfigPanel = ({
 // can be appended. Errors on any row (static or list) apply a destructive ring using
 // the same `outputId` key diagnostics.ts produces.
 
+// image is intentionally excluded: it is opaque and has no meaningful initial
+// value, so it is never offered as a declarable variable/output type.
 const DATA_TYPES: DataType[] = ["int", "float", "bool", "string"];
 
 const DATA_TYPE_LABELS: Record<DataType, string> = {
@@ -241,6 +243,7 @@ const DATA_TYPE_LABELS: Record<DataType, string> = {
   float: "float",
   bool: "bool",
   string: "string",
+  image: "image",
 };
 
 /** Stable synthetic outputId used to key list-entry diagnostics (matches diagnostics.ts). */
