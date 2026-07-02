@@ -16,6 +16,7 @@ contract/        SOURCE OF TRUTH. Language-neutral OpenAPI 3.0.3 schemas.
   debug.yaml       engine<->editor debug-adapter protocol ($refs workflow.yaml).
   deployment.yaml  deploy bundle/manifest wire ($refs workflow.yaml).
   mlinference.yaml ML inference sidecar wire (/infer + health/ready/metadata).
+  capture.yaml     capture sidecar wire (/capture + health/ready/metadata).
 
 go/              Go module — go.mod lives HERE, not at repo root, so `go get`
                  consumers never receive the ts/ or contract/ trees.
