@@ -12,6 +12,7 @@ export type {
   DeployRequirements,
   HardwareChannel,
   MqttChannel,
+  CameraChannel,
   CustomLLMModel,
   CustomMLModel,
   HardwareFamily,
@@ -19,6 +20,7 @@ export type {
   MqttBinding,
   LLMModelBinding,
   MLModelBinding,
+  CameraBinding,
 } from "@foresthubai/workflow-core/deploy";
 export {
   ggufNameError,
@@ -69,6 +71,11 @@ const mlModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({ location: z.literal("network"), url: z.string() }),
 ]);
 
+const cameraBindingSchema = z.discriminatedUnion("location", [
+  z.strictObject({ location: z.literal("device"), source: z.enum(["v4l2", "gstreamer"]), device: z.string() }),
+  z.strictObject({ location: z.literal("network"), url: z.string() }),
+]);
+
 // Web-search provider + key. Engine-wide, so just one. Device env, never in the
 // spec — collected here only so the CLI can write it to .env.
 const webSearchBindingSchema = z.strictObject({
@@ -93,6 +100,7 @@ export function unknownIds(req: DeployRequirements, p: Partial<DeployConfig>): s
   check("mqtt", req.mqttChannels.map((c) => c.id), p.mqtt);
   check("model", req.customLLMModels.map((m) => m.id), p.llmModels);
   check("model", req.customMLModels.map((m) => m.id), p.mlModels);
+  check("camera", req.cameraChannels.map((c) => c.id), p.cameras);
   return unknown;
 }
 
@@ -109,6 +117,7 @@ const deployConfigSchema = z.strictObject({
   mqtt: z.record(z.string(), mqttBindingSchema),
   llmModels: z.record(z.string(), llmModelBindingSchema),
   mlModels: z.record(z.string(), mlModelBindingSchema),
+  cameras: z.record(z.string(), cameraBindingSchema),
   webSearch: webSearchBindingSchema.optional(),
 });
 export type DeployConfig = z.infer<typeof deployConfigSchema>;

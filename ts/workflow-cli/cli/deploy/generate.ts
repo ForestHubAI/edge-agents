@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { ALL_PROVIDERS } from "./types";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import { llmSidecarServiceName, mlSidecarServiceName } from "@foresthubai/workflow-core/deploy";
+import { llmSidecarServiceName, mlSidecarServiceName, cameraSidecarServiceName } from "@foresthubai/workflow-core/deploy";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -156,6 +156,18 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 `;
 }
 
+// The capture sidecar's cameras.json content: one entry per on-device camera,
+// keyed by the channel id the engine requests it by. Null when no camera is
+// on-device (a network camera needs no local config) — then no file is written.
+export function camerasJson(cfg: DeployConfig): string | null {
+  const cameras: Record<string, { source: "v4l2" | "gstreamer"; device: string }> = {};
+  for (const [id, b] of Object.entries(cfg.cameras)) {
+    if (b.location === "device") cameras[id] = { source: b.source, device: b.device };
+  }
+  if (Object.keys(cameras).length === 0) return null;
+  return JSON.stringify({ cameras }, null, 2) + "\n";
+}
+
 // Exported for testing purposes only.
 export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel: boolean): string {
   const localProviders = ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]));
@@ -179,9 +191,30 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
-  // Any on-device sidecar (llama or inference) shifts weights out of the main scp
-  // line and means the engine reaches it over the network at runtime.
-  const hasDeviceSidecar = deviceModels.length > 0 || mlDeviceModels.length > 0;
+  // On-device cameras share ONE capture sidecar; its cameras.json lives under that
+  // sidecar's workspace dir. v4l2 cameras get a /dev passthrough; gstreamer/CSI
+  // cameras need the operator to wire the full media graph (see the note below).
+  const cameraDir = `./workspaces/${cameraSidecarServiceName()}`;
+  const deviceCameras = Object.values(cfg.cameras).filter((b) => b.location === "device");
+  const hasV4l2Camera = deviceCameras.some((b) => b.source === "v4l2");
+  const hasGstreamerCamera = deviceCameras.some((b) => b.source === "gstreamer");
+  const hasNetworkCamera = Object.values(cfg.cameras).some((b) => b.location === "network");
+  // Any on-device sidecar (llama, inference, capture) ships its workspace data out
+  // of the main scp line and means the engine reaches it over the network at runtime.
+  const hasDeviceSidecar = deviceModels.length > 0 || mlDeviceModels.length > 0 || deviceCameras.length > 0;
+  // Self-built sidecar images (fh-onnx, fh-camera) are pull_policy:never: unlike
+  // llama (pulled from a registry), they must be built and docker-loaded on the
+  // controller too, or `docker compose up` fails with "image not found".
+  const sidecarTar = (image: string) => `${image.split(":")[0]}.tar`;
+  const selfBuiltSidecars: { image: string; build: string }[] = [];
+  if (mlDeviceModels.length > 0) {
+    const c = spec.components.find((x) => x.name === mlSidecarServiceName());
+    if (c) selfBuiltSidecars.push({ image: c.image, build: `docker build -t ${c.image} py/ml-inference` });
+  }
+  if (deviceCameras.length > 0) {
+    const c = spec.components.find((x) => x.name === cameraSidecarServiceName());
+    if (c) selfBuiltSidecars.push({ image: c.image, build: `docker build -f go/Dockerfile.camera -t ${c.image} go` });
+  }
 
   // Per-workflow operator notes — only the relevant ones, in this order:
   // provider keys, hardware, external services, on-device models, network models,
@@ -231,6 +264,25 @@ repository dir below (read-only mounted into the sidecar), then transfer the wor
 tree in step 3:
 ${mlDeviceModels.map((id) => `- \`${mlRepoDir}/${id}/\``).join("\n")}`);
   }
+  if (deviceCameras.length > 0) {
+    const parts = [
+      `## On-device cameras
+
+This bundle runs one shared capture sidecar (\`${cameraSidecarServiceName()}\`) that reads your
+cameras; the engine reaches it over the compose network by service name. The name→source
+mapping is in \`${cameraDir}/cameras.json\` (already generated, shipped with the workspaces tree).`,
+    ];
+    if (hasV4l2Camera) {
+      parts.push("USB/UVC (v4l2) cameras are passed into the sidecar via `devices:` in the compose file.");
+    }
+    if (hasGstreamerCamera) {
+      parts.push(`GStreamer/CSI cameras (e.g. \`libcamerasrc\`) drive the full media graph, which has no single
+device node to pass through. Grant the sidecar the whole graph yourself by adding the relevant
+nodes to its \`devices:\` — typically \`/dev/media*\`, \`/dev/v4l-subdev*\`, and on some boards
+\`/dev/dma_heap\` (on an STM32MP2 + IMX sensor these are the ISP/CSI nodes).`);
+    }
+    notes.push(parts.join("\n\n"));
+  }
   if (hasNetworkModel) {
     notes.push(`## Network models
 
@@ -242,6 +294,12 @@ Ollama, ...) on another machine. This bundle does not start that server for you.
 
 A network ML model points at an inference sidecar **you run yourself** on another machine.
 This bundle does not start that server for you.`);
+  }
+  if (hasNetworkCamera) {
+    notes.push(`## Network cameras
+
+A network camera points at a capture endpoint **you run yourself** on another machine.
+This bundle does not start that sidecar for you.`);
   }
   if (cfg.webSearch) {
     notes.push(`## Web search
@@ -255,18 +313,24 @@ The web-search API key is in \`engine.env\` (\`ENGINE_WEB_SEARCH_API_KEY\`).`);
   const modelsTransfer = hasDeviceSidecar
     ? `
 
-# On-device model weights — too large for the line above (GGUF/ONNX bundles can be several GB).
-# Put each model's files in its workspace dir, then copy the workspaces tree:
+# On-device sidecar data (model weights, camera config) lives under workspaces/ — kept out
+# of the line above (GGUF/ONNX bundles can be several GB). Copy the whole tree:
 scp -r workspaces/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
-# ...or download them directly into ~/fh-engine/workspaces/<...>/ on the controller.`
+# ...or download the model files directly into ~/fh-engine/workspaces/<...>/ on the controller.`
     : "";
+
+  // Self-built sidecar images are loaded on the controller alongside the engine
+  // (llama is pulled by compose, so it needs no load).
+  const sidecarLoadBlock = selfBuiltSidecars
+    .map((s) => `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i ${sidecarTar(s.image)}'\n`)
+    .join("");
 
   // With an on-device sidecar there is no start-ordering: the engine connects to
   // the sidecar over the compose network at runtime, retrying until it is up,
   // so show every container while it settles. Otherwise the engine log alone does.
   const runBlock = hasDeviceSidecar
     ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
-ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
+${sidecarLoadBlock}ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 
 # The engine and its sidecar(s) start independently; the engine reaches them once
 # they are up. These show every container, not just the engine:
@@ -275,6 +339,17 @@ ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f'
     : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f engine'`;
+
+  const sidecarBuildBlock =
+    selfBuiltSidecars.length === 0
+      ? ""
+      : `\n\nBuild the on-device sidecar image${selfBuiltSidecars.length > 1 ? "s" : ""} the same way — ${
+          selfBuiltSidecars.length > 1 ? "they are" : "it is"
+        } never pulled from a registry:\n\n\`\`\`bash\n${selfBuiltSidecars.map((s) => s.build).join("\n")}\n\`\`\``;
+  const sidecarSaveBlock = selfBuiltSidecars
+    .map((s) => `\ndocker save ${s.image} -o ../path/to/this/bundle/${sidecarTar(s.image)}`)
+    .join("");
+  const sidecarTars = selfBuiltSidecars.map((s) => sidecarTar(s.image)).join(" ");
 
   return `# Edge Agents engine — deployment bundle
 
@@ -300,7 +375,7 @@ docker build -t fh-engine:latest .
 # Cross-build for ARM controller from x86 dev box (or vice-versa)
 docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
 docker buildx build --platform linux/amd64 -t fh-engine:latest --load .
-\`\`\`
+\`\`\`${sidecarBuildBlock}
 
 ## 2. Review the generated \`engine.env\`
 
@@ -318,12 +393,12 @@ export CONTROLLER_USER=<your-user>
 export CONTROLLER_ADDR=<controller-ip-or-hostname>
 
 cd go
-docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar
+docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar${sidecarSaveBlock}
 
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
-scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json engine.env \\
+scp fh-engine.tar ${sidecarTars ? sidecarTars + " " : ""}docker-compose.yml engine-config.json deployment-spec.json engine.env \\
     $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 

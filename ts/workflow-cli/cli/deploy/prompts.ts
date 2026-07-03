@@ -8,6 +8,8 @@ import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
 import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
 import type {
+  CameraBinding,
+  CameraChannel,
   CustomLLMModel,
   CustomMLModel,
   DeployConfig,
@@ -211,6 +213,63 @@ async function promptMLModels(
   return result;
 }
 
+// Per camera channel: first where it runs, then what that location needs.
+// device -> read by the shared capture sidecar this bundle generates (a capture
+// source: a v4l2 /dev node or a gstreamer source element); network -> a capture
+// endpoint the operator runs elsewhere (its URL, no credential).
+async function promptCameras(
+  channels: CameraChannel[],
+  seed: Record<string, CameraBinding>,
+): Promise<Record<string, CameraBinding>> {
+  const result: Record<string, CameraBinding> = { ...seed };
+  for (const ch of channels) {
+    if (result[ch.id]) continue;
+    const location = await select<"device" | "network">({
+      message: `${ch.label}: where does this camera run?`,
+      choices: [
+        { value: "device", name: "on this device (read by the shared capture sidecar)" },
+        { value: "network", name: "on another machine on the network (call its endpoint URL)" },
+      ],
+    });
+
+    if (location === "device") {
+      const source = await select<"v4l2" | "gstreamer">({
+        message: `${ch.label}: capture source`,
+        choices: [
+          { value: "v4l2", name: "v4l2 — a USB/UVC camera at a /dev/video* node" },
+          { value: "gstreamer", name: "gstreamer — a source element (e.g. libcamerasrc for CSI/ISP cameras)" },
+        ],
+      });
+      const device =
+        source === "v4l2"
+          ? (
+              await input({
+                message: `${ch.label}: device path (prefer a stable /dev/v4l/by-id/... path)`,
+                default: "/dev/video0",
+                validate: (v) => v.trim().length > 0 || "device path is required",
+              })
+            ).trim()
+          : (
+              await input({
+                message: `${ch.label}: gstreamer source element`,
+                default: "libcamerasrc",
+                validate: (v) => v.trim().length > 0 || "source element is required",
+              })
+            ).trim();
+      result[ch.id] = { location: "device", source, device };
+      continue;
+    }
+
+    const url = await input({
+      message: `${ch.label}: capture endpoint URL (a capture sidecar you run elsewhere)`,
+      default: "http://localhost:8100",
+      validate: (v) => v.trim().length > 0 || "endpoint URL is required",
+    });
+    result[ch.id] = { location: "network", url: url.trim() };
+  }
+  return result;
+}
+
 // Web-search provider + key (once, when any WebSearchTool node exists).
 async function promptWebSearch(seed: WebSearchBinding | undefined): Promise<WebSearchBinding> {
   if (seed) return seed;
@@ -243,6 +302,7 @@ export async function promptMissing(
   const mqttTodo = req.mqttChannels.filter((ch) => !partial.mqtt?.[ch.id]);
   const llmModelsTodo = req.customLLMModels.filter((m) => !partial.llmModels?.[m.id]);
   const mlModelsTodo = req.customMLModels.filter((m) => !partial.mlModels?.[m.id]);
+  const camerasTodo = req.cameraChannels.filter((ch) => !partial.cameras?.[ch.id]);
   const askKeys = req.hasProviderModel;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
@@ -258,8 +318,9 @@ export async function promptMissing(
   // +1: the custom-components section is always offered (a yes/no gate), so it
   // always occupies a slot in the denominator, before Output.
   const total =
-    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, llmModelsTodo.length > 0, mlModelsTodo.length > 0, askWeb, askOut].filter(Boolean)
-      .length + 1;
+    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, llmModelsTodo.length > 0, mlModelsTodo.length > 0, camerasTodo.length > 0, askWeb, askOut].filter(
+      Boolean,
+    ).length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.
@@ -306,6 +367,8 @@ export async function promptMissing(
   const llmModels = await promptLLMModels(req.customLLMModels, partial.llmModels ?? {});
   if (mlModelsTodo.length > 0) section("Custom ML models", mlModelsTodo.length);
   const mlModels = await promptMLModels(req.customMLModels, partial.mlModels ?? {});
+  if (camerasTodo.length > 0) section("Cameras", camerasTodo.length);
+  const cameras = await promptCameras(req.cameraChannels, partial.cameras ?? {});
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
@@ -361,6 +424,7 @@ export async function promptMissing(
     mqtt,
     llmModels,
     mlModels,
+    cameras,
     webSearch,
   };
   return { config, customComponents, componentEnv };

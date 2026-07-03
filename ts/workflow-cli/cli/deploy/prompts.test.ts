@@ -23,6 +23,7 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
+    cameraChannels: [],
     customLLMModels: [],
     customMLModels: [],
     ...p,
@@ -171,6 +172,69 @@ describe("promptMissing", () => {
     });
     const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
     expect(cfg.llmModels.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
+  });
+
+  it("device ml model: asks where it runs, nothing more (shared sidecar)", async () => {
+    script({
+      select: [[/where does this model run/, "device"]],
+      input: [[/Output directory/, "b"]],
+    });
+    const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
+    expect(cfg.mlModels.yolo).toEqual({ location: "device" });
+  });
+
+  it("network ml model: asks where it runs, then url", async () => {
+    script({
+      select: [[/where does this model run/, "network"]],
+      input: [
+        [/endpoint URL/, "http://onnx:8000"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
+    expect(cfg.mlModels.yolo).toEqual({ location: "network", url: "http://onnx:8000" });
+  });
+
+  it("device camera (v4l2): asks where it runs, source, then the device path", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      input: [
+        [/device path/, "/dev/video2"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "front", label: "front" }] }));
+    expect(cfg.cameras.front).toEqual({ location: "device", source: "v4l2", device: "/dev/video2" });
+  });
+
+  it("device camera (gstreamer): asks source, then the source element", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "gstreamer"],
+      ],
+      input: [
+        [/gstreamer source element/, "libcamerasrc"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
+    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc" });
+  });
+
+  it("network camera: asks where it runs, then url", async () => {
+    script({
+      select: [[/where does this camera run/, "network"]],
+      input: [
+        [/capture endpoint URL/, "http://cam:8100"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    expect(cfg.cameras.cam).toEqual({ location: "network", url: "http://cam:8100" });
   });
 
   // The mocks answer prompts without running their validate callbacks; these

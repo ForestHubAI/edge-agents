@@ -15,6 +15,7 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
+    cameraChannels: [],
     customLLMModels: [],
     customMLModels: [],
     ...p,
@@ -161,6 +162,20 @@ describe("missingRequired", () => {
     });
     expect(m).toEqual([]);
   });
+
+  it("flags an unbound camera and accepts a bound one", () => {
+    const req = reqOf({ cameraChannels: [{ id: "front", label: "front" }] });
+    expect(missingRequired(req, {}).join()).toMatch(/camera "front"/);
+    expect(missingRequired(req, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } })).toEqual([]);
+    expect(missingRequired(req, { cameras: { front: { location: "network", url: "http://cam:8100" } } })).toEqual([]);
+  });
+
+  it("flags an unbound ml model and accepts device or a network url", () => {
+    const req = reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] });
+    expect(missingRequired(req, {}).join()).toMatch(/yolo/);
+    expect(missingRequired(req, { mlModels: { yolo: { location: "device" } } })).toEqual([]);
+    expect(missingRequired(req, { mlModels: { yolo: { location: "network", url: "http://onnx:8000" } } })).toEqual([]);
+  });
 });
 
 describe("configFromPartial", () => {
@@ -174,6 +189,7 @@ describe("configFromPartial", () => {
       mqtt: {},
       llmModels: {},
       mlModels: {},
+      cameras: {},
       webSearch: undefined,
     });
   });

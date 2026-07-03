@@ -1,9 +1,9 @@
 // `fh-workflow deploy <workflow.json> [flags]`
 //
-// Generates a self-contained Engine deployment bundle (workflow.json,
-// docker-compose.yml, .env, README.md) from a workflow. The bundle is always
-// STANDALONE: the engine boots the workflow from workflow.json and runs
-// autonomously.
+// Generates a self-contained Engine deployment bundle (docker-compose.yml,
+// engine-config.json, engine.env, README.md) from a workflow. The bundle is
+// always STANDALONE: the engine boots the workflow from engine-config.json and
+// runs autonomously.
 //
 // Flow: read workflow -> inspect (derive requirements) -> prompt (fill values)
 // -> write (emit files). Flags pre-fill any value; whatever is missing is asked
@@ -31,6 +31,7 @@ import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } f
 const ENGINE_IMAGE = "fh-engine:latest";
 const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
 const ML_SIDECAR_IMAGE = "fh-onnx:latest";
+const CAMERA_SIDECAR_IMAGE = "fh-camera:latest";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -38,8 +39,8 @@ const ML_SIDECAR_IMAGE = "fh-onnx:latest";
 
 const USAGE = `Usage: fh-workflow deploy <workflow.json> [flags]
 
-Generates a self-contained, standalone Engine deployment bundle (workflow.json,
-docker-compose.yml, .env, README.md). The engine boots the workflow and runs
+Generates a self-contained, standalone Engine deployment bundle (docker-compose.yml,
+engine-config.json, engine.env, README.md). The engine boots the workflow and runs
 autonomously. Missing values are filled in interactively, or supplied via
 --values when there is no terminal.
 
@@ -198,6 +199,14 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
       missing.push(`model "${m.id}": on-device or endpoint URL`);
     }
   }
+  for (const ch of req.cameraChannels) {
+    const b = p.cameras?.[ch.id];
+    if (b?.location === "device") {
+      if (!b.device) missing.push(`camera "${ch.id}": capture source device`);
+    } else if (!b?.url) {
+      missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
+    }
+  }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
   missing.push(...unknownIds(req, p));
   return missing;
@@ -215,6 +224,7 @@ export function configFromPartial(p: Partial<DeployConfig>, outputDirDefault: st
     mqtt: p.mqtt ?? {},
     llmModels: p.llmModels ?? {},
     mlModels: p.mlModels ?? {},
+    cameras: p.cameras ?? {},
     webSearch: p.webSearch,
   };
 }
@@ -389,6 +399,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
         mlSidecarImage: ML_SIDECAR_IMAGE,
+        cameraSidecarImage: CAMERA_SIDECAR_IMAGE,
       },
       customComponents,
     );

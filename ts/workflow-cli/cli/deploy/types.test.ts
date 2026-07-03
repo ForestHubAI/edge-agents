@@ -110,6 +110,7 @@ const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
   hasRetriever: false,
   hardwareChannels: [],
   mqttChannels: [],
+  cameraChannels: [],
   customLLMModels: [],
   customMLModels: [],
   hasWebSearch: false,
@@ -128,13 +129,15 @@ describe("unknownIds", () => {
     expect(m).toHaveLength(1);
   });
 
-  it("flags unknown mqtt and model ids with the right noun", () => {
+  it("flags unknown mqtt, model and camera ids with the right noun", () => {
     const m = unknownIds(reqOf(), {
       mqtt: { ghost: { brokerUrl: "tcp://x:1883" } },
       llmModels: { phantom: { location: "device", modelFile: "x.gguf" } },
+      cameras: { ghostcam: { location: "network", url: "http://x:8100" } },
     });
     expect(m.join()).toMatch(/mqtt "ghost".*no such channel/);
     expect(m.join()).toMatch(/model "phantom".*no such model/);
+    expect(m.join()).toMatch(/camera "ghostcam".*no such channel/);
   });
 
   it("returns empty when every bound id is declared or a section is absent", () => {
@@ -165,6 +168,20 @@ describe("valuesFileSchema", () => {
   it("rejects a model binding without a valid location", () => {
     expect(valuesFileSchema.safeParse({ llmModels: { m: { modelFile: "x.gguf" } } }).success).toBe(false);
     expect(valuesFileSchema.safeParse({ llmModels: { m: { location: "Device", modelFile: "x.gguf" } } }).success).toBe(false);
+  });
+
+  it("validates the camera binding: device needs a source, network needs a url", () => {
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0" } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100" } } }).success).toBe(true);
+    // device without a source, and an unknown source, are rejected.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", device: "/dev/video0" } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "csi", device: "/dev/video0" } } }).success).toBe(false);
+  });
+
+  it("validates the ml model binding: device is bare, network needs a url", () => {
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "device" } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "network", url: "http://onnx:8000" } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "network" } } }).success).toBe(false);
   });
 });
 
