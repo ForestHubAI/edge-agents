@@ -34,7 +34,17 @@ func main() {
 	}
 
 	handler := captureapi.HandlerFromMux(newServer(sources), http.NewServeMux())
-	srv := &http.Server{Addr: cfg.Addr, Handler: handler}
+	srv := &http.Server{
+		Addr:    cfg.Addr,
+		Handler: handler,
+		// Guard against slow/stuck clients holding connections open. No
+		// WriteTimeout: a capture can take up to captureTimeout plus the response
+		// write, and a blanket write deadline would cut long captures off.
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 16,
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -49,7 +59,8 @@ func main() {
 	<-ctx.Done()
 	logging.Logger.Info().Msg("shutting down")
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Give an in-flight capture (up to captureTimeout) room to finish cleanly.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), captureTimeout+5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logging.Logger.Error().Err(err).Msg("graceful shutdown failed")

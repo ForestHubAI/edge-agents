@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // Capture source kinds. v4l2 and gstreamer both capture through GStreamer and
@@ -41,7 +43,9 @@ func loadCameras(path string) (map[string]source, error) {
 		return nil, fmt.Errorf("reading config file: %w", err)
 	}
 	var file camerasFile
-	if err := json.Unmarshal(raw, &file); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&file); err != nil {
 		return nil, fmt.Errorf("parsing config file: %w", err)
 	}
 	if len(file.Cameras) == 0 {
@@ -63,7 +67,7 @@ func loadCameras(path string) (map[string]source, error) {
 func newSource(cc cameraConfig) (source, error) {
 	switch cc.Source {
 	case sourceV4L2, sourceGStreamer:
-		if cc.Device == "" {
+		if strings.TrimSpace(cc.Device) == "" {
 			return nil, fmt.Errorf("device is required for source %q", cc.Source)
 		}
 		return newGStreamerSource(cc), nil

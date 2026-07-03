@@ -40,8 +40,10 @@ func (s *server) Capture(w http.ResponseWriter, r *http.Request, params capturea
 	start := time.Now()
 	data, err := src.capture(r.Context(), width, height)
 	if err != nil {
+		// Log the full cause internally; return a generic message so device
+		// paths and pipeline internals don't leak to the caller.
 		logging.Logger.Error().Str("name", params.Name).Err(err).Msg("capture failed")
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, "capture failed")
 		return
 	}
 	logging.Logger.Info().

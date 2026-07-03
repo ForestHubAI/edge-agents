@@ -31,6 +31,13 @@ func TestLoadCameras_Empty(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoadCameras_RejectsUnknownField(t *testing.T) {
+	// A typo'd key must fail fast rather than be silently ignored.
+	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","devise":"/dev/video0"}}}`)
+	_, err := loadCameras(path)
+	assert.Error(t, err)
+}
+
 func TestNewSource_UnknownSource(t *testing.T) {
 	_, err := newSource(cameraConfig{Source: "bogus", Device: "/dev/video0"})
 	assert.Error(t, err)
@@ -38,6 +45,13 @@ func TestNewSource_UnknownSource(t *testing.T) {
 
 func TestNewSource_MissingDevice(t *testing.T) {
 	_, err := newSource(cameraConfig{Source: sourceV4L2})
+	assert.Error(t, err)
+}
+
+func TestNewSource_WhitespaceDevice(t *testing.T) {
+	// A whitespace-only device must fail at boot, not silently pass and then
+	// break every capture.
+	_, err := newSource(cameraConfig{Source: sourceGStreamer, Device: "   "})
 	assert.Error(t, err)
 }
 

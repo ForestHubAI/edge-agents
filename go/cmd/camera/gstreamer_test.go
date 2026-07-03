@@ -18,7 +18,7 @@ func TestPipeline_V4L2WithResolution(t *testing.T) {
 	s := newGStreamerSource(cameraConfig{Source: sourceV4L2, Device: "/dev/video0"})
 	assert.Equal(t, []string{
 		"v4l2src", "device=/dev/video0", "num-buffers=1", "!", "videoconvert",
-		"!", "video/x-raw,width=640,height=480", "!", "jpegenc", "!", "fdsink", "fd=1",
+		"!", "videoscale", "!", "video/x-raw,width=640,height=480", "!", "jpegenc", "!", "fdsink", "fd=1",
 	}, s.pipeline(640, 480))
 }
 
