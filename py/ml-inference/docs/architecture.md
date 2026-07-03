@@ -16,11 +16,11 @@ service code never mentions YOLO, NMS, or images.
         app/api/models.py                  GENERATED Pydantic models (InferRequest,
                  │                          InferResult, RepositoryMetadata, …)
                  ▼
-        app/  (the service)                config, manifest, handlers, repository, main
+        app/  (the service)                config, manifest, handlers, repository, middleware, main
 ```
 
 - **Contract** defines the four endpoints and the request/response shapes. It is the
-  single source of truth; the Go client (a later phase) generates from the same file.
+  single source of truth; the engine's Go client generates from the same file.
 - **Generated models** are the Pydantic classes `main.py` uses for responses, so the
   wire stays locked to the contract. Never hand-edit — regenerate (`datamodel-codegen`).
 - **Service** is the hand-written code below.
@@ -95,7 +95,7 @@ multipart: model + (binary and/or tensors) + params
   autoregressive model that calls the session repeatedly) overrides `infer` and owns
   the loop; `main` stays the same. Extra graphs are opened by the handler in `load`.
 - **Errors.** A handler raises `ValueError` for bad input (undecodable image, missing
-  tensors); `main` maps that to HTTP 400. An unknown model is 404.
+  tensors); `main` maps that to HTTP 422. An unknown model is 404.
 
 The result shape is defined by the handler, not the contract: the YOLO handler
 returns `{ "detections": [ { label, score, box: { x, y, w, h } } ] }`; the raw

@@ -11,6 +11,7 @@ User-facing build/run/API docs live in `py/ml-inference/README.md`; this file an
 ```
 app/
   main.py        FastAPI app: loads the repository at startup, serves the endpoints.
+  middleware.py  ASGI middleware (request-body size cap, enforced before buffering).
   config.py      env-driven config (ML_MODELS_DIR — where bundles are mounted).
   manifest.py    bundle manifest schema (Manifest) + loader (fail-fast validation).
   repository.py  scans the models dir at startup → name→LoadedModel registry.
@@ -55,7 +56,7 @@ Two pipelines (full write-ups in [docs/architecture.md](ml-inference/docs/archit
 - **Docstrings:** module docstring everywhere; docstrings on the public surface and
   non-obvious logic; trivial private helpers rely on a clear name. No internal jargon
   or planning references — the code reads as standalone OSS.
-- **Errors:** handlers raise `ValueError` for bad request input (mapped to HTTP 400);
+- **Errors:** handlers raise `ValueError` for bad request input (mapped to HTTP 422);
   load-time problems raise `ManifestError` / `HandlerError` / `RepositoryError` and
   abort startup.
 - **Tests:** pytest, `tests/test_<module>.py`, one file per handler. Weights-free —

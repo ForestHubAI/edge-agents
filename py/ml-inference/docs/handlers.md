@@ -33,7 +33,7 @@ class Handler(ABC):
 
 Input is generic: a model uses `binary` (e.g. an image), `tensors` (named numeric
 arrays), or both — whichever its handler expects. Raise `ValueError` for bad input;
-`main.py` maps it to HTTP 400.
+`main.py` maps it to HTTP 422.
 
 ## Resolution (`registry.py`)
 

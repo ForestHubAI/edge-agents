@@ -63,7 +63,7 @@ result. The `handler` field selects one:
 | `GET /healthz`  | liveness — always `200`                                        |
 | `GET /readyz`   | readiness — `200` once the repository is loaded, else `503`    |
 | `GET /metadata` | list the loaded models (name, handler)                         |
-| `POST /infer`   | run a model: `multipart/form-data` with `model` + `binary` and/or `tensors` |
+| `POST /infer`   | run a model: `multipart/form-data` with `model` + `binary` and/or `tensors` (+ optional `params`) |
 
 `POST /infer` returns `{ "model": "...", "result": { ... } }`. The `result` shape is
 defined by the model's handler, not by this service — e.g. the YOLO handler
