@@ -66,6 +66,28 @@ def test_undecodable_bytes_raise():
         _preprocess_handler().preprocess(b"not an image", None, {})
 
 
+def test_oversized_image_is_rejected_before_decode(monkeypatch):
+    # An image whose header dimensions exceed the pixel cap (a decompression bomb)
+    # is rejected before cv2.imdecode allocates. Cap lowered so no real bomb needed.
+    import app.handlers.yolo as yolo
+
+    monkeypatch.setattr(yolo, "MAX_PIXELS", 100)
+    with pytest.raises(ValueError, match="pixel count"):
+        _preprocess_handler().preprocess(_png_bytes(640, 640), None, {})
+
+
+# --- labels ---------------------------------------------------------------
+
+def test_labels_are_loaded_from_the_bundle(tmp_path):
+    (tmp_path / "coco.txt").write_text("person\nbicycle\n")
+    assert YoloHandler._load_labels({"labels": "coco.txt"}, tmp_path) == ["person", "bicycle"]
+
+
+def test_labels_path_escaping_the_bundle_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="escapes the bundle"):
+        YoloHandler._load_labels({"labels": "../secrets.txt"}, tmp_path)
+
+
 # --- postprocess ----------------------------------------------------------
 
 def _detections(anchors, ctx=CTX, params=None):
@@ -103,6 +125,18 @@ def test_nms_collapses_overlapping_boxes():
     assert len(dets) == 1
     assert dets[0]["label"] == "person"
     assert abs(dets[0]["score"] - 0.9) < 1e-5  # the 0.9 box survived, not the 0.8
+
+
+def test_overlapping_different_classes_are_both_kept():
+    # two boxes at the same spot but different classes -> class-aware NMS keeps
+    # both, matching Ultralytics' default (a class-agnostic NMS would drop one).
+    dets = _detections(
+        [
+            (320, 240, 100, 120, [0.9, 0.1, 0.05]),  # person
+            (322, 241, 100, 120, [0.05, 0.1, 0.9]),  # car, overlaps the person box
+        ]
+    )["detections"]
+    assert sorted(d["label"] for d in dets) == ["car", "person"]
 
 
 def test_class_id_maps_to_label():

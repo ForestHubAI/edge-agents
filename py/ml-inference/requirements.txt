@@ -5,6 +5,7 @@
 #   numpy        BSD-3      scipy     BSD-3     scikit-learn     BSD-3
 #   opencv-python-headless  Apache-2.0          pyyaml           MIT
 #   pydantic     MIT        python-multipart    Apache-2.0
+#   Pillow       MIT-CMU
 onnxruntime==1.27.0
 fastapi==0.138.1
 uvicorn[standard]==0.49.0
@@ -15,3 +16,4 @@ scipy==1.18.0
 scikit-learn==1.9.0
 pyyaml==6.0.3
 pydantic==2.13.4
+Pillow==12.3.0

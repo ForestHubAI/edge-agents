@@ -19,11 +19,13 @@ Handler params (all optional, read from the manifest/request ``params``):
 from __future__ import annotations
 
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from .base import Feed, Handler
 from .registry import register_builtin
@@ -36,6 +38,10 @@ if TYPE_CHECKING:
 DEFAULT_CONF_THRESHOLD = 0.25
 DEFAULT_NMS_THRESHOLD = 0.45
 PAD_VALUE = 114  # neutral gray used by the standard YOLO letterbox
+# Bounds the decoded frame: the upload cap limits the encoded blob, but a tiny
+# highly-compressible image can decode to gigabytes of pixels. Checked against the
+# header dimensions before decoding, since cv2.imdecode allocates the full bitmap.
+MAX_PIXELS = 50_000_000
 
 
 @dataclass
@@ -80,7 +86,12 @@ class YoloHandler(Handler):
         name = params.get("labels")
         if not name:
             return []
-        return (bundle_dir / name).read_text().splitlines()
+        # Keep the labels file inside the bundle, like the model path guard —
+        # cheap insurance even though bundles are operator-trusted.
+        path = (bundle_dir / name).resolve()
+        if not path.is_relative_to(bundle_dir.resolve()):
+            raise ValueError(f"labels path escapes the bundle: {name}")
+        return path.read_text().splitlines()
 
     def preprocess(
         self,
@@ -90,6 +101,15 @@ class YoloHandler(Handler):
     ) -> tuple[Feed, Any]:
         if binary is None:
             raise ValueError("object-detection expects an image in the 'binary' input")
+        # Read the dimensions from the header (no pixel decode) and reject an
+        # oversized frame before cv2.imdecode allocates the full bitmap.
+        try:
+            with Image.open(BytesIO(binary)) as probe:
+                pw, ph = probe.size
+        except Exception as e:
+            raise ValueError("could not decode the image bytes") from e
+        if pw * ph > MAX_PIXELS:
+            raise ValueError("image exceeds the maximum allowed pixel count")
         img = cv2.imdecode(np.frombuffer(binary, dtype=np.uint8), cv2.IMREAD_COLOR)
         if img is None:
             raise ValueError("could not decode the image bytes")
@@ -139,7 +159,12 @@ class YoloHandler(Handler):
         top_left = boxes_cxcywh[:, :2] - boxes_cxcywh[:, 2:] / 2
         boxes_xywh = np.concatenate([top_left, boxes_cxcywh[:, 2:]], axis=1)
 
-        idxs = cv2.dnn.NMSBoxes(boxes_xywh.tolist(), confs.tolist(), conf_th, nms_th)
+        # Class-aware NMS (Ultralytics default): shift each box into a per-class
+        # coordinate band so boxes of different classes never suppress each other.
+        offset = class_ids.reshape(-1, 1) * (float(boxes_xywh.max()) + 1.0)
+        nms_boxes = boxes_xywh.copy()
+        nms_boxes[:, :2] += offset
+        idxs = cv2.dnn.NMSBoxes(nms_boxes.tolist(), confs.tolist(), conf_th, nms_th)
         if len(idxs) == 0:
             return {"detections": []}
 

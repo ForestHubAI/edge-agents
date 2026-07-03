@@ -47,8 +47,15 @@ class Manifest(BaseModel):
         return v
 
     def model_path(self, bundle_dir: Path) -> Path:
-        """Absolute path to the ONNX model file, resolved inside the bundle."""
-        return bundle_dir / self.model
+        """Absolute path to the ONNX model file, resolved inside the bundle.
+
+        Rejects a `model` that escapes the bundle directory (e.g. `../other`);
+        the bundle is operator-trusted, but a contained path is cheap insurance.
+        """
+        resolved = (bundle_dir / self.model).resolve()
+        if not resolved.is_relative_to(bundle_dir.resolve()):
+            raise ManifestError(f"model path escapes the bundle: {self.model}")
+        return resolved
 
 
 def load_manifest(bundle_dir: Path) -> Manifest:
