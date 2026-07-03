@@ -2,6 +2,7 @@ package trigger
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
@@ -71,7 +72,11 @@ func (t *OnThreshold) Wait(ctx context.Context) (engine.Event, error) {
 		case <-ctx.Done():
 			return engine.Event{}, ctx.Err()
 		case v := <-t.updates:
-			if !t.analyze(v) {
+			fired, err := t.analyze(v)
+			if err != nil {
+				return engine.Event{}, err
+			}
+			if !fired {
 				continue
 			}
 			// Create the event and return it
@@ -93,13 +98,18 @@ func (t *OnThreshold) Close() error { return nil }
 // analyze folds v into the trigger's side-of-signal state and returns whether
 // this crossing matches the configured direction. First event always seeds
 // the baseline without firing.
-func (t *OnThreshold) analyze(v expr.Value) bool {
+func (t *OnThreshold) analyze(v expr.Value) (bool, error) {
+	// A threshold is a numeric crossing; any non-numeric value would coerce to 0
+	// and silently mis-fire, so reject it instead of guessing.
+	if v.Type != workflow.Int && v.Type != workflow.Float {
+		return false, fmt.Errorf("threshold trigger %s: watched value is %s, not numeric", t.ID(), v.Type)
+	}
 	x := v.AsFloat()
 
 	if !t.seeded {
 		t.wasAbove = x > t.threshold
 		t.seeded = true
-		return false
+		return false, nil
 	}
 
 	var nowAbove bool
@@ -109,17 +119,17 @@ func (t *OnThreshold) analyze(v expr.Value) bool {
 		nowAbove = x > t.threshold+t.deadband
 	}
 	if nowAbove == t.wasAbove {
-		return false
+		return false, nil
 	}
 	crossedUp := !t.wasAbove && nowAbove
 	t.wasAbove = nowAbove
 
 	switch t.direction {
 	case DirRising:
-		return crossedUp
+		return crossedUp, nil
 	case DirFalling:
-		return !crossedUp
+		return !crossedUp, nil
 	default:
-		return true
+		return true, nil
 	}
 }

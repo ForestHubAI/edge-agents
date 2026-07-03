@@ -32,57 +32,72 @@ func newTestThreshold(t *testing.T, threshold float64, dir Direction, deadband f
 	return tr, scope
 }
 
+// fired runs analyze, asserts it returned no error, and yields whether it fired.
+func fired(t *testing.T, tr *OnThreshold, v expr.Value) bool {
+	t.Helper()
+	f, err := tr.analyze(v)
+	require.NoError(t, err)
+	return f
+}
+
 func TestOnThreshold_Analyze(t *testing.T) {
 	t.Run("first observation seeds without firing", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirBoth, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(60)))
+		assert.False(t, fired(t, tr, expr.FloatVal(60)))
 		assert.True(t, tr.seeded)
 		assert.True(t, tr.wasAbove)
 	})
 
 	t.Run("seeded below threshold", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirBoth, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(40)))
+		assert.False(t, fired(t, tr, expr.FloatVal(40)))
 		assert.False(t, tr.wasAbove)
 	})
 
 	t.Run("DirBoth fires on rising and falling crossings", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirBoth, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(40))) // seed below
-		assert.True(t, tr.analyze(expr.FloatVal(60)))  // rising fires
-		assert.True(t, tr.analyze(expr.FloatVal(40)))  // falling fires
+		assert.False(t, fired(t, tr, expr.FloatVal(40))) // seed below
+		assert.True(t, fired(t, tr, expr.FloatVal(60)))  // rising fires
+		assert.True(t, fired(t, tr, expr.FloatVal(40)))  // falling fires
 	})
 
 	t.Run("DirRising suppresses falling crossings", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirRising, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(40))) // seed below
-		assert.True(t, tr.analyze(expr.FloatVal(60)))  // rising fires
-		assert.False(t, tr.analyze(expr.FloatVal(40))) // falling does not
+		assert.False(t, fired(t, tr, expr.FloatVal(40))) // seed below
+		assert.True(t, fired(t, tr, expr.FloatVal(60)))  // rising fires
+		assert.False(t, fired(t, tr, expr.FloatVal(40))) // falling does not
 	})
 
 	t.Run("DirFalling suppresses rising crossings", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirFalling, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(60))) // seed above
-		assert.True(t, tr.analyze(expr.FloatVal(40)))  // falling fires
-		assert.False(t, tr.analyze(expr.FloatVal(60))) // rising does not
+		assert.False(t, fired(t, tr, expr.FloatVal(60))) // seed above
+		assert.True(t, fired(t, tr, expr.FloatVal(40)))  // falling fires
+		assert.False(t, fired(t, tr, expr.FloatVal(60))) // rising does not
 	})
 
 	t.Run("no flip if value stays on same side", func(t *testing.T) {
 		tr, _ := newTestThreshold(t, 50, DirBoth, 0, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(40))) // seed below
-		assert.False(t, tr.analyze(expr.FloatVal(45))) // still below
-		assert.False(t, tr.analyze(expr.FloatVal(49))) // still below
+		assert.False(t, fired(t, tr, expr.FloatVal(40))) // seed below
+		assert.False(t, fired(t, tr, expr.FloatVal(45))) // still below
+		assert.False(t, fired(t, tr, expr.FloatVal(49))) // still below
 	})
 
 	t.Run("deadband suppresses noisy crossings", func(t *testing.T) {
 		// threshold=50, deadband=2 → must rise above 52 to flip up,
 		// then fall below 48 to flip back down.
 		tr, _ := newTestThreshold(t, 50, DirBoth, 2, nil)
-		assert.False(t, tr.analyze(expr.FloatVal(40))) // seed below
-		assert.False(t, tr.analyze(expr.FloatVal(51))) // 51 ≤ 52, still below
-		assert.True(t, tr.analyze(expr.FloatVal(53)))  // crosses 52 → fires up
-		assert.False(t, tr.analyze(expr.FloatVal(49))) // 49 ≥ 48, still above
-		assert.True(t, tr.analyze(expr.FloatVal(47)))  // crosses 48 → fires down
+		assert.False(t, fired(t, tr, expr.FloatVal(40))) // seed below
+		assert.False(t, fired(t, tr, expr.FloatVal(51))) // 51 ≤ 52, still below
+		assert.True(t, fired(t, tr, expr.FloatVal(53)))  // crosses 52 → fires up
+		assert.False(t, fired(t, tr, expr.FloatVal(49))) // 49 ≥ 48, still above
+		assert.True(t, fired(t, tr, expr.FloatVal(47)))  // crosses 48 → fires down
+	})
+
+	t.Run("non-numeric value is rejected", func(t *testing.T) {
+		tr, _ := newTestThreshold(t, 50, DirBoth, 0, nil)
+		_, err := tr.analyze(expr.ImageVal([]byte{0x1}))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not numeric")
 	})
 }
 
