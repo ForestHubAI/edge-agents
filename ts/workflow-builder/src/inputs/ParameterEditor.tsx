@@ -471,6 +471,17 @@ const ParameterEditor = ({
         const isStale = !!(selectedId && !matching.some((v) => v.id === selectedId));
         const options = matching.map((v) => ({ value: v.id, label: v.label }));
 
+        if (options.length === 0) {
+          // No channel of the accepted type is declared; the user must add one in
+          // the Channels panel before this node can reference it.
+          return (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{t("noChannelsAvailable")}</AlertDescription>
+            </Alert>
+          );
+        }
+
         return (
           <ReferenceSelect
             value={selectedId}

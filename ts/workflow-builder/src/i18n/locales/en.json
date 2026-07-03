@@ -211,6 +211,7 @@
   "channelLabelHeading": "Label",
   "addChannel": "Add Channel",
   "selectChannel": "Select a channel...",
+  "noChannelsAvailable": "No matching channel declared yet. Add one in the Channels panel.",
   "noMemoryFiles": "No memory files yet",
   "noMemoryFilesHint": "Declare durable storage your agents can read or write",
   "memoryFiles": "Memory",
