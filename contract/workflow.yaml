@@ -349,6 +349,7 @@ components:
         - $ref: "#/components/schemas/RetrieverNode"
         - $ref: "#/components/schemas/WebFetchNode"
         - $ref: "#/components/schemas/MLInferenceNode"
+        - $ref: "#/components/schemas/CameraCaptureNode"
         - $ref: "#/components/schemas/FunctionCallNode"
         - $ref: "#/components/schemas/OnFunctionCallNode"
         - $ref: "#/components/schemas/DelayNode"
@@ -374,6 +375,7 @@ components:
           Retriever: "#/components/schemas/RetrieverNode"
           WebFetch: "#/components/schemas/WebFetchNode"
           MLInference: "#/components/schemas/MLInferenceNode"
+          CameraCapture: "#/components/schemas/CameraCaptureNode"
           FunctionCall: "#/components/schemas/FunctionCallNode"
           OnFunctionCall: "#/components/schemas/OnFunctionCallNode"
           Delay: "#/components/schemas/DelayNode"
@@ -632,14 +634,32 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [input, output]
+          required: [input, model, output]
           properties:
             model:
               type: string
               description: Reference to an MLModel id.
             input:
-              $ref: "#/components/schemas/Expression"
-              description: Input expression fed to the model.
+              $ref: "#/components/schemas/Reference"
+              description: Variable holding the model input. Its type is resolved at runtime and dispatched to the matching handler.
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    CameraCaptureNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [CameraCapture] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [cameraReference, output]
+          properties:
+            cameraReference:
+              type: string
+              description: Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time.
             output:
               $ref: "#/components/schemas/OutputBinding"
 
@@ -852,6 +872,7 @@ components:
         - $ref: "#/components/schemas/DACChannel"
         - $ref: "#/components/schemas/UARTChannel"
         - $ref: "#/components/schemas/MQTTChannel"
+        - $ref: "#/components/schemas/CAMERAChannel"
         - $ref: "#/components/schemas/LOGChannel"
       discriminator:
         propertyName: type
@@ -863,6 +884,7 @@ components:
           DAC: "#/components/schemas/DACChannel"
           UART: "#/components/schemas/UARTChannel"
           MQTT: "#/components/schemas/MQTTChannel"
+          CAMERA: "#/components/schemas/CAMERAChannel"
           LOG: "#/components/schemas/LOGChannel"
 
     GPIOINChannel:
@@ -933,6 +955,20 @@ components:
         topic:
           type: string
           description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.
+
+    CAMERAChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [CAMERA] }
+        id: { type: string }
+        label: { type: string }
+        width:
+          type: integer
+          description: Default capture width in pixels. The source picks its native resolution when omitted.
+        height:
+          type: integer
+          description: Default capture height in pixels. The source picks its native resolution when omitted.
 
     LOGChannel:
       type: object

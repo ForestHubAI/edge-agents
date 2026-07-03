@@ -45,8 +45,17 @@ export interface WebFetchNode extends NodeBase {
   };
 }
 
-export type InputNodeType = "ReadPin" | "SerialRead" | "Retriever" | "WebFetch";
-export type InputNode = ReadPinNode | SerialReadNode | RetrieverNode | WebFetchNode;
+// CameraCapture - grabs a single still image from a camera channel
+export interface CameraCaptureNode extends NodeBase {
+  type: "CameraCapture";
+  arguments: {
+    cameraReference: string | undefined;
+    output: OutputBinding;
+  };
+}
+
+export type InputNodeType = "ReadPin" | "SerialRead" | "Retriever" | "WebFetch" | "CameraCapture";
+export type InputNode = ReadPinNode | SerialReadNode | RetrieverNode | WebFetchNode | CameraCaptureNode;
 
 // Node Definitions
 
@@ -180,6 +189,23 @@ export const SerialReadNodeDefinition: NodeDefinition = {
       description: "Prompt for the serial read operation",
       type: "string",
       optional: true,
+    },
+  ],
+};
+
+export const CameraCaptureNodeDefinition: NodeDefinition = {
+  type: "CameraCapture",
+  label: "Camera Capture",
+  category: NodeCategory.Input,
+  description: "Capture a still image from a camera",
+  outputs: [{ id: "output", label: "Image", type: "static", dataType: "image" }],
+  parameters: [
+    {
+      id: "cameraReference",
+      label: "Camera",
+      description: "Camera to capture from",
+      type: "channelSelect",
+      channelType: ["CAMERA"],
     },
   ],
 };

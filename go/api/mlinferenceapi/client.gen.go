@@ -407,7 +407,9 @@ type InferResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *InferResult
 	JSON404      *Error
+	JSON413      *Error
 	JSON422      *Error
+	JSON500      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -468,7 +470,7 @@ type ReadyzResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Health
-	JSON503      *Health
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -585,12 +587,26 @@ func ParseInferResponse(rsp *http.Response) (*InferResponse, error) {
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -645,7 +661,7 @@ func ParseReadyzResponse(rsp *http.Response) (*ReadyzResponse, error) {
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Health
+		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

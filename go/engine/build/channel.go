@@ -188,6 +188,11 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.DeploymentMapping, 
 				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
 			}
 			ch.logs[x.Id] = &channel.Log{Level: level, Tag: pointer.Val(x.Tag)}
+		case workflow.CAMERAChannel:
+			// A camera resolves to a capture sidecar, not a device driver or
+			// transport, so there is nothing to build here. Its endpoint is
+			// resolved in buildDeployCapture and the CameraCapture node binds to
+			// that CaptureClient directly.
 		default:
 			return nil, fmt.Errorf("channel: unsupported type %T", val)
 		}

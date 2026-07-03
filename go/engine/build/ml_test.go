@@ -120,7 +120,7 @@ func TestMLEndpoint_Infer_Success(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"ok":true}}`)}
 	ep := mlEndpointWith(t, doer)
 
-	result, err := ep.Infer(context.Background(), map[string]any{"x": float64(1)})
+	result, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"ok": true}, result)
 
@@ -132,11 +132,29 @@ func TestMLEndpoint_Infer_Success(t *testing.T) {
 	assert.Contains(t, doer.gotBody, `"x":1`)
 }
 
+func TestMLEndpoint_InferBinary_Success(t *testing.T) {
+	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"ok":true}}`)}
+	ep := mlEndpointWith(t, doer)
+
+	result, err := ep.InferBinary(context.Background(), []byte{0xFF, 0xD8, 0xFF})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{"ok": true}, result)
+
+	// The request was a multipart body carrying the model selector and the blob
+	// as a file part named "binary".
+	assert.Contains(t, doer.gotContentType, "multipart/form-data")
+	assert.Contains(t, doer.gotBody, `name="model"`)
+	assert.Contains(t, doer.gotBody, "yolo")
+	assert.Contains(t, doer.gotBody, `name="binary"`)
+	assert.Contains(t, doer.gotBody, `filename="frame"`)
+	assert.Contains(t, doer.gotBody, "application/octet-stream")
+}
+
 func TestMLEndpoint_Infer_NotFound(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(404, `{"message":"no model named yolo is loaded"}`)}
 	ep := mlEndpointWith(t, doer)
 
-	_, err := ep.Infer(context.Background(), map[string]any{"x": float64(1)})
+	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "404")
 	assert.Contains(t, err.Error(), "no model named yolo is loaded")
@@ -146,7 +164,7 @@ func TestMLEndpoint_Infer_Unprocessable(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(422, `{"message":"input could not be processed"}`)}
 	ep := mlEndpointWith(t, doer)
 
-	_, err := ep.Infer(context.Background(), map[string]any{"x": float64(1)})
+	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "422")
 	assert.Contains(t, err.Error(), "input could not be processed")

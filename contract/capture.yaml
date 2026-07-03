@@ -23,15 +23,17 @@ paths:
           description: Optional width hint in pixels; ignored by sources that lack it.
           schema:
             type: integer
+            minimum: 1
         - name: height
           in: query
           required: false
           description: Optional height hint in pixels; ignored by sources that lack it.
           schema:
             type: integer
+            minimum: 1
       responses:
         "200":
-          description: "Encoded captured frame. fh-camera returns JPEG."
+          description: "Encoded captured frame (opaque binary; the concrete Content-Type is set by the server, e.g. image/jpeg for fh-camera)."
           content:
             application/octet-stream:
               schema:
@@ -80,7 +82,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Health"
+                $ref: "#/components/schemas/Error"
 
   /metadata:
     get:

@@ -20,6 +20,34 @@ func (m mockResolver) Resolve(ref workflow.Reference) (Value, error) {
 	return v, nil
 }
 
+func TestEval_ImageInStringExpressionIsRejected(t *testing.T) {
+	resolve := mockResolver{
+		"cam1:frame": ImageVal([]byte{0xFF, 0xD8, 0xFF}),
+	}
+
+	_, err := Eval(workflow.Expression{
+		Expression: "frame is ${}",
+		DataType:   workflow.String,
+		References: []workflow.Reference{{SrcId: "cam1", VarId: "frame"}},
+	}, resolve)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image value cannot be used in an expression")
+}
+
+func TestEval_ImageInCodeExpressionIsRejected(t *testing.T) {
+	resolve := mockResolver{
+		"cam1:frame": ImageVal([]byte{0xFF, 0xD8, 0xFF}),
+	}
+
+	_, err := Eval(workflow.Expression{
+		Expression: "${}",
+		DataType:   workflow.Bool,
+		References: []workflow.Reference{{SrcId: "cam1", VarId: "frame"}},
+	}, resolve)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image value cannot be used in an expression")
+}
+
 func TestEval_StringInterpolation(t *testing.T) {
 	resolve := mockResolver{
 		"node1:out-0": FloatVal(23.5),

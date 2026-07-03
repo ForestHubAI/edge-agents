@@ -249,14 +249,29 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.actions[nd.Id] = n
 
 		case workflow.MLInferenceNode:
-			if nd.Arguments.Model == nil {
+			if nd.Arguments.Model == "" {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "model"}
 			}
-			ep, ok := b.ml[*nd.Arguments.Model]
+			ep, ok := b.ml[nd.Arguments.Model]
 			if !ok {
-				return "", fmt.Errorf("node %s: ml model %q is not declared or not bound", nd.Id, *nd.Arguments.Model)
+				return "", fmt.Errorf("node %s: ml model %q is not declared or not bound", nd.Id, nd.Arguments.Model)
+			}
+			if nd.Arguments.Input.VarId == "" {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "input"}
 			}
 			n := node.NewMLInference(nd.Id, nd.Arguments.Input, nd.Arguments.Output, ep)
+			b.allNodes[nd.Id] = n
+			b.actions[nd.Id] = n
+
+		case workflow.CameraCaptureNode:
+			if nd.Arguments.CameraReference == "" {
+				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "cameraReference"}
+			}
+			ep, ok := b.capture[nd.Arguments.CameraReference]
+			if !ok {
+				return "", fmt.Errorf("node %s: camera %q is not declared or not bound", nd.Id, nd.Arguments.CameraReference)
+			}
+			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ep)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 

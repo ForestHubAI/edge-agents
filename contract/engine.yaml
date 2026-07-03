@@ -51,12 +51,14 @@ components:
         - $ref: "#/components/schemas/MQTTConnection"
         - $ref: "#/components/schemas/LLMProviderConfig"
         - $ref: "#/components/schemas/MLInferenceConfig"
+        - $ref: "#/components/schemas/CameraConfig"
       discriminator:
         propertyName: type
         mapping:
           mqtt: "#/components/schemas/MQTTConnection"
           selfhosted: "#/components/schemas/LLMProviderConfig"
           ml-inference: "#/components/schemas/MLInferenceConfig"
+          camera: "#/components/schemas/CameraConfig"
 
     LLMProviderConfig:
       type: object
@@ -84,6 +86,18 @@ components:
         url:
           type: string
           description: Base URL of the inference sidecar (http:// or https://).
+
+    CameraConfig:
+      type: object
+      description: "Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [camera]
+        url:
+          type: string
+          description: Base URL of the capture sidecar (http:// or https://).
 
     MQTTConnection:
       type: object

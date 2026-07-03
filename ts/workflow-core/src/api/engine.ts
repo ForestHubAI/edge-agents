@@ -30,7 +30,7 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
         /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. */
         LLMProviderConfig: {
             /**
@@ -51,6 +51,16 @@ export interface components {
              */
             type: "ml-inference";
             /** @description Base URL of the inference sidecar (http:// or https://). */
+            url: string;
+        };
+        /** @description Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
+        CameraConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "camera";
+            /** @description Base URL of the capture sidecar (http:// or https://). */
             url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays. */
@@ -335,9 +345,24 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an MLModel id. */
-                model?: string;
-                /** @description Input expression fed to the model. */
-                input: components["schemas"]["Expression"];
+                model: string;
+                /** @description Variable holding the model input. Its type is resolved at runtime and dispatched to the matching handler. */
+                input: components["schemas"]["Reference"];
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        CameraCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CameraCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time. */
+                cameraReference: string;
                 output: components["schemas"]["OutputBinding"];
             };
         };
@@ -558,7 +583,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["CameraCaptureNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         /** @enum {string} */
         EdgeType: "control" | "tool" | "agentTask" | "agentChoice" | "agentDelegate";
         Vertex: {
@@ -676,6 +701,19 @@ export interface components {
             /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
             topic: string;
         };
+        CAMERAChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CAMERA";
+            id: string;
+            label: string;
+            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
+            width?: number;
+            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
+            height?: number;
+        };
         LOGChannel: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -692,7 +730,7 @@ export interface components {
             /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
             tag?: string;
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["CAMERAChannel"] | components["schemas"]["LOGChannel"];
         /** @description One .md file that agent nodes can read and write to. */
         MemoryFile: {
             /**

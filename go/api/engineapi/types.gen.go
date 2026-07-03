@@ -11,6 +11,21 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CameraConfigType.
+const (
+	Camera CameraConfigType = "camera"
+)
+
+// Valid indicates whether the value is a known member of the CameraConfigType enum.
+func (e CameraConfigType) Valid() bool {
+	switch e {
+	case Camera:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LLMProviderConfigType.
 const (
 	Selfhosted LLMProviderConfigType = "selfhosted"
@@ -61,6 +76,17 @@ type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
 	Device string `json:"device"`
 }
+
+// CameraConfig Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
+type CameraConfig struct {
+	Type CameraConfigType `json:"type"`
+
+	// Url Base URL of the capture sidecar (http:// or https://).
+	Url string `json:"url"`
+}
+
+// CameraConfigType defines model for CameraConfig.Type.
+type CameraConfigType string
 
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
@@ -289,6 +315,34 @@ func (t *ExternalResourceConfig) MergeMLInferenceConfig(v MLInferenceConfig) err
 	return err
 }
 
+// AsCameraConfig returns the union data inside the ExternalResourceConfig as a CameraConfig
+func (t ExternalResourceConfig) AsCameraConfig() (CameraConfig, error) {
+	var body CameraConfig
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCameraConfig overwrites any union data inside the ExternalResourceConfig as the provided CameraConfig
+func (t *ExternalResourceConfig) FromCameraConfig(v CameraConfig) error {
+	v.Type = "camera"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCameraConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided CameraConfig
+func (t *ExternalResourceConfig) MergeCameraConfig(v CameraConfig) error {
+	v.Type = "camera"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ExternalResourceConfig) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -303,6 +357,8 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "camera":
+		return t.AsCameraConfig()
 	case "ml-inference":
 		return t.AsMLInferenceConfig()
 	case "mqtt":

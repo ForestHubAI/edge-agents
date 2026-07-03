@@ -59,6 +59,13 @@ export interface MqttChannel {
   label: string;
 }
 
+// One camera channel the workflow declares — needs an ExternalResources camera
+// entry + a mapping (and a share of the capture sidecar when bound on-device).
+export interface CameraChannel {
+  id: string;
+  label: string;
+}
+
 // One custom/self-hosted LLM model declared in workflow.models — needs an
 // ExternalResources provider entry (a device sidecar or a network endpoint).
 export interface CustomLLMModel {
@@ -92,6 +99,9 @@ export interface DeployRequirements {
   hardwareChannels: HardwareChannel[];
   // Every MQTT channel; each becomes an ExternalResources entry + a mapping.
   mqttChannels: MqttChannel[];
+  // Every camera channel; each becomes an ExternalResources entry + a mapping
+  // (and a share of the capture sidecar when bound on-device).
+  cameraChannels: CameraChannel[];
   // Every declared custom LLM model; each becomes an ExternalResources provider
   // + a mapping (and a llama-server sidecar when bound on-device).
   customLLMModels: CustomLLMModel[];
@@ -119,6 +129,7 @@ function assertNeverModel(t: never): never {
 export function deriveRequirements(workflow: Workflow): DeployRequirements {
   const hardwareChannels: HardwareChannel[] = [];
   const mqttChannels: MqttChannel[] = [];
+  const cameraChannels: CameraChannel[] = [];
 
   for (const channel of Object.values(workflow.channels)) {
     switch (channel.type) {
@@ -140,6 +151,9 @@ export function deriveRequirements(workflow: Workflow): DeployRequirements {
         break;
       case "MQTT":
         mqttChannels.push({ id: channel.id, label: channel.label });
+        break;
+      case "CAMERA":
+        cameraChannels.push({ id: channel.id, label: channel.label });
         break;
       case "LOG":
         // Resolves to the ambient engine logger — no platform resource to bind, so
@@ -183,6 +197,7 @@ export function deriveRequirements(workflow: Workflow): DeployRequirements {
     hasWebSearch,
     hardwareChannels,
     mqttChannels,
+    cameraChannels,
     customLLMModels,
     customMLModels,
   };

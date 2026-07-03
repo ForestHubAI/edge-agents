@@ -17,34 +17,51 @@ import (
 // returns a canned result/error.
 type stubInferClient struct {
 	gotTensors map[string]any
+	gotBinary  []byte
 	result     map[string]any
 	err        error
 }
 
-func (s *stubInferClient) Infer(_ context.Context, tensors map[string]any) (map[string]any, error) {
+func (s *stubInferClient) InferTensors(_ context.Context, tensors map[string]any) (map[string]any, error) {
 	s.gotTensors = tensors
 	return s.result, s.err
 }
 
-func stringInput(s string) workflow.Expression {
-	return workflow.Expression{Expression: s, DataType: workflow.String}
+func (s *stubInferClient) InferBinary(_ context.Context, data []byte) (map[string]any, error) {
+	s.gotBinary = data
+	return s.result, s.err
+}
+
+// inputRef is the reference every test wires as the ML input: a declared
+// variable named "in", seeded per-test with the value under test.
+func inputRef() workflow.Reference {
+	return workflow.Reference{SrcId: engine.SrcDeclared, VarId: "in"}
+}
+
+// scopeWithInput declares the "in" variable and seeds it with v, the way an
+// upstream node (e.g. CameraCapture) would before MLInference runs.
+func scopeWithInput(t *testing.T, dt workflow.DataType, v expr.Value) *engine.Scope {
+	t.Helper()
+	s, err := engine.NewMainScope([]workflow.Variable{{Uid: "in", DataType: dt}})
+	require.NoError(t, err)
+	s.Set(engine.SrcDeclared, "in", v)
+	return s
 }
 
 func TestMLInference_Execute(t *testing.T) {
 	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
 
 	t.Run("string input is parsed to tensors and result is emitted as json", func(t *testing.T) {
-		s, err := engine.NewMainScope(nil)
-		require.NoError(t, err)
+		s := scopeWithInput(t, workflow.String, expr.StringVal(`{"x":1}`))
 
 		client := &stubInferClient{result: map[string]any{"ok": true}}
-		n := NewMLInference("ml1", stringInput(`{"x":1}`), emit, client)
+		n := NewMLInference("ml1", inputRef(), emit, client)
 
 		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
 		assert.Equal(t, engine.StateIdle, next)
 
-		// The JSON input reached the client as a parsed tensors object.
+		// The JSON string variable reached the client as a parsed tensors object.
 		assert.Equal(t, map[string]any{"x": float64(1)}, client.gotTensors)
 
 		// The result was applied to the bound slot as a JSON string.
@@ -53,45 +70,89 @@ func TestMLInference_Execute(t *testing.T) {
 		assert.Equal(t, expr.StringVal(`{"ok":true}`), v)
 	})
 
-	t.Run("inference error is wrapped with node id", func(t *testing.T) {
-		s, err := engine.NewMainScope(nil)
+	t.Run("image input is sent as binary and result is emitted as json", func(t *testing.T) {
+		// A plain variable reference — the exact shape the builder emits. The
+		// frame reaches InferBinary because the variable's runtime type is Image,
+		// not because of any declared expression type.
+		frame := []byte{0xFF, 0xD8, 0xFF}
+		s := scopeWithInput(t, workflow.Image, expr.ImageVal(frame))
+
+		client := &stubInferClient{result: map[string]any{"ok": true}}
+		n := NewMLInference("mlImg", inputRef(), emit, client)
+
+		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
+		assert.Equal(t, engine.StateIdle, next)
+
+		// The frame reached the client as raw bytes, not tensors.
+		assert.Equal(t, frame, client.gotBinary)
+		assert.Nil(t, client.gotTensors)
+
+		v, err := s.Resolve(workflow.Reference{SrcId: "mlImg", VarId: mlInferenceOutID})
+		require.NoError(t, err)
+		assert.Equal(t, expr.StringVal(`{"ok":true}`), v)
+	})
+
+	t.Run("empty image input is rejected before the client is called", func(t *testing.T) {
+		// A declared image referenced before any CameraCapture fired carries no
+		// bytes; it must not be forwarded to the sidecar as an empty frame.
+		s := scopeWithInput(t, workflow.Image, expr.ImageVal(nil))
+
+		client := &stubInferClient{result: map[string]any{"ok": true}}
+		n := NewMLInference("mlEmpty", inputRef(), emit, client)
+
+		_, err := n.Execute(context.Background(), s)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "image input is empty")
+		assert.Nil(t, client.gotBinary, "client must not be called for an empty image")
+	})
+
+	t.Run("inference error is wrapped with node id", func(t *testing.T) {
+		s := scopeWithInput(t, workflow.String, expr.StringVal(`{"x":1}`))
 
 		client := &stubInferClient{err: errors.New("sidecar returned 404: no model")}
-		n := NewMLInference("mlErr", stringInput(`{"x":1}`), emit, client)
+		n := NewMLInference("mlErr", inputRef(), emit, client)
 
-		_, err = n.Execute(context.Background(), s)
+		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ml_inference mlErr")
 		assert.Contains(t, err.Error(), "404")
 	})
 
-	t.Run("non-string input type is rejected", func(t *testing.T) {
-		s, err := engine.NewMainScope(nil)
-		require.NoError(t, err)
+	t.Run("unsupported input type is rejected", func(t *testing.T) {
+		s := scopeWithInput(t, workflow.Int, expr.IntVal(42))
 
 		client := &stubInferClient{result: map[string]any{}}
-		n := NewMLInference("mlType",
-			workflow.Expression{Expression: "42", DataType: workflow.Int},
-			emit, client)
+		n := NewMLInference("mlType", inputRef(), emit, client)
 
-		_, err = n.Execute(context.Background(), s)
+		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported input type")
 		assert.Nil(t, client.gotTensors, "client must not be called for an unsupported type")
 	})
 
 	t.Run("malformed json input is wrapped", func(t *testing.T) {
-		s, err := engine.NewMainScope(nil)
-		require.NoError(t, err)
+		s := scopeWithInput(t, workflow.String, expr.StringVal("not json"))
 
 		client := &stubInferClient{result: map[string]any{}}
-		n := NewMLInference("mlJSON", stringInput("not json"), emit, client)
+		n := NewMLInference("mlJSON", inputRef(), emit, client)
 
-		_, err = n.Execute(context.Background(), s)
+		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ml_inference mlJSON")
 		assert.Contains(t, err.Error(), "JSON tensors object")
 		assert.Nil(t, client.gotTensors, "client must not be called for malformed input")
+	})
+}
+
+func TestMLInference_Outputs(t *testing.T) {
+	t.Run("emit binding materializes the string result slot", func(t *testing.T) {
+		n := NewMLInference("ml1", inputRef(), workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}, &stubInferClient{})
+		assert.Equal(t, map[string]workflow.DataType{mlInferenceOutID: workflow.String}, n.Outputs())
+	})
+
+	t.Run("assign binding materializes no slot", func(t *testing.T) {
+		n := NewMLInference("ml1", inputRef(), workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeAssign}, &stubInferClient{})
+		assert.Empty(t, n.Outputs())
 	})
 }

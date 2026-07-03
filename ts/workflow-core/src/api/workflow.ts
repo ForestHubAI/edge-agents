@@ -172,7 +172,7 @@ export interface components {
             /** @description Display name. */
             label: string;
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["CameraCaptureNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
             id: string;
             /**
@@ -386,9 +386,24 @@ export interface components {
             position: components["schemas"]["NodePosition"];
             arguments: {
                 /** @description Reference to an MLModel id. */
-                model?: string;
-                /** @description Input expression fed to the model. */
-                input: components["schemas"]["Expression"];
+                model: string;
+                /** @description Variable holding the model input. Its type is resolved at runtime and dispatched to the matching handler. */
+                input: components["schemas"]["Reference"];
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        CameraCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CameraCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time. */
+                cameraReference: string;
                 output: components["schemas"]["OutputBinding"];
             };
         };
@@ -548,7 +563,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["CAMERAChannel"] | components["schemas"]["LOGChannel"];
         GPIOINChannel: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -622,6 +637,19 @@ export interface components {
             label: string;
             /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
             topic: string;
+        };
+        CAMERAChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CAMERA";
+            id: string;
+            label: string;
+            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
+            width?: number;
+            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
+            height?: number;
         };
         LOGChannel: {
             /**

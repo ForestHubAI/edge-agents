@@ -497,7 +497,7 @@ type ReadyzResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Health
-	JSON503      *Health
+	JSON503      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -667,7 +667,7 @@ func ParseReadyzResponse(rsp *http.Response) (*ReadyzResponse, error) {
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
-		var dest Health
+		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

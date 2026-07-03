@@ -171,6 +171,23 @@ describe("computeNodeDiagnostics — expression validation", () => {
     expect(afterExprDiags[0].paramId).toBe("val");
   });
 
+  it("flags an image variable used in a string expression", () => {
+    // A CameraCapture frame (image) interpolated into a text expression has no
+    // string form; it must be rejected, not silently emptied at runtime.
+    const stringDef = makeNodeDef({
+      category: NodeCategory.Input,
+      parameters: [{ id: "val", label: "Value", description: "", type: "expression", expressionType: "string" }],
+    });
+    const diags = computeNodeDiagnostics({
+      ...baseOpts({
+        nodeDefinition: stringDef,
+        nodeData: makeNode("OnStartup", { val: makeExpression("frame is ${}", "string", [makeDeclaredRef("v1")]) }),
+      }),
+      availableVariables: makeAvailableVars([makeDeclaredVar({ uid: "v1", dataType: "image" })]),
+    });
+    expect(diagsOfCategory(diags, "invalid-expression")).toHaveLength(1);
+  });
+
   it("skips validation on inactive expression parameters", () => {
     const def = makeNodeDef({
       category: NodeCategory.Input,

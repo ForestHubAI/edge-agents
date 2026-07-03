@@ -51,12 +51,14 @@ type ResourceBinding struct {
 // workflow's non-device external resources, keyed by the platform resource id
 // the DeploymentMapping points at. The engine builds transports from MQTTs,
 // per-deploy LLM providers from Providers (the connection for each declared
-// custom/self-hosted model), and inference clients from MLInference (the sidecar
-// endpoint each declared ML model is served from).
+// custom/self-hosted model), inference clients from MLInference (the sidecar
+// endpoint each declared ML model is served from), and capture clients from
+// Cameras (the sidecar endpoint each declared camera channel is read from).
 type ExternalResources struct {
 	MQTTs       map[string]MQTTConnection
 	Providers   map[string]LLMProviderConfig
 	MLInference map[string]MLInferenceConfig
+	Cameras     map[string]CameraConfig
 }
 
 // MLInferenceConfig is the resolved connection to an ML inference sidecar the
@@ -64,6 +66,14 @@ type ExternalResources struct {
 // supplies how to reach the sidecar. The model name to run is sent per
 // request, so many models may share one endpoint.
 type MLInferenceConfig struct {
+	URL string
+}
+
+// CameraConfig is the resolved connection to a camera capture sidecar the
+// engine doesn't ship. The declared workflow channel supplies the id; this
+// supplies how to reach the sidecar. Which camera to read is sent per request,
+// so many cameras may share one endpoint.
+type CameraConfig struct {
 	URL string
 }
 

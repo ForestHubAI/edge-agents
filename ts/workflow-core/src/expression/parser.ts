@@ -184,8 +184,13 @@ function inferBinaryType(node: jsep.BinaryExpression, ctx: TypeContext, errors: 
   // If either operand failed to type, propagate null
   if (!leftType || !rightType) return null;
 
-  // String concatenation: string + any → string
+  // String concatenation: string + any → string. An image has no text form,
+  // so it cannot be concatenated even though the other operand is a string.
   if (op === "+" && (leftType === "string" || rightType === "string")) {
+    if (leftType === "image" || rightType === "image") {
+      errors.push("An image value cannot be used in a string expression");
+      return null;
+    }
     return "string";
   }
 
@@ -335,6 +340,9 @@ function isNumeric(type: DataType | null): boolean {
 function isCompatible(from: DataType, to: DataType): boolean {
   if (from === to) return true;
   if (isNumeric(from) && isNumeric(to)) return true;
+  // An image is opaque binary with no text form; it is only compatible with an
+  // image sink (handled by from === to above), never the string catch-all.
+  if (from === "image") return false;
   if (to === "string") return true;
   return false;
 }

@@ -1117,12 +1117,80 @@ func (_m *MockMLInferenceClient) EXPECT() *MockMLInferenceClient_Expecter {
 	return &MockMLInferenceClient_Expecter{mock: &_m.Mock}
 }
 
-// Infer provides a mock function for the type MockMLInferenceClient
-func (_mock *MockMLInferenceClient) Infer(ctx context.Context, tensors map[string]any) (map[string]any, error) {
+// InferBinary provides a mock function for the type MockMLInferenceClient
+func (_mock *MockMLInferenceClient) InferBinary(ctx context.Context, data []byte) (map[string]any, error) {
+	ret := _mock.Called(ctx, data)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InferBinary")
+	}
+
+	var r0 map[string]any
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte) (map[string]any, error)); ok {
+		return returnFunc(ctx, data)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte) map[string]any); ok {
+		r0 = returnFunc(ctx, data)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]any)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
+		r1 = returnFunc(ctx, data)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMLInferenceClient_InferBinary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InferBinary'
+type MockMLInferenceClient_InferBinary_Call struct {
+	*mock.Call
+}
+
+// InferBinary is a helper method to define mock.On call
+//   - ctx context.Context
+//   - data []byte
+func (_e *MockMLInferenceClient_Expecter) InferBinary(ctx interface{}, data interface{}) *MockMLInferenceClient_InferBinary_Call {
+	return &MockMLInferenceClient_InferBinary_Call{Call: _e.mock.On("InferBinary", ctx, data)}
+}
+
+func (_c *MockMLInferenceClient_InferBinary_Call) Run(run func(ctx context.Context, data []byte)) *MockMLInferenceClient_InferBinary_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []byte
+		if args[1] != nil {
+			arg1 = args[1].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMLInferenceClient_InferBinary_Call) Return(stringToV map[string]any, err error) *MockMLInferenceClient_InferBinary_Call {
+	_c.Call.Return(stringToV, err)
+	return _c
+}
+
+func (_c *MockMLInferenceClient_InferBinary_Call) RunAndReturn(run func(ctx context.Context, data []byte) (map[string]any, error)) *MockMLInferenceClient_InferBinary_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InferTensors provides a mock function for the type MockMLInferenceClient
+func (_mock *MockMLInferenceClient) InferTensors(ctx context.Context, tensors map[string]any) (map[string]any, error) {
 	ret := _mock.Called(ctx, tensors)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Infer")
+		panic("no return value specified for InferTensors")
 	}
 
 	var r0 map[string]any
@@ -1145,19 +1213,19 @@ func (_mock *MockMLInferenceClient) Infer(ctx context.Context, tensors map[strin
 	return r0, r1
 }
 
-// MockMLInferenceClient_Infer_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Infer'
-type MockMLInferenceClient_Infer_Call struct {
+// MockMLInferenceClient_InferTensors_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InferTensors'
+type MockMLInferenceClient_InferTensors_Call struct {
 	*mock.Call
 }
 
-// Infer is a helper method to define mock.On call
+// InferTensors is a helper method to define mock.On call
 //   - ctx context.Context
 //   - tensors map[string]any
-func (_e *MockMLInferenceClient_Expecter) Infer(ctx interface{}, tensors interface{}) *MockMLInferenceClient_Infer_Call {
-	return &MockMLInferenceClient_Infer_Call{Call: _e.mock.On("Infer", ctx, tensors)}
+func (_e *MockMLInferenceClient_Expecter) InferTensors(ctx interface{}, tensors interface{}) *MockMLInferenceClient_InferTensors_Call {
+	return &MockMLInferenceClient_InferTensors_Call{Call: _e.mock.On("InferTensors", ctx, tensors)}
 }
 
-func (_c *MockMLInferenceClient_Infer_Call) Run(run func(ctx context.Context, tensors map[string]any)) *MockMLInferenceClient_Infer_Call {
+func (_c *MockMLInferenceClient_InferTensors_Call) Run(run func(ctx context.Context, tensors map[string]any)) *MockMLInferenceClient_InferTensors_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1175,12 +1243,101 @@ func (_c *MockMLInferenceClient_Infer_Call) Run(run func(ctx context.Context, te
 	return _c
 }
 
-func (_c *MockMLInferenceClient_Infer_Call) Return(stringToV map[string]any, err error) *MockMLInferenceClient_Infer_Call {
+func (_c *MockMLInferenceClient_InferTensors_Call) Return(stringToV map[string]any, err error) *MockMLInferenceClient_InferTensors_Call {
 	_c.Call.Return(stringToV, err)
 	return _c
 }
 
-func (_c *MockMLInferenceClient_Infer_Call) RunAndReturn(run func(ctx context.Context, tensors map[string]any) (map[string]any, error)) *MockMLInferenceClient_Infer_Call {
+func (_c *MockMLInferenceClient_InferTensors_Call) RunAndReturn(run func(ctx context.Context, tensors map[string]any) (map[string]any, error)) *MockMLInferenceClient_InferTensors_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockCaptureClient creates a new instance of MockCaptureClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockCaptureClient(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockCaptureClient {
+	mock := &MockCaptureClient{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockCaptureClient is an autogenerated mock type for the CaptureClient type
+type MockCaptureClient struct {
+	mock.Mock
+}
+
+type MockCaptureClient_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockCaptureClient) EXPECT() *MockCaptureClient_Expecter {
+	return &MockCaptureClient_Expecter{mock: &_m.Mock}
+}
+
+// Capture provides a mock function for the type MockCaptureClient
+func (_mock *MockCaptureClient) Capture(ctx context.Context) ([]byte, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Capture")
+	}
+
+	var r0 []byte
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]byte, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []byte); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockCaptureClient_Capture_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Capture'
+type MockCaptureClient_Capture_Call struct {
+	*mock.Call
+}
+
+// Capture is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockCaptureClient_Expecter) Capture(ctx interface{}) *MockCaptureClient_Capture_Call {
+	return &MockCaptureClient_Capture_Call{Call: _e.mock.On("Capture", ctx)}
+}
+
+func (_c *MockCaptureClient_Capture_Call) Run(run func(ctx context.Context)) *MockCaptureClient_Capture_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockCaptureClient_Capture_Call) Return(bytes []byte, err error) *MockCaptureClient_Capture_Call {
+	_c.Call.Return(bytes, err)
+	return _c
+}
+
+func (_c *MockCaptureClient_Capture_Call) RunAndReturn(run func(ctx context.Context) ([]byte, error)) *MockCaptureClient_Capture_Call {
 	_c.Call.Return(run)
 	return _c
 }

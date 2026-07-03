@@ -6,12 +6,12 @@
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
+import type { DeploymentSchemas, EngineSchemas } from "../api";
 import type { Workflow } from "../workflow";
 import { serialize } from "../workflow";
-import type { DeploymentSchemas, EngineSchemas } from "../api";
-import { deriveRequirements } from "./requirements";
-import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
+import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
+import { deriveRequirements } from "./requirements";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -33,6 +33,15 @@ const ML_MODELS_PATH = "/var/lib/foresthub/models";
 
 // The inference sidecar's fixed listen port (baked into its image entrypoint).
 const ML_SIDECAR_PORT = 8000;
+
+// In-container path the capture sidecar reads its camera config from (its default
+// CAMERA_CONFIG_FILE). The host cameras.json is bind-mounted here read-only;
+// mounting at the default means no env var needs wiring. A cross-repo contract
+// with the sidecar image — changing it requires changing the image in lockstep.
+const CAMERAS_CONFIG_PATH = "/etc/foresthub/cameras.json";
+
+// The capture sidecar's fixed listen port (baked into its image entrypoint).
+const CAMERA_SIDECAR_PORT = 8100;
 
 // The OSS renderer's state root (docs/device-filesystem.md §2). Bind-mount sources
 // hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them
@@ -56,6 +65,7 @@ export interface DeploymentSpecMeta {
   engineImage: string;
   llamaServerImage: string;
   mlSidecarImage: string;
+  cameraSidecarImage: string;
 }
 
 // One external resource's credentials. Secrets are NEVER part of the spec (not
@@ -127,6 +137,14 @@ export function llmSidecarServiceName(modelId: string): string {
 // at it.
 export function mlSidecarServiceName(): string {
   return "fh-onnx";
+}
+
+// Compose/container service name for the shared capture sidecar. Like the
+// inference sidecar (one container owns a set of cameras and selects one by name
+// per request), this is a fixed name, not derived from any channel id. Every
+// on-device camera's connection URL points at it.
+export function cameraSidecarServiceName(): string {
+  return "fh-camera";
 }
 
 // Why an on-device model filename is unacceptable, or null when fine. A name
@@ -227,6 +245,16 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
     // device needs nothing more (the model repository is a directory the operator
     // fills); network needs its endpoint URL.
     if (b?.location !== "device" && !b?.url) missing.push(`model "${m.id}": on-device or endpoint URL`);
+  }
+  for (const ch of req.cameraChannels) {
+    const b = inputs.cameras[ch.id];
+    // device needs a capture source device (v4l2 path or gstreamer element);
+    // network needs its endpoint URL.
+    if (b?.location === "device") {
+      if (!b.device) missing.push(`camera "${ch.id}": capture source device`);
+    } else if (!b?.url) {
+      missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
+    }
   }
   missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
   missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
@@ -409,6 +437,46 @@ export function buildDeploymentSpec(
     });
   }
 
+  // Cameras: every on-device camera is read by ONE shared capture sidecar that
+  // owns a set of cameras (one cameras.json entry per channel id) and selects one
+  // by name per request — so they all point at the same service URL and only a
+  // single component is emitted. A network camera points at the operator's own
+  // capture endpoint. Credential-free — a trusted in-deployment endpoint.
+  const cameraComponents: DeployComponent[] = [];
+  let cameraDeviceCount = 0;
+  const videoDevices = new Set<string>();
+  for (const ch of req.cameraChannels) {
+    const b = inputs.cameras[ch.id];
+    if (!b) throw new Error(`unbound camera ${ch.id}`); // unreachable after assertDeployable
+    const ref = refs.alloc(`camera:${ch.id}`, basename(ch.id));
+    mapping[ch.id] = { ref };
+
+    if (b.location === "device") {
+      externalResources[ref] = { type: "camera", url: `http://${cameraSidecarServiceName()}:${CAMERA_SIDECAR_PORT}` };
+      cameraDeviceCount++;
+      // v4l2 reads a /dev/video* node, passed through to the sidecar container. A
+      // gstreamer source (e.g. libcamerasrc) drives the full media graph, which
+      // has no single node to grant here — the operator wires those devices in.
+      if (b.source === "v4l2") videoDevices.add(b.device);
+    } else {
+      externalResources[ref] = { type: "camera", url: b.url };
+    }
+  }
+  // One shared sidecar for all on-device cameras (not one per camera). The camera
+  // set is described by cameras.json (one entry per channel id), bind-mounted
+  // read-only at the sidecar's default config path, so no env var is wired.
+  if (cameraDeviceCount > 0) {
+    const service = cameraSidecarServiceName();
+    const camera: DeployComponent = {
+      name: service,
+      image: meta.cameraSidecarImage,
+      pull: "never", // built locally before deploy, in no registry
+      volumes: [`${workspaceDir(service)}/cameras.json:${CAMERAS_CONFIG_PATH}:ro`],
+    };
+    if (videoDevices.size > 0) camera.devices = [...videoDevices];
+    cameraComponents.push(camera);
+  }
+
   const manifest: EngineSchemas["DeviceManifest"] = {};
   if (Object.keys(gpios).length) manifest.gpios = gpios;
   if (Object.keys(adcs).length) manifest.adcs = adcs;
@@ -442,7 +510,7 @@ export function buildDeploymentSpec(
   if (cdev.size > 0) engine.devices = [...cdev];
   if (privileged) engine.privileged = true;
 
-  const components = [engine, ...llamaComponents, ...mlComponents, ...customComponents];
+  const components = [engine, ...llamaComponents, ...mlComponents, ...cameraComponents, ...customComponents];
   assertNoNameCollisions(components);
 
   const spec: DeploymentSpec = {

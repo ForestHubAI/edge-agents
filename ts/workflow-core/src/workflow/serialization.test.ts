@@ -160,6 +160,59 @@ describe("workflowSerialization — reverse roundtrip (JSON → deserialize → 
     const out = serialize(deserialize(withFunctionCanvas));
     expect(out).toEqual(withFunctionCanvas);
   });
+
+  it("preserves a CAMERA channel's width and height", () => {
+    const wf: Schemas["Workflow"] = {
+      schemaVersion: 1,
+      nodes: [],
+      edges: [],
+      functions: [],
+      declaredVariables: [],
+      channels: [{ type: "CAMERA", id: "cam1", label: "Front", width: 640, height: 480 }],
+      memory: [],
+      models: [],
+    };
+    expect(serialize(deserialize(wf))).toEqual(wf);
+  });
+
+  it("roundtrips a CAMERA channel that sets neither width nor height", () => {
+    const wf: Schemas["Workflow"] = {
+      schemaVersion: 1,
+      nodes: [],
+      edges: [],
+      functions: [],
+      declaredVariables: [],
+      channels: [{ type: "CAMERA", id: "cam1", label: "Front" }],
+      memory: [],
+      models: [],
+    };
+    expect(serialize(deserialize(wf))).toEqual(wf);
+  });
+
+  it("roundtrips an MLInference node whose input is a variable reference", () => {
+    const wf: Schemas["Workflow"] = {
+      schemaVersion: 1,
+      nodes: [
+        {
+          id: "ml1",
+          type: "MLInference",
+          position: { x: 0, y: 0 },
+          arguments: {
+            model: "detector",
+            input: { srcId: "cam1", varId: "frame" },
+            output: { active: true, mode: "emit", name: "result" },
+          },
+        },
+      ],
+      edges: [],
+      functions: [],
+      declaredVariables: [],
+      channels: [],
+      memory: [],
+      models: [],
+    };
+    expect(serialize(deserialize(wf))).toEqual(wf);
+  });
 });
 
 // ============================================================================

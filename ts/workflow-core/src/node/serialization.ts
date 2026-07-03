@@ -234,7 +234,17 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         position: position,
         arguments: {
           model: data.arguments.model,
-          input: data.arguments.input,
+          input: data.arguments.input!,
+          output: data.arguments.output,
+        },
+      };
+    case "CameraCapture":
+      return {
+        id: data.id,
+        type: data.type,
+        position: position,
+        arguments: {
+          cameraReference: data.arguments.cameraReference!,
           output: data.arguments.output,
         },
       };
@@ -494,6 +504,16 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         arguments: {
           model: apiNode.arguments.model ?? "",
           input: apiNode.arguments.input,
+          output: apiNode.arguments.output as OutputBinding,
+        },
+      };
+    case "CameraCapture":
+      return {
+        id: apiNode.id,
+        type: apiNode.type,
+        label: apiNode.label,
+        arguments: {
+          cameraReference: apiNode.arguments.cameraReference ?? "",
           output: apiNode.arguments.output as OutputBinding,
         },
       };

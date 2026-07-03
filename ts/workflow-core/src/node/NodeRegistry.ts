@@ -1,4 +1,4 @@
-import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition } from "./InputNode";
+import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition, CameraCaptureNodeDefinition } from "./InputNode";
 import { AgentNodeDefinition } from "./AgentNode";
 import { MLInferenceNodeDefinition } from "./MLInferenceNode";
 import {
@@ -53,6 +53,7 @@ class NodeDefinitionRegistry {
     // Register input tool nodes
     this.register(RetrieverNodeDefinition);
     this.register(WebFetchNodeDefinition);
+    this.register(CameraCaptureNodeDefinition);
     // Register MQTT nodes
     this.register(MqttPublishNodeDefinition);
     this.register(OnMqttMessageNodeDefinition);

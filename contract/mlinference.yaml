@@ -36,8 +36,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "413":
+          description: The request body exceeds the sidecar's size limit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "422":
           description: The input could not be processed by the selected model's handler.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: The handler failed unexpectedly while running inference.
           content:
             application/json:
               schema:
@@ -73,7 +85,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Health"
+                $ref: "#/components/schemas/Error"
 
   /metadata:
     get:
