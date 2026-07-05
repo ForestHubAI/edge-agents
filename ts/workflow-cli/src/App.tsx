@@ -59,7 +59,6 @@ export default function App() {
   const { t } = useTranslation();
   const builderRef = useRef<WorkflowBuilderHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const [dirty, setDirty] = useState(false);
   // Undo/redo availability for the active canvas, pushed by the builder's
@@ -112,12 +111,10 @@ export default function App() {
       })
       .then((workflow) => {
         if (!workflow) return;
-        loadingRef.current = true;
+        // loadWorkflow never fires onChange (builder contract), so the dirty
+        // flag can be reset synchronously — no echo guard needed.
         builderRef.current?.loadWorkflow(workflow);
-        queueMicrotask(() => {
-          loadingRef.current = false;
-          setDirty(false);
-        });
+        setDirty(false);
       })
       .catch((err) => toast({ title: t("toast.loadFailed"), description: err.message, variant: "destructive" }));
   }, [t]);
@@ -133,16 +130,10 @@ export default function App() {
         toast({ title: t("toast.loadFailed"), description: t("error.invalidJson"), variant: "destructive" });
         return;
       }
-      loadingRef.current = true;
       builderRef.current?.loadWorkflow(workflow);
-      // Microtask: let onChange events from loadWorkflow drain before we drop the
-      // loading guard, so the load itself doesn't mark the canvas dirty.
-      queueMicrotask(() => {
-        loadingRef.current = false;
-        setDirty(false);
-        setFileName(name);
-        setFileTarget(target);
-      });
+      setDirty(false);
+      setFileName(name);
+      setFileTarget(target);
     },
     [t],
   );
@@ -247,20 +238,14 @@ export default function App() {
 
   const handleNew = useCallback(() => {
     if (dirty && !window.confirm(t("confirm.discard"))) return;
-    loadingRef.current = true;
     builderRef.current?.clear();
-    queueMicrotask(() => {
-      loadingRef.current = false;
-      setDirty(false);
-      // New starts an untitled document. A CLI-bound path is kept — Save writes
-      // the empty canvas back to that file (resetting it). A browser handle or
-      // no target is dropped, so the next Save prompts for a fresh location.
-      if (fileTarget?.kind !== "path") {
-        setFileTarget(null);
-        setFileName(null);
-      }
-    });
-  }, [dirty, fileTarget, t]);
+    setDirty(false);
+    // New starts an untitled document with NO file target — including a
+    // CLI-bound path: keeping it would make the next Save silently truncate
+    // the file the session was opened on. Save prompts for a location instead.
+    setFileTarget(null);
+    setFileName(null);
+  }, [dirty, t]);
 
   // The builder owns the validate UX (success toast / issues dialog), so this is
   // just a trigger.
@@ -269,7 +254,6 @@ export default function App() {
   }, []);
 
   const handleChange = useCallback(() => {
-    if (loadingRef.current) return;
     setDirty(true);
   }, []);
 

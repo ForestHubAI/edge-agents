@@ -11,7 +11,7 @@ import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";

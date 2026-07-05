@@ -37,7 +37,7 @@ import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { migrateFunctionCallNodes } from "../utils/migrateFunctionNodes";
 import { getNodeDescription } from "../utils/translation";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";

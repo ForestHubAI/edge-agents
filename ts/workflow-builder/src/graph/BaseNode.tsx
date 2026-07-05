@@ -20,7 +20,7 @@ import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useDebugStore } from "../stores/debugStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { categoryIcons } from "../utils/categoryConstants";
 import { computeNodeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 import {

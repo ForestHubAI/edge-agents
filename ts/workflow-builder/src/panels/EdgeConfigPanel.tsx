@@ -11,7 +11,7 @@ import { getEdgeDefinition } from "@foresthubai/workflow-core/edge";
 import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";

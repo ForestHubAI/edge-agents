@@ -9,7 +9,7 @@ import type { Memory } from "@foresthubai/workflow-core/memory";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 
-import type { BuilderMode } from "../WorkflowBuilder";
+import type { BuilderMode } from "../mode";
 // Type-only (erased) — the active left-sidebar tab lives here so non-sidebar code
 // (e.g. validation navigation) can open a specific panel. No runtime cycle.
 import type { SidebarTab } from "../panels/BuilderSidebar";

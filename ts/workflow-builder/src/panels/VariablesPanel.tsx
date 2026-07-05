@@ -8,7 +8,7 @@ import { AddButton } from "../components/ui/add-button";
 import { Variable as VariableIcon } from "lucide-react";
 import { cn } from "../cn";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { type Variable, type DeclaredVariable } from "@foresthubai/workflow-core/variable";

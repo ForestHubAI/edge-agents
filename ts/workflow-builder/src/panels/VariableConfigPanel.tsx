@@ -12,7 +12,7 @@ import { ChevronRight } from "lucide-react";
 import type { DeclaredVariable } from "@foresthubai/workflow-core/variable";
 import type { DataType } from "@foresthubai/workflow-core";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";
 import { deleteDeclaredVariable, setDeclaredVariableType, updateDeclaredVariable } from "../utils/variableOperations";

@@ -10,7 +10,7 @@ import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { computeEdgeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 
 const EDGE_BASE_COLOR = "hsl(var(--edge-default))";

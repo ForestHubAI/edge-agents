@@ -76,9 +76,13 @@ effect mounts **once** (callbacks are stashed in refs, `onChangeRef`):
 starting `prev`, so initial mount doesn't fire. `onChange` carries **no payload** —
 it's a pulse; the host pulls current state via `handle.exportWorkflow()`.
 
-**Loads do fire it.** `loadWorkflow`/`clear` mutate the stores and the registry, so
-`onChange` fires during load. That's expected — the host suppresses it (see below);
-the builder doesn't try to special-case loads.
+**Loads do NOT fire it.** `loadWorkflow`/`clear` mutate the same stores, but the
+handle raises a suppression flag around them (`suppressChangeRef`); the
+subscriptions still track the new counts (so the next real edit fires exactly
+once) but stay silent. `onChange` therefore means "the *user* changed the
+document" — hosts reset their dirty flag right after a programmatic load, no
+echo guard needed. This works because zustand notifies synchronously inside the
+store write; the flag is guaranteed up while load-triggered callbacks run.
 
 ## `onHistoryChange` — undo/redo availability
 
@@ -99,9 +103,7 @@ It is distinct from `onChange` on purpose:
 The builder emits change *pulses*; it does not track dirtiness, because only the
 host knows what "saved" means. The reference app (`ts/workflow-cli/src/App.tsx`) does:
 
-- `onChange` → `setDirty(true)`, **guarded** by a `loadingRef` flag so the
-  load-triggered `onChange` is ignored: it sets `loadingRef.current = true` before
-  `loadWorkflow`/`clear`, then clears it and `setDirty(false)` in a `queueMicrotask`.
+- `onChange` → `setDirty(true)`, unguarded — loads don't echo (see above).
 - After a successful save/open/new, it calls `setDirty(false)`.
 - `dirty` drives a dot in the window title.
 

@@ -20,7 +20,7 @@ import { ChevronRight } from "lucide-react";
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import { useEditorStore } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";
 import { PortSection } from "../inputs/PortSection";
