@@ -63,10 +63,12 @@ export const BaseNode = memo(
     // Get active canvas ID with imperative access (no subscription), since it doesn't change for a node
     const activeCanvasId = useEditorStore.getState().activeCanvasId;
 
-    // Get necessary canvas store data
+    // Get necessary canvas store data.
+    // BaseNode must NEVER subscribe to s.nodes: dragging replaces the nodes array
+    // every frame, so a nodes subscription re-renders all N nodes per frame (O(N²)).
+    // Subscribing to s.edges is fine — edges keep their identity during a drag.
     const canvasStore = getOrCreateCanvasStore(activeCanvasId);
     const edges = canvasStore((s) => s.edges);
-    const nodes = canvasStore((s) => s.nodes);
     const channels = useEditorStore((s) => s.channels);
     const memory = useEditorStore((s) => s.memory);
     const models = useEditorStore((s) => s.models);
@@ -103,7 +105,7 @@ export const BaseNode = memo(
     }, [availableModels, models]);
 
     // Get port definitions using centralized dispatcher
-    const portDefinitions = getPorts(nodeData);
+    const portDefinitions = useMemo(() => getPorts(nodeData), [nodeData]);
 
     // Separate ports by type for positioning
     const { executionInputs, toolInputs, executionOutputs, toolOutputs } = useMemo(() => {
@@ -508,7 +510,7 @@ export const BaseNode = memo(
 
         {/* Execution output handles (right) — disabled when tool input is connected */}
         {executionOutputs.map((port, index) => {
-          const canAccept = !isPreview && !usedAsToolInput && canPortAcceptEdge(id, port.id, nodes, edges);
+          const canAccept = !isPreview && !usedAsToolInput && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}
@@ -533,7 +535,7 @@ export const BaseNode = memo(
 
         {/* Tool output handles (bottom) */}
         {toolOutputs.map((port, index) => {
-          const canAccept = !isPreview && canPortAcceptEdge(id, port.id, nodes, edges);
+          const canAccept = !isPreview && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}
