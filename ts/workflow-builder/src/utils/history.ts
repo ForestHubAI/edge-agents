@@ -103,7 +103,7 @@ export const history =
     const {
       limit = 50,
       partialize = (state) => state,
-      equality = (before, after) => JSON.stringify(before) !== JSON.stringify(after),
+      equality = (before, after) => JSON.stringify(before) === JSON.stringify(after),
     } = config;
 
     return (set, get, store) => {

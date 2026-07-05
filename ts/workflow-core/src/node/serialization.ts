@@ -21,6 +21,17 @@ export type ApiNode = Schemas["Node"];
 export type ResolveFunctionInfo = (functionId: string) => FunctionInfo | undefined;
 
 /**
+ * A required wire field the workflow may not have yet: drafts save on purpose,
+ * and deserialize mirrors this with `??` fallbacks. serialize() emits such a
+ * field as absent (see the undefined-prune there); validate / check-schema /
+ * deploy are the strictness gates. This is the one deliberate spot where the
+ * api's "required" is relaxed — use it instead of `!` assertions.
+ */
+function draft<T>(value: T | undefined): T {
+  return value as T;
+}
+
+/**
  * Serialize a domain Node to the strict API format (Schemas["Node"]).
  * Strips hidden parameters (those whose activationRules are not met). The
  * `isToolInput` flag is threaded into activation evaluation so rules like
@@ -42,6 +53,12 @@ export function serialize(node: Node, isToolInput: boolean): ApiNode {
     if (def) {
       pruneArguments(result.arguments, def.parameters, isToolInput);
     }
+    // Required-but-unset draft arguments (see draft()) are emitted as absent,
+    // so the in-memory node matches its JSON form.
+    const args = result.arguments as Record<string, unknown>;
+    for (const key of Object.keys(args)) {
+      if (args[key] === undefined) delete args[key];
+    }
   }
 
   return result;
@@ -55,7 +72,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          pinReference: data.arguments.pinReference!,
+          pinReference: draft(data.arguments.pinReference),
           signalType: data.arguments.signalType,
           output: data.arguments.output,
           toolDescription: data.arguments.toolDescription,
@@ -67,7 +84,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          portReference: data.arguments.portReference!,
+          portReference: draft(data.arguments.portReference),
           ...(data.arguments.prompt !== undefined ? { prompt: data.arguments.prompt } : {}),
           output: data.arguments.output,
         },
@@ -78,7 +95,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          pinReference: data.arguments.pinReference!,
+          pinReference: draft(data.arguments.pinReference),
           signalType: data.arguments.signalType,
           value: data.arguments.value,
         },
@@ -89,7 +106,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          portReference: data.arguments.portReference!,
+          portReference: draft(data.arguments.portReference),
           value: data.arguments.value,
         },
       };
@@ -141,7 +158,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          pinReference: data.arguments.pinReference!,
+          pinReference: draft(data.arguments.pinReference),
           edge: data.arguments.edge,
         },
       };
@@ -151,7 +168,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          portReference: data.arguments.portReference!,
+          portReference: draft(data.arguments.portReference),
           output: data.arguments.output,
         },
       };
@@ -161,8 +178,8 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          variable: data.arguments.variable!,
-          threshold: data.arguments.threshold!,
+          variable: draft(data.arguments.variable),
+          threshold: draft(data.arguments.threshold),
           direction: data.arguments.direction,
           deadband: data.arguments.deadband,
           output: data.arguments.output,
@@ -174,7 +191,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          delayMs: data.arguments.delayMs!,
+          delayMs: draft(data.arguments.delayMs),
         },
       };
     case "Ticker":
@@ -183,7 +200,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          intervalValue: data.arguments.intervalValue!,
+          intervalValue: draft(data.arguments.intervalValue),
           intervalUnit: data.arguments.intervalUnit,
         },
       };
@@ -213,7 +230,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         position: position,
         arguments: {
           memoryReference: data.arguments.memoryReference,
-          topK: data.arguments.topK!,
+          topK: draft(data.arguments.topK),
           query: data.arguments.query,
           output: data.arguments.output,
           toolDescription: data.arguments.toolDescription,
@@ -268,7 +285,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         type: data.type,
         position: position,
         arguments: {
-          variable: data.arguments.variable!,
+          variable: draft(data.arguments.variable),
           value: data.arguments.value,
         },
       };
@@ -281,7 +298,8 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           channelReference: data.arguments.channelReference ?? "",
           dataType: data.arguments.dataType,
           value: data.arguments.value,
-          qos: Number(data.arguments.qos) as 0 | 1 | 2,
+          // Unset stays unset — Number(undefined) is NaN, which stringifies to null.
+          qos: draft(data.arguments.qos === undefined ? undefined : (Number(data.arguments.qos) as 0 | 1 | 2)),
           retain: data.arguments.retain,
         },
       };
