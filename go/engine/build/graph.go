@@ -65,6 +65,9 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "intervalValue"}
 			}
 			interval := mapping.TickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
+			if interval <= 0 {
+				return "", fmt.Errorf("node %s: intervalValue must be positive, got %d", nd.Id, *nd.Arguments.IntervalValue)
+			}
 			t := trigger.NewTicker(nd.Id, interval)
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t

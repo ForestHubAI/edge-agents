@@ -35,9 +35,16 @@ func (f *Function) Call(ctx context.Context, args map[string]expr.Value) (map[st
 		}
 	}
 
-	// Run the function scoped state machine until it returns to idle (must be acyclic).
+	// Run the function scoped state machine until it returns to idle (must be
+	// acyclic — a cycle here would otherwise hang this Call, and with it the
+	// state-runner, forever; the ctx check keeps such a loop cancellable).
 	state := f.InitialState
 	for state != StateIdle {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("function %s: %w", f.Info.Name, ctx.Err())
+		default:
+		}
 		node, ok := f.Actions[state]
 		if !ok {
 			return nil, fmt.Errorf("function %s: node %q not found", f.Info.Name, state)

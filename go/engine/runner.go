@@ -6,6 +6,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -61,6 +62,16 @@ func (r *Runner) Run(ctx context.Context) error {
 			continue // To top of loop with new state
 		}
 
+		// Between node executions, honor cancellation without blocking. The idle
+		// select above is unreachable while a chain of nodes is executing — and a
+		// graph cycle never idles at all — so this is the only shutdown point on
+		// the execution path.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// Execute the node for the current state.
 		node, ok := r.Nodes[state]
 		if !ok {
@@ -99,6 +110,13 @@ func (r *Runner) spawnTriggers(ctx context.Context, events chan<- Event) func() 
 			for {
 				ev, err := t.Wait(ctx)
 				if err != nil {
+					// Shutdown cancellation is routine. Anything else means this
+					// trigger is permanently dead while the workflow keeps running
+					// — the log line is the only trace it will ever leave.
+					if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+						logging.Logger.Error().Err(err).Str("trigger", t.ID()).
+							Msg("trigger stopped; it will emit no further events")
+					}
 					return
 				}
 				select {

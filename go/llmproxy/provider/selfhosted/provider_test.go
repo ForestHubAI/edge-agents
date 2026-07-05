@@ -484,6 +484,26 @@ func TestEmbed(t *testing.T) {
 		assert.Equal(t, "embed-model", receivedReq.Model)
 		assert.Equal(t, []string{"check payload"}, receivedReq.Input)
 	})
+
+	t.Run("out-of-range index from server errors instead of panicking", func(t *testing.T) {
+		srv := newEmbeddingTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(EmbeddingResponse{
+				Data:  []EmbeddingData{{Embedding: makeEmbedding(768), Index: 999}},
+				Model: "embed-model",
+				Usage: Usage{PromptTokens: 5, TotalTokens: 5},
+			})
+		})
+		defer srv.Close()
+		p := newTestEmbeddingProvider("embed-model", srv.URL, 768)
+
+		_, err := p.Embed(context.Background(), &llmproxy.EmbeddingRequest{
+			Model:  "embed-model",
+			Inputs: []string{"hello"},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "out-of-range index 999")
+	})
 }
 
 // --- EmbeddingDimension Tests ---

@@ -6,6 +6,7 @@ package trigger
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
@@ -26,6 +27,10 @@ func NewTicker(id string, interval time.Duration) *Ticker {
 }
 
 func (t *Ticker) Setup(_ context.Context) error {
+	// time.NewTicker panics on a non-positive interval; fail as an error instead.
+	if t.Interval <= 0 {
+		return fmt.Errorf("ticker %s: interval must be positive, got %s", t.ID(), t.Interval)
+	}
 	t.tk = time.NewTicker(t.Interval)
 	return nil
 }

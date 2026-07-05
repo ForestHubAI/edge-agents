@@ -61,4 +61,13 @@ func TestTicker_Lifecycle(t *testing.T) {
 		tk := NewTicker("tick", time.Second)
 		assert.NoError(t, tk.Close())
 	})
+
+	t.Run("Setup rejects a non-positive interval instead of panicking", func(t *testing.T) {
+		for _, interval := range []time.Duration{0, -time.Second} {
+			tk := NewTicker("tick", interval)
+			err := tk.Setup(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "must be positive")
+		}
+	})
 }
