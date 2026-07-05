@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 /**
  * This package drops the `DOM` lib (see tsconfig.json) to stay headless, so the
  * Web Crypto `crypto` global is untyped. It exists at runtime everywhere we run

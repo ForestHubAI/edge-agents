@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Output writer: turns the resolved spec into actual files on disk. This is the
 // "write" step. The generators produce strings; this puts them in the bundle.
 // The spec arrives already validated (buildDeploymentSpec threw on any gap).

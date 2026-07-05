@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Lockstep release for the published @foresthubai packages.
 // workflow-core, workflow-builder, and workflow-cli always ship one shared
 // version; the builder pins core to that exact version. workflow-cli needs no

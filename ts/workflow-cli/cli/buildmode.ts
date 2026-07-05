@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Which `open` strategy this build uses. The esbuild CLI bundle injects
 // __FH_BUILD_MODE__="static" via --define; under tsx (in-repo dev) the
 // identifier is never defined, so `typeof` reads "undefined" and we default to

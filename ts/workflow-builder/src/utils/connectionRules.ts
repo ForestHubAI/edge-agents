@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Editor connection rules — which ports may connect, which node types are
 // offered from a port, and whether a node can take another outgoing edge.
 //

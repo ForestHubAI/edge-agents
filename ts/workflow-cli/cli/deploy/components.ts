@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Reads and validates user-authored custom components. A component is a folder
 // holding a component.json (-> DeployComponent, merged verbatim into the spec
 // alongside the first-party engine/llama). Validation runs against the contract

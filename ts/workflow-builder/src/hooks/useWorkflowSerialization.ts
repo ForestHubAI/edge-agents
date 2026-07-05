@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { useCallback } from "react";
 import { serialize, deserialize, type ApiWorkflow, type Workflow, type Canvas } from "@foresthubai/workflow-core/workflow";
 import { migrate } from "@foresthubai/workflow-core/migration";

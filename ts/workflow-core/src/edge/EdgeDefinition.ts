@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import { Parameter } from "../parameter";
 import type { EdgeType } from "./EdgeType";
 

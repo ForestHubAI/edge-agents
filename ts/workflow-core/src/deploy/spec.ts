@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // The spec resolver: (workflow + bindings) -> DeploymentSpec. The shared
 // "packaging library" the migration doc calls for — component-set derivation
 // and device-grant resolution computed once here, frozen into the contract spec,

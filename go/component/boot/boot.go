@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package boot holds the cross-component boot-failure policy: how any ForestHub
 // component reports a fatal startup outcome to the orchestrator
 // through its process exit code. It composes the exit-code contract (component) with

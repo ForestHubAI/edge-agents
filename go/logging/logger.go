@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package logging configures a structured zerolog logger shared by any
 // component (engine, ranger, …). Configure wires the sinks declared by a
 // Config — stdout always, plus an opt-in rotating file and an opt-in HTTP

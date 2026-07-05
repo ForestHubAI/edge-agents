@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Bundles the fh-workflow CLI into a single self-contained Node ESM file so the
 // published package installs with zero runtime @foresthubai/* deps (no GitHub
 // Packages auth) and no tsx. The SPA is built separately by `vite build`.

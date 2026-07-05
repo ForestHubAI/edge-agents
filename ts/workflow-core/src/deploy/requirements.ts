@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { Workflow } from "../workflow";
 import { NodeRegistry, isNodeUsedAsTool } from "../node";
 import { isParameterActive } from "../parameter";

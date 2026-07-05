@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { Schemas } from "../api";
 import type { NodeData, Node } from "./Node";
 import type { Expression } from "../api";

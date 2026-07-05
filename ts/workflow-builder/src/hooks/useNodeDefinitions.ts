@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { useMemo, useCallback } from "react";
 import i18n from "../i18n";
 import { NodeCategory, NodeRegistry, NodeDefinition, NodeData } from "@foresthubai/workflow-core/node";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import jsep from "jsep";
 import type { DataType } from "../api";
 import { ResolvedExpr } from "./types";

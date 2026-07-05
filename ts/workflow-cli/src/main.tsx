@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 // Init the host's i18next instance before any component renders (so the toolbar

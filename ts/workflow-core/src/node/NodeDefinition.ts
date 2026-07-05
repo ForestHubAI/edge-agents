@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import { NodeType } from "./Node";
 import { NodeCategory, NodeTag } from "./constants";
 import { OutputParameter, Parameter } from "../parameter";

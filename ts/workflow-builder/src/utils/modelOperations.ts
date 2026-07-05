@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { ModelRegistry, type ModelType, type Model } from "@foresthubai/workflow-core/model";
 import { useEditorStore } from "../stores/editorStore";
 import { generateId } from "@foresthubai/workflow-core/id";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Domain Node — the base shape every node variant builds on. NodeBase is the
 // generic, untyped-parameters shape used wherever a node is handled generically
 // (e.g. React Flow nodes); NodeData is the discriminated union over the

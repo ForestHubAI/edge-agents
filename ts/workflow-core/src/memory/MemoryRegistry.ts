@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { MemoryType } from "./Memory";
 import type { MemoryDefinition } from "./MemoryDefinition";
 import { MemoryFileDefinition } from "./MemoryFileDefinition";

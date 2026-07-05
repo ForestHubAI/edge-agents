@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import type { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useCallback, useEffect, useRef, useState } from "react";

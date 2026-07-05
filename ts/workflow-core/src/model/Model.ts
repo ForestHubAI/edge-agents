@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Domain Model — covers two distinct things that share a picker:
 //   1. The STATIC catalog (ModelInfo[]): the set of models the llmproxy already
 //      supports. Supplied to the editor as data (props), not declared per-workflow.

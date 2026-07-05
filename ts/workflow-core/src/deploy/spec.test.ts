@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import { describe, it, expect } from "vitest";
 import { buildDeploymentSpec, assertDeployable, sidecarServiceName } from "./spec";
 import { deriveRequirements } from "./requirements";

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package memory manages the engine's local copy of an agent's declared
 // memory files. The device filesystem is the sole source of truth: the
 // manager owns a directory of <uid>.json records, reads them at boot, and

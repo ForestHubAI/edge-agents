@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
+// Enforces per-file SPDX license headers across the two license tiers.
+//
+//   node scripts/license-headers.mjs          check (exit 1 on violations; run by CI)
+//   node scripts/license-headers.mjs --fix    insert missing headers in place
+//
+// The tier map below is the single source of truth for which header a file
+// gets; header text lives in LICENSE_HEADER (AGPL) and LICENSE_HEADER_APACHE.
+// Generated files are skipped via their DO-NOT-EDIT banner, never listed here.
+
+import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Path prefixes released under Apache-2.0; everything else is AGPL-3.0-only.
+// Must match the tier table in README.md and .github/CONTRIBUTING.md.
+const APACHE_PREFIXES = ["contract/", "ts/workflow-core/"];
+
+// Hand-written source that must carry a header. Contract YAMLs are included:
+// they are the wire format third parties copy out of the repo.
+const CODE_EXTENSIONS = new Set([".go", ".ts", ".tsx", ".mjs"]);
+const isYamlContract = (f) => f.startsWith("contract/") && f.endsWith(".yaml");
+
+// Tooling/assistant config, not shipped source.
+const EXCLUDED_PREFIXES = [".claude/"];
+
+const GENERATED_BANNER = /(code generated|auto-generated|@generated|do not edit)/i;
+
+const templates = {
+  "AGPL-3.0-only": readTemplate("LICENSE_HEADER"),
+  "Apache-2.0": readTemplate("LICENSE_HEADER_APACHE"),
+};
+
+function readTemplate(name) {
+  // Templates are stored with `//` markers; strip to raw lines so the right
+  // comment style can be applied per file type.
+  return readFileSync(path.join(repoRoot, name), "utf8")
+    .split(/\r?\n/)
+    .filter((l) => l.trim() !== "")
+    .map((l) => l.replace(/^\/\/ ?/, ""));
+}
+
+function expectedLicense(file) {
+  return APACHE_PREFIXES.some((p) => file.startsWith(p)) ? "Apache-2.0" : "AGPL-3.0-only";
+}
+
+function headerLines(file) {
+  const marker = file.endsWith(".yaml") ? "#" : "//";
+  return templates[expectedLicense(file)].map((l) => `${marker} ${l}`);
+}
+
+const files = execSync("git ls-files", { cwd: repoRoot, encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean)
+  .filter((f) => CODE_EXTENSIONS.has(path.extname(f)) || isYamlContract(f))
+  .filter((f) => !EXCLUDED_PREFIXES.some((p) => f.startsWith(p)));
+
+const fix = process.argv.includes("--fix");
+const missing = [];
+const mismatched = [];
+let fixed = 0;
+
+for (const file of files) {
+  const abs = path.join(repoRoot, file);
+  const content = readFileSync(abs, "utf8");
+  const head = content.split(/\r?\n/, 6);
+
+  if (head.some((l) => GENERATED_BANNER.test(l))) continue;
+
+  const spdxLine = head.find((l) => l.includes("SPDX-License-Identifier:"));
+  const expected = expectedLicense(file);
+  if (spdxLine) {
+    if (!spdxLine.includes(expected)) mismatched.push({ file, spdxLine: spdxLine.trim(), expected });
+    continue;
+  }
+
+  if (!fix) {
+    missing.push(file);
+    continue;
+  }
+
+  const eol = content.includes("\r\n") ? "\r\n" : "\n";
+  const header = headerLines(file).join(eol) + eol + eol;
+  let updated;
+  if (content.startsWith("#!")) {
+    const nl = content.indexOf("\n") + 1;
+    updated = content.slice(0, nl) + header + content.slice(nl);
+  } else {
+    updated = header + content;
+  }
+  writeFileSync(abs, updated);
+  fixed++;
+}
+
+for (const { file, spdxLine, expected } of mismatched) {
+  console.error(`MISMATCH ${file}: has "${spdxLine}", expected ${expected}`);
+}
+if (fix) {
+  console.log(`license-headers: ${fixed} header(s) added, ${files.length} file(s) scanned.`);
+} else {
+  for (const file of missing) console.error(`MISSING  ${file}`);
+  if (missing.length === 0 && mismatched.length === 0) {
+    console.log(`license-headers: OK (${files.length} file(s) scanned).`);
+  } else {
+    console.error(
+      `license-headers: ${missing.length} missing, ${mismatched.length} mismatched. Run: node scripts/license-headers.mjs --fix`,
+    );
+  }
+}
+if (mismatched.length > 0 || (!fix && missing.length > 0)) process.exit(1);

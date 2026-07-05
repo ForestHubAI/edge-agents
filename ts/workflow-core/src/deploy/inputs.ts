@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Operator-supplied bindings: the per-deploy values that bind a workflow's
 // logical resource ids to a concrete environment. Shared by every spec
 // producer (the CLI prompts/--values, the FE deploy forms) — how the values are

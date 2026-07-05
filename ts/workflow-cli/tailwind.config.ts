@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import type { Config } from "tailwindcss";
 // Import via the PACKAGE path (not a relative one) so this models exactly how an
 // external host consumes the builder. In-repo it resolves through the

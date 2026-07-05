@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { Expression } from "../api";
 import type { FunctionDeclaration, FunctionInfo } from "./FunctionDeclaration";
 import { toFunctionInfo } from "./FunctionDeclaration";

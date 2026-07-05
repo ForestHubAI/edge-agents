@@ -33,8 +33,11 @@ security-relevant:
 - **Untrusted workflow config** — a deployed workflow graph or expression that escapes its
   intended sandbox (file, network, or host access beyond a node's contract).
 - **Request forgery (SSRF)** — e.g. via the web-fetch or other HTTP-calling nodes.
-- **Control-plane auth bypass** — unauthorized deploy / boot / heartbeat / debug access on
-  the engine's HTTP API.
+- **Local builder server** — the HTTP server `fh-workflow open` runs on localhost: file
+  access beyond the served workflow's directory, or reads/writes triggered by another
+  origin (CSRF, DNS rebinding). The engine itself serves no inbound HTTP; its only
+  control-plane surface is outbound (`FH_BACKEND_URL` / `ENGINE_SECRET`), covered by
+  the credential-leakage item above.
 - **Injection** — in config parsing, expression evaluation, or request construction.
 - **Denial of service** — unbounded resource consumption in the runner.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import { deserialize } from "./workflow/serialization";
 import { validateWorkflowState, type ValidationResult } from "./diagnostics/diagnostics";
 import type { ApiWorkflow } from "./workflow/Workflow";

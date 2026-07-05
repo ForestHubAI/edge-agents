@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package registry wires concrete LLM providers into an llmproxy.Client.
 // This package is the only place that imports both llmproxy and provider/*;
 // llmproxy itself has no knowledge of concrete provider implementations.

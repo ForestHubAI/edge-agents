@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package backend is the engine-side HTTP client for everything the engine
 // needs from fh-backend: LLM chat and RAG queries. All requests authenticate
 // with the engine's device secret via the Device-Key header (validated by the

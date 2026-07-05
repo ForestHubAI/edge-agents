@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Shared vocabulary for the `deploy` command. The resolution logic — requirement
 // derivation, the binding shapes, the spec resolver and its validators — lives in
 // @foresthubai/workflow-core/deploy (shared with the FE). This module re-exports

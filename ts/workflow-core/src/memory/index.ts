@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 export type { MemoryType, Memory, MemoryRef } from "./Memory";
 export { ALL_MEMORY_TYPES } from "./Memory";
 export type { MemoryDefinition } from "./MemoryDefinition";

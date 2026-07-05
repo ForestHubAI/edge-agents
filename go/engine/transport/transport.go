@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package transport is the protocol-level abstraction for network resources
 // the engine talks to. Mirrors driver/, but
 // at a different lifecycle scope: drivers come from the device manifest at

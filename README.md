@@ -8,7 +8,7 @@
 
 ![Edge Agents demo](docs/assets/hero.gif)
 
-> *Build an edge agent visually, deploy it to a Raspberry Pi, and let it talk to GPIO, MQTT and local SLMs — no cloud required.*
+> _Build an edge agent visually, deploy it to a Raspberry Pi, and let it talk to GPIO, MQTT and local SLMs — no cloud required._
 
 Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside cloud LLMs in the same workflow. Industrial protocols (OPC-UA, Modbus) are on the roadmap.
 
@@ -22,7 +22,7 @@ Offline by default. GPIO, UART, MQTT as first-class nodes. Local SLMs alongside 
 
 - **Voice assistant on a Pi with a local SLM** — wake-word → STT → agent → TTS, no internet required
 - **Predictive maintenance on industrial gear** — live vibration stream over MQTT → LLM decides → MQTT alert
-- **Local RAG on a Jetson** *(on the roadmap)* — answers grounded in live sensor and machine state instead of the public web (today the retriever runs against an external backend; a fully on-device RAG path is in progress)
+- **Local RAG on a Jetson** _(on the roadmap)_ — answers grounded in live sensor and machine state instead of the public web (today the retriever runs against an external backend; a fully on-device RAG path is in progress)
 
 ## Edge Agents vs other agent frameworks
 
@@ -167,7 +167,7 @@ npx skills add ForestHubAI/edge-agents --skill workflow-deploy
 A workflow is **binding-free**: it declares _what_ it needs — channels (GPIO, MQTT, …)
 and custom models — but not _where_ those live on a given device. You supply the _where_
 through a few small config files mounted into the engine container alongside the
-workflow. See [`go/docs/deployment-layers.md`](go/docs/deployment-layers.md) for the file
+workflow. See [`go/docs/workflow-deployment-layers.md`](go/docs/workflow-deployment-layers.md) for the file
 schemas and deploy-time validation rules.
 
 What the engine reads, and when each file is needed:
@@ -365,7 +365,7 @@ help getting an agent onto your hardware? Talk to the people who build it at
 [ForestHub](https://foresthub.ai):
 
 - 📅 **Book a 30-min call** → https://calendar.app.google/FZ93vzS5zMBc4Kjs7
-- ✉️  **Email** → root@foresthub.ai
+- ✉️ **Email** → root@foresthub.ai
 
 ---
 
@@ -373,13 +373,13 @@ help getting an agent onto your hardware? Talk to the people who build it at
 
 Edge Agents uses a **two-tier license model** designed to make the wire format and the headless workflow model maximally reusable while keeping the engine and the visual builder protected under copyleft.
 
-| Component                                                                          | License                             | Why                                                                                                                                       |
-| ---------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [`contract/`](contract) (OpenAPI schemas)                                          | **Apache-2.0**                      | Wire format. Third-party Python, Rust, or Java clients should be free to implement against it.                                            |
-| [`ts/workflow-core`](ts/workflow-core) (headless model)                            | **Apache-2.0**                      | Workflow model and validation. Same reasoning — should be embeddable into any TypeScript/JavaScript project without copyleft friction.    |
+| Component                                                                          | License                             | Why                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`contract/`](contract) (OpenAPI schemas)                                          | **Apache-2.0**                      | Wire format. Third-party Python, Rust, or Java clients should be free to implement against it.                                                                                                            |
+| [`ts/workflow-core`](ts/workflow-core) (headless model)                            | **Apache-2.0**                      | Workflow model and validation. Same reasoning — should be embeddable into any TypeScript/JavaScript project without copyleft friction.                                                                    |
 | [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "Edge Agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
-| [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                    |
-| [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                        |
+| [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                                                                                    |
+| [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                                                                                        |
 
 For the AGPL components, the AGPL network clause applies — providing a modified version over a network requires making the corresponding source available to users of that service.
 
