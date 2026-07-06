@@ -1,6 +1,8 @@
 # Image for the fh-camera capture sidecar. Capture shells out to gst-launch-1.0,
-# so the runtime needs the GStreamer userspace — hence a debian-slim base with
-# apt to install it.
+# so the runtime needs the GStreamer userspace. libcamera is built from a pinned
+# upstream release instead of apt: CSI camera support lands in libcamera release
+# by release, and the distro-packaged version is too old for the platforms we
+# target.
 #
 # Build context must be the go/ directory (where go.mod lives):
 #   docker build -f Dockerfile.camera -t fh-camera:dev .
@@ -14,15 +16,59 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /fh-camera ./cmd/camera
 
-FROM debian:bookworm-slim
-# gst-launch-1.0 and the capture-pipeline plugins: v4l2src/videoconvert/jpegenc
-# for USB/UVC cameras (plugins-base/good) and libcamerasrc for CSI/ISP cameras.
+# libcamera + its libcamerasrc GStreamer plugin from one source build, so the
+# two can never drift apart. cam is kept as an on-device diagnosis tool.
+FROM debian:trixie-slim AS libcamera
+ARG LIBCAMERA_VERSION=0.7.1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential meson ninja-build pkg-config openssl \
+    python3 python3-yaml python3-ply python3-jinja2 \
+    libyaml-dev libudev-dev libssl-dev libevent-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    && rm -rf /var/lib/apt/lists/*
+ADD https://github.com/libcamera-org/libcamera/archive/refs/tags/v${LIBCAMERA_VERSION}.tar.gz /tmp/libcamera.tar.gz
+RUN tar -xzf /tmp/libcamera.tar.gz -C /opt \
+    && cd /opt/libcamera-${LIBCAMERA_VERSION} \
+    && meson setup build --prefix /usr/local --libdir lib --sysconfdir /etc --buildtype release \
+        -Dpipelines=simple,uvcvideo -Dipas=simple \
+        -Dgstreamer=enabled -Dcam=enabled -Dsoftisp-gpu=disabled \
+        -Ddocumentation=disabled -Dqcam=disabled -Dlc-compliance=disabled -Dtest=false \
+    && ninja -C build install
+
+FROM debian:trixie-slim
+# gst-launch-1.0 + the capture-pipeline plugins; the lib* packages are the
+# runtime dependencies of the source-built libcamera above. The software ISP
+# runs CPU-only (softisp-gpu disabled) to keep Mesa/LLVM out of the image.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
-    gstreamer1.0-libcamera \
+    libyaml-0-2 \
+    libudev1 \
+    libevent-2.1-7t64 \
+    libevent-pthreads-2.1-7t64 \
+    libssl3t64 \
+    libdw1t64 \
+    libunwind8 \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=libcamera /usr/local /usr/local
+RUN ldconfig
+# The distro GStreamer does not scan /usr/local for plugins by default.
+ENV GST_PLUGIN_PATH=/usr/local/lib/gstreamer-1.0
+
+# Per-driver software-ISP opt-in: platforms whose hardware ISP has no upstream
+# pipeline handler yet still get processed frames (CPU debayer + AE/AWB).
+# Extend as more platforms are validated; operators can bind-mount their own.
+COPY <<EOF /etc/libcamera/configuration.yaml
+version: 1
+configuration:
+  pipelines:
+    simple:
+      supported_devices:
+        - driver: dcmipp
+          software_isp: true
+EOF
 
 COPY --from=builder /fh-camera /bin/fh-camera
 
