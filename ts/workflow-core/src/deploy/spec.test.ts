@@ -394,6 +394,8 @@ describe("buildDeploymentSpec capture sidecar", () => {
     const { spec } = buildDeploymentSpec(cameraWorkflow(["a", "b", "csi"]), inputs, meta);
     const sidecar = spec.components.find((c) => c.name === cameraSidecarServiceName())!;
     expect(sidecar.devices).toEqual(["/dev/video0"]);
+    // A gstreamer camera means libcamera, which needs the host's udev database.
+    expect(sidecar.volumes).toContain("/run/udev:/run/udev:ro");
   });
 
   it("rejects an unbound camera", () => {

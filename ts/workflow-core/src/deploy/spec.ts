@@ -444,6 +444,7 @@ export function buildDeploymentSpec(
   // capture endpoint. Credential-free — a trusted in-deployment endpoint.
   const cameraComponents: DeployComponent[] = [];
   let cameraDeviceCount = 0;
+  let hasGstreamerCamera = false;
   const videoDevices = new Set<string>();
   for (const ch of req.cameraChannels) {
     const b = inputs.cameras[ch.id];
@@ -458,6 +459,7 @@ export function buildDeploymentSpec(
       // gstreamer source (e.g. libcamerasrc) drives the full media graph, which
       // has no single node to grant here — the operator wires those devices in.
       if (b.source === "v4l2") videoDevices.add(b.device);
+      else hasGstreamerCamera = true;
     } else {
       externalResources[ref] = { type: "camera", url: b.url };
     }
@@ -467,11 +469,15 @@ export function buildDeploymentSpec(
   // read-only at the sidecar's default config path, so no env var is wired.
   if (cameraDeviceCount > 0) {
     const service = cameraSidecarServiceName();
+    const volumes = [`${workspaceDir(service)}/cameras.json:${CAMERAS_CONFIG_PATH}:ro`];
+    // libcamera (gstreamer sources) discovers cameras through the host's udev
+    // device database; without this mount the sidecar sees no camera at all.
+    if (hasGstreamerCamera) volumes.push("/run/udev:/run/udev:ro");
     const camera: DeployComponent = {
       name: service,
       image: meta.cameraSidecarImage,
       pull: "never", // built locally before deploy, in no registry
-      volumes: [`${workspaceDir(service)}/cameras.json:${CAMERAS_CONFIG_PATH}:ro`],
+      volumes,
     };
     if (videoDevices.size > 0) camera.devices = [...videoDevices];
     cameraComponents.push(camera);

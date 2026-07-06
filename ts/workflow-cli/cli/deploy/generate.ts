@@ -277,13 +277,21 @@ cameras; the engine reaches it over the compose network by service name. The nam
 mapping is in \`${cameraDir}/cameras.json\` (already generated, shipped with the workspaces tree).`,
     ];
     if (hasV4l2Camera) {
-      parts.push("USB/UVC (v4l2) cameras are passed into the sidecar via `devices:` in the compose file.");
+      parts.push(`USB/UVC (v4l2) cameras are passed into the sidecar via \`devices:\` in the compose file.
+A v4l2 device can also be a statically configured capture node of a CSI/ISP media graph
+(set up host-side with \`media-ctl\`, e.g. when the board kernel cannot run libcamera's
+software ISP). Configure the graph before \`compose up\` — it resets on reboot, so a boot
+script is typical — and set the CAMERA channel's width/height to exactly the pinned format.`);
     }
     if (hasGstreamerCamera) {
-      parts.push(`GStreamer/CSI cameras (e.g. \`libcamerasrc\`) drive the full media graph, which has no single
-device node to pass through. Grant the sidecar the whole graph yourself by adding the relevant
-nodes to its \`devices:\` — typically \`/dev/media*\`, \`/dev/v4l-subdev*\`, and on some boards
-\`/dev/dma_heap\` (on an STM32MP2 + IMX sensor these are the ISP/CSI nodes).`);
+      parts.push(`GStreamer/CSI cameras (e.g. \`libcamerasrc\`) discover devices through the host's udev
+database — the compose file already mounts \`/run/udev\` read-only for that. They drive the
+full media graph, which has no single device node to pass through: grant the sidecar the
+relevant nodes yourself via \`devices:\` — typically \`/dev/media*\`, \`/dev/video*\` and
+\`/dev/v4l-subdev*\`. Raw-Bayer-only sensors are debayered by libcamera's software ISP,
+which needs dma-buf support in the host kernel (\`CONFIG_DMABUF_HEAPS\` → \`/dev/dma_heap/*\`,
+or \`CONFIG_UDMABUF\`); on vendor kernels lacking both, use a host-side configured v4l2
+node instead (see above).`);
     }
     notes.push(parts.join("\n\n"));
   }
