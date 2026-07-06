@@ -256,7 +256,22 @@ async function promptCameras(
                 validate: (v) => v.trim().length > 0 || "source element is required",
               })
             ).trim();
-      result[ch.id] = { location: "device", source, device };
+      const warmup = Number(
+        (
+          await input({
+            message: `${ch.label}: warmup frames to discard so auto-exposure settles (0 to disable, ~5-8 for CSI cameras)`,
+            default: "0",
+            validate: (v) => {
+              const n = Number(v.trim());
+              return (Number.isInteger(n) && n >= 0) || "enter a whole number >= 0";
+            },
+          })
+        ).trim(),
+      );
+      result[ch.id] =
+        warmup > 0
+          ? { location: "device", source, device, warmupFrames: warmup }
+          : { location: "device", source, device };
       continue;
     }
 

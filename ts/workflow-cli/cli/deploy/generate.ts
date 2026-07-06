@@ -160,9 +160,13 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 // keyed by the channel id the engine requests it by. Null when no camera is
 // on-device (a network camera needs no local config) — then no file is written.
 export function camerasJson(cfg: DeployConfig): string | null {
-  const cameras: Record<string, { source: "v4l2" | "gstreamer"; device: string }> = {};
+  const cameras: Record<string, { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number }> = {};
   for (const [id, b] of Object.entries(cfg.cameras)) {
-    if (b.location === "device") cameras[id] = { source: b.source, device: b.device };
+    if (b.location === "device") {
+      const entry: { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number } = { source: b.source, device: b.device };
+      if (b.warmupFrames && b.warmupFrames > 0) entry.warmupFrames = b.warmupFrames;
+      cameras[id] = entry;
+    }
   }
   if (Object.keys(cameras).length === 0) return null;
   return JSON.stringify({ cameras }, null, 2) + "\n";

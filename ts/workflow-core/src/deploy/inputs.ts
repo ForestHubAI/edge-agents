@@ -42,9 +42,10 @@ export type MLModelBinding = { location: "device" } | { location: "network"; url
 // sidecar on this controller from a local capture source (`v4l2` wraps a
 // /dev/video* path; `gstreamer` takes a source element verbatim, e.g.
 // libcamerasrc); `network` = a capture endpoint the operator runs elsewhere.
-// Credential-free — a trusted endpoint.
+// Credential-free — a trusted endpoint. `warmupFrames` discards that many leading
+// frames so a sensor's auto-exposure can settle before the returned one.
 export type CameraBinding =
-  | { location: "device"; source: "v4l2" | "gstreamer"; device: string }
+  | { location: "device"; source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number }
   | { location: "network"; url: string };
 
 // The complete set of bindings a deploy supplies, keyed by workflow logical id

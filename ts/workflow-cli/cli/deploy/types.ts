@@ -72,7 +72,12 @@ const mlModelBindingSchema = z.discriminatedUnion("location", [
 ]);
 
 const cameraBindingSchema = z.discriminatedUnion("location", [
-  z.strictObject({ location: z.literal("device"), source: z.enum(["v4l2", "gstreamer"]), device: z.string() }),
+  z.strictObject({
+    location: z.literal("device"),
+    source: z.enum(["v4l2", "gstreamer"]),
+    device: z.string(),
+    warmupFrames: z.number().int().min(0).optional(),
+  }),
   z.strictObject({ location: z.literal("network"), url: z.string() }),
 ]);
 

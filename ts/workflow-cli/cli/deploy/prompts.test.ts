@@ -203,6 +203,7 @@ describe("promptMissing", () => {
       ],
       input: [
         [/device path/, "/dev/video2"],
+        [/warmup frames/, "0"],
         [/Output directory/, "b"],
       ],
     });
@@ -218,11 +219,28 @@ describe("promptMissing", () => {
       ],
       input: [
         [/gstreamer source element/, "libcamerasrc"],
+        [/warmup frames/, "0"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
     expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc" });
+  });
+
+  it("device camera: keeps warmupFrames when set above zero", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "gstreamer"],
+      ],
+      input: [
+        [/gstreamer source element/, "libcamerasrc"],
+        [/warmup frames/, "8"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
+    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 });
   });
 
   it("network camera: asks where it runs, then url", async () => {

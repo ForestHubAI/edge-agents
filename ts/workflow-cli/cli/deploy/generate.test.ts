@@ -366,4 +366,21 @@ describe("camerasJson", () => {
     expect(camerasJson(cfgOf({ cameras: { cam: { location: "network", url: "http://cam.remote:8100" } } }))).toBeNull();
     expect(camerasJson(cfgOf())).toBeNull();
   });
+
+  it("includes warmupFrames only when set above zero", () => {
+    const out = camerasJson(
+      cfgOf({
+        cameras: {
+          warm: { location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
+          none: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 0 },
+        },
+      }),
+    );
+    expect(out && JSON.parse(out)).toEqual({
+      cameras: {
+        warm: { source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
+        none: { source: "v4l2", device: "/dev/video0" },
+      },
+    });
+  });
 });

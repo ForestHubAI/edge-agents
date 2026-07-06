@@ -176,6 +176,10 @@ describe("valuesFileSchema", () => {
     // device without a source, and an unknown source, are rejected.
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", device: "/dev/video0" } } }).success).toBe(false);
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "csi", device: "/dev/video0" } } }).success).toBe(false);
+    // optional warmupFrames is accepted; a negative or fractional count is rejected.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 8 } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: -1 } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 1.5 } } }).success).toBe(false);
   });
 
   it("validates the ml model binding: device is bare, network needs a url", () => {
