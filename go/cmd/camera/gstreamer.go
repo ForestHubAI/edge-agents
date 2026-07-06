@@ -24,6 +24,7 @@ type gstreamerSource struct {
 	mu         sync.Mutex
 	sourceArgs []string
 	frames     int
+	v4l2       bool
 }
 
 // newGStreamerSource builds the pipeline source tokens: v4l2 wraps the /dev path
@@ -39,7 +40,7 @@ func newGStreamerSource(cc cameraConfig) *gstreamerSource {
 	} else {
 		args = strings.Fields(cc.Device)
 	}
-	return &gstreamerSource{sourceArgs: args, frames: cc.WarmupFrames + 1}
+	return &gstreamerSource{sourceArgs: args, frames: cc.WarmupFrames + 1, v4l2: cc.Source == sourceV4L2}
 }
 
 func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byte, error) {
@@ -89,8 +90,15 @@ func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byt
 // with identity eos-after.
 func (s *gstreamerSource) pipeline(dir string, width, height int) []string {
 	args := append([]string{}, s.sourceArgs...)
-	args = append(args, "!", "identity", fmt.Sprintf("eos-after=%d", s.frames), "!", "videoconvert")
-	if width > 0 && height > 0 {
+	if s.v4l2 && width > 0 && height > 0 {
+		// Pin the size directly at the source: a statically configured capture
+		// node (CSI/ISP media graph, frame grabber) streams only in its pinned
+		// format, and left to itself v4l2src fixates on something else.
+		args = append(args, "!", fmt.Sprintf("video/x-raw,width=%d,height=%d", width, height))
+	}
+	// identity drops the buffer that triggers the EOS, so N frames need eos-after=N+1.
+	args = append(args, "!", "identity", fmt.Sprintf("eos-after=%d", s.frames+1), "!", "videoconvert")
+	if !s.v4l2 && width > 0 && height > 0 {
 		// videoscale so the request is honored regardless of the camera's
 		// native resolution, rather than failing caps negotiation.
 		args = append(args, "!", "videoscale", "!", fmt.Sprintf("video/x-raw,width=%d,height=%d", width, height))
