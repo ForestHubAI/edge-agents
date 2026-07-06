@@ -19,10 +19,12 @@ const (
 )
 
 // cameraConfig is one entry in cameras.json. device is a /dev path for v4l2 or a
-// GStreamer source fragment for gstreamer; it is unused for debug.
+// GStreamer source fragment for gstreamer; it is unused for debug. warmupFrames
+// discards that many leading frames so auto-exposure can settle (default 0).
 type cameraConfig struct {
-	Source string `json:"source"`
-	Device string `json:"device"`
+	Source       string `json:"source"`
+	Device       string `json:"device"`
+	WarmupFrames int    `json:"warmupFrames,omitempty"`
 }
 
 // camerasFile is the on-disk cameras.json shape: named devices keyed by name.
@@ -69,6 +71,9 @@ func newSource(cc cameraConfig) (source, error) {
 	case sourceV4L2, sourceGStreamer:
 		if strings.TrimSpace(cc.Device) == "" {
 			return nil, fmt.Errorf("device is required for source %q", cc.Source)
+		}
+		if cc.WarmupFrames < 0 {
+			return nil, fmt.Errorf("warmupFrames must not be negative")
 		}
 		return newGStreamerSource(cc), nil
 	case sourceDebug:

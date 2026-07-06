@@ -38,8 +38,20 @@ func TestLoadCameras_RejectsUnknownField(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoadCameras_WarmupFrames(t *testing.T) {
+	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","device":"/dev/video0","warmupFrames":8}}}`)
+	sources, err := loadCameras(path)
+	require.NoError(t, err)
+	assert.Contains(t, sources, "front")
+}
+
 func TestNewSource_UnknownSource(t *testing.T) {
 	_, err := newSource(cameraConfig{Source: "bogus", Device: "/dev/video0"})
+	assert.Error(t, err)
+}
+
+func TestNewSource_NegativeWarmupFrames(t *testing.T) {
+	_, err := newSource(cameraConfig{Source: sourceV4L2, Device: "/dev/video0", WarmupFrames: -1})
 	assert.Error(t, err)
 }
 
