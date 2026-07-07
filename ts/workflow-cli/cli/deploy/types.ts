@@ -77,6 +77,8 @@ const cameraBindingSchema = z.discriminatedUnion("location", [
     source: z.enum(["v4l2", "gstreamer"]),
     device: z.string(),
     warmupFrames: z.number().int().min(0).optional(),
+    setup: z.array(z.string()).optional(),
+    devices: z.array(z.string()).optional(),
   }),
   z.strictObject({ location: z.literal("network"), url: z.string() }),
 ]);

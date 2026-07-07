@@ -34,11 +34,21 @@ const hwSerial = (id: string) => ({ id, label: id, family: "serial" as const, ad
 
 // Answer a prompt by matching its message against [regex, value] pairs; an
 // unmatched prompt throws, so a test never silently drives the wrong path.
+// queue() answers a repeated prompt (an input loop) with one value per round.
+const queue = (vals: unknown[]) => ({ __queue: vals });
 type Responder = (o: { message: string }) => Promise<unknown>;
 const respond =
   (map: [RegExp, unknown][]): Responder =>
   async (o) => {
-    for (const [re, val] of map) if (re.test(o.message)) return val;
+    for (const [re, val] of map)
+      if (re.test(o.message)) {
+        if (val !== null && typeof val === "object" && "__queue" in val) {
+          const q = (val as { __queue: unknown[] }).__queue;
+          if (q.length === 0) throw new Error(`queue exhausted for prompt: ${o.message}`);
+          return q.shift();
+        }
+        return val;
+      }
     throw new Error(`unexpected prompt: ${o.message}`);
   };
 const setMock = (fn: unknown, r: Responder) => (fn as { mockImplementation: (f: Responder) => void }).mockImplementation(r);
@@ -204,6 +214,7 @@ describe("promptMissing", () => {
       input: [
         [/device path/, "/dev/video2"],
         [/warmup frames/, "0"],
+        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
@@ -220,6 +231,7 @@ describe("promptMissing", () => {
       input: [
         [/gstreamer source element/, "libcamerasrc"],
         [/warmup frames/, "0"],
+        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
@@ -236,11 +248,36 @@ describe("promptMissing", () => {
       input: [
         [/gstreamer source element/, "libcamerasrc"],
         [/warmup frames/, "8"],
+        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
     expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 });
+  });
+
+  it("device camera: collects setup commands and their device nodes", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      input: [
+        [/device path/, "/dev/video1"],
+        [/warmup frames/, "0"],
+        [/setup command/, queue(["media-ctl -d /dev/media2 -r", "v4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800", ""])],
+        [/device node/, queue(["/dev/media2", "/dev/v4l-subdev7", ""])],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    expect(cfg.cameras.cam).toEqual({
+      location: "device",
+      source: "v4l2",
+      device: "/dev/video1",
+      setup: ["media-ctl -d /dev/media2 -r", "v4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800"],
+      devices: ["/dev/media2", "/dev/v4l-subdev7"],
+    });
   });
 
   it("network camera: asks where it runs, then url", async () => {

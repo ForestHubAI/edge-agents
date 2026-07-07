@@ -44,8 +44,18 @@ export type MLModelBinding = { location: "device" } | { location: "network"; url
 // libcamerasrc); `network` = a capture endpoint the operator runs elsewhere.
 // Credential-free — a trusted endpoint. `warmupFrames` discards that many leading
 // frames so a sensor's auto-exposure can settle before the returned one.
+// `setup` = shell commands (media-ctl/v4l2-ctl) the sidecar replays on every
+// container start, for statically configured CSI/ISP pipelines; `devices` = the
+// extra device nodes those commands touch, passed through to the container.
 export type CameraBinding =
-  | { location: "device"; source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number }
+  | {
+      location: "device";
+      source: "v4l2" | "gstreamer";
+      device: string;
+      warmupFrames?: number;
+      setup?: string[];
+      devices?: string[];
+    }
   | { location: "network"; url: string };
 
 // The complete set of bindings a deploy supplies, keyed by workflow logical id

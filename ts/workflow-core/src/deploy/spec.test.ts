@@ -398,6 +398,27 @@ describe("buildDeploymentSpec capture sidecar", () => {
     expect(sidecar.volumes).toContain("/run/udev:/run/udev:ro");
   });
 
+  it("passes through the extra device nodes a binding's setup commands touch", () => {
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: {},
+      cameras: {
+        cam: {
+          location: "device",
+          source: "v4l2",
+          device: "/dev/video1",
+          setup: ["media-ctl -d /dev/media2 -r"],
+          devices: ["/dev/media2", "/dev/v4l-subdev7"],
+        },
+      },
+    };
+    const { spec } = buildDeploymentSpec(cameraWorkflow(["cam"]), inputs, meta);
+    const sidecar = spec.components.find((c) => c.name === cameraSidecarServiceName())!;
+    expect(sidecar.devices).toEqual(["/dev/video1", "/dev/media2", "/dev/v4l-subdev7"]);
+  });
+
   it("rejects an unbound camera", () => {
     const req = deriveRequirements(cameraWorkflow(["front"]));
     expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} })).toThrow(/camera "front"/);

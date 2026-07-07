@@ -367,6 +367,27 @@ describe("camerasJson", () => {
     expect(camerasJson(cfgOf())).toBeNull();
   });
 
+  it("includes setup commands; binding devices stay out (compose-only)", () => {
+    const out = camerasJson(
+      cfgOf({
+        cameras: {
+          cam: {
+            location: "device",
+            source: "v4l2",
+            device: "/dev/video1",
+            setup: ["media-ctl -d /dev/media2 -r"],
+            devices: ["/dev/media2"],
+          },
+        },
+      }),
+    );
+    expect(out && JSON.parse(out)).toEqual({
+      cameras: {
+        cam: { source: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] },
+      },
+    });
+  });
+
   it("includes warmupFrames only when set above zero", () => {
     const out = camerasJson(
       cfgOf({

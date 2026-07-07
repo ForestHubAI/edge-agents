@@ -160,11 +160,13 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 // keyed by the channel id the engine requests it by. Null when no camera is
 // on-device (a network camera needs no local config) — then no file is written.
 export function camerasJson(cfg: DeployConfig): string | null {
-  const cameras: Record<string, { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number }> = {};
+  type Entry = { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number; setup?: string[] };
+  const cameras: Record<string, Entry> = {};
   for (const [id, b] of Object.entries(cfg.cameras)) {
     if (b.location === "device") {
-      const entry: { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number } = { source: b.source, device: b.device };
+      const entry: Entry = { source: b.source, device: b.device };
       if (b.warmupFrames && b.warmupFrames > 0) entry.warmupFrames = b.warmupFrames;
+      if (b.setup && b.setup.length > 0) entry.setup = b.setup;
       cameras[id] = entry;
     }
   }
@@ -279,9 +281,13 @@ mapping is in \`${cameraDir}/cameras.json\` (already generated, shipped with the
     if (hasV4l2Camera) {
       parts.push(`USB/UVC (v4l2) cameras are passed into the sidecar via \`devices:\` in the compose file.
 A v4l2 device can also be a statically configured capture node of a CSI/ISP media graph
-(set up host-side with \`media-ctl\`, e.g. when the board kernel cannot run libcamera's
-software ISP). Configure the graph before \`compose up\` — it resets on reboot, so a boot
-script is typical — and set the CAMERA channel's width/height to exactly the pinned format.`);
+(e.g. when the board kernel cannot run libcamera's software ISP). For those, put the
+board's \`media-ctl\`/\`v4l2-ctl\` sequence (from the board vendor's docs) into the camera's
+\`setup\` list in \`cameras.json\` — the sidecar replays it on every container start, so a
+host reboot needs no board-side boot script. The device nodes those commands touch
+(\`/dev/media*\`, \`/dev/v4l-subdev*\`) must be listed in the compose \`devices:\` — the
+camera binding's \`devices\` list does that for you. Set the CAMERA channel's width/height
+to exactly the pinned format.`);
     }
     if (hasGstreamerCamera) {
       parts.push(`GStreamer/CSI cameras (e.g. \`libcamerasrc\`) discover devices through the host's udev

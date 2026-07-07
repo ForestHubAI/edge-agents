@@ -268,10 +268,36 @@ async function promptCameras(
           })
         ).trim(),
       );
-      result[ch.id] =
-        warmup > 0
-          ? { location: "device", source, device, warmupFrames: warmup }
-          : { location: "device", source, device };
+      // Statically configured CSI/ISP pipelines need their media-ctl/v4l2-ctl
+      // sequence (from the board docs) replayed on every container start. Pasting
+      // a whole block works: each line answers one prompt round.
+      const setup: string[] = [];
+      for (;;) {
+        const line = (
+          await input({
+            message: `${ch.label}: setup command (only for statically configured pipelines, see README; Enter = ${setup.length > 0 ? "done" : "none"})`,
+          })
+        ).trim();
+        if (!line) break;
+        setup.push(line);
+      }
+      const devices: string[] = [];
+      if (setup.length > 0) {
+        for (;;) {
+          const line = (
+            await input({
+              message: `${ch.label}: device node those commands touch (e.g. /dev/media0, /dev/v4l-subdev0; Enter = done)`,
+            })
+          ).trim();
+          if (!line) break;
+          devices.push(line);
+        }
+      }
+      const binding: Extract<CameraBinding, { location: "device" }> = { location: "device", source, device };
+      if (warmup > 0) binding.warmupFrames = warmup;
+      if (setup.length > 0) binding.setup = setup;
+      if (devices.length > 0) binding.devices = devices;
+      result[ch.id] = binding;
       continue;
     }
 

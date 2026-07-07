@@ -445,7 +445,7 @@ export function buildDeploymentSpec(
   const cameraComponents: DeployComponent[] = [];
   let cameraDeviceCount = 0;
   let hasGstreamerCamera = false;
-  const videoDevices = new Set<string>();
+  const cameraDevices = new Set<string>();
   for (const ch of req.cameraChannels) {
     const b = inputs.cameras[ch.id];
     if (!b) throw new Error(`unbound camera ${ch.id}`); // unreachable after assertDeployable
@@ -458,8 +458,10 @@ export function buildDeploymentSpec(
       // v4l2 reads a /dev/video* node, passed through to the sidecar container. A
       // gstreamer source (e.g. libcamerasrc) drives the full media graph, which
       // has no single node to grant here — the operator wires those devices in.
-      if (b.source === "v4l2") videoDevices.add(b.device);
+      if (b.source === "v4l2") cameraDevices.add(b.device);
       else hasGstreamerCamera = true;
+      // Nodes the binding's setup commands touch (media graph, subdevices).
+      for (const d of b.devices ?? []) cameraDevices.add(d);
     } else {
       externalResources[ref] = { type: "camera", url: b.url };
     }
@@ -479,7 +481,7 @@ export function buildDeploymentSpec(
       pull: "never", // built locally before deploy, in no registry
       volumes,
     };
-    if (videoDevices.size > 0) camera.devices = [...videoDevices];
+    if (cameraDevices.size > 0) camera.devices = [...cameraDevices];
     cameraComponents.push(camera);
   }
 

@@ -180,6 +180,13 @@ describe("valuesFileSchema", () => {
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 8 } } }).success).toBe(true);
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: -1 } } }).success).toBe(false);
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 1.5 } } }).success).toBe(false);
+    // optional setup commands + their device nodes; network cameras take neither.
+    expect(
+      valuesFileSchema.safeParse({
+        cameras: { c: { location: "device", source: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"], devices: ["/dev/media2"] } },
+      }).success,
+    ).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100", setup: ["true"] } } }).success).toBe(false);
   });
 
   it("validates the ml model binding: device is bare, network needs a url", () => {
