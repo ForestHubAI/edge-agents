@@ -10,7 +10,6 @@ import { useEffect, useMemo } from "react";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../mode";
 import { computeEdgeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 
 const EDGE_BASE_COLOR = "hsl(var(--edge-default))";
@@ -60,7 +59,6 @@ export const CustomEdge = ({
   selected?: boolean;
 }) => {
   const isHighlighted = selected ?? false;
-  const isPreview = useEditorStore((s) => isReadOnly(s.builderMode));
   const edgeType = (type ?? "control") as EdgeType;
   const edges = useEdges();
   const activeCanvasId = useEditorStore.getState().activeCanvasId;
@@ -84,14 +82,14 @@ export const CustomEdge = ({
 
   const hasErrors = diagnostics.length > 0;
 
-  // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project)
+  // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project).
+  // Runs in every mode: read-only viewers still need errors/warnings surfaced in the sidebar.
   const setEdgeDiagnostics = useDiagnosticsStore((s) => s.setEdgeDiagnostics);
   const clearEdgeDiagnostics = useDiagnosticsStore((s) => s.clearEdgeDiagnostics);
   useEffect(() => {
-    if (isPreview) return;
     setEdgeDiagnostics(id, diagnostics);
     return () => clearEdgeDiagnostics(id);
-  }, [id, diagnostics, setEdgeDiagnostics, clearEdgeDiagnostics, isPreview]);
+  }, [id, diagnostics, setEdgeDiagnostics, clearEdgeDiagnostics]);
 
   const getEdgePath = () => {
     if (isToolFlow(edgeType)) {

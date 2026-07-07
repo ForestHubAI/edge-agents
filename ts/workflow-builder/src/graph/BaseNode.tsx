@@ -50,8 +50,9 @@ export const BaseNode = memo(
   ({ id, data, selected, nodeDefinition, isStale = false, isDeleted = false }: BaseNodeProps) => {
     const nodeData = data as NodeData;
     const isHighlighted = selected ?? false;
-    // Skip diagnostics when in read-only mode OR when rendered inside VersionPreviewCanvas
-    const isPreview = useEditorStore((s) => isReadOnly(s.builderMode)) || !!(data as Record<string, unknown>)?._preview;
+    // Read-only (preview/debug) disables edit affordances (e.g. add-edge handles)
+    // but must NOT hide diagnostics — a viewer still needs to see errors/warnings.
+    const isReadOnlyMode = useEditorStore((s) => isReadOnly(s.builderMode));
 
     // Debug cursor: true when this node is the current debug step target
     const isDebugCursor = useDebugStore(
@@ -193,14 +194,15 @@ export const BaseNode = memo(
     const hasErrors = diagnostics.some((d) => d.severity === "error");
     const hasWarnings = diagnostics.some((d) => d.severity === "warning");
 
-    // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project)
+    // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project).
+    // Runs in every mode: read-only viewers still need errors/warnings surfaced in
+    // the sidebar and config panels.
     const setNodeDiagnostics = useDiagnosticsStore((s) => s.setNodeDiagnostics);
     const clearNodeDiagnostics = useDiagnosticsStore((s) => s.clearNodeDiagnostics);
     useEffect(() => {
-      if (isPreview) return;
       setNodeDiagnostics(id, diagnostics);
       return () => clearNodeDiagnostics(id);
-    }, [id, diagnostics, setNodeDiagnostics, clearNodeDiagnostics, isPreview]);
+    }, [id, diagnostics, setNodeDiagnostics, clearNodeDiagnostics]);
 
     const usedInControlFlow = useMemo(() => {
       return edges.some((e) => {
@@ -514,7 +516,7 @@ export const BaseNode = memo(
 
         {/* Execution output handles (right) — disabled when tool input is connected */}
         {executionOutputs.map((port, index) => {
-          const canAccept = !isPreview && !usedAsToolInput && canPortAcceptEdge(nodeData, port.id, edges);
+          const canAccept = !isReadOnlyMode && !usedAsToolInput && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}
@@ -539,7 +541,7 @@ export const BaseNode = memo(
 
         {/* Tool output handles (bottom) */}
         {toolOutputs.map((port, index) => {
-          const canAccept = !isPreview && canPortAcceptEdge(nodeData, port.id, edges);
+          const canAccept = !isReadOnlyMode && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}
