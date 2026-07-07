@@ -10,9 +10,10 @@ vi.mock("@inquirer/prompts", () => ({
   select: vi.fn(),
   checkbox: vi.fn(),
   confirm: vi.fn(),
+  editor: vi.fn(),
 }));
 
-import { input, password, select, checkbox, confirm } from "@inquirer/prompts";
+import { input, password, select, checkbox, confirm, editor } from "@inquirer/prompts";
 import { promptMissing } from "./prompts";
 import type { DeployConfig, DeployRequirements } from "./types";
 
@@ -34,33 +35,24 @@ const hwSerial = (id: string) => ({ id, label: id, family: "serial" as const, ad
 
 // Answer a prompt by matching its message against [regex, value] pairs; an
 // unmatched prompt throws, so a test never silently drives the wrong path.
-// queue() answers a repeated prompt (an input loop) with one value per round.
-const queue = (vals: unknown[]) => ({ __queue: vals });
 type Responder = (o: { message: string }) => Promise<unknown>;
 const respond =
   (map: [RegExp, unknown][]): Responder =>
   async (o) => {
-    for (const [re, val] of map)
-      if (re.test(o.message)) {
-        if (val !== null && typeof val === "object" && "__queue" in val) {
-          const q = (val as { __queue: unknown[] }).__queue;
-          if (q.length === 0) throw new Error(`queue exhausted for prompt: ${o.message}`);
-          return q.shift();
-        }
-        return val;
-      }
+    for (const [re, val] of map) if (re.test(o.message)) return val;
     throw new Error(`unexpected prompt: ${o.message}`);
   };
 const setMock = (fn: unknown, r: Responder) => (fn as { mockImplementation: (f: Responder) => void }).mockImplementation(r);
 
-function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][]; confirm?: [RegExp, unknown][] }) {
+function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][]; confirm?: [RegExp, unknown][]; editor?: [RegExp, unknown][] }) {
   setMock(input, respond(p.input ?? []));
   setMock(password, respond(p.password ?? []));
   setMock(select, respond(p.select ?? []));
   setMock(checkbox, respond(p.checkbox ?? []));
-  // The custom-components section always asks its yes/no gate; default to no so a
-  // test that doesn't care about components is never forced to script it.
-  setMock(confirm, respond(p.confirm ?? [[/custom component/, false]]));
+  // Yes/no gates a test usually doesn't care about default to no: the
+  // custom-components section (always offered) and a camera's setup commands.
+  setMock(confirm, respond(p.confirm ?? [[/custom component/, false], [/setup commands/, false]]));
+  setMock(editor, respond(p.editor ?? []));
 }
 
 // promptMissing now returns the whole interactive result (config + custom
@@ -214,7 +206,6 @@ describe("promptMissing", () => {
       input: [
         [/device path/, "/dev/video2"],
         [/warmup frames/, "0"],
-        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
@@ -231,7 +222,6 @@ describe("promptMissing", () => {
       input: [
         [/gstreamer source element/, "libcamerasrc"],
         [/warmup frames/, "0"],
-        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
@@ -248,7 +238,6 @@ describe("promptMissing", () => {
       input: [
         [/gstreamer source element/, "libcamerasrc"],
         [/warmup frames/, "8"],
-        [/setup command/, ""],
         [/Output directory/, "b"],
       ],
     });
@@ -256,17 +245,22 @@ describe("promptMissing", () => {
     expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 });
   });
 
-  it("device camera: collects setup commands and their device nodes", async () => {
+  it("device camera: collects setup commands via the editor and their device nodes", async () => {
     script({
       select: [
         [/where does this camera run/, "device"],
         [/capture source/, "v4l2"],
       ],
+      confirm: [
+        [/setup commands/, true],
+        [/custom component/, false],
+      ],
+      // Comment and blank lines are dropped; command lines survive verbatim.
+      editor: [[/setup commands/, "# from the board docs\nmedia-ctl -d /dev/media2 -r\n\nv4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800\n"]],
       input: [
         [/device path/, "/dev/video1"],
         [/warmup frames/, "0"],
-        [/setup command/, queue(["media-ctl -d /dev/media2 -r", "v4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800", ""])],
-        [/device node/, queue(["/dev/media2", "/dev/v4l-subdev7", ""])],
+        [/device nodes/, "  /dev/media2   /dev/v4l-subdev7 "],
         [/Output directory/, "b"],
       ],
     });

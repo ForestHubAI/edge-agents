@@ -284,7 +284,9 @@ A v4l2 device can also be a statically configured capture node of a CSI/ISP medi
 (e.g. when the board kernel cannot run libcamera's software ISP). For those, put the
 board's \`media-ctl\`/\`v4l2-ctl\` sequence (from the board vendor's docs) into the camera's
 \`setup\` list in \`cameras.json\` — the sidecar replays it on every container start, so a
-host reboot needs no board-side boot script. The device nodes those commands touch
+host reboot needs no board-side boot script. The lines run as one shell script: a variable
+set early stays available, so discover unstable device numbers (\`/dev/mediaN\` shifts
+across boots) in the first line instead of hard-coding them. The device nodes those commands touch
 (\`/dev/media*\`, \`/dev/v4l-subdev*\`) must be listed in the compose \`devices:\` — the
 camera binding's \`devices\` list does that for you. Set the CAMERA channel's width/height
 to exactly the pinned format.`);

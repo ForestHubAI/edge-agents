@@ -1,7 +1,7 @@
 // Interactive prompt layer: fills any value the flags didn't provide.
 // This is the "ask" step. Flags pre-fill; prompts cover the rest.
 
-import { checkbox, input, password, select } from "@inquirer/prompts";
+import { checkbox, confirm, editor, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promptCustomComponents } from "./components";
@@ -269,29 +269,35 @@ async function promptCameras(
         ).trim(),
       );
       // Statically configured CSI/ISP pipelines need their media-ctl/v4l2-ctl
-      // sequence (from the board docs) replayed on every container start. Pasting
-      // a whole block works: each line answers one prompt round.
-      const setup: string[] = [];
-      for (;;) {
-        const line = (
-          await input({
-            message: `${ch.label}: setup command (only for statically configured pipelines, see README; Enter = ${setup.length > 0 ? "done" : "none"})`,
-          })
-        ).trim();
-        if (!line) break;
-        setup.push(line);
+      // sequence (from the board docs) replayed on every container start. The
+      // sequence is multi-line, so it is pasted into $EDITOR in one go.
+      let setup: string[] = [];
+      const needsSetup = await confirm({
+        message: `${ch.label}: add setup commands? (only for statically configured pipelines, see README)`,
+        default: false,
+      });
+      if (needsSetup) {
+        const text = await editor({
+          message: `${ch.label}: setup commands (opens your editor)`,
+          postfix: ".sh",
+          default:
+            "# One shell command per line; comment lines are dropped.\n" +
+            "# All lines run as one script at every container start (see the bundle README).\n",
+        });
+        setup = text
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0 && !l.startsWith("#"));
       }
-      const devices: string[] = [];
+      let devices: string[] = [];
       if (setup.length > 0) {
-        for (;;) {
-          const line = (
-            await input({
-              message: `${ch.label}: device node those commands touch (e.g. /dev/media0, /dev/v4l-subdev0; Enter = done)`,
-            })
-          ).trim();
-          if (!line) break;
-          devices.push(line);
-        }
+        devices = (
+          await input({
+            message: `${ch.label}: device nodes those commands touch, space-separated (e.g. /dev/media0 /dev/v4l-subdev0)`,
+          })
+        )
+          .split(/\s+/)
+          .filter((s) => s.length > 0);
       }
       const binding: Extract<CameraBinding, { location: "device" }> = { location: "device", source, device };
       if (warmup > 0) binding.warmupFrames = warmup;
