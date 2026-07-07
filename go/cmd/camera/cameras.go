@@ -21,10 +21,12 @@ const (
 // cameraConfig is one entry in cameras.json. device is a /dev path for v4l2 or a
 // GStreamer source fragment for gstreamer; it is unused for debug. warmupFrames
 // discards that many leading frames so auto-exposure can settle (default 0).
+// setup lists shell commands run at every container start, before serving.
 type cameraConfig struct {
-	Source       string `json:"source"`
-	Device       string `json:"device"`
-	WarmupFrames int    `json:"warmupFrames,omitempty"`
+	Source       string   `json:"source"`
+	Device       string   `json:"device"`
+	WarmupFrames int      `json:"warmupFrames,omitempty"`
+	Setup        []string `json:"setup,omitempty"`
 }
 
 // camerasFile is the on-disk cameras.json shape: named devices keyed by name.
@@ -37,23 +39,27 @@ type source interface {
 	capture(ctx context.Context, width, height int) ([]byte, error)
 }
 
-// loadCameras reads and validates cameras.json, returning a runnable source per
-// configured name. It fails fast on an empty, unparseable or invalid config.
-func loadCameras(path string) (map[string]source, error) {
+// readConfig reads and parses cameras.json. It fails fast on an empty or
+// unparseable config.
+func readConfig(path string) (camerasFile, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading config file: %w", err)
+		return camerasFile{}, fmt.Errorf("reading config file: %w", err)
 	}
 	var file camerasFile
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&file); err != nil {
-		return nil, fmt.Errorf("parsing config file: %w", err)
+		return camerasFile{}, fmt.Errorf("parsing config file: %w", err)
 	}
 	if len(file.Cameras) == 0 {
-		return nil, fmt.Errorf("no cameras configured")
+		return camerasFile{}, fmt.Errorf("no cameras configured")
 	}
+	return file, nil
+}
 
+// buildSources validates the config and returns a runnable source per camera.
+func buildSources(file camerasFile) (map[string]source, error) {
 	sources := make(map[string]source, len(file.Cameras))
 	for name, cc := range file.Cameras {
 		src, err := newSource(cc)
@@ -77,6 +83,9 @@ func newSource(cc cameraConfig) (source, error) {
 		}
 		return newGStreamerSource(cc), nil
 	case sourceDebug:
+		if len(cc.Setup) > 0 {
+			return nil, fmt.Errorf("setup commands are not supported for source %q", cc.Source)
+		}
 		return debugSource{}, nil
 	default:
 		return nil, fmt.Errorf("unknown source %q", cc.Source)

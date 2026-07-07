@@ -21,7 +21,11 @@ func main() {
 		logging.Logger.Fatal().Err(err).Msg("loading configuration")
 	}
 
-	sources, err := loadCameras(cfg.ConfigFile)
+	file, err := readConfig(cfg.ConfigFile)
+	if err != nil {
+		logging.Logger.Fatal().Err(err).Str("config-file", cfg.ConfigFile).Msg("loading cameras")
+	}
+	sources, err := buildSources(file)
 	if err != nil {
 		logging.Logger.Fatal().Err(err).Str("config-file", cfg.ConfigFile).Msg("loading cameras")
 	}
@@ -31,6 +35,15 @@ func main() {
 		if _, err := exec.LookPath("gst-launch-1.0"); err != nil {
 			logging.Logger.Fatal().Err(err).Msg("gst-launch-1.0 not found in PATH")
 		}
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Configure statically set-up capture pipelines before serving. A failure is
+	// fatal so the restart policy retries until the devices are ready.
+	if err := runSetup(ctx, file); err != nil {
+		logging.Logger.Fatal().Err(err).Msg("camera setup failed — check the setup commands in cameras.json (see the bundle README)")
 	}
 
 	handler := captureapi.HandlerFromMux(newServer(sources), http.NewServeMux())
@@ -45,9 +58,6 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 16,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		logging.Logger.Info().Str("addr", cfg.Addr).Int("cameras", len(sources)).Msg("fh-camera listening")

@@ -16,9 +16,18 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
+func loadCameras(t *testing.T, path string) (map[string]source, error) {
+	t.Helper()
+	file, err := readConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	return buildSources(file)
+}
+
 func TestLoadCameras_HappyPath(t *testing.T) {
 	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","device":"/dev/video0"},"dbg":{"source":"debug"}}}`)
-	sources, err := loadCameras(path)
+	sources, err := loadCameras(t, path)
 	require.NoError(t, err)
 	assert.Len(t, sources, 2)
 	assert.Contains(t, sources, "front")
@@ -27,20 +36,27 @@ func TestLoadCameras_HappyPath(t *testing.T) {
 
 func TestLoadCameras_Empty(t *testing.T) {
 	path := writeConfig(t, `{"cameras":{}}`)
-	_, err := loadCameras(path)
+	_, err := loadCameras(t, path)
 	assert.Error(t, err)
 }
 
 func TestLoadCameras_RejectsUnknownField(t *testing.T) {
 	// A typo'd key must fail fast rather than be silently ignored.
 	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","devise":"/dev/video0"}}}`)
-	_, err := loadCameras(path)
+	_, err := loadCameras(t, path)
 	assert.Error(t, err)
 }
 
 func TestLoadCameras_WarmupFrames(t *testing.T) {
 	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","device":"/dev/video0","warmupFrames":8}}}`)
-	sources, err := loadCameras(path)
+	sources, err := loadCameras(t, path)
+	require.NoError(t, err)
+	assert.Contains(t, sources, "front")
+}
+
+func TestLoadCameras_Setup(t *testing.T) {
+	path := writeConfig(t, `{"cameras":{"front":{"source":"v4l2","device":"/dev/video0","setup":["media-ctl -d /dev/media2 -r"]}}}`)
+	sources, err := loadCameras(t, path)
 	require.NoError(t, err)
 	assert.Contains(t, sources, "front")
 }
@@ -71,4 +87,10 @@ func TestNewSource_DebugNeedsNoDevice(t *testing.T) {
 	src, err := newSource(cameraConfig{Source: sourceDebug})
 	require.NoError(t, err)
 	assert.NotNil(t, src)
+}
+
+func TestNewSource_DebugRejectsSetup(t *testing.T) {
+	// debug has no hardware; setup commands there are a config mistake.
+	_, err := newSource(cameraConfig{Source: sourceDebug, Setup: []string{"true"}})
+	assert.Error(t, err)
 }
