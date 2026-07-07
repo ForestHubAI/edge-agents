@@ -9,6 +9,7 @@ single bad bundle aborts startup, so a misconfigured deployment never serves.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +48,12 @@ def load_repository(models_dir: str | Path) -> dict[str, LoadedModel]:
             model_path = manifest.model_path(bundle_dir)
             if not model_path.is_file():
                 raise RepositoryError(f"model file not found: {model_path}")
+            # onnxruntime reports EACCES only as a cryptic "system error number 13".
+            if not os.access(model_path, os.R_OK):
+                raise RepositoryError(
+                    f"model file is not readable: {model_path} — "
+                    "fix the file permissions on the host (e.g. chmod 644)"
+                )
             session = ort.InferenceSession(
                 str(model_path), providers=["CPUExecutionProvider"]
             )

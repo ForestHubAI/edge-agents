@@ -6,6 +6,8 @@ A successful load needs a real model file, which the weights-free suite avoids.
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app.repository import RepositoryError, load_repository
@@ -34,4 +36,18 @@ def test_missing_model_file_raises(tmp_path):
         "schemaVersion: 1\nhandler: builtin:raw\nmodel: model.onnx\n"
     )
     with pytest.raises(RepositoryError, match="model file not found"):
+        load_repository(tmp_path)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads regardless of permissions")
+def test_unreadable_model_file_raises(tmp_path):
+    bundle = tmp_path / "model-a"
+    bundle.mkdir()
+    (bundle / "manifest.yaml").write_text(
+        "schemaVersion: 1\nhandler: builtin:raw\nmodel: model.onnx\n"
+    )
+    model = bundle / "model.onnx"
+    model.write_bytes(b"")
+    model.chmod(0o000)
+    with pytest.raises(RepositoryError, match="not readable"):
         load_repository(tmp_path)
