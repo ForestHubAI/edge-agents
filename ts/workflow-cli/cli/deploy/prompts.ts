@@ -284,9 +284,9 @@ async function promptCameras(
         message: `${ch.label}: add setup commands? (only for statically configured pipelines, see README)`,
         default: false,
       });
-      if (needsSetup) {
+      while (needsSetup) {
         const text = await editor({
-          message: `${ch.label}: setup commands (opens your editor)`,
+          message: `${ch.label}: setup commands (opens $EDITOR — default vim; e.g. EDITOR=nano to change)`,
           postfix: ".sh",
           default:
             "# One shell command per line; comment lines are dropped.\n" +
@@ -296,6 +296,14 @@ async function promptCameras(
           .split("\n")
           .map((l) => l.trim())
           .filter((l) => l.length > 0 && !l.startsWith("#"));
+        if (setup.length > 0) break;
+        // Empty result (editor closed without saving, only comments, or an
+        // $EDITOR that doesn't edit) would silently drop the setup step.
+        const proceed = await confirm({
+          message: `${ch.label}: the editor returned no commands — continue without a setup step? (No re-opens the editor)`,
+          default: false,
+        });
+        if (proceed) break;
       }
       let devices: string[] = [];
       if (setup.length > 0) {

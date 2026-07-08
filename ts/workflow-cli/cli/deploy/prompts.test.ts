@@ -278,6 +278,30 @@ describe("promptMissing", () => {
     });
   });
 
+  it("device camera: an editor that returns nothing is caught, and continuing drops the setup step", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      confirm: [
+        [/add setup commands/, true],
+        [/continue without a setup step/, true],
+        [/custom component/, false],
+      ],
+      // Only comments come back -> empty after filtering -> the guard fires.
+      editor: [[/setup commands/, "# I quit without writing anything\n"]],
+      input: [
+        [/device path/, "/dev/video1"],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    // No setup / devices keys — the empty result did not silently become a setup step.
+    expect(cfg.cameras.cam).toEqual({ location: "device", source: "v4l2", device: "/dev/video1" });
+  });
+
   it("network camera: asks where it runs, then url", async () => {
     script({
       select: [[/where does this camera run/, "network"]],
