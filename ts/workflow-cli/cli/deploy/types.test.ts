@@ -111,6 +111,9 @@ describe("familyMismatches", () => {
 
 const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
   hasProviderModel: false,
+  catalogProviders: [],
+  catalogModelProviders: {},
+  unresolvedCatalogModels: [],
   hasRetriever: false,
   hardwareChannels: [],
   mqttChannels: [],

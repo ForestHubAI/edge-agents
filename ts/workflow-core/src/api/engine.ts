@@ -35,17 +35,17 @@ export interface components {
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
         ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"];
-        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. */
+        /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "selfhosted";
-            /** @description Base URL of the inference endpoint (http:// or https://). */
-            url: string;
-            /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
-            model?: string;
+            type: "localLlm" | "backendLlm" | "selfhostedLlm";
+            /** @description localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai). */
+            provider?: string;
+            /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
+            url?: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */
         MQTTConnection: {

@@ -56,14 +56,18 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 	return llmproxy.NewClient([]llmproxy.Provider{selfhosted.NewProvider(selfhosted.Config{Endpoints: eps})})
 }
 
+func selfHosted(url string) engine.LLMProviderConfig {
+	return engine.LLMProviderConfig{Kind: engine.LLMSelfHosted, URL: url}
+}
+
 func TestBuildDeployProviders_ResolvesChatModel(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
-		"prov-1": {URL: "http://llm:8000", APIKey: "k"},
+		"prov-1": {Kind: engine.LLMSelfHosted, URL: "http://llm:8000", APIKey: "k"},
 	}}
 
-	provs, err := buildDeployProviders(wf, dm, ext)
+	provs, err := buildDeployProviders(wf, dm, ext, nil)
 	require.NoError(t, err)
 	require.Len(t, provs, 1)
 	providerID := provs[0].ProviderID()
@@ -77,13 +81,13 @@ func TestBuildDeployProviders_ResolvesChatModel(t *testing.T) {
 func TestBuildDeployProviders_UnboundModelFails(t *testing.T) {
 	// Declared models are always custom — an unbound one is a broken deploy.
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
-	_, err := buildDeployProviders(wf, nil, nil)
+	_, err := buildDeployProviders(wf, nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not bound")
 }
 
 func TestBuildDeployProviders_NoModels(t *testing.T) {
-	provs, err := buildDeployProviders(&workflow.Workflow{}, nil, nil)
+	provs, err := buildDeployProviders(&workflow.Workflow{}, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Nil(t, provs)
 }
@@ -93,31 +97,32 @@ func TestBuildDeployProviders_BoundButNoConfig(t *testing.T) {
 	dm := engine.ResourceMapping{"m": {Ref: "missing"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{}}
 
-	_, err := buildDeployProviders(wf, dm, ext)
+	_, err := buildDeployProviders(wf, dm, ext, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no provider config")
+}
+
+func TestBuildDeployProviders_DeclaredModelOnNonSelfHostedFails(t *testing.T) {
+	// A declared (custom) model must bind to a self-hosted provider, not a catalog one.
+	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
+	dm := engine.ResourceMapping{"m": {Ref: "p"}}
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+		"p": {Kind: engine.LLMLocal, Provider: "Anthropic"},
+	}}
+
+	_, err := buildDeployProviders(wf, dm, ext, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "self-hosted")
 }
 
 func TestBuildDeployProviders_EmbeddingUnsupported(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "embed", llmapi.Embedding)}}
 	dm := engine.ResourceMapping{"embed": {Ref: "p"}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": {URL: "http://e:8000"}}}
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": selfHosted("http://e:8000")}}
 
-	_, err := buildDeployProviders(wf, dm, ext)
+	_, err := buildDeployProviders(wf, dm, ext, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "embedding")
-}
-
-func TestBuildDeployProviders_UpstreamAliasRejected(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
-	dm := engine.ResourceMapping{"m": {Ref: "p"}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
-		"p": {URL: "http://e:8000", Model: "different-upstream"},
-	}}
-
-	_, err := buildDeployProviders(wf, dm, ext)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "aliasing")
 }
 
 func TestBuildDeployProviders_MultipleModelsOneProvider(t *testing.T) {
@@ -127,14 +132,47 @@ func TestBuildDeployProviders_MultipleModelsOneProvider(t *testing.T) {
 	}}
 	dm := engine.ResourceMapping{"a": {Ref: "p1"}, "b": {Ref: "p2"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
-		"p1": {URL: "http://a:8000"},
-		"p2": {URL: "http://b:8000"},
+		"p1": selfHosted("http://a:8000"),
+		"p2": selfHosted("http://b:8000"),
 	}}
 
-	provs, err := buildDeployProviders(wf, dm, ext)
+	provs, err := buildDeployProviders(wf, dm, ext, nil)
 	require.NoError(t, err)
-	require.Len(t, provs, 1, "all custom models are served by one deploy provider")
+	require.Len(t, provs, 1, "all custom models are served by one self-hosted deploy provider")
 	assert.Len(t, provs[0].AvailableModels(), 2)
+}
+
+func TestBuildDeployProviders_LocalCatalogProvider(t *testing.T) {
+	// A localLlm instance builds the named catalog adapter; no declared model,
+	// no mapping — the adapter's static catalog models route by id.
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+		"anthropic": {Kind: engine.LLMLocal, Provider: "Anthropic", APIKey: "sk-ant"},
+	}}
+
+	provs, err := buildDeployProviders(&workflow.Workflow{}, nil, ext, nil)
+	require.NoError(t, err)
+	require.Len(t, provs, 1)
+	assert.Equal(t, llmproxy.ProviderID("Anthropic"), provs[0].ProviderID())
+	assert.NotEmpty(t, provs[0].AvailableModels(), "adapter serves its static catalog")
+}
+
+func TestBuildDeployProviders_UnknownLocalProviderFails(t *testing.T) {
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+		"x": {Kind: engine.LLMLocal, Provider: "Bogus", APIKey: "k"},
+	}}
+	_, err := buildDeployProviders(&workflow.Workflow{}, nil, ext, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown catalog provider")
+}
+
+func TestBuildDeployProviders_BackendWithoutClientFails(t *testing.T) {
+	// backendLlm needs a backend client; standalone (nil) is a deploy error.
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+		"anthropic": {Kind: engine.LLMBackend, Provider: "Anthropic"},
+	}}
+	_, err := buildDeployProviders(&workflow.Workflow{}, nil, ext, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no backend is configured")
 }
 
 func TestRequiredModelIDs_ScansAgentsAndFunctionsDeduped(t *testing.T) {

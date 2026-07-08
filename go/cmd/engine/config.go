@@ -5,7 +5,6 @@
 package main
 
 import (
-	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 
 	"github.com/caarlos0/env/v9"
@@ -27,8 +26,6 @@ type Config struct {
 	// file + HTTP shipper) via FH_LOG_* env vars. env.Parse recurses in; main sets
 	// Log.Component to "engine" in code before wiring.
 	Log logging.Config
-	// LLM holds direct provider API keys
-	LLM llmcfg.ProviderConfig
 	// WebSearch configures the optional WebSearchTool node. Leaving APIKey empty
 	// disables the tool; workflows that include a WebSearchTool will fail to deploy.
 	WebSearch WebSearchConfig

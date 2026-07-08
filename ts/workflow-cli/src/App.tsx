@@ -27,9 +27,9 @@ import { ToolbarButton } from "./components/ToolbarButton";
 // from the llmproxy rather than hardcoding. Self-hosted models are declared in
 // the builder's Models tab instead.
 const MODEL_CATALOG: ModelInfo[] = [
-  { id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["chat"] },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["chat"] },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", capabilities: ["chat"] },
+  { id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["chat"], provider: "anthropic" },
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["chat"], provider: "anthropic" },
+  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", capabilities: ["chat"], provider: "anthropic" },
 ];
 
 // Where a workflow lives, so Save can write without re-prompting. Two backends:

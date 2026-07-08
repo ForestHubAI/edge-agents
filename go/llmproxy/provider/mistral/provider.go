@@ -19,8 +19,8 @@ import (
 
 const ProviderID llmproxy.ProviderID = "Mistral"
 
-// availableModels is the canonical list of Mistral models exposed by this provider.
-var availableModels = []llmproxy.ModelInfo{
+// AvailableModels is the canonical list of Mistral models exposed by this provider.
+var AvailableModels = []llmproxy.ModelInfo{
 	{ID: "mistral-large-latest", Label: "Mistral Large", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "mistral-medium-latest", Label: "Mistral Medium", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "mistral-small-latest", Label: "Mistral Small", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
@@ -61,7 +61,7 @@ func (p *Provider) Health(ctx context.Context) error {
 
 // AvailableModels returns the static list of Mistral models exposed by this provider.
 func (p *Provider) AvailableModels() []llmproxy.ModelInfo {
-	return availableModels
+	return AvailableModels
 }
 
 // Chat sends a text prompt to Mistral and returns the generated response.
@@ -183,7 +183,7 @@ func (p *Provider) Embed(ctx context.Context, req *llmproxy.EmbeddingRequest) (*
 
 // EmbeddingDimension returns the output dimension for the given embedding model.
 func (p *Provider) EmbeddingDimension(model llmproxy.ModelID) (int, error) {
-	for _, m := range availableModels {
+	for _, m := range AvailableModels {
 		if m.ID == model && m.EmbeddingDimension != nil {
 			return *m.EmbeddingDimension, nil
 		}

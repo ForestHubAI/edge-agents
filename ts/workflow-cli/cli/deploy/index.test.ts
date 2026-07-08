@@ -15,6 +15,9 @@ function flagsOf(p: Partial<RawFlags> = {}): RawFlags {
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
     hasProviderModel: false,
+    catalogProviders: [],
+    catalogModelProviders: {},
+    unresolvedCatalogModels: [],
     hasRetriever: false,
     hasWebSearch: false,
     hardwareChannels: [],

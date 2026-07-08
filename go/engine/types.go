@@ -128,14 +128,29 @@ type ExternalResources struct {
 	Providers map[string]LLMProviderConfig
 }
 
-// LLMProviderConfig is the resolved connection to a self-hosted/custom LLM
-// endpoint the llmproxy doesn't ship. The declared workflow model supplies the
-// id and capabilities; this supplies how to reach it. Model is the optional
-// upstream model name the endpoint serves (defaults to the workflow model id).
+// LLMProviderKind selects how the engine reaches one provider instance when
+// registering it into the single llmproxy. Mirrors the wire discriminator.
+type LLMProviderKind string
+
+const (
+	// LLMLocal: a built-in catalog adapter (Provider) authenticated with APIKey.
+	LLMLocal LLMProviderKind = "localLlm"
+	// LLMBackend: the catalog adapter (Provider) proxied through the backend, no key.
+	LLMBackend LLMProviderKind = "backendLlm"
+	// LLMSelfHosted: a self-hosted endpoint (URL, optional APIKey bearer) the
+	// llmproxy doesn't ship, shared by every declared model bound to it.
+	LLMSelfHosted LLMProviderKind = "selfhostedLlm"
+)
+
+// LLMProviderConfig is one resolved provider instance the engine registers into
+// its llmproxy. Kind selects the transport; the other fields are kind-specific:
+// localLlm/backendLlm carry Provider (the catalog adapter id); localLlm and
+// selfhostedLlm carry APIKey; selfhostedLlm carries URL.
 type LLMProviderConfig struct {
-	URL    string
-	APIKey string
-	Model  string
+	Kind     LLMProviderKind
+	Provider string
+	URL      string
+	APIKey   string
 }
 
 type MQTTConnection struct {

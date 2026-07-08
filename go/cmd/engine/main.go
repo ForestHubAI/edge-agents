@@ -53,13 +53,6 @@ func main() {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
 
-	// Create LLM provider registry and client. Locally-configured providers
-	// take precedence; any provider the backend exposes that the engine lacks
-	// a key for is registered as a backend-routed stand-in.
-	loadCtx, cancelLoad := context.WithTimeout(context.Background(), backend.ProviderLoadTimeout)
-	llmProviders := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
-	cancelLoad() // Release loadCtx resources
-
 	// Load the single boot config file: workflow + bindings + device manifest.
 	// A workflow is mandatory — the engine exists only to run one — so a missing
 	// config or workflow is a boot error, not an idle engine.
@@ -130,14 +123,16 @@ func main() {
 		retriever = backendClient
 	}
 
-	// Create the builder for the workflow runner.
+	// Create the builder for the workflow runner. LLM providers are no longer a
+	// boot set: Build resolves them per-deploy from externalResources, and any
+	// backendLlm instance forwards through this backend client (nil = standalone).
 	builder := &build.Builder{
-		Drivers:      drivers,
-		Transports:   transports,
-		LLMProviders: llmProviders,
-		Memory:       memoryManager,
-		WebSearch:    webSearchProvider,
-		Retriever:    retriever,
+		Drivers:    drivers,
+		Transports: transports,
+		Backend:    backendClient,
+		Memory:     memoryManager,
+		WebSearch:  webSearchProvider,
+		Retriever:  retriever,
 	}
 
 	// One lifecycle context for the whole process: a termination signal cancels it

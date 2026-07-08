@@ -15,8 +15,9 @@ import (
 
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
 // deploy-time configs) onto the engine domain type at the HTTP boundary,
-// routing each arm by its discriminator: MQTT connections into MQTTs, custom
-// LLM provider configs into Providers. Unknown arms are skipped.
+// routing each arm by its discriminator: MQTT connections into MQTTs, LLM
+// provider instances (local / backend / self-hosted) into Providers. Unknown
+// arms are skipped.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
 // spec). Credentials arrive separately in secrets, keyed by the same resource
@@ -59,15 +60,16 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 				}
 			}
 			out.MQTTs[id] = mc
-		case string(engineapi.Selfhosted):
+		case string(engineapi.LocalLlm), string(engineapi.BackendLlm), string(engineapi.SelfhostedLlm):
 			c, err := rc.AsLLMProviderConfig()
 			if err != nil {
 				continue
 			}
 			out.Providers[id] = engine.LLMProviderConfig{
-				URL:    c.Url,
-				APIKey: secrets[id],
-				Model:  pointer.Val(c.Model),
+				Kind:     engine.LLMProviderKind(c.Type),
+				Provider: pointer.Val(c.Provider),
+				URL:      pointer.Val(c.Url),
+				APIKey:   secrets[id],
 			}
 		}
 	}

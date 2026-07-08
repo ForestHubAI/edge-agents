@@ -7,11 +7,11 @@ package build
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflow"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
@@ -20,15 +20,16 @@ import (
 )
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
-// LLMProviders is the boot provider set; Build composes it with any per-deploy
-// custom-model providers into a fresh client scoped to each Runner.
+// Backend (optional; nil = standalone) is the client every per-deploy backend-
+// routed LLM provider forwards to; Build resolves this deploy's externalResources
+// into a fresh llmproxy client scoped to each Runner.
 type Builder struct {
-	Drivers      *driver.Registry
-	Transports   *transport.Registry
-	LLMProviders []llmproxy.Provider
-	Memory       *memory.Manager
-	Retriever    engine.Retriever
-	WebSearch    websearch.Provider // optional; nil disables WebSearchTool nodes
+	Drivers    *driver.Registry
+	Transports *transport.Registry
+	Backend    *backend.Client
+	Memory     *memory.Manager
+	Retriever  engine.Retriever
+	WebSearch  websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
 // Build constructs a Runner for the given workflow and network manifest.
@@ -48,11 +49,11 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.Re
 	// Compose a per-deploy LLM client: the boot providers plus any custom-model
 	// providers resolved from this deploy's externalResources. The client is
 	// scoped to this Runner and GC'd on shutdown, so the boot set is never mutated.
-	deployProviders, err := buildDeployProviders(wf, dm, ext)
+	deployProviders, err := buildDeployProviders(wf, dm, ext, b.Backend)
 	if err != nil {
 		return nil, fmt.Errorf("resolving deploy llm providers: %w", err)
 	}
-	llmClient := llmproxy.NewClient(append(slices.Clone(b.LLMProviders), deployProviders...))
+	llmClient := llmproxy.NewClient(deployProviders)
 	if err := validateModelsResolvable(wf, llmClient); err != nil {
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}

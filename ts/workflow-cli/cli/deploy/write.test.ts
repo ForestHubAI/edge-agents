@@ -42,6 +42,9 @@ function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
     hasProviderModel: false,
+    catalogProviders: [],
+    catalogModelProviders: {},
+    unresolvedCatalogModels: [],
     hasRetriever: false,
     hasWebSearch: false,
     hardwareChannels: [],

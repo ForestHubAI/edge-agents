@@ -20,8 +20,8 @@ import (
 
 const ProviderID llmproxy.ProviderID = "OpenAI"
 
-// availableModels is the canonical list of OpenAI models exposed by this provider.
-var availableModels = []llmproxy.ModelInfo{
+// AvailableModels is the canonical list of OpenAI models exposed by this provider.
+var AvailableModels = []llmproxy.ModelInfo{
 	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "gpt-5.2", Label: "GPT-5.2", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "gpt-5.1", Label: "GPT-5.1", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
@@ -54,7 +54,7 @@ func (p *Provider) ProviderID() llmproxy.ProviderID {
 
 // AvailableModels returns the static list of OpenAI models exposed by this provider.
 func (p *Provider) AvailableModels() []llmproxy.ModelInfo {
-	return availableModels
+	return AvailableModels
 }
 
 // Health pings OpenAI to ensure connectivity
@@ -151,7 +151,7 @@ func (p *Provider) Embed(ctx context.Context, req *llmproxy.EmbeddingRequest) (*
 
 // EmbeddingDimension returns the output dimension for the given embedding model.
 func (p *Provider) EmbeddingDimension(model llmproxy.ModelID) (int, error) {
-	for _, m := range availableModels {
+	for _, m := range AvailableModels {
 		if m.ID == model && m.EmbeddingDimension != nil {
 			return *m.EmbeddingDimension, nil
 		}

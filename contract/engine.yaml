@@ -63,22 +63,24 @@ components:
         propertyName: type
         mapping:
           mqtt: "#/components/schemas/MQTTConnection"
-          selfhosted: "#/components/schemas/LLMProviderConfig"
+          localLlm: "#/components/schemas/LLMProviderConfig"
+          backendLlm: "#/components/schemas/LLMProviderConfig"
+          selfhostedLlm: "#/components/schemas/LLMProviderConfig"
 
     LLMProviderConfig:
       type: object
-      description: "Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship."
-      required: [type, url]
+      description: "One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing."
+      required: [type]
       properties:
         type:
           type: string
-          enum: [selfhosted]
+          enum: [localLlm, backendLlm, selfhostedLlm]
+        provider:
+          type: string
+          description: localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai).
         url:
           type: string
-          description: Base URL of the inference endpoint (http:// or https://).
-        model:
-          type: string
-          description: Upstream model name the endpoint serves; defaults to the workflow model id when empty.
+          description: selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
 
     MQTTConnection:
       type: object

@@ -13,13 +13,19 @@ import (
 
 // Defines values for LLMProviderConfigType.
 const (
-	Selfhosted LLMProviderConfigType = "selfhosted"
+	BackendLlm    LLMProviderConfigType = "backendLlm"
+	LocalLlm      LLMProviderConfigType = "localLlm"
+	SelfhostedLlm LLMProviderConfigType = "selfhostedLlm"
 )
 
 // Valid indicates whether the value is a known member of the LLMProviderConfigType enum.
 func (e LLMProviderConfigType) Valid() bool {
 	switch e {
-	case Selfhosted:
+	case BackendLlm:
+		return true
+	case LocalLlm:
+		return true
+	case SelfhostedLlm:
 		return true
 	default:
 		return false
@@ -94,14 +100,14 @@ type GPIOConfig struct {
 	Chip string `json:"chip"`
 }
 
-// LLMProviderConfig Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship.
+// LLMProviderConfig One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing.
 type LLMProviderConfig struct {
-	// Model Upstream model name the endpoint serves; defaults to the workflow model id when empty.
-	Model *string               `json:"model,omitempty"`
-	Type  LLMProviderConfigType `json:"type"`
+	// Provider localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai).
+	Provider *string               `json:"provider,omitempty"`
+	Type     LLMProviderConfigType `json:"type"`
 
-	// Url Base URL of the inference endpoint (http:// or https://).
-	Url string `json:"url"`
+	// Url selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
+	Url *string `json:"url,omitempty"`
 }
 
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
@@ -191,7 +197,6 @@ func (t ExternalResourceConfig) AsMQTTConnection() (MQTTConnection, error) {
 
 // FromMQTTConnection overwrites any union data inside the ExternalResourceConfig as the provided MQTTConnection
 func (t *ExternalResourceConfig) FromMQTTConnection(v MQTTConnection) error {
-	v.Type = "mqtt"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -199,7 +204,6 @@ func (t *ExternalResourceConfig) FromMQTTConnection(v MQTTConnection) error {
 
 // MergeMQTTConnection performs a merge with any union data inside the ExternalResourceConfig, using the provided MQTTConnection
 func (t *ExternalResourceConfig) MergeMQTTConnection(v MQTTConnection) error {
-	v.Type = "mqtt"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -219,7 +223,6 @@ func (t ExternalResourceConfig) AsLLMProviderConfig() (LLMProviderConfig, error)
 
 // FromLLMProviderConfig overwrites any union data inside the ExternalResourceConfig as the provided LLMProviderConfig
 func (t *ExternalResourceConfig) FromLLMProviderConfig(v LLMProviderConfig) error {
-	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
@@ -227,7 +230,6 @@ func (t *ExternalResourceConfig) FromLLMProviderConfig(v LLMProviderConfig) erro
 
 // MergeLLMProviderConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided LLMProviderConfig
 func (t *ExternalResourceConfig) MergeLLMProviderConfig(v LLMProviderConfig) error {
-	v.Type = "selfhosted"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -252,9 +254,13 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "backendLlm":
+		return t.AsLLMProviderConfig()
+	case "localLlm":
+		return t.AsLLMProviderConfig()
 	case "mqtt":
 		return t.AsMQTTConnection()
-	case "selfhosted":
+	case "selfhostedLlm":
 		return t.AsLLMProviderConfig()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)

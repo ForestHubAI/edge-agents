@@ -8,6 +8,7 @@ import type { DeploymentInputs } from "./inputs";
 import { MAIN_CANVAS_ID, type Workflow } from "../workflow";
 import type { Channel } from "../channel";
 import type { Model } from "../model";
+import type { Node } from "../node";
 import type { DeploymentSchemas, EngineSchemas } from "../api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
@@ -26,6 +27,17 @@ const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.n
 
 function channel(id: string, type: Channel["type"], args: Record<string, unknown> = {}): Channel {
   return { id, label: id, type, arguments: args };
+}
+
+// Minimal Agent node referencing a catalog `model` — only the model ref matters
+// to the resolver's node-walk.
+function agent(id: string, model: string): Node {
+  return {
+    id,
+    type: "Agent",
+    position: { x: 0, y: 0 },
+    arguments: { name: id, model, instructions: "", outputDeclarations: [], memoryRefs: [], answer: { active: true, mode: "emit", name: "answer" } },
+  } as Node;
 }
 
 const customModel: Model = { id: "local-llm", label: "Local", type: "LLMModel", arguments: {} };
@@ -108,7 +120,7 @@ describe("buildDeploymentSpec", () => {
     });
     // The external-resource provider URL must point at the sidecar service name.
     const ext = engineConfigOf(spec).externalResources!;
-    const provider = Object.values(ext).find((r) => r.type === "selfhosted");
+    const provider = Object.values(ext).find((r) => r.type === "selfhostedLlm");
     expect(provider).toMatchObject({ url: `http://${sidecarServiceName("local-llm")}:8080` });
   });
 
@@ -144,9 +156,35 @@ describe("buildDeploymentSpec", () => {
     expect(spec.components).toHaveLength(1); // engine only, no sidecar
     // The provider config in the spec is secret-free; the apiKey is pulled out.
     const ext = engineConfigOf(spec).externalResources!;
-    const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhosted")!;
-    expect(provider).toEqual({ type: "selfhosted", url: "https://infer.example/v1" });
+    const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhostedLlm")!;
+    expect(provider).toEqual({ type: "selfhostedLlm", url: "https://infer.example/v1" });
     expect(resourceSecrets[ref]).toEqual("k");
+  });
+
+  it("shares one selfhosted provider across models on the same endpoint", () => {
+    const wf: Workflow = {
+      canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
+      functions: {},
+      channels: {},
+      memory: {},
+      models: { a: { id: "a", label: "A", type: "LLMModel", arguments: {} }, b: { id: "b", label: "B", type: "LLMModel", arguments: {} } },
+    };
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      models: {
+        a: { location: "network", url: "https://vllm.local/v1", apiKey: "k" },
+        b: { location: "network", url: "https://vllm.local/v1", apiKey: "k" },
+      },
+    };
+    const { spec } = buildDeploymentSpec(wf, inputs, meta);
+    const config = engineConfigOf(spec);
+    // One endpoint → one provider entry, both models mapped at the same ref.
+    const entries = Object.entries(config.externalResources!).filter(([, r]) => r.type === "selfhostedLlm");
+    expect(entries).toHaveLength(1);
+    const ref = entries[0]![0];
+    expect(config.mapping!.a).toEqual({ ref });
+    expect(config.mapping!.b).toEqual({ ref });
   });
 
   it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
@@ -159,6 +197,57 @@ describe("buildDeploymentSpec", () => {
     expect(resourceSecrets[mqttRef]).toEqual("p");
     // Whole spec serialized carries no secret value.
     expect(JSON.stringify(spec)).not.toContain('"p"');
+  });
+});
+
+describe("buildDeploymentSpec catalog providers", () => {
+  const catalog = [
+    { id: "claude-opus-4-7", label: "Opus", capabilities: ["chat"] as const, provider: "anthropic" },
+    { id: "claude-haiku-4-7", label: "Haiku", capabilities: ["chat"] as const, provider: "anthropic" },
+  ];
+  // Two Agents on one provider + one on another; catalog resolves both.
+  const wf: Workflow = {
+    canvases: { [MAIN_CANVAS_ID]: { nodes: [agent("a1", "claude-opus-4-7"), agent("a2", "claude-haiku-4-7")], edges: [], variables: {} } },
+    functions: {},
+    channels: {},
+    memory: {},
+    models: {},
+  };
+
+  it("emits one localLlm instance per provider (deduped), no model mapping, pulls the key out", () => {
+    const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, models: {}, providers: { anthropic: { routing: "local", apiKey: "sk-x" } } };
+    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
+    const config = engineConfigOf(spec);
+    const ext = config.externalResources!;
+    // Two Agents, same provider → a single provider instance.
+    const entries = Object.entries(ext).filter(([, r]) => r.type === "localLlm");
+    expect(entries).toHaveLength(1);
+    const [ref, cfg] = entries[0]!;
+    expect(cfg).toEqual({ type: "localLlm", provider: "anthropic" });
+    // Catalog models are routed by llmproxy, not mapped — no mapping entries.
+    expect(config.mapping?.["claude-opus-4-7"]).toBeUndefined();
+    expect(config.mapping?.["claude-haiku-4-7"]).toBeUndefined();
+    expect(resourceSecrets[ref]).toBe("sk-x");
+    expect(JSON.stringify(spec)).not.toContain("sk-x");
+  });
+
+  it("backendLlm carries the provider, no key and no secret", () => {
+    const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, models: {}, providers: { anthropic: { routing: "backend" } } };
+    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
+    const ext = engineConfigOf(spec).externalResources!;
+    expect(Object.values(ext)).toContainEqual({ type: "backendLlm", provider: "anthropic" });
+    expect(Object.keys(resourceSecrets)).toHaveLength(0);
+  });
+
+  it("rejects an unbound provider and a local provider missing its key", () => {
+    expect(() => buildDeploymentSpec(wf, { hardware: {}, mqtt: {}, models: {} }, meta, [], catalog)).toThrow(/provider "anthropic": routing/);
+    const noKey: DeploymentInputs = { hardware: {}, mqtt: {}, models: {}, providers: { anthropic: { routing: "local" } } };
+    expect(() => buildDeploymentSpec(wf, noKey, meta, [], catalog)).toThrow(/provider "anthropic": API key/);
+  });
+
+  it("refuses a referenced model absent from the catalog", () => {
+    const stray: Workflow = { ...wf, canvases: { [MAIN_CANVAS_ID]: { nodes: [agent("a1", "gpt-5-mystery")], edges: [], variables: {} } } };
+    expect(() => buildDeploymentSpec(stray, { hardware: {}, mqtt: {}, models: {} }, meta, [], catalog)).toThrow(/not in the model catalog/);
   });
 });
 

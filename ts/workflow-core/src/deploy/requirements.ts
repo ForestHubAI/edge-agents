@@ -2,6 +2,7 @@
 // Copyright (c) 2026 ForestHub.
 
 import type { Workflow } from "../workflow";
+import type { ModelInfo } from "../model";
 import { NodeRegistry, isNodeUsedAsTool } from "../node";
 import { isParameterActive } from "../parameter";
 
@@ -69,6 +70,13 @@ export interface CustomModel {
   label: string;
 }
 
+// One catalog provider a workflow's Agent nodes pull models from (resolved
+// against the static catalog, not workflow.models). Each becomes one
+// ExternalResources entry whose routing — local key vs backend — is a deploy input.
+export interface CatalogProvider {
+  id: string;
+}
+
 // What a workflow needs from its environment, derived from its content alone —
 // no operator input. Drives both input collection (which bindings to ask for)
 // and the spec resolver's completeness check. The component-set derivation the
@@ -76,8 +84,19 @@ export interface CustomModel {
 // producer.
 export interface DeployRequirements {
   // At least one Agent references a catalog model (not declared in
-  // workflow.models) — that model needs a provider key as engine env.
+  // workflow.models). Catalog-independent — a raw signal that provider
+  // credentials are needed, even headlessly where the provider set is unknown.
   hasProviderModel: boolean;
+  // Distinct catalog providers the referenced models resolve to, via the
+  // supplied catalog. Each becomes one ExternalResources provider instance
+  // (local or backend — a deploy input). Catalog models carry NO mapping entry:
+  // the engine's single llmproxy routes them by model id, so the provider
+  // instance's presence is what selects local vs backend. Empty when no catalog
+  // is passed — the model->provider map is then unknown.
+  catalogProviders: CatalogProvider[];
+  // Referenced catalog model ids absent from the supplied catalog — a dangling
+  // ref the resolver refuses to deploy. Always empty when no catalog is passed.
+  unresolvedCatalogModels: string[];
   // The workflow has a Retriever node. A standalone engine has no retriever, so
   // the node cannot resolve — a producer may refuse to deploy.
   hasRetriever: boolean;
@@ -102,8 +121,11 @@ function assertNeverChannel(t: never): never {
 // deriveRequirements reads what a workflow demands of its environment. Pure —
 // no I/O, no operator input. Sorts every declared channel into the hardware /
 // MQTT pools the deploy artifacts need and walks nodes (main + function bodies)
-// for the catalog-model / retriever / web-search signals.
-export function deriveRequirements(workflow: Workflow): DeployRequirements {
+// for the catalog-model / retriever / web-search signals. `catalog` is the
+// static model catalog: supply it to resolve referenced catalog model ids to
+// their providers (needed to emit ExternalResources entries); omit it (headless)
+// to leave that resolution to a caller that holds the catalog.
+export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []): DeployRequirements {
   const hardwareChannels: HardwareChannel[] = [];
   const mqttChannels: MqttChannel[] = [];
 
@@ -148,8 +170,27 @@ export function deriveRequirements(workflow: Workflow): DeployRequirements {
 
   const customModels: CustomModel[] = Object.values(workflow.models).map((m) => ({ id: m.id, label: m.label }));
 
+  // Resolve referenced catalog ids to their distinct providers via the catalog.
+  // With no catalog the map is unknown: leave provider requirements empty
+  // (hasProviderModel still flags that credentials are needed), record nothing
+  // as unresolved. We keep only the provider set — catalog models are routed by
+  // llmproxy, not mapped, so per-model provider ids aren't needed downstream.
+  const referenced = getReferencedCatalogModelIds(workflow);
+  const byId = new Map(catalog.map((m) => [m.id, m]));
+  const unresolvedCatalogModels: string[] = [];
+  const providerIds = new Set<string>();
+  if (catalog.length > 0) {
+    for (const id of referenced) {
+      const info = byId.get(id);
+      if (!info) unresolvedCatalogModels.push(id);
+      else providerIds.add(info.provider);
+    }
+  }
+
   return {
-    hasProviderModel: getReferencedCatalogModelIds(workflow).length > 0,
+    hasProviderModel: referenced.length > 0,
+    catalogProviders: [...providerIds].map((id) => ({ id })),
+    unresolvedCatalogModels,
     hasRetriever,
     hasWebSearch,
     hardwareChannels,
