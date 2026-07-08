@@ -167,7 +167,7 @@ func buildDeployML(wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engi
 		if err != nil {
 			return nil, fmt.Errorf("model %q: building inference client: %w", m.Id, err)
 		}
-		endpoints[m.Id] = &mlEndpoint{client: client, modelName: m.Id}
+		endpoints[m.Id] = &mlEndpoint{client: client, modelName: cfg.Model}
 	}
 	return endpoints, nil
 }

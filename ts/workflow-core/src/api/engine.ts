@@ -43,7 +43,7 @@ export interface components {
             /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
             model?: string;
         };
-        /** @description Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
+        /** @description Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential. */
         MLInferenceConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -52,6 +52,8 @@ export interface components {
             type: "ml-inference";
             /** @description Base URL of the inference sidecar (http:// or https://). */
             url: string;
+            /** @description Model name the sidecar selects on. */
+            model: string;
         };
         /** @description Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
         CameraConfig: {

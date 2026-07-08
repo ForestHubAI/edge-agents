@@ -7,7 +7,7 @@ import path from "node:path";
 import { camerasJson, composeYaml, configFileName, envFile, readme } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import { cameraSidecarServiceName } from "@foresthubai/workflow-core/deploy";
+import { cameraSidecarServiceName, mlSidecarServiceName } from "@foresthubai/workflow-core/deploy";
 import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -95,6 +95,13 @@ export async function writeOutput(
   );
   for (const src of workspaceSources) {
     await fs.mkdir(path.join(dir, src), { recursive: true });
+  }
+
+  // Each on-device ML model's repository sub-folder — named by model, not a bind
+  // mount, so the loop above misses it. The operator drops model.onnx here.
+  const mlRepoDir = path.join("workspaces", mlSidecarServiceName());
+  for (const b of Object.values(cfg.mlModels)) {
+    if (b.location === "device") await fs.mkdir(path.join(dir, mlRepoDir, b.model), { recursive: true });
   }
 
   return written;

@@ -24,8 +24,9 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	}))
 	var ml engineapi.ExternalResourceConfig
 	require.NoError(t, ml.FromMLInferenceConfig(engineapi.MLInferenceConfig{
-		Type: engineapi.MlInference,
-		Url:  "http://onnx:8000",
+		Type:  engineapi.MlInference,
+		Url:   "http://onnx:8000",
+		Model: "yolov8n",
 	}))
 	var cam engineapi.ExternalResourceConfig
 	require.NoError(t, cam.FromCameraConfig(engineapi.CameraConfig{
@@ -54,6 +55,7 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	// Credential-free sidecar arms route by discriminator too.
 	require.Len(t, out.MLInference, 1)
 	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
+	assert.Equal(t, "yolov8n", out.MLInference["ml-1"].Model)
 	require.Len(t, out.Cameras, 1)
 	assert.Equal(t, "http://fh-camera:8100", out.Cameras["cam-1"].URL)
 }

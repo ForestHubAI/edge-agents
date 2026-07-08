@@ -33,10 +33,13 @@ export type LLMModelBinding =
   | { location: "network"; url: string; apiKey?: string };
 
 // One custom ML model's runtime location. `device` = served by the shared
-// inference sidecar on this controller (no per-model settings — the model
-// repository is a directory the operator fills); `network` = an inference
-// endpoint the operator runs elsewhere. Credential-free — a trusted endpoint.
-export type MLModelBinding = { location: "device" } | { location: "network"; url: string };
+// inference sidecar on this controller (the model repository is a directory the
+// operator fills); `network` = an inference endpoint the operator runs
+// elsewhere. Credential-free — a trusted endpoint. `model` = the name the
+// sidecar selects on (its repository sub-folder on device).
+export type MLModelBinding =
+  | { location: "device"; model: string }
+  | { location: "network"; url: string; model: string };
 
 // One camera channel's runtime location. `device` = read by the shared capture
 // sidecar on this controller from a local capture source (`v4l2` wraps a

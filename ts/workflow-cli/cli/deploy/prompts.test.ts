@@ -176,25 +176,29 @@ describe("promptMissing", () => {
     expect(cfg.llmModels.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
   });
 
-  it("device ml model: asks where it runs, nothing more (shared sidecar)", async () => {
+  it("device ml model: asks where it runs, then the model name", async () => {
     script({
       select: [[/where does this model run/, "device"]],
-      input: [[/Output directory/, "b"]],
+      input: [
+        [/model name the sidecar selects on/, "yolov8n"],
+        [/Output directory/, "b"],
+      ],
     });
     const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
-    expect(cfg.mlModels.yolo).toEqual({ location: "device" });
+    expect(cfg.mlModels.yolo).toEqual({ location: "device", model: "yolov8n" });
   });
 
-  it("network ml model: asks where it runs, then url", async () => {
+  it("network ml model: asks where it runs, then the model name and url", async () => {
     script({
       select: [[/where does this model run/, "network"]],
       input: [
+        [/model name the sidecar selects on/, "yolov8n"],
         [/endpoint URL/, "http://onnx:8000"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
-    expect(cfg.mlModels.yolo).toEqual({ location: "network", url: "http://onnx:8000" });
+    expect(cfg.mlModels.yolo).toEqual({ location: "network", url: "http://onnx:8000", model: "yolov8n" });
   });
 
   it("device camera (v4l2): asks where it runs, source, then the device path", async () => {

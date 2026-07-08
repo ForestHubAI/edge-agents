@@ -148,9 +148,11 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// MLInferenceConfig Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
+// MLInferenceConfig Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential.
 type MLInferenceConfig struct {
-	Type MLInferenceConfigType `json:"type"`
+	// Model Model name the sidecar selects on.
+	Model string                `json:"model"`
+	Type  MLInferenceConfigType `json:"type"`
 
 	// Url Base URL of the inference sidecar (http:// or https://).
 	Url string `json:"url"`

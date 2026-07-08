@@ -158,6 +158,15 @@ export function ggufNameError(name: string | undefined): string | null {
   return null;
 }
 
+// The name the inference sidecar selects a model on. On device it also names the
+// model's sub-folder in the sidecar's repository, so it must be a plain name.
+export function mlModelNameError(name: string | undefined): string | null {
+  const t = (name ?? "").trim();
+  if (!t) return "a model name is required";
+  if (t.includes("/")) return "just a name, not a path — it names the model's sub-folder in the sidecar repository";
+  return null;
+}
+
 // A physical address belongs to exactly one channel — the engine doesn't police
 // this and would silently let the last claimer win. Same key = collision;
 // sharing just a chip path is fine (one chip, many lines), except serial where
@@ -242,8 +251,9 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   }
   for (const m of req.customMLModels) {
     const b = inputs.mlModels[m.id];
-    // device needs nothing more (the model repository is a directory the operator
-    // fills); network needs its endpoint URL.
+    // Both locations need a model name; network additionally needs its endpoint URL.
+    const nameErr = mlModelNameError(b?.model);
+    if (nameErr) missing.push(`model "${m.id}": ${nameErr}`);
     if (b?.location !== "device" && !b?.url) missing.push(`model "${m.id}": on-device or endpoint URL`);
   }
   for (const ch of req.cameraChannels) {
@@ -417,10 +427,14 @@ export function buildDeploymentSpec(
     mapping[m.id] = { ref };
 
     if (b.location === "device") {
-      externalResources[ref] = { type: "ml-inference", url: `http://${mlSidecarServiceName()}:${ML_SIDECAR_PORT}` };
+      externalResources[ref] = {
+        type: "ml-inference",
+        url: `http://${mlSidecarServiceName()}:${ML_SIDECAR_PORT}`,
+        model: b.model,
+      };
       mlDeviceModels++;
     } else {
-      externalResources[ref] = { type: "ml-inference", url: b.url };
+      externalResources[ref] = { type: "ml-inference", url: b.url, model: b.model };
     }
   }
   // One shared sidecar for all on-device ML models (not one per model). The model

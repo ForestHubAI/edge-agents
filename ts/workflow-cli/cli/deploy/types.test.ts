@@ -189,10 +189,14 @@ describe("valuesFileSchema", () => {
     expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100", setup: ["true"] } } }).success).toBe(false);
   });
 
-  it("validates the ml model binding: device is bare, network needs a url", () => {
-    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "device" } } }).success).toBe(true);
-    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "network", url: "http://onnx:8000" } } }).success).toBe(true);
-    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "network" } } }).success).toBe(false);
+  it("validates the ml model binding: both need a model name, network also a url", () => {
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "device", model: "yolov8n" } } }).success).toBe(true);
+    expect(
+      valuesFileSchema.safeParse({ mlModels: { m: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } })
+        .success,
+    ).toBe(true);
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "device" } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ mlModels: { m: { location: "network", model: "yolov8n" } } }).success).toBe(false);
   });
 });
 

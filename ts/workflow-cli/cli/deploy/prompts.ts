@@ -6,7 +6,7 @@ import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
+import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel, mlModelNameError } from "./types";
 import type {
   CameraBinding,
   CameraChannel,
@@ -179,10 +179,11 @@ async function promptLLMModels(
   return result;
 }
 
-// Per custom ML model: where it runs. device -> served by the shared inference
-// sidecar this bundle generates (nothing more to ask — the model repository is a
-// directory the operator fills, one sub-folder per model id); network -> an
-// endpoint the operator runs elsewhere (its URL, no credential).
+// Per custom ML model: where it runs, then the name the sidecar selects it by.
+// device -> served by the shared inference sidecar this bundle generates (the
+// name is the model's sub-folder in the repository the operator fills); network
+// -> an endpoint the operator runs elsewhere (the name must match what that
+// sidecar calls the model; its URL, no credential).
 async function promptMLModels(
   models: CustomMLModel[],
   seed: Record<string, MLModelBinding>,
@@ -198,8 +199,15 @@ async function promptMLModels(
       ],
     });
 
+    const model = (
+      await input({
+        message: `${m.label}: model name the sidecar selects on (e.g. yolov8n)`,
+        validate: (v) => mlModelNameError(v) ?? true,
+      })
+    ).trim();
+
     if (location === "device") {
-      result[m.id] = { location: "device" };
+      result[m.id] = { location: "device", model };
       continue;
     }
 
@@ -208,7 +216,7 @@ async function promptMLModels(
       default: "http://localhost:8000",
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });
-    result[m.id] = { location: "network", url: url.trim() };
+    result[m.id] = { location: "network", url: url.trim(), model };
   }
   return result;
 }

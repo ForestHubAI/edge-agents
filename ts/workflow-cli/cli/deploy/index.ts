@@ -21,7 +21,16 @@ import { parseDeployComponents, readComponentJson, resolveComponentEnv } from ".
 import type { DeployComponent, LoadedComponent } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
-import { ALL_PROVIDERS, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
+import {
+  ALL_PROVIDERS,
+  familyMismatches,
+  ggufNameError,
+  hardwareConflicts,
+  logLevelSchema,
+  mlModelNameError,
+  unknownIds,
+  valuesFileSchema,
+} from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
 
 // Resolved component images the spec pins. The engine is currently built locally
@@ -195,6 +204,8 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
   }
   for (const m of req.customMLModels) {
     const b = p.mlModels?.[m.id];
+    const nameErr = mlModelNameError(b?.model);
+    if (nameErr) missing.push(`model "${m.id}": ${nameErr}`);
     if (b?.location !== "device" && !b?.url) {
       missing.push(`model "${m.id}": on-device or endpoint URL`);
     }

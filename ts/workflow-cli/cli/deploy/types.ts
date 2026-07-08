@@ -24,6 +24,7 @@ export type {
 } from "@foresthubai/workflow-core/deploy";
 export {
   ggufNameError,
+  mlModelNameError,
   hardwareConflicts,
   familyMismatches,
   hardwareAddressKey,
@@ -67,8 +68,8 @@ const llmModelBindingSchema = z.discriminatedUnion("location", [
 ]);
 
 const mlModelBindingSchema = z.discriminatedUnion("location", [
-  z.strictObject({ location: z.literal("device") }),
-  z.strictObject({ location: z.literal("network"), url: z.string() }),
+  z.strictObject({ location: z.literal("device"), model: z.string() }),
+  z.strictObject({ location: z.literal("network"), url: z.string(), model: z.string() }),
 ]);
 
 const cameraBindingSchema = z.discriminatedUnion("location", [

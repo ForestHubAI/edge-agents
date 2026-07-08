@@ -29,7 +29,7 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	wf := &workflow.Workflow{Models: []workflow.Model{mlModel(t, "yolo")}}
 	dm := engine.DeploymentMapping{"yolo": {Ref: "onnx-1"}}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
-		"onnx-1": {URL: "http://onnx:9000"},
+		"onnx-1": {URL: "http://onnx:9000", Model: "yolov8n"},
 	}}
 
 	eps, err := buildDeployML(wf, dm, ext)
@@ -37,7 +37,8 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	require.Len(t, eps, 1)
 	ep := eps["yolo"]
 	require.NotNil(t, ep)
-	assert.Equal(t, "yolo", ep.modelName)
+	// The sidecar selector comes from the config's model name, not the workflow id.
+	assert.Equal(t, "yolov8n", ep.modelName)
 	assert.NotNil(t, ep.client)
 }
 

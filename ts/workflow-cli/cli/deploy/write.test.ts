@@ -125,6 +125,15 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
+  it("pre-creates each on-device ml model's repository sub-folder, named by model", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const cfg = cfgOf(out, { mlModels: { yolo: { location: "device", model: "yolov8n" } } });
+    await writeOutput(specOf(), {}, cfg, reqOf());
+    expect((await fs.stat(path.join(out, "workspaces", "fh-onnx", "yolov8n"))).isDirectory()).toBe(true);
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
   it("writes a <name>-config.json for a custom component carrying config", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");

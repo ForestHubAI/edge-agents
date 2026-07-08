@@ -173,8 +173,15 @@ describe("missingRequired", () => {
   it("flags an unbound ml model and accepts device or a network url", () => {
     const req = reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] });
     expect(missingRequired(req, {}).join()).toMatch(/yolo/);
-    expect(missingRequired(req, { mlModels: { yolo: { location: "device" } } })).toEqual([]);
-    expect(missingRequired(req, { mlModels: { yolo: { location: "network", url: "http://onnx:8000" } } })).toEqual([]);
+    expect(missingRequired(req, { mlModels: { yolo: { location: "device", model: "yolov8n" } } })).toEqual([]);
+    expect(
+      missingRequired(req, { mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }),
+    ).toEqual([]);
+  });
+
+  it("flags a device ml model with no model name", () => {
+    const req = reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] });
+    expect(missingRequired(req, { mlModels: { yolo: { location: "device", model: "" } } }).join()).toMatch(/model name/);
   });
 });
 

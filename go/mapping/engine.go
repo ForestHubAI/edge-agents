@@ -73,7 +73,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 			if err != nil {
 				continue
 			}
-			out.MLInference[id] = engine.MLInferenceConfig{URL: c.Url}
+			out.MLInference[id] = engine.MLInferenceConfig{URL: c.Url, Model: c.Model}
 		case string(engineapi.Camera):
 			c, err := rc.AsCameraConfig()
 			if err != nil {

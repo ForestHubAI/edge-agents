@@ -77,8 +77,8 @@ components:
 
     MLInferenceConfig:
       type: object
-      description: "Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine calls it per node; which model runs is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
-      required: [type, url]
+      description: "Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential."
+      required: [type, url, model]
       properties:
         type:
           type: string
@@ -86,6 +86,9 @@ components:
         url:
           type: string
           description: Base URL of the inference sidecar (http:// or https://).
+        model:
+          type: string
+          description: Model name the sidecar selects on.
 
     CameraConfig:
       type: object

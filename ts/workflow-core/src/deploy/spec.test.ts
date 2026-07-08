@@ -268,7 +268,7 @@ describe("buildDeploymentSpec ML inference sidecar", () => {
       hardware: {},
       mqtt: {},
       llmModels: {},
-      mlModels: { detector: { location: "device" }, classifier: { location: "device" } },
+      mlModels: { detector: { location: "device", model: "yolov8n" }, classifier: { location: "device", model: "resnet50" } },
       cameras: {},
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
@@ -297,14 +297,14 @@ describe("buildDeploymentSpec ML inference sidecar", () => {
       hardware: {},
       mqtt: {},
       llmModels: {},
-      mlModels: { detector: { location: "network", url: "http://onnx.remote:8000" } },
+      mlModels: { detector: { location: "network", url: "http://onnx.remote:8000", model: "yolov8n" } },
       cameras: {},
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no sidecar
     const ext = engineConfigOf(spec).externalResources!;
     const mlRes = Object.values(ext).find((r) => r.type === "ml-inference");
-    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000" });
+    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000", model: "yolov8n" });
   });
 });
 

@@ -193,7 +193,7 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   // On-device ML models all share ONE inference sidecar; each model's bundle
   // lives in its own sub-folder of that sidecar's repository dir.
   const mlRepoDir = `./workspaces/${mlSidecarServiceName()}`;
-  const mlDeviceModels = Object.entries(cfg.mlModels).flatMap(([id, b]) => (b.location === "device" ? [id] : []));
+  const mlDeviceModels = Object.values(cfg.mlModels).flatMap((b) => (b.location === "device" ? [b.model] : []));
   const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
@@ -268,7 +268,9 @@ repository of ML models; the engine reaches it over the compose network by servi
 Drop each model's \`model.onnx\` + \`manifest.yaml\` into its own sub-folder of the shared
 repository dir below (read-only mounted into the sidecar), then transfer the workspaces
 tree in step 3:
-${mlDeviceModels.map((id) => `- \`${mlRepoDir}/${id}/\``).join("\n")}`);
+${mlDeviceModels.map((name) => `- \`${mlRepoDir}/${name}/\``).join("\n")}
+
+The sidecar runs nonroot, so these files must be world-readable — \`chmod 644\` them if your copy left them private (e.g. \`0600\`).`);
   }
   if (deviceCameras.length > 0) {
     const parts = [

@@ -296,13 +296,13 @@ describe("readme", () => {
   });
 
   it("a device ml model adds the shared inference sidecar note", () => {
-    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device" } } }), false);
+    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("## On-device ML models");
     expect(md).toContain("fh-onnx");
   });
 
   it("a network ml model adds only the network note", () => {
-    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000" } } }), false);
+    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
     expect(md).toContain("## Network ML models");
     expect(md).not.toContain("## On-device ML models");
   });
@@ -320,7 +320,7 @@ describe("readme", () => {
   });
 
   it("documents building, saving and loading a self-built ML sidecar image", () => {
-    const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device" } } }), false);
+    const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("docker build -t fh-onnx:latest py/ml-inference");
     expect(md).toContain("docker save fh-onnx:latest");
     expect(md).toContain("docker load -i fh-onnx.tar");
@@ -338,7 +338,7 @@ describe("readme", () => {
   });
 
   it("adds no sidecar build step when nothing is self-built (network ML model, llama)", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000" } } }), false);
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
     expect(md).not.toContain("docker build -t fh-onnx");
     expect(md).not.toContain("docker load -i fh-onnx.tar");
   });

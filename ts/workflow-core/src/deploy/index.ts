@@ -9,6 +9,7 @@ export {
   hardwareAddressKey,
   hardwareAddressLabel,
   ggufNameError,
+  mlModelNameError,
   llmSidecarServiceName,
   mlSidecarServiceName,
   cameraSidecarServiceName,

@@ -63,10 +63,11 @@ type ExternalResources struct {
 
 // MLInferenceConfig is the resolved connection to an ML inference sidecar the
 // engine doesn't ship. The declared workflow model supplies the id; this
-// supplies how to reach the sidecar. The model name to run is sent per
-// request, so many models may share one endpoint.
+// supplies how to reach the sidecar and the name it selects on. Model is sent
+// per request, so many models may share one endpoint.
 type MLInferenceConfig struct {
-	URL string
+	URL   string
+	Model string
 }
 
 // CameraConfig is the resolved connection to a camera capture sidecar the
