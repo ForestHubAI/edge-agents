@@ -43,7 +43,6 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
     hasProviderModel: false,
     catalogProviders: [],
-    catalogModelProviders: {},
     unresolvedCatalogModels: [],
     hasRetriever: false,
     hasWebSearch: false,

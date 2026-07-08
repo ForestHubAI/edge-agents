@@ -73,9 +73,9 @@ func main() {
 	}
 
 	// Build the I/O registries main owns for the engine's lifetime: drivers from
-	// the device manifest, MQTT transports from the deploy's external resources.
-	// Both are injected into the builder, borrowed by the workflow's channels,
-	// and closed by main at shutdown.
+	// the device manifest, MQTT transports from the external resources. Both are
+	// injected into the builder, borrowed by the workflow's channels, and closed
+	// by main at shutdown.
 	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
@@ -98,12 +98,12 @@ func main() {
 	// Memory subsystem: the Manager owns durable local storage rooted at the
 	// workspace mount (component.Workspace). Memory is device-storage-only — it
 	// survives engine restarts on a persistent volume, with no backend mirror.
-	// Reconcile is invoked on every Build (deploy or initial), so no eager call here.
+	// Reconcile is invoked from Builder.Build at boot, so no eager call here.
 	memoryManager := memory.NewManager(component.Workspace)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
-	// in a deployed workflow fails the build with a clear message.
+	// in the workflow fails the build with a clear message.
 	var webSearchProvider websearch.Provider
 	if cfg.WebSearch.APIKey != "" {
 		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
@@ -116,16 +116,16 @@ func main() {
 
 	// Retriever: backend if cloud mode, otherwise nil. No offline RAG backend
 	// exists yet, and a nil retriever makes the build reject any workflow that
-	// declares a Retriever node (clear deploy-time error) rather than silently
+	// declares a Retriever node (clear boot-time error) rather than silently
 	// returning empty context at runtime.
 	var retriever engine.Retriever
 	if backendClient != nil {
 		retriever = backendClient
 	}
 
-	// Create the builder for the workflow runner. LLM providers are no longer a
-	// boot set: Build resolves them per-deploy from externalResources, and any
-	// backendLlm instance forwards through this backend client (nil = standalone).
+	// Create the builder for the workflow runner. Build resolves the LLM
+	// providers from the boot externalResources, and any backendLlm instance
+	// forwards through this backend client (nil = standalone).
 	builder := &build.Builder{
 		Drivers:    drivers,
 		Transports: transports,

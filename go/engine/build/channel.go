@@ -35,11 +35,11 @@ type channels struct {
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
 // The workflow itself is binding-free; every channel's binding comes from the
-// flat deploy mapping dm (channel id → platform resource id). Hardware channels
+// flat resource mapping dm (channel id → platform resource id). Hardware channels
 // resolve that id through drvs (driver instance in the boot device manifest);
 // MQTT channels resolve it through ext + transports (external resource id →
 // MQTT config + open transport). Hard-fails when a channel has no binding in the
-// mapping, or an MQTT channel references a config the deploy doesn't carry —
+// mapping, or an MQTT channel references a config externalResources doesn't carry —
 // silent degradation hides config bugs.
 func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
 	ch := &channels{
@@ -166,7 +166,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 			}
 			cfg, ok := ext.MQTTs[b.Ref]
 			if !ok {
-				return nil, fmt.Errorf("channel %s: external resource %q not in deploy externalResources", x.Id, b.Ref)
+				return nil, fmt.Errorf("channel %s: external resource %q not in externalResources", x.Id, b.Ref)
 			}
 			if transports == nil {
 				return nil, fmt.Errorf("channel %s: no transport registry", x.Id)
@@ -183,8 +183,8 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 			}
 		case workflow.LOGChannel:
 			// No bindingFor: a log channel resolves to the ambient engine logger,
-			// not a device driver or external resource, so the deploy carries no
-			// mapping for it. Level is contract-constrained to a known enum; parse
+			// not a device driver or external resource, so the mapping carries no
+			// entry for it. Level is contract-constrained to a known enum; parse
 			// defensively and hard-fail rather than silently logging at the wrong
 			// severity.
 			level, err := logging.ParseLevel(string(x.Level))
@@ -199,24 +199,24 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 	return ch, nil
 }
 
-// bindingFor resolves a channel's binding from the deploy mapping. The workflow
-// no longer carries the binding, so a missing entry is a deploy
+// bindingFor resolves a channel's binding from the resource mapping. The workflow
+// no longer carries the binding, so a missing entry is a config
 // misconfiguration, not silent degradation. The ref resolves against the device
 // driver registry (hardware) or external resources (MQTT) at the call site, by
 // channel type.
 func bindingFor(dm engine.ResourceMapping, channelID string) (engine.ResourceBinding, error) {
 	if dm == nil {
-		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no deployment mapping provided", channelID)
+		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no resource mapping provided", channelID)
 	}
 	b, ok := dm[channelID]
 	if !ok || b.Ref == "" {
-		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no binding in deployment mapping", channelID)
+		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no binding in resource mapping", channelID)
 	}
 	return b, nil
 }
 
 // indexFor returns the binding's physical sub-address (GPIO line / ADC-PWM-DAC
-// channel). Addressable channels require it; a nil index is a deploy
+// channel). Addressable channels require it; a nil index is a config
 // misconfiguration.
 func indexFor(b engine.ResourceBinding, channelID string) (int, error) {
 	if b.Index == nil {

@@ -3,9 +3,8 @@
 // For commercial licensing, contact root@foresthub.ai
 
 // Package transport is the protocol-level abstraction for network resources
-// the engine talks to. Mirrors driver/, but
-// at a different lifecycle scope: drivers come from the device manifest at
-// engine boot, transports come from deploy config per deploy.
+// the engine talks to. Mirrors driver/: both open once at engine boot, drivers
+// from the device manifest and transports from the external resources.
 package transport
 
 // Transport is the base contract for protocol handles.

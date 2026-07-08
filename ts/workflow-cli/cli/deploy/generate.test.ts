@@ -72,8 +72,10 @@ describe("envFile", () => {
     expect(env).not.toContain("WEB_SEARCH");
   });
 
-  it("writes a provider key when set", () => {
-    expect(envFile(cfgOf({ llmKeys: { anthropic: "sk-x" } }))).toContain("ANTHROPIC_API_KEY=sk-x");
+  it("never writes provider keys into env — they ride secrets.json now", () => {
+    const env = envFile(cfgOf({ llmKeys: { Anthropic: "sk-x" } }));
+    expect(env).not.toContain("sk-x");
+    expect(env).not.toContain("API_KEY");
   });
 
   it("writes the web-search section only when configured", () => {

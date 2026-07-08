@@ -72,8 +72,8 @@ type Event struct {
 type Secrets map[string]string
 
 // ResourceMapping binds a binding-free workflow's logical resource ids to
-// concrete platform resources for one deploy, keyed by workflow resource id.
-// Mirrors the engineapi wire shape.
+// concrete platform resources, keyed by workflow resource id. Mirrors the
+// engineapi wire shape.
 type ResourceMapping map[string]ResourceBinding
 
 // ResourceBinding is how one workflow resource binds to the environment. Ref is
@@ -118,11 +118,11 @@ type PWMConfig struct {
 	Chip string `json:"chip"`
 }
 
-// ExternalResources holds the resolved, deploy-delivered configs for a
-// workflow's non-device external resources, keyed by the platform resource id
-// the ResourceMapping points at. The engine builds transports from MQTTs and
-// per-deploy LLM providers from Providers (the connection for each declared
-// custom/self-hosted model).
+// ExternalResources holds the resolved, boot-delivered configs for a workflow's
+// non-device external resources, keyed by the platform resource id the
+// ResourceMapping points at. The engine builds transports from MQTTs and LLM
+// providers from Providers (the connection for each declared custom/self-hosted
+// model).
 type ExternalResources struct {
 	MQTTs     map[string]MQTTConnection
 	Providers map[string]LLMProviderConfig

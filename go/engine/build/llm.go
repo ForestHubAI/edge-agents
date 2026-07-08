@@ -17,8 +17,8 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
-// buildDeployProviders resolves this deploy's externalResources into the set of
-// llmproxy providers to register into the engine's single llmproxy client. The client
+// buildProviders resolves the boot externalResources into the set of llmproxy
+// providers to register into the engine's single llmproxy client. The client
 // then routes each referenced model by id — there is no pre-routing here.
 //
 //   - self-hosted: every declared workflow model (all customs) binds to a
@@ -32,8 +32,8 @@ import (
 //     backend, claiming the same static model set the registry gives that provider.
 //
 // backendClient may be nil (no backend configured); a backendLlm instance then
-// is a deploy error. An unbound or unconfigured declared model is a deploy error.
-func buildDeployProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
+// is a config error. An unbound or unconfigured declared model is a config error.
+func buildProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
 	if ext == nil {
 		ext = &engine.ExternalResources{}
 	}
@@ -90,9 +90,9 @@ func buildDeployProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext 
 }
 
 // selfHostedEndpoints resolves every declared workflow model (all customs) to a
-// self-hosted endpoint via its deploy mapping and provider config. Several models
+// self-hosted endpoint via its resource mapping and provider config. Several models
 // on one endpoint become several ModelEndpoints sharing a url. A declared model
-// bound to a non-self-hosted provider is a deploy error.
+// bound to a non-self-hosted provider is a config error.
 func selfHostedEndpoints(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	for _, mu := range wf.Models {
@@ -102,18 +102,18 @@ func selfHostedEndpoints(wf *workflow.Workflow, dm engine.ResourceMapping, ext *
 		}
 		b, ok := dm[m.Id]
 		if !ok || b.Ref == "" {
-			return nil, fmt.Errorf("model %q: declared but not bound by the deployment mapping", m.Id)
+			return nil, fmt.Errorf("model %q: declared but not bound by the resource mapping", m.Id)
 		}
 		cfg, ok := ext.Providers[b.Ref]
 		if !ok {
-			return nil, fmt.Errorf("model %q: bound to %q but no provider config in deploy externalResources", m.Id, b.Ref)
+			return nil, fmt.Errorf("model %q: bound to %q but no provider config in externalResources", m.Id, b.Ref)
 		}
 		if cfg.Kind != engine.LLMSelfHosted {
 			return nil, fmt.Errorf("model %q: declared models must bind to a self-hosted provider, got %q", m.Id, cfg.Kind)
 		}
 		caps := mapping.ModelCapabilitiesToDomain(m.Capabilities)
 		if slices.Contains(caps, llmproxy.CapabilityEmbedding) {
-			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted deploy providers yet (no dimension in the workflow declaration)", m.Id)
+			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted providers yet (no dimension in the workflow declaration)", m.Id)
 		}
 		endpoints = append(endpoints, selfhosted.ModelEndpoint{
 			URL:          cfg.URL,
@@ -129,7 +129,7 @@ func selfHostedEndpoints(wf *workflow.Workflow, dm engine.ResourceMapping, ext *
 // validateModelsResolvable fails the build when an Agent node references a model
 // that no provider in the composed client can serve. Without this the failure
 // surfaces lazily at the first Chat ("no suitable provider"); here it's a clear
-// deploy-time error naming the model.
+// boot-time error naming the model.
 func validateModelsResolvable(wf *workflow.Workflow, client *llmproxy.Client) error {
 	ids, err := requiredModelIDs(wf)
 	if err != nil {
@@ -148,7 +148,7 @@ func validateModelsResolvable(wf *workflow.Workflow, client *llmproxy.Client) er
 }
 
 // requiredModelIDs collects the chat-model ids referenced by Agent nodes across
-// the main graph and every function body — the models the deploy must be able
+// the main graph and every function body — the models the engine must be able
 // to serve. Only Agent nodes reference chat models today; nodes with a missing
 // model id are skipped here (the graph build reports that as a MissingField).
 func requiredModelIDs(wf *workflow.Workflow) ([]string, error) {

@@ -38,11 +38,14 @@ MqttBinding       { "brokerUrl": string, "username"?: string, "password"?: strin
 ModelBinding      { "location": "device",  "modelFile": string }          // a GGUF run as a sidecar
                 | { "location": "network", "url": string, "apiKey"?: string }  // an endpoint you run
 WebSearchBinding  { "provider": string, "apiKey": string }
-llmKeys           { "anthropic"?: string, "openai"?: string, "gemini"?: string, "mistral"?: string }
+llmKeys           { "Anthropic"?: string, "OpenAI"?: string, "Gemini"?: string, "Mistral"?: string }
 ```
 
-The four providers are the only keys the wizard knows; a custom/self-hosted model never needs one
-(it goes through `models`, not `llmKeys`).
+`llmKeys` is keyed by the **provider id** (the llmproxy ProviderID: `Anthropic`, `OpenAI`, `Gemini`,
+`Mistral`) — the same id the wizard prompts for and that a deploy needs a key for. The `--<provider>-key`
+flag is the lowercased alias (`--anthropic-key` sets `Anthropic`). Only the providers a workflow's
+`Agent`s actually reference are asked for; a custom/self-hosted model never needs one (it goes through
+`models`, not `llmKeys`).
 
 ## What's required, what's secret
 

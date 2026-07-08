@@ -14,7 +14,7 @@ import {
   // they share the builder's toast style/surface instead of a second one.
   toast,
 } from "@foresthubai/workflow-builder";
-import type { ModelInfo } from "@foresthubai/workflow-core/model";
+import { MODEL_CATALOG } from "./catalog";
 import { CheckCircle2, FileText, FolderOpen, Redo2, Save, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n, { LANG_STORAGE_KEY, type Language } from "./i18n";
@@ -22,15 +22,10 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { ToolbarButton } from "./components/ToolbarButton";
 
-// Static model catalog — the models the llmproxy supports. The embedder owns
-// this list (the builder takes it via props); a real deployment would source it
-// from the llmproxy rather than hardcoding. Self-hosted models are declared in
-// the builder's Models tab instead.
-const MODEL_CATALOG: ModelInfo[] = [
-  { id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["chat"], provider: "anthropic" },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["chat"], provider: "anthropic" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", capabilities: ["chat"], provider: "anthropic" },
-];
+// The static model catalog is a snapshot mirror of the engine's llmproxy, shared
+// with the deploy CLI (`src/catalog.ts`). The builder takes it via props; a real
+// deployment would source it from the llmproxy rather than a snapshot. Self-hosted
+// models are declared in the builder's Models tab instead.
 
 // Where a workflow lives, so Save can write without re-prompting. Two backends:
 // a real disk PATH (only the CLI bridge has one — the dev server writes it), or

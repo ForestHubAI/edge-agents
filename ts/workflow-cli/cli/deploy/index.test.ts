@@ -16,7 +16,6 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
     hasProviderModel: false,
     catalogProviders: [],
-    catalogModelProviders: {},
     unresolvedCatalogModels: [],
     hasRetriever: false,
     hasWebSearch: false,
@@ -53,8 +52,8 @@ describe("parseFlags", () => {
       "debug",
       "--force",
     ]);
-    expect(f.llmKeys.anthropic).toBe("sk-a");
-    expect(f.llmKeys.openai).toBe("sk-o");
+    expect(f.llmKeys.Anthropic).toBe("sk-a");
+    expect(f.llmKeys.OpenAI).toBe("sk-o");
     expect(f.output).toBe("dir");
     expect(f.values).toBe("v.json");
     expect(f.logLevel).toBe("debug");
@@ -65,7 +64,7 @@ describe("parseFlags", () => {
     const f = parseFlags([]);
     expect(f.force).toBe(false);
     expect(f.help).toBe(false);
-    expect(f.llmKeys.anthropic).toBeUndefined();
+    expect(f.llmKeys.Anthropic).toBeUndefined();
     expect(f.values).toBeUndefined();
   });
 });

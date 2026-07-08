@@ -58,7 +58,7 @@ func nodeTypesFromContract(t *testing.T) []string {
 //
 // Go type switches are not checked for exhaustiveness, so a node added to the
 // contract (and regenerated into the api package) but forgotten in graph.go
-// compiles clean and fails only at deploy time via the "unsupported node type"
+// compiles clean and fails only at boot via the "unsupported node type"
 // default. This test moves that failure left to `go test`.
 //
 // Mechanism: for each node type, feed a bare {"type": T} node through build()

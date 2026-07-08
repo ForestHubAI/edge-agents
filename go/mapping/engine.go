@@ -14,10 +14,10 @@ import (
 )
 
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
-// deploy-time configs) onto the engine domain type at the HTTP boundary,
-// routing each arm by its discriminator: MQTT connections into MQTTs, LLM
-// provider instances (local / backend / self-hosted) into Providers. Unknown
-// arms are skipped.
+// boot config) onto the engine domain type at the api→domain boundary, routing
+// each arm by its discriminator: MQTT connections into MQTTs, LLM provider
+// instances (local / backend / self-hosted) into Providers. Unknown arms are
+// skipped.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
 // spec). Credentials arrive separately in secrets, keyed by the same resource

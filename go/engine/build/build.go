@@ -20,9 +20,9 @@ import (
 )
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
-// Backend (optional; nil = standalone) is the client every per-deploy backend-
-// routed LLM provider forwards to; Build resolves this deploy's externalResources
-// into a fresh llmproxy client scoped to each Runner.
+// Backend (optional; nil = standalone) is the client every backend-routed LLM
+// provider forwards to; Build resolves the boot externalResources into the
+// llmproxy client scoped to the Runner.
 type Builder struct {
 	Drivers    *driver.Registry
 	Transports *transport.Registry
@@ -32,10 +32,9 @@ type Builder struct {
 	WebSearch  websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
-// Build constructs a Runner for the given workflow and network manifest.
-// nm may be nil. Refreshes the memory snapshot before assembling nodes so
-// agent nodes see the latest declared files (including any seeded by the
-// current deploy).
+// Build constructs a Runner for the given workflow, resource mapping (dm), and
+// external resources (ext); ext may be nil. Refreshes the memory snapshot before
+// assembling nodes so agent nodes see the latest declared files.
 func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
@@ -46,14 +45,14 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.Re
 			return nil, fmt.Errorf("reconciling memory: %w", err)
 		}
 	}
-	// Compose a per-deploy LLM client: the boot providers plus any custom-model
-	// providers resolved from this deploy's externalResources. The client is
-	// scoped to this Runner and GC'd on shutdown, so the boot set is never mutated.
-	deployProviders, err := buildDeployProviders(wf, dm, ext, b.Backend)
+	// Compose the LLM client from the boot externalResources: catalog providers
+	// plus any custom-model self-hosted endpoints. The client is scoped to this
+	// Runner and GC'd on shutdown.
+	providers, err := buildProviders(wf, dm, ext, b.Backend)
 	if err != nil {
-		return nil, fmt.Errorf("resolving deploy llm providers: %w", err)
+		return nil, fmt.Errorf("resolving llm providers: %w", err)
 	}
-	llmClient := llmproxy.NewClient(deployProviders)
+	llmClient := llmproxy.NewClient(providers)
 	if err := validateModelsResolvable(wf, llmClient); err != nil {
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
@@ -88,7 +87,7 @@ func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
 }
 
 // buildCollections resolves each declared VectorDatabase to its collection id
-// through the deploy mapping, skipping other memory kinds. Hard-fails on a
+// through the resource mapping, skipping other memory kinds. Hard-fails on a
 // missing binding, exactly as buildChannels does for hardware/MQTT channels.
 func buildCollections(wf *workflow.Workflow, dm engine.ResourceMapping) (map[string]string, error) {
 	out := make(map[string]string)
