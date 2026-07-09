@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Edge taxonomy: a plain control/tool edge, or one of the three agent-specific
 // control-flow refinements resolved at connection time from source/target context.
 // Node port handles themselves only carry `control` or `tool`. Tool edges have no

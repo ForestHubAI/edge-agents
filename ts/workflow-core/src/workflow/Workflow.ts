@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { Channel } from "../channel";
 import type { Memory } from "../memory";
 import type { Model } from "../model";

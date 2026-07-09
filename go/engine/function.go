@@ -1,20 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package engine
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
 
 // Function is a compiled, callable sub-workflow. Synchronous, no triggers.
 type Function struct {
-	Info              workflow.FunctionInfo
-	DeclaredVars      []workflow.Variable            // function-local declared variables to seed into the function scope at call time
+	Info              workflowapi.FunctionInfo
+	DeclaredVars      []workflowapi.Variable            // function-local declared variables to seed into the function scope at call time
 	InitialState      string                         // entry node id (from OnFunctionCall's outgoing edge)
 	Actions           map[string]Executable          // action nodes, keyed by node id
-	OutputAssignments map[string]workflow.Expression // return uid → expression evaluated in callee scope at end
+	OutputAssignments map[string]workflowapi.Expression // return uid → expression evaluated in callee scope at end
 }
 
 // Call runs the function in a fresh FunctionScope and returns
@@ -31,9 +35,16 @@ func (f *Function) Call(ctx context.Context, args map[string]expr.Value) (map[st
 		}
 	}
 
-	// Run the function scoped state machine until it returns to idle (must be acyclic).
+	// Run the function scoped state machine until it returns to idle (must be
+	// acyclic — a cycle here would otherwise hang this Call, and with it the
+	// state-runner, forever; the ctx check keeps such a loop cancellable).
 	state := f.InitialState
 	for state != StateIdle {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("function %s: %w", f.Info.Name, ctx.Err())
+		default:
+		}
 		node, ok := f.Actions[state]
 		if !ok {
 			return nil, fmt.Errorf("function %s: node %q not found", f.Info.Name, state)

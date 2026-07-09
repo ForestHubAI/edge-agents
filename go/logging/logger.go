@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package logging configures a structured zerolog logger shared by any
 // component (engine, ranger, …). Configure wires the sinks declared by a
 // Config — stdout always, plus an opt-in rotating file and an opt-in HTTP
@@ -8,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -18,6 +23,17 @@ import (
 // shares. Call Configure once at boot to wire the writer graph; read it
 // from anywhere thereafter.
 var Logger = zerolog.Nop()
+
+// FatalExit logs err at the Fatal level and then exits the process with code.
+// Logging at Fatal makes the HTTP sink ship the line synchronously (see
+// HTTPWriter.WriteLevel), so it lands before exit. Unlike Logger.Fatal() — which
+// hardcodes os.Exit(1) — this lets a component pick its exit code (e.g.
+// component.ExitConfigError) without losing that synchronous shipping, hence
+// WithLevel + os.Exit rather than the .Fatal() helper.
+func FatalExit(code int, err error, msg string) {
+	Logger.WithLevel(zerolog.FatalLevel).Err(err).Msg(msg)
+	os.Exit(code)
+}
 
 // sink pairs a writer with the minimum level it accepts. Configure (config.go)
 // builds one per enabled sink and hands them to wire.

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Globe } from "lucide-react";
 import { useTranslation } from "react-i18next";

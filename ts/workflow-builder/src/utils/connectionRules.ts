@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Editor connection rules — which ports may connect, which node types are
 // offered from a port, and whether a node can take another outgoing edge.
 //
@@ -33,24 +37,23 @@ function hasControlFlowEdge(nodeId: string, nodeData: NodeData, edges: Edge[]): 
 /**
  * Check whether an output port can accept at least one more outgoing edge.
  * Used by the contextual "+" button on output ports.
+ * Takes the node's own data rather than the nodes array so per-node components
+ * (BaseNode) can call it without subscribing to all nodes.
  */
-export function canPortAcceptEdge(nodeId: string, handleId: string, nodes: Node<NodeData>[], edges: Edge[]): boolean {
-  const node = nodes.find((n) => n.id === nodeId);
-  if (!node) return false;
-
-  const ports = getPorts(node.data);
+export function canPortAcceptEdge(nodeData: NodeData, handleId: string, edges: Edge[]): boolean {
+  const ports = getPorts(nodeData);
   const port = ports.output.find((p) => p.id === handleId);
   if (!port) return false;
 
   // Tool output ports always accept multiple edges (an agent wires up many tools).
   // A control output port accepts a single edge unless the node can branch.
-  if (port.type === "control" && !NodeRegistry.getByType(node.data.type)?.canBranch) {
-    if (edges.some((e) => e.source === nodeId && e.sourceHandle === handleId)) return false;
+  if (port.type === "control" && !NodeRegistry.getByType(nodeData.type)?.canBranch) {
+    if (edges.some((e) => e.source === nodeData.id && e.sourceHandle === handleId)) return false;
   }
 
   // Mutual exclusion: control output blocked when node has tool-input edges
   // (Tool output is exempt — never blocked)
-  if (port.type === "control" && hasToolInputEdge(nodeId, node.data, edges)) return false;
+  if (port.type === "control" && hasToolInputEdge(nodeData.id, nodeData, edges)) return false;
 
   return true;
 }
@@ -107,7 +110,7 @@ export const isValidConnection = (
   if (!srcNode || !tgtNode) return false;
 
   // Source-side checks via canPortAcceptEdge (multiple-outgoing + mutual exclusion)
-  if (!canPortAcceptEdge(sourceId, sourceHandleId, nodes, edges)) return false;
+  if (!canPortAcceptEdge(srcNode.data, sourceHandleId, edges)) return false;
 
   // Get ports using centralized dispatcher
   const sourcePorts = getPorts(srcNode.data);

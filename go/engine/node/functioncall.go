@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
@@ -5,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
@@ -26,14 +30,14 @@ var _ engine.ToolProvider = (*FunctionCall)(nil)
 type FunctionCall struct {
 	engine.LinearNode
 	fn              *engine.Function
-	inputBindings   map[string]workflow.Expression    // arg uid → expression
-	outputBindings  map[string]workflow.OutputBinding // return uid → binding
+	inputBindings   map[string]workflowapi.Expression    // arg uid → expression
+	outputBindings  map[string]workflowapi.OutputBinding // return uid → binding
 	toolDescription string
 }
 
 // NewFunctionCall builds a FunctionCall. Validates that every declared return
 // has a matching output binding.
-func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]workflow.Expression, outputBindings map[string]workflow.OutputBinding, toolDescription string) (*FunctionCall, error) {
+func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]workflowapi.Expression, outputBindings map[string]workflowapi.OutputBinding, toolDescription string) (*FunctionCall, error) {
 	for _, ret := range fn.Info.Returns {
 		if _, ok := outputBindings[ret.Uid]; !ok {
 			return nil, fmt.Errorf("function_call %s: missing output binding for return %s (uid %s)", id, ret.Name, ret.Uid)
@@ -53,8 +57,8 @@ func NewFunctionCall(id string, fn *engine.Function, inputBindings map[string]wo
 	}, nil
 }
 
-func (n *FunctionCall) Outputs() map[string]workflow.DataType {
-	raw := make(map[string]workflow.DataType, len(n.fn.Info.Returns))
+func (n *FunctionCall) Outputs() map[string]workflowapi.DataType {
+	raw := make(map[string]workflowapi.DataType, len(n.fn.Info.Returns))
 	for _, ret := range n.fn.Info.Returns {
 		raw[ret.Uid] = ret.DataType
 	}
@@ -87,12 +91,12 @@ func (n *FunctionCall) Execute(ctx context.Context, scope *engine.Scope) (string
 // Tools exposes this function as an LLM-callable tool.
 func (n *FunctionCall) Tools() ([]llmproxy.FunctionTool, error) {
 	properties := make(map[string]any, len(n.fn.Info.Arguments))
-	argByName := make(map[string]workflow.Variable, len(n.fn.Info.Arguments))
+	argByName := make(map[string]workflowapi.Variable, len(n.fn.Info.Arguments))
 	for _, a := range n.fn.Info.Arguments {
 		properties[a.Name] = map[string]any{"type": mapping.JSONTypeFor(a.DataType)}
 		argByName[a.Name] = a
 	}
-	returnByUid := make(map[string]workflow.Variable, len(n.fn.Info.Returns))
+	returnByUid := make(map[string]workflowapi.Variable, len(n.fn.Info.Returns))
 	for _, r := range n.fn.Info.Returns {
 		returnByUid[r.Uid] = r
 	}

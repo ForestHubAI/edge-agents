@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package selfhosted implements the SelfHosted LLM provider for routing chat
 // requests to operator-run inference servers (llama-server, vLLM, Ollama, etc.)
 // via the OpenAI-compatible Chat Completions API.

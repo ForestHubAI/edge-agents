@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package build
 
 import (
@@ -7,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -54,7 +58,7 @@ func nodeTypesFromContract(t *testing.T) []string {
 //
 // Go type switches are not checked for exhaustiveness, so a node added to the
 // contract (and regenerated into the api package) but forgotten in graph.go
-// compiles clean and fails only at deploy time via the "unsupported node type"
+// compiles clean and fails only at boot via the "unsupported node type"
 // default. This test moves that failure left to `go test`.
 //
 // Mechanism: for each node type, feed a bare {"type": T} node through build()
@@ -78,7 +82,7 @@ func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 				mainScope: ms,
 			}
 
-			var n workflow.Node
+			var n workflowapi.Node
 			require.NoError(t,
 				json.Unmarshal(fmt.Appendf(nil, `{"id":"n1","type":%q,"arguments":{}}`, typ), &n),
 				"constructing a %q node", typ)
@@ -142,12 +146,12 @@ func channelTypesFromContract(t *testing.T) []string {
 func TestBuildChannelsHandlesEveryContractChannel(t *testing.T) {
 	for _, typ := range channelTypesFromContract(t) {
 		t.Run(typ, func(t *testing.T) {
-			var c workflow.Channel
+			var c workflowapi.Channel
 			require.NoError(t,
 				json.Unmarshal(fmt.Appendf(nil, `{"id":"c1","type":%q,"label":"c1"}`, typ), &c),
 				"constructing a %q channel", typ)
 
-			_, err := buildChannels([]workflow.Channel{c}, nil, nil, nil, nil)
+			_, err := buildChannels([]workflowapi.Channel{c}, nil, nil, nil, nil)
 			if err == nil {
 				return // handled cleanly (a camera, for instance, is a no-op here)
 			}
@@ -162,12 +166,12 @@ func TestBuildChannelsHandlesEveryContractChannel(t *testing.T) {
 // proves the type switch reached that arm, which is all this test checks. The
 // default arm returns an error rather than panicking, so a genuine missing case
 // can never be masked by this recover.
-func safeBuild(bc *buildContext, n workflow.Node) (err error) {
+func safeBuild(bc *buildContext, n workflowapi.Node) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = nil
 		}
 	}()
-	_, err = newGraph(bc).build([]workflow.Node{n}, nil)
+	_, err = newGraph(bc).build([]workflowapi.Node{n}, nil)
 	return err
 }

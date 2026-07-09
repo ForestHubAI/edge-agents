@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package trigger
 
 import (
@@ -56,5 +60,14 @@ func TestTicker_Lifecycle(t *testing.T) {
 	t.Run("Close before Setup is a no-op", func(t *testing.T) {
 		tk := NewTicker("tick", time.Second)
 		assert.NoError(t, tk.Close())
+	})
+
+	t.Run("Setup rejects a non-positive interval instead of panicking", func(t *testing.T) {
+		for _, interval := range []time.Duration{0, -time.Second} {
+			tk := NewTicker("tick", interval)
+			err := tk.Setup(context.Background())
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "must be positive")
+		}
 	})
 }

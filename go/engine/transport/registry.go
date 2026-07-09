@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package transport
 
 import (
@@ -6,15 +10,15 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
-// Registry holds the per-deploy MQTT transport instances, keyed by network ID.
-// Constructed fresh for each deploy via the engine's deploy plumbing; closed
-// and replaced on the next deploy. Mirrors driver.Registry's open-on-construct
-// + close-on-partial-fail discipline.
+// Registry holds the MQTT transport instances, keyed by network ID. Constructed
+// once at boot from the engine's external resources and closed when the process
+// exits. Mirrors driver.Registry's open-on-construct + close-on-partial-fail
+// discipline.
 type Registry struct {
 	mqtts map[string]MQTTTransport
 }
 
-// NewRegistry opens every MQTT transport in the deploy's external resources,
+// NewRegistry opens every MQTT transport in the engine's external resources,
 // keyed by external resource id. On any failure transports opened so far are
 // closed.
 func NewRegistry(ext *engine.ExternalResources) (*Registry, error) {
@@ -34,7 +38,7 @@ func NewRegistry(ext *engine.ExternalResources) (*Registry, error) {
 }
 
 // MQTT returns the transport registered under networkID, or an error if no
-// such network was opened in this deploy.
+// such network was opened at boot.
 func (r *Registry) MQTT(networkID string) (MQTTTransport, error) {
 	t, ok := r.mqtts[networkID]
 	if !ok {

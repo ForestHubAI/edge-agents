@@ -7,41 +7,45 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description The engine's complete boot input, loaded once at startup from a single file — the engine is immutable, with no runtime hot-swap. Bundles the binding-free workflow, the deploy mapping that binds its logical resource ids to this environment, the resolved external-resource configs those bindings point at, and the device manifest (the hardware catalog the mapping resolves against). The deployment-scoped parts and the device-scoped manifest have different owners in the control plane; the renderer merges them into this one blob for the engine. A workflow is required — an engine exists only to run one. The engine still validates it at boot and fails fast if it is missing, since JSON unmarshalling does not enforce required fields. */
+        /** @description The engine's complete boot input, loaded once at startup. */
         EngineConfig: {
             workflow: components["schemas"]["Workflow"];
-            mapping?: components["schemas"]["DeploymentMapping"];
+            mapping?: components["schemas"]["ResourceMapping"];
             externalResources?: components["schemas"]["ExternalResources"];
             manifest?: components["schemas"]["DeviceManifest"];
         };
-        /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources for one deploy, keyed by workflow resource id. The pool a binding's ref resolves against is determined by the workflow resource's type: hardware channels resolve against the boot DeviceManifest; MQTT channels and custom models against the deploy ExternalResources; RAG memory against the boot-configured backend (the ref is the collection id). */
-        DeploymentMapping: {
+        /** @description The engine's secret store: a flat map of secret id -> opaque secret value. */
+        EngineSecrets: {
+            [key: string]: string;
+        };
+        /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id. */
+        ResourceMapping: {
             [key: string]: components["schemas"]["ResourceBinding"];
         };
-        /** @description How one workflow resource binds to the environment. `ref` is the shared platform resource it points at (driver instance id, external resource id, or RAG collection id) — a sharing identity, so many workflow resources may share one ref and the engine builds it once. `index` is the optional per-channel physical sub-address within that resource: GPIO line, or ADC/PWM/DAC channel number. Absent for UART, MQTT, memory and models. */
+        /** @description How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`. */
         ResourceBinding: {
             /** @description Shared platform resource id this binds to. */
             ref: string;
             /** @description Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address. */
             index?: number;
         };
-        /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by the platform resource id the DeploymentMapping points at. Replaces the former NetworkManifest. Device-owned configs (drivers) stay in the boot DeviceManifest; this carries only deploy-delivered, swappable configs. */
+        /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id. */
         ExternalResources: {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
         ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
-        /** @description Resolved connection to a self-hosted/custom LLM endpoint the llmproxy doesn't ship. The engine registers it as an llmproxy provider for the workflow's custom model; the model's capabilities come from its declared workflow entry, so they are not repeated here. The bearer credential is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. */
+        /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "selfhosted";
-            /** @description Base URL of the inference endpoint (http:// or https://). */
-            url: string;
-            /** @description Upstream model name the endpoint serves; defaults to the workflow model id when empty. */
-            model?: string;
+            type: "localLlm" | "backendLlm" | "selfhostedLlm";
+            /** @description localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai). */
+            provider?: string;
+            /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
+            url?: string;
         };
         /** @description Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential. */
         MLInferenceConfig: {
@@ -65,7 +69,7 @@ export interface components {
             /** @description Base URL of the capture sidecar (http:// or https://). */
             url: string;
         };
-        /** @description Resolved connection metadata for an MQTT broker. The password is NOT here — it is a secret, delivered out-of-band and injected at runtime (keyed by this resource's id), never stored in the deployment spec. username is connection metadata (an identifier), not a credential, so it stays. */
+        /** @description Resolved connection metadata for an MQTT broker. */
         MQTTConnection: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -75,20 +79,20 @@ export interface components {
             brokerUrl: string;
             clientId?: string;
             username?: string;
-            /** @description Topic prefix the engine prepends to workflow-level publish topics ({networkId}/{agentId}/). */
+            /** @description Topic prefix for workflow-level publish topics ({networkId}/{agentId}/). */
             publishPrefix?: string;
-            /** @description Topic prefix the engine prepends to workflow-level subscribe filters ({networkId}/+/). */
+            /** @description Topic prefix for workflow-level subscribe filters ({networkId}/+/). */
             subscribePrefix?: string;
             will?: components["schemas"]["MQTTWill"];
         };
         MQTTWill: {
             topic: string;
             payload: string;
-            /** @description MQTT QoS (0,1,2). Cast to byte at the paho call site. */
+            /** @description MQTT QoS (0, 1, or 2). */
             qos: number;
             retain: boolean;
         };
-        /** @description Hardware resources available on the device, keyed by driver instance ID. Drives runtime driver instantiation on the engine. */
+        /** @description Hardware resources available on the device, keyed by driver instance ID. */
         DeviceManifest: {
             gpios?: {
                 [key: string]: components["schemas"]["GPIOConfig"];
@@ -180,7 +184,7 @@ export interface components {
                 pinReference?: string;
                 signalType: components["schemas"]["SignalType"];
                 output: components["schemas"]["OutputBinding"];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -250,7 +254,7 @@ export interface components {
                 outputDeclarations: components["schemas"]["OutputDeclaration"][];
                 /** @description Memory files this agent can access, each with an access mode. */
                 memoryRefs: components["schemas"]["MemoryRef"][];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -315,7 +319,7 @@ export interface components {
                 /** @description Search query expression */
                 query: components["schemas"]["Expression"];
                 output: components["schemas"]["OutputBinding"];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -386,7 +390,7 @@ export interface components {
                 outputBindings?: {
                     [key: string]: components["schemas"]["OutputBinding"];
                 };
-                /** @description Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this function is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -700,7 +704,7 @@ export interface components {
             type: "MQTT";
             id: string;
             label: string;
-            /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
+            /** @description Topic this channel publishes to / subscribes on. */
             topic: string;
         };
         CAMERAChannel: {
@@ -725,11 +729,11 @@ export interface components {
             id: string;
             label: string;
             /**
-             * @description Severity the engine records messages written to this channel at.
+             * @description Severity for messages written to this channel.
              * @enum {string}
              */
             level: "debug" | "info" | "warn" | "error";
-            /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
+            /** @description Optional category label stamped on each line written to this channel. */
             tag?: string;
         };
         Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["CAMERAChannel"] | components["schemas"]["LOGChannel"];
@@ -742,7 +746,7 @@ export interface components {
             type: "MemoryFile";
             /** @description Stable identifier that survives renames; referenced from MemoryRef. */
             id: string;
-            /** @description Display name. Unique per agent (LLM tool enums use it). */
+            /** @description Display name. Unique per agent. */
             label: string;
             description: string;
             content: string;
@@ -776,7 +780,7 @@ export interface components {
             id: string;
             /** @description Display name. */
             label: string;
-            /** @description Capabilities this model supports (used to filter model pickers). */
+            /** @description Capabilities this model supports. */
             capabilities: components["schemas"]["ModelCapability"][];
         };
         /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
@@ -792,7 +796,7 @@ export interface components {
             label: string;
         };
         Model: components["schemas"]["LLMModel"] | components["schemas"]["MLModel"];
-        /** @description Workflow represents the deployment format of a project, passed to agents. */
+        /** @description The deployment format of a workflow project. */
         Workflow: {
             /**
              * Format: int32

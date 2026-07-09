@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { Reference } from "../api";
 import { DataType, FromArgs, unwrapFromArgs } from "./Parameter";
 

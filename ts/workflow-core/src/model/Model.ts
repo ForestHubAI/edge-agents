@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Domain Model — covers two distinct things that share a picker:
 //   1. The STATIC catalog (ModelInfo[]): the set of models the llmproxy already
 //      supports. Supplied to the editor as data (props), not declared per-workflow.
@@ -36,4 +39,8 @@ export interface ModelInfo {
   id: string;
   label: string;
   capabilities: ModelCapability[];
+  // Catalog provider that serves this model (e.g. "anthropic"). The deploy
+  // resolver reads it to emit one ExternalResources provider entry per distinct
+  // provider a workflow's Agent nodes reference. Mirrors llmproxy ModelInfo.provider.
+  provider: string;
 }

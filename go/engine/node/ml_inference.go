@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
@@ -23,13 +23,13 @@ const mlInferenceOutID = "output"
 // the client's concern; this node only interprets the input and the result.
 type MLInference struct {
 	engine.LinearNode
-	input   workflow.Reference
-	binding workflow.OutputBinding
+	input   workflowapi.Reference
+	binding workflowapi.OutputBinding
 	client  engine.MLInferenceClient
 }
 
 // NewMLInference builds an MLInference node bound to one model's inference client.
-func NewMLInference(id string, input workflow.Reference, binding workflow.OutputBinding, client engine.MLInferenceClient) *MLInference {
+func NewMLInference(id string, input workflowapi.Reference, binding workflowapi.OutputBinding, client engine.MLInferenceClient) *MLInference {
 	return &MLInference{
 		LinearNode: engine.NewLinearNode(id),
 		input:      input,
@@ -38,10 +38,10 @@ func NewMLInference(id string, input workflow.Reference, binding workflow.Output
 	}
 }
 
-func (n *MLInference) Outputs() map[string]workflow.DataType {
+func (n *MLInference) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{mlInferenceOutID: workflow.String},
-		map[string]workflow.OutputBinding{mlInferenceOutID: n.binding},
+		map[string]workflowapi.DataType{mlInferenceOutID: workflowapi.String},
+		map[string]workflowapi.OutputBinding{mlInferenceOutID: n.binding},
 	)
 }
 
@@ -56,9 +56,9 @@ func (n *MLInference) Execute(ctx context.Context, scope *engine.Scope) (string,
 	// opaque blob. Further types dispatch to their handler as they are added.
 	var result map[string]any
 	switch v.Type {
-	case workflow.String:
+	case workflowapi.String:
 		result, err = n.inferTensors(ctx, v.AsString())
-	case workflow.Image:
+	case workflowapi.Image:
 		result, err = n.inferImage(ctx, v)
 	default:
 		return "", fmt.Errorf("ml_inference %s: unsupported input type %q (expects a JSON tensors string or an image)", n.ID(), v.Type)

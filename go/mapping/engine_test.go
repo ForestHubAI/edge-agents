@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package mapping
 
 import (
@@ -17,10 +21,15 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		BrokerURL: "tcp://broker:1883",
 		ClientID:  pointer.Ptr("client-1"),
 	}))
-	var provider engineapi.ExternalResourceConfig
-	require.NoError(t, provider.FromLLMProviderConfig(engineapi.LLMProviderConfig{
-		Type: engineapi.Selfhosted,
-		Url:  "http://llm:8000",
+	var selfHosted engineapi.ExternalResourceConfig
+	require.NoError(t, selfHosted.FromLLMProviderConfig(engineapi.LLMProviderConfig{
+		Type: engineapi.SelfhostedLlm,
+		Url:  pointer.Ptr("http://llm:8000"),
+	}))
+	var local engineapi.ExternalResourceConfig
+	require.NoError(t, local.FromLLMProviderConfig(engineapi.LLMProviderConfig{
+		Type:     engineapi.LocalLlm,
+		Provider: pointer.Ptr("Anthropic"),
 	}))
 	var ml engineapi.ExternalResourceConfig
 	require.NoError(t, ml.FromMLInferenceConfig(engineapi.MLInferenceConfig{
@@ -34,11 +43,12 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		Url:  "http://fh-camera:8100",
 	}))
 
-	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": provider, "ml-1": ml, "cam-1": cam}
+	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml, "cam-1": cam}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
-	secrets := engine.ResourceSecrets{
-		"mqtt-1": {Password: "brokerpw"},
-		"llm-1":  {APIKey: "secret"},
+	secrets := engine.Secrets{
+		"mqtt-1": "brokerpw",
+		"llm-1":  "bearer",
+		"llm-2":  "sk-ant",
 	}
 	out := ExternalResourcesToDomain(&in, secrets)
 
@@ -48,9 +58,15 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, "client-1", out.MQTTs["mqtt-1"].ClientID)
 	assert.Equal(t, "brokerpw", out.MQTTs["mqtt-1"].Password)
 
-	require.Len(t, out.Providers, 1)
+	require.Len(t, out.Providers, 2)
+	// Self-hosted: url + bearer, no provider adapter.
+	assert.Equal(t, engine.LLMSelfHosted, out.Providers["llm-1"].Kind)
 	assert.Equal(t, "http://llm:8000", out.Providers["llm-1"].URL)
-	assert.Equal(t, "secret", out.Providers["llm-1"].APIKey)
+	assert.Equal(t, "bearer", out.Providers["llm-1"].APIKey)
+	// Local: adapter id + key, no url.
+	assert.Equal(t, engine.LLMLocal, out.Providers["llm-2"].Kind)
+	assert.Equal(t, "Anthropic", out.Providers["llm-2"].Provider)
+	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
 
 	// Credential-free sidecar arms route by discriminator too.
 	require.Len(t, out.MLInference, 1)

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package main
 
 import (
@@ -12,6 +16,7 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
 	"github.com/ForestHubAI/edge-agents/go/component"
+	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
@@ -30,7 +35,7 @@ func main() {
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Msg("loading configuration")
+		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
 
 	// Wire the real sinks from cfg.Log (stdout always; opt-in file + HTTP). The
@@ -38,7 +43,7 @@ func main() {
 	// a logger field — it is structural, carried by the on-device log path Ranger
 	// assigns (device-filesystem.md §5). The closer drains in-flight HTTP sends so
 	// Fatal events land before exit.
-	cfg.Log.Component = "engine"
+	cfg.Log.Component = component.Engine
 	closer := logging.Configure(cfg.Log)
 	defer closer.Close()
 
@@ -47,20 +52,6 @@ func main() {
 	if cfg.BackendURL != "" {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
-
-	// bootFail logs a fatal boot error and exits nonzero. In the immutable model a
-	// boot failure ends the process; Ranger (or the container runtime) observes the
-	// nonzero exit as a failed container — the engine no longer self-reports status.
-	bootFail := func(cause error, msg string) {
-		logging.Logger.Fatal().Err(cause).Msg(msg)
-	}
-
-	// Create LLM provider registry and client. Locally-configured providers
-	// take precedence; any provider the backend exposes that the engine lacks
-	// a key for is registered as a backend-routed stand-in.
-	loadCtx, cancelLoad := context.WithTimeout(context.Background(), backend.ProviderLoadTimeout)
-	llmProviders := buildLLMProviders(loadCtx, cfg.LLM, backendClient)
-	cancelLoad() // Release loadCtx resources
 
 	// Load the single boot config file: workflow + bindings + device manifest.
 	// A workflow is mandatory — the engine exists only to run one — so a missing
@@ -71,49 +62,53 @@ func main() {
 	}
 	ec, err := loadEngineConfig(configFile)
 	if err != nil {
-		bootFail(err, "loading engine config")
+		boot.Fail(err, "loading engine config")
 	}
 	// A present config with no workflow is still a boot error, not an idle engine:
 	// an empty workflow builds into a runner with no triggers that blocks forever
 	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
 	// requires schemaVersion >= 1).
 	if ec.Workflow.SchemaVersion == 0 {
-		bootFail(errors.New("engine config has no workflow"), "validating engine config")
+		boot.Fail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
 	// Build the I/O registries main owns for the engine's lifetime: drivers from
-	// the device manifest, MQTT transports from the deploy's external resources.
-	// Both are injected into the builder, borrowed by the workflow's channels,
-	// and closed by main at shutdown.
+	// the device manifest, MQTT transports from the external resources. Both are
+	// injected into the builder, borrowed by the workflow's channels, and closed
+	// by main at shutdown.
 	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
-		bootFail(err, "initialising driver registry")
+		boot.Fail(err, "initialising driver registry")
 	}
-	resourceSecrets, err := parseResourceSecrets(cfg.ResourceSecrets)
+	// Resolve resource credentials from the mounted secret store, not env: a
+	// dynamic, id-keyed JSON doc mounted read-only at component.SecretsFile,
+	// parallel to the boot config file. Absent when no resource needs a secret.
+	secrets, err := loadEngineSecrets(component.SecretsFile)
 	if err != nil {
-		bootFail(err, "parsing resource secrets")
+		boot.Fail(err, "loading engine secrets")
 	}
-	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, resourceSecrets)
+	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, secrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
-		bootFail(err, "opening transports")
+		// A broker unreachable at boot may come back; let the orchestrator retry.
+		boot.Retry(err, "opening transports")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at the
 	// workspace mount (component.Workspace). Memory is device-storage-only — it
 	// survives engine restarts on a persistent volume, with no backend mirror.
-	// Reconcile is invoked on every Build (deploy or initial), so no eager call here.
+	// Reconcile is invoked from Builder.Build at boot, so no eager call here.
 	memoryManager := memory.NewManager(component.Workspace)
 
 	// Optional web search provider. Built eagerly so a bad provider name fails
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
-	// in a deployed workflow fails the build with a clear message.
+	// in the workflow fails the build with a clear message.
 	var webSearchProvider websearch.Provider
 	if cfg.WebSearch.APIKey != "" {
 		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
 		if err != nil {
-			bootFail(err, "configuring web search provider")
+			boot.Fail(err, "configuring web search provider")
 		}
 		webSearchProvider = p
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
@@ -121,21 +116,23 @@ func main() {
 
 	// Retriever: backend if cloud mode, otherwise nil. No offline RAG backend
 	// exists yet, and a nil retriever makes the build reject any workflow that
-	// declares a Retriever node (clear deploy-time error) rather than silently
+	// declares a Retriever node (clear boot-time error) rather than silently
 	// returning empty context at runtime.
 	var retriever engine.Retriever
 	if backendClient != nil {
 		retriever = backendClient
 	}
 
-	// Create the builder for the workflow runner.
+	// Create the builder for the workflow runner. Build resolves the LLM
+	// providers from the boot externalResources, and any backendLlm instance
+	// forwards through this backend client (nil = standalone).
 	builder := &build.Builder{
-		Drivers:      drivers,
-		Transports:   transports,
-		LLMProviders: llmProviders,
-		Memory:       memoryManager,
-		WebSearch:    webSearchProvider,
-		Retriever:    retriever,
+		Drivers:    drivers,
+		Transports: transports,
+		Backend:    backendClient,
+		Memory:     memoryManager,
+		WebSearch:  webSearchProvider,
+		Retriever:  retriever,
 	}
 
 	// One lifecycle context for the whole process: a termination signal cancels it
@@ -155,12 +152,11 @@ func main() {
 		}
 	}()
 
-	// Build the runner. A build failure exits nonzero (Ranger observes a failed
-	// container); there is no "online" callback for it to contradict.
-	dm := mapping.DeploymentMappingToDomain(ec.Mapping)
+	// Build the runner.
+	dm := mapping.ResourceMappingToDomain(ec.Mapping)
 	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
 	if err != nil {
-		bootFail(err, "building workflow runner")
+		boot.Fail(err, "building workflow runner")
 	}
 
 	// Run the workflow, BLOCKING until it exits — on its own (terminal: the
@@ -198,17 +194,22 @@ func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
 	return &ec, nil
 }
 
-// parseResourceSecrets decodes the FH_RESOURCE_SECRETS env (a JSON map of
-// external-resource id -> credentials) into the domain secrets the api->domain
-// mapping merges into connections. Secrets travel out-of-band, never in the
-// deployment spec. An empty/unset value yields no secrets.
-func parseResourceSecrets(raw string) (engine.ResourceSecrets, error) {
-	if raw == "" {
+// loadEngineSecrets reads the mounted secret store (a JSON map of secret id ->
+// opaque value) and maps it into the domain secrets the api->domain mapping
+// merges into connections. Secrets travel out-of-band in this file, never in the
+// deployment spec. A missing file yields no secrets (valid: anonymous broker,
+// keyless endpoint); only a present-but-malformed file is a boot error.
+func loadEngineSecrets(path string) (engine.Secrets, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
-	var s engine.ResourceSecrets
-	if err := json.Unmarshal([]byte(raw), &s); err != nil {
-		return nil, fmt.Errorf("FH_RESOURCE_SECRETS: %w", err)
+	if err != nil {
+		return nil, err
 	}
-	return s, nil
+	var wire engineapi.EngineSecrets
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return mapping.SecretsToDomain(wire), nil
 }

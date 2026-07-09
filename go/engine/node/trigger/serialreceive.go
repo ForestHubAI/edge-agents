@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package trigger
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -17,12 +21,12 @@ const serialReceiveOutID = "output"
 // channel, emitting the line (terminator stripped) to its output binding.
 type OnSerialReceive struct {
 	engine.TriggerNode
-	binding  workflow.OutputBinding
+	binding  workflowapi.OutputBinding
 	incoming <-chan string
 }
 
 // NewOnSerialReceive creates a new OnSerialReceive trigger.
-func NewOnSerialReceive(id string, uart *channel.UART, binding workflow.OutputBinding) *OnSerialReceive {
+func NewOnSerialReceive(id string, uart *channel.UART, binding workflowapi.OutputBinding) *OnSerialReceive {
 	return &OnSerialReceive{
 		TriggerNode: engine.NewTriggerNode(id),
 		binding:     binding,
@@ -30,10 +34,10 @@ func NewOnSerialReceive(id string, uart *channel.UART, binding workflow.OutputBi
 	}
 }
 
-func (t *OnSerialReceive) Outputs() map[string]workflow.DataType {
+func (t *OnSerialReceive) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{serialReceiveOutID: workflow.String},
-		map[string]workflow.OutputBinding{serialReceiveOutID: t.binding},
+		map[string]workflowapi.DataType{serialReceiveOutID: workflowapi.String},
+		map[string]workflowapi.OutputBinding{serialReceiveOutID: t.binding},
 	)
 }
 

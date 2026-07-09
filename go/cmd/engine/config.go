@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package main
 
 import (
-	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 
 	"github.com/caarlos0/env/v9"
@@ -15,11 +18,6 @@ type Config struct {
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
 	Secret string `env:"ENGINE_SECRET"`
-	// ResourceSecrets is the raw JSON for FH_RESOURCE_SECRETS: a map of external-
-	// resource id -> {password, apiKey}, delivered out-of-band (never in the
-	// deployment spec, so it stays rotation-safe and breach-safe) and merged into
-	// the matching connection at boot. Empty when no external resource needs a credential.
-	ResourceSecrets string `env:"FH_RESOURCE_SECRETS"`
 	// BackendURL is the URL of the backend the engine syncs memory with and routes
 	// LLM/RAG ports through. NOT the log destination — log shipping is a separate,
 	// backend-agnostic sink (see Log / FH_LOG_HTTP_URL).
@@ -28,8 +26,6 @@ type Config struct {
 	// file + HTTP shipper) via FH_LOG_* env vars. env.Parse recurses in; main sets
 	// Log.Component to "engine" in code before wiring.
 	Log logging.Config
-	// LLM holds direct provider API keys
-	LLM llmcfg.ProviderConfig
 	// WebSearch configures the optional WebSearchTool node. Leaving APIKey empty
 	// disables the tool; workflows that include a WebSearchTool will fail to deploy.
 	WebSearch WebSearchConfig

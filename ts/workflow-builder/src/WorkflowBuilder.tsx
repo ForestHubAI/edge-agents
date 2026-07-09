@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import {
@@ -33,18 +37,7 @@ import {
 import { useDebugStore, type DebugSessionPhase } from "./stores/debugStore";
 import { useEditorStore } from "./stores/editorStore";
 
-/** BuilderMode steers the overall behavior of the workflow builder. */
-export type BuilderMode = { type: "edit" } | { type: "preview" } | { type: "debug" };
-
-/** True when canvas mutations should be blocked (preview or debug). */
-export function isReadOnly(mode: BuilderMode): boolean {
-  return mode.type !== "edit";
-}
-
-/** Type guard for preview mode. */
-export function isPreview(mode: BuilderMode): boolean {
-  return mode.type === "preview";
-}
+import type { BuilderMode } from "./mode";
 
 // ============================================================================
 // Public contract
@@ -74,7 +67,12 @@ export interface WorkflowBuilderProps {
   onDebugStep?: (nodeId?: string) => void;
 
   // ── Lifecycle events ──
-  /** Fires after any domain-state mutation. Pull current state via handle.exportWorkflow(). */
+  /**
+   * Fires after any USER domain-state mutation. Pull current state via
+   * handle.exportWorkflow(). Programmatic loads (handle.loadWorkflow /
+   * handle.clear) do NOT fire this — hosts can reset their dirty flag right
+   * after those calls without guarding against echoes.
+   */
   onChange?: () => void;
   /**
    * Undo/redo availability for the ACTIVE canvas changed — on history mutation,
@@ -239,6 +237,13 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
     onChangeRef.current = onChange;
     onHistoryChangeRef.current = onHistoryChange;
 
+    // onChange means "the USER changed the document". Programmatic loads
+    // (handle.loadWorkflow / handle.clear) mutate the same stores, so their
+    // subscription callbacks — which zustand runs synchronously inside the
+    // store writes — are muted while this flag is up. Without it every host
+    // sees phantom onChange events on load and has to guard its dirty flag.
+    const suppressChangeRef = useRef(false);
+
     // onChange fires on any domain change. For canvas content we watch the
     // history middleware's `mutationCount`, which bumps on checkpoints AND
     // undo/redo but never on selection/drag (those go through setNodes without a
@@ -256,8 +261,8 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
         let prev = store.getState().mutationCount;
         const unsub = store.subscribe((state) => {
           if (state.mutationCount !== prev) {
-            prev = state.mutationCount;
-            onChangeRef.current?.();
+            prev = state.mutationCount; // always track, even when muted
+            if (!suppressChangeRef.current) onChangeRef.current?.();
           }
         });
         subs.push(unsub);
@@ -285,8 +290,8 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       let prevEditorCount = useEditorStore.getState().mutationCount;
       const unsubEditor = useEditorStore.subscribe((state) => {
         if (state.mutationCount !== prevEditorCount) {
-          prevEditorCount = state.mutationCount;
-          onChangeRef.current?.();
+          prevEditorCount = state.mutationCount; // always track, even when muted
+          if (!suppressChangeRef.current) onChangeRef.current?.();
         }
       });
       subs.push(unsubEditor);
@@ -347,14 +352,24 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       ref,
       (): WorkflowBuilderHandle => ({
         loadWorkflow: (workflow) => {
+          suppressChangeRef.current = true;
           try {
             importProject(workflow);
           } catch (e) {
             onError?.(e instanceof Error ? e : new Error(String(e)));
+          } finally {
+            suppressChangeRef.current = false;
           }
         },
         exportWorkflow: () => exportProject(),
-        clear: () => clearProject(),
+        clear: () => {
+          suppressChangeRef.current = true;
+          try {
+            clearProject();
+          } finally {
+            suppressChangeRef.current = false;
+          }
+        },
         setMode: (mode) => useEditorStore.getState().setBuilderMode(mode),
         getMode: () => useEditorStore.getState().builderMode,
         validate: runValidate,

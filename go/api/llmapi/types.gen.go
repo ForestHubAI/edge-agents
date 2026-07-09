@@ -222,7 +222,7 @@ type ModelInfo struct {
 	// Capabilities Capabilities supported by the model.
 	Capabilities []ModelCapability `json:"capabilities"`
 
-	// EmbeddingDimension Dimension of the model's embedding output (only applicable for embedding-capable models)
+	// EmbeddingDimension Dimension of the model's embedding output.
 	EmbeddingDimension *int `json:"embeddingDimension,omitempty"`
 
 	// Id Unique identifier of the model.
@@ -257,7 +257,7 @@ type ProviderInfo struct {
 	// Id Provider identifier (e.g. OpenAI, Anthropic, Local).
 	Id string `json:"id"`
 
-	// Models Concrete models (only populated for Local provider).
+	// Models Concrete models offered by this provider.
 	Models []ModelInfo `json:"models"`
 }
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import { describe, it, expect } from "vitest";
 import { migrate, readSchemaVersion } from "./migrate";
 import { CURRENT_SCHEMA_VERSION } from "./version";

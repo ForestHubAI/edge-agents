@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 export type { ChannelType, Channel } from "./Channel";
 export { ALL_CHANNEL_TYPES } from "./Channel";
 export type { ChannelDefinition } from "./ChannelDefinition";

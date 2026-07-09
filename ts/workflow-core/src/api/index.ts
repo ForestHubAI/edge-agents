@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 export type { components } from "./workflow";
 
 import type { components } from "./workflow";

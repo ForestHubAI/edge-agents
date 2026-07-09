@@ -13,7 +13,7 @@ Always written:
 | ---------------------- | --------------------------------------------------------------------- | ---- |
 | `engine-config.json`   | the engine's single boot config — workflow + device manifest + resource mapping + external resources, all in one blob | 644 |
 | `docker-compose.yml`   | the deployment template (engine + any sidecars + custom components)   | 644 |
-| `engine.env`           | operator config — provider keys, web-search key, MQTT/model secrets (in `FH_RESOURCE_SECRETS`), log level | **600 (secret)** |
+| `engine.env`           | operator config — provider keys, web-search key, log level            | **600 (secret)** |
 | `deployment-spec.json` | the full resolved deployment record (secret-free)                     | 644 |
 | `README.md`            | the operator's build/transfer/run guide                               | 644 |
 
@@ -21,6 +21,7 @@ Written only when the workflow / setup needs them:
 
 | File                  | When                                                | Mode |
 | --------------------- | --------------------------------------------------- | ---- |
+| `engine-secrets.json` | any MQTT password or network-model API key resolves — the resource-credential doc, mounted read-only at `/etc/foresthub/secrets.json` | **600 (secret)** |
 | `models/` (directory) | any **device** model                                | dir — operator drops the `.gguf` here |
 | `<name>-config.json`  | a custom component whose `component.json` carries a `config` blob | 644 |
 | `<name>.env`          | a custom component that ships a `<name>.env.example`| **600 (secret-bearing)** |
@@ -32,8 +33,9 @@ components_ below.
 
 There are **no** separate `workflow.json`, `device_manifest.json`, `deployment_mapping.json`, or
 `external_resources.json` files — those sections are consolidated inside `engine-config.json`. All
-secrets live in `engine.env` (the engine's own keys, plus the `FH_RESOURCE_SECRETS` blob holding MQTT
-passwords / network-model keys) and in any custom component's `<name>.env`. **Never `cat` the `600`
+secrets live in `engine.env` (the engine's own provider/web-search keys), in `engine-secrets.json`
+(the resource-credential doc: MQTT passwords / network-model keys, mounted read-only at
+`/etc/foresthub/secrets.json`), and in any custom component's `<name>.env`. **Never `cat` the `600`
 files** — inspect them by `ls -l` only. They hold the sentinel placeholders the operator must replace.
 
 ## On-device models — the llama-server sidecar

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { ModelType } from "./Model";
 import type { ModelDefinition } from "./ModelDefinition";
 import { LLMModelDefinition } from "./LLMModelDefinition";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // The spec resolver: (workflow + bindings) -> DeploymentSpec. The shared
 // "packaging library" the migration doc calls for — component-set derivation
 // and device-grant resolution computed once here, frozen into the contract spec,
@@ -9,6 +12,7 @@
 import type { DeploymentSchemas, EngineSchemas } from "../api";
 import type { Workflow } from "../workflow";
 import { serialize } from "../workflow";
+import type { ModelInfo } from "../model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
@@ -60,7 +64,6 @@ function workspaceDir(container: string): string {
 // used only when the workflow has an on-device model.
 export interface DeploymentSpecMeta {
   id: string;
-  status: DeploymentSpec["status"];
   createdAt?: string;
   engineImage: string;
   llamaServerImage: string;
@@ -68,20 +71,19 @@ export interface DeploymentSpecMeta {
   cameraSidecarImage: string;
 }
 
-// One external resource's credentials. Secrets are NEVER part of the spec (not
-// rotation-safe, breach-exposed if stored): the resolver returns them separately,
-// keyed by the same resource ref the spec's externalResources use, for the
-// renderer to deliver out-of-band (engine env FH_RESOURCE_SECRETS).
-export interface ResourceSecret {
-  password?: string; // MQTT broker password
-  apiKey?: string; // self-hosted LLM endpoint bearer
-}
-export type ResourceSecrets = Record<string, ResourceSecret>;
+// The engine's secret store: a flat map of secret id -> opaque secret value,
+// keyed by the same resource ref the spec's externalResources use. Each value is
+// the single credential that resource needs (MQTT password, self-hosted-LLM
+// bearer token). Secrets are NEVER part of the spec (not rotation-safe, breach-
+// exposed if stored): the resolver returns them separately, for the renderer to
+// deliver out-of-band as a mounted secret document (secrets.json). Mirrors the
+// wire EngineSecrets.
+export type EngineSecrets = Record<string, string>;
 
 // buildDeploymentSpec's output: the secret-free spec plus the pulled-out secrets.
 export interface DeploymentSpecResult {
   spec: DeploymentSpec;
-  resourceSecrets: ResourceSecrets;
+  resourceSecrets: EngineSecrets;
 }
 
 // Hands out stable, collision-free ref names. Same dedup key -> same ref (the
@@ -109,12 +111,13 @@ function basename(p: string): string {
   return tail.replace(/[^A-Za-z0-9._:-]/g, "-") || "res";
 }
 
-// Host of a broker URL, for a readable ref. "mqtt" when unparseable.
-function brokerHost(url: string): string {
+// Host of a URL, for a readable ref (MQTT broker / self-hosted endpoint).
+// Falls back to "host" when unparseable.
+function urlHost(url: string): string {
   try {
-    return new URL(url).hostname || "mqtt";
+    return new URL(url).hostname || "host";
   } catch {
-    return "mqtt";
+    return "host";
   }
 }
 
@@ -266,6 +269,14 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
       missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
     }
   }
+  for (const p of req.catalogProviders) {
+    const b = inputs.providers?.[p.id];
+    if (!b) missing.push(`provider "${p.id}": routing (local or backend)`);
+    else if (b.routing === "local" && !b.apiKey) missing.push(`provider "${p.id}": API key`);
+  }
+  // A referenced catalog model absent from the catalog can't be routed — the
+  // engine would have no provider for it. Refuse rather than emit a dead spec.
+  for (const id of req.unresolvedCatalogModels) missing.push(`model "${id}": not in the model catalog`);
   missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
   missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
   if (missing.length > 0) {
@@ -294,12 +305,13 @@ export function buildDeploymentSpec(
   inputs: DeploymentInputs,
   meta: DeploymentSpecMeta,
   customComponents: DeployComponent[] = [],
+  catalog: ModelInfo[] = [],
 ): DeploymentSpecResult {
-  const req = deriveRequirements(workflow);
+  const req = deriveRequirements(workflow, catalog);
   assertDeployable(req, inputs);
 
   const refs = new RefAllocator();
-  const resourceSecrets: ResourceSecrets = {};
+  const resourceSecrets: EngineSecrets = {};
 
   // DeviceManifest is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
@@ -310,7 +322,7 @@ export function buildDeploymentSpec(
   const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
 
   const externalResources: EngineSchemas["ExternalResources"] = {};
-  const mapping: EngineSchemas["DeploymentMapping"] = {};
+  const mapping: EngineSchemas["ResourceMapping"] = {};
 
   // Container-level hardware access, resolved once: cdev nodes (GPIO, UART) map
   // one-to-one into the engine component's devices; sysfs families (ADC/DAC/PWM)
@@ -365,28 +377,29 @@ export function buildDeploymentSpec(
     // The password is a secret — kept out of conn (and thus the spec). It still
     // participates in the dedup key, so two channels differing only by password
     // don't collapse onto one ref (and one shared secret).
-    const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}:${b.password ?? ""}`, `mqtt-${brokerHost(b.brokerUrl)}`);
+    const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}:${b.password ?? ""}`, `mqtt-${urlHost(b.brokerUrl)}`);
     externalResources[ref] = conn;
     mapping[ch.id] = { ref };
-    if (b.password) resourceSecrets[ref] = { ...resourceSecrets[ref], password: b.password };
+    if (b.password) resourceSecrets[ref] = b.password;
   }
 
-  // Custom models: one self-hosted provider per model id. A device model points
-  // at the sidecar we run (over the container network, no key) and gets its own
-  // llama-server component; a network model points at the operator's endpoint and
-  // runs no component here. `model` is left off — the endpoint serves under the
-  // workflow id (no upstream-name aliasing yet).
+  // Custom models: each declared model maps to a selfhosted provider. A device
+  // model gets its own llama-server sidecar (its own provider, 1:1). A network
+  // model points at the operator's endpoint — deduped by url+key, so several
+  // models on one endpoint share ONE provider (many models -> one ref, like GPIO
+  // lines on one chip). The endpoint serves each under its logical model id (no
+  // upstream-name aliasing yet), so no per-model field is emitted.
   const llamaComponents: DeployComponent[] = [];
   for (const m of req.customLLMModels) {
     const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
-    const ref = refs.alloc(`model:${m.id}`, basename(m.id));
-    mapping[m.id] = { ref };
 
     if (b.location === "device") {
       const port = b.port ?? 8080;
       const service = llmSidecarServiceName(m.id);
-      externalResources[ref] = { type: "selfhosted", url: `http://${service}:${port}` };
+      const ref = refs.alloc(`model:${m.id}`, basename(m.id));
+      mapping[m.id] = { ref };
+      externalResources[ref] = { type: "selfhostedLlm", url: `http://${service}:${port}` };
       // The whole config is CLI flags, so it rides in `command` (no config blob).
       // ctx-size is frozen here — retuning it is a re-deploy, not an env edit.
       llamaComponents.push({
@@ -407,9 +420,30 @@ export function buildDeploymentSpec(
         volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
       });
     } else {
-      externalResources[ref] = { type: "selfhosted", url: b.url };
+      const ref = refs.alloc(`selfhosted:${b.url}:${b.apiKey ?? ""}`, `provider-${urlHost(b.url)}`);
+      mapping[m.id] = { ref };
+      externalResources[ref] = { type: "selfhostedLlm", url: b.url };
       // The endpoint bearer is a secret — out of the spec, returned separately.
-      if (b.apiKey) resourceSecrets[ref] = { apiKey: b.apiKey };
+      if (b.apiKey) resourceSecrets[ref] = b.apiKey;
+    }
+  }
+
+  // Catalog providers: one provider instance per referenced provider — NO mapping.
+  // The engine registers all of these into its single llmproxy, which routes each
+  // catalog model by id. Each provider is served by exactly one instance (local
+  // xor backend), so there's no overlap and no catch-all. `localLlm` carries the
+  // adapter id + a deploy-delivered key (secret by ref); `backendLlm` carries the
+  // adapter id and no key — its models are proxied to the backend. Unresolved refs
+  // are already rejected by assertDeployable.
+  for (const p of req.catalogProviders) {
+    const b = inputs.providers?.[p.id];
+    if (!b) throw new Error(`unbound catalog provider ${p.id}`); // unreachable after assertDeployable
+    const ref = refs.alloc(`provider:${p.id}`, `provider-${p.id}`);
+    if (b.routing === "local") {
+      externalResources[ref] = { type: "localLlm", provider: p.id };
+      if (b.apiKey) resourceSecrets[ref] = b.apiKey;
+    } else {
+      externalResources[ref] = { type: "backendLlm", provider: p.id };
     }
   }
 
@@ -514,8 +548,8 @@ export function buildDeploymentSpec(
   if (Object.keys(externalResources).length) config.externalResources = externalResources;
   if (Object.keys(manifest).length) config.manifest = manifest;
 
-  // The engine component. configPath is omitted (the image reads the convention
-  // path it defaults to); the config blob is mounted there by the renderer.
+  // The engine component. The config blob is mounted at the fixed convention path
+  // (component.ConfigFile) the engine image reads.
   const engine: DeployComponent = {
     name: "engine",
     image: meta.engineImage,
@@ -538,7 +572,6 @@ export function buildDeploymentSpec(
   const spec: DeploymentSpec = {
     schemaVersion: 1,
     id: meta.id,
-    status: meta.status,
     components,
   };
   if (meta.createdAt) spec.createdAt = meta.createdAt;

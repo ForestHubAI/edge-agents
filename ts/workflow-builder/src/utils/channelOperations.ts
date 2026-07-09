@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { CHANNEL_DEFINITION, type ChannelType, type Channel } from "@foresthubai/workflow-core/channel";
 import { isParameterActive } from "@foresthubai/workflow-core/parameter";
 import { useEditorStore } from "../stores/editorStore";

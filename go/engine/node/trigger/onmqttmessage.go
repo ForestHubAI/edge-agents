@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package trigger
 
 import (
@@ -5,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -22,13 +26,13 @@ const onMqttMessageOutID = "output"
 // dropped so a single bad message can't crash the trigger goroutine.
 type OnMqttMessage struct {
 	engine.TriggerNode
-	dataType workflow.DataType
-	binding  workflow.OutputBinding
+	dataType workflowapi.DataType
+	binding  workflowapi.OutputBinding
 	incoming <-chan transport.MQTTMessage
 }
 
 // NewOnMqttMessage creates a new OnMqttMessage trigger.
-func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType workflow.DataType, binding workflow.OutputBinding, qos byte) (*OnMqttMessage, error) {
+func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType workflowapi.DataType, binding workflowapi.OutputBinding, qos byte) (*OnMqttMessage, error) {
 	in, err := ch.Subscribe(topic, qos)
 	if err != nil {
 		return nil, err
@@ -41,10 +45,10 @@ func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType workfl
 	}, nil
 }
 
-func (t *OnMqttMessage) Outputs() map[string]workflow.DataType {
+func (t *OnMqttMessage) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{onMqttMessageOutID: t.dataType},
-		map[string]workflow.OutputBinding{onMqttMessageOutID: t.binding},
+		map[string]workflowapi.DataType{onMqttMessageOutID: t.dataType},
+		map[string]workflowapi.OutputBinding{onMqttMessageOutID: t.binding},
 	)
 }
 
@@ -82,8 +86,8 @@ func (*OnMqttMessage) Close() error { return nil }
 // decodePayload parses bare JSON into a Value of the declared type.
 // String type accepts either a JSON string or a raw byte sequence (for
 // non-JSON payloads); other types require valid JSON of the matching shape.
-func decodePayload(payload []byte, dt workflow.DataType) (expr.Value, error) {
-	if dt == workflow.String {
+func decodePayload(payload []byte, dt workflowapi.DataType) (expr.Value, error) {
+	if dt == workflowapi.String {
 		// Try JSON-string first; fall back to raw bytes-as-string for
 		// non-JSON payloads (common when peers publish plain text).
 		var s string

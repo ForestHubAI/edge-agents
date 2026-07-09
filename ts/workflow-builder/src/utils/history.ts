@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { StateCreator, StoreMutatorIdentifier } from "zustand";
 
 // Opaque type for exporting/importing history state
@@ -99,7 +103,7 @@ export const history =
     const {
       limit = 50,
       partialize = (state) => state,
-      equality = (before, after) => JSON.stringify(before) !== JSON.stringify(after),
+      equality = (before, after) => JSON.stringify(before) === JSON.stringify(after),
     } = config;
 
     return (set, get, store) => {

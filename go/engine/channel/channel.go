@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package channel defines the engine's workflow-level handles to external
 // resources — hardware drivers (GPIO, ADC, UART, ...) and network protocols
 // (MQTT, future HTTP). A channel mediates between nodes that read/write it

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package anthropic implements the Anthropic LLM provider using the official anthropic-sdk-go.
 package anthropic
 
@@ -17,8 +21,8 @@ const (
 	defaultMaxTokens int64               = 4096
 )
 
-// availableModels is the canonical list of Anthropic models exposed by this provider.
-var availableModels = []llmproxy.ModelInfo{
+// AvailableModels is the canonical list of Anthropic models exposed by this provider.
+var AvailableModels = []llmproxy.ModelInfo{
 	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "claude-opus-4-6", Label: "Claude Opus 4.6", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
@@ -45,7 +49,7 @@ func (p *Provider) ProviderID() llmproxy.ProviderID {
 
 // AvailableModels returns the static list of Anthropic models exposed by this provider.
 func (p *Provider) AvailableModels() []llmproxy.ModelInfo {
-	return availableModels
+	return AvailableModels
 }
 
 // Health pings Anthropic to ensure connectivity.

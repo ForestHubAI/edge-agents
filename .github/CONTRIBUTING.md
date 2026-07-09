@@ -168,3 +168,8 @@ The repository uses a two-tier license model:
 
 If your PR touches both tiers, the per-file license header (or, where absent, the
 directory-level `LICENSE`/`NOTICE`) governs.
+
+Every hand-written source file carries an SPDX header for its tier; CI enforces
+this (`npm run license-headers`). New files get theirs via
+`npm run license-headers:fix` — never assign a file to a tier by hand-editing
+its header. Generated files carry no header and are skipped automatically.

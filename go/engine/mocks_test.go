@@ -7,7 +7,7 @@ package engine
 import (
 	"context"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -695,19 +695,19 @@ func (_c *MockEmitter_ID_Call) RunAndReturn(run func() string) *MockEmitter_ID_C
 }
 
 // Outputs provides a mock function for the type MockEmitter
-func (_mock *MockEmitter) Outputs() map[string]workflow.DataType {
+func (_mock *MockEmitter) Outputs() map[string]workflowapi.DataType {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Outputs")
 	}
 
-	var r0 map[string]workflow.DataType
-	if returnFunc, ok := ret.Get(0).(func() map[string]workflow.DataType); ok {
+	var r0 map[string]workflowapi.DataType
+	if returnFunc, ok := ret.Get(0).(func() map[string]workflowapi.DataType); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]workflow.DataType)
+			r0 = ret.Get(0).(map[string]workflowapi.DataType)
 		}
 	}
 	return r0
@@ -730,12 +730,12 @@ func (_c *MockEmitter_Outputs_Call) Run(run func()) *MockEmitter_Outputs_Call {
 	return _c
 }
 
-func (_c *MockEmitter_Outputs_Call) Return(stringToDataType map[string]workflow.DataType) *MockEmitter_Outputs_Call {
+func (_c *MockEmitter_Outputs_Call) Return(stringToDataType map[string]workflowapi.DataType) *MockEmitter_Outputs_Call {
 	_c.Call.Return(stringToDataType)
 	return _c
 }
 
-func (_c *MockEmitter_Outputs_Call) RunAndReturn(run func() map[string]workflow.DataType) *MockEmitter_Outputs_Call {
+func (_c *MockEmitter_Outputs_Call) RunAndReturn(run func() map[string]workflowapi.DataType) *MockEmitter_Outputs_Call {
 	_c.Call.Return(run)
 	return _c
 }

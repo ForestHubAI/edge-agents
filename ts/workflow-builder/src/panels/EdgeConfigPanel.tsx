@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
@@ -7,7 +11,7 @@ import { getEdgeDefinition } from "@foresthubai/workflow-core/edge";
 import type { EdgeData, EdgeType } from "@foresthubai/workflow-core/edge";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";

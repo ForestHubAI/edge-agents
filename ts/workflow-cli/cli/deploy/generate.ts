@@ -1,27 +1,42 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Generators — pure functions, each produces the text of one output file from
-// the resolved DeploymentSpec (+ the device-env secrets that never enter the
-// spec). composeYaml writes ${VAR:-} interpolations exclusively; operator values
-// live in .env, never inlined here, so the same compose file works across every
-// (.env, controller) pair.
+// the resolved DeploymentSpec (+ the resource secrets that never enter the spec,
+// delivered as a mounted secret document). composeYaml writes ${VAR:-}
+// interpolations exclusively; operator values live in .env, never inlined here,
+// so the same compose file works across every (.env, controller) pair.
 
 import { createHash } from "node:crypto";
-import { ALL_PROVIDERS } from "./types";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
 import { llmSidecarServiceName, mlSidecarServiceName, cameraSidecarServiceName } from "@foresthubai/workflow-core/deploy";
-import type { ResourceSecrets } from "@foresthubai/workflow-core/deploy";
+import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
 
-// Convention mount path for a component's config file when it sets no configPath —
-// matches the path first-party images (the engine) default to reading.
-const DEFAULT_CONFIG_PATH = "/etc/foresthub/config.json";
+// The fixed in-container path the config file is mounted at — the path first-party
+// images (the engine) read. Mirrors go/component's ConfigFile.
+const CONFIG_PATH = "/etc/foresthub/config.json";
+
+// Fixed mount path for a component's secret document — mirrors go/component's
+// SecretsFile. Dynamic, id-keyed resource credentials mounted read-only, resolved
+// fresh at deploy and never stored in the spec (delivered here, not via env).
+const SECRETS_PATH = "/etc/foresthub/secrets.json";
 
 // The config-file basename a component's config blob is written to (write.ts) and
 // bind-mounted from. One source of truth so the renderer and writer agree.
 export function configFileName(name: string): string {
   return `${name}-config.json`;
+}
+
+// The secret-document basename a component's EngineSecrets doc is written to
+// (write.ts) and bind-mounted from. Parallel to configFileName; one source of
+// truth so the renderer and writer agree.
+export function secretsFileName(name: string): string {
+  return `${name}-secrets.json`;
 }
 
 // A volume mount's source is a named volume (vs a host bind mount) when it is not
@@ -36,21 +51,30 @@ function namedVolumeSource(mount: string): string | null {
 // mapping — NO branching on which component it is, so a custom component renders
 // exactly like a first-party one. Component-specific knowledge lives in the
 // resolver (which produced this) and in the image's own entrypoint, never here.
-function serviceBlock(c: DeployComponent): string {
+function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
+  const hasSecretDoc = secretDoc !== undefined && Object.keys(secretDoc).length > 0;
+
   // pull_policy comes straight from the component; "missing" (Docker's default)
   // pulls a registry image if absent, the right default for any stock image.
   const lines: string[] = [`  ${c.name}:`, `    image: ${c.image}`, `    pull_policy: ${c.pull ?? "missing"}`, "    restart: unless-stopped"];
 
-  // Content hash of the config blob, stamped as a label so the service's compose
-  // config-hash changes when the bind-mounted config file changes. Compose hashes
-  // the service definition (labels included) but NOT the contents of bind-mounted
-  // files, so without this a config edit — same image, same env — would leave
-  // `docker compose up -d` thinking the container is up-to-date and never recreate
-  // it. Omitted for a component with no config (e.g. llama: config rides in command).
+  // Content hashes of the bind-mounted config blob and secret doc, stamped as
+  // labels so the compose service definition changes when either file changes.
+  // Compose hashes the service definition (labels included) but NOT the contents
+  // of bind-mounted files, so without this an edit — same image, same env — would
+  // leave `docker compose up -d` thinking the container is up-to-date and never
+  // recreate it. The engine reads both files once at boot, so a rotated secret
+  // only takes effect on recreation: the secrets-hash label forces it.
+  const labels: string[] = [];
   if (c.config !== undefined) {
     const hash = createHash("sha256").update(JSON.stringify(c.config)).digest("hex");
-    lines.push("    labels:", `      com.foresthub.config-hash: "${hash}"`);
+    labels.push(`      com.foresthub.config-hash: "${hash}"`);
   }
+  if (hasSecretDoc) {
+    const hash = createHash("sha256").update(JSON.stringify(secretDoc)).digest("hex");
+    labels.push(`      com.foresthub.secrets-hash: "${hash}"`);
+  }
+  if (labels.length > 0) lines.push("    labels:", ...labels);
 
   // Run as root only when the resolver asked for it (a nonroot image reaching
   // root-owned device nodes / sysfs files passed through below).
@@ -68,9 +92,15 @@ function serviceBlock(c: DeployComponent): string {
   // sidecars) does not break `up`.
   lines.push("    env_file:", `      - path: ${c.name}.env`, "        required: false");
 
-  // Config blob: bind-mount the file write.ts wrote at the component's configPath
-  // (read-only), plus the component's own volume mounts.
-  const volumes = [...(c.config !== undefined ? [`./${configFileName(c.name)}:${c.configPath ?? DEFAULT_CONFIG_PATH}:ro`] : []), ...(c.volumes ?? [])];
+  // Config blob + secret doc: bind-mount each file write.ts wrote (read-only) at
+  // its fixed in-container path, plus the component's own volume mounts. The
+  // secret doc is out-of-band (never in the spec), so it rides here rather than
+  // as a spec field — mounted exactly like config, verbatim, never read here.
+  const volumes = [
+    ...(c.config !== undefined ? [`./${configFileName(c.name)}:${CONFIG_PATH}:ro`] : []),
+    ...(hasSecretDoc ? [`./${secretsFileName(c.name)}:${SECRETS_PATH}:ro`] : []),
+    ...(c.volumes ?? []),
+  ];
   if (volumes.length > 0) {
     lines.push("    volumes:");
     for (const v of volumes) lines.push(`      - ${v}`);
@@ -97,10 +127,13 @@ function serviceBlock(c: DeployComponent): string {
   return lines.join("\n");
 }
 
-// Exported for testing purposes only. A total function of the spec — operator
-// values live in the .env files the renderer references, never in the compose shape.
-export function composeYaml(spec: DeploymentSpec): string {
-  const services = spec.components.map(serviceBlock).join("\n\n");
+// Exported for testing purposes only. A near-total function of the spec: operator
+// values live in the .env files the renderer references, never in the compose
+// shape. The one out-of-band input is secretDocs (resource credentials, keyed by
+// component name) — never in the spec, so the caller supplies them here to mount
+// each owning component's secret file. Their content only affects a hash label.
+export function composeYaml(spec: DeploymentSpec, secretDocs: Record<string, EngineSecrets> = {}): string {
+  const services = spec.components.map((c) => serviceBlock(c, secretDocs[c.name])).join("\n\n");
 
   // Top-level named volumes, deduped across every component's mounts.
   const named = [...new Set(spec.components.flatMap((c) => (c.volumes ?? []).map(namedVolumeSource).filter((s): s is string => s !== null)))];
@@ -115,18 +148,11 @@ ${services}
 ${volumesBlock}`;
 }
 
-// Exported for testing purposes only.
-export function envFile(cfg: DeployConfig, resourceSecrets: ResourceSecrets = {}): string {
-  const localProviders = ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]));
-  const providerSection =
-    localProviders.length === 0
-      ? ""
-      : `# ----- LLM provider keys -----
-# Each key here = that provider runs locally with your API key.
-${localProviders.map((p) => `${p.toUpperCase()}_API_KEY=${cfg.llmKeys[p] ?? ""}`).join("\n")}
-
-`;
-
+// Exported for testing purposes only. Resource credentials (provider keys, broker
+// passwords, endpoint bearers) never live here — they ride in the mounted secret
+// document (<name>-secrets.json). This file carries only non-secret runtime knobs
+// plus the web-search key (engine-wide device env, not a per-resource secret).
+export function envFile(cfg: DeployConfig): string {
   // Only present when the workflow has a WebSearchTool node (cfg.webSearch set).
   const webSearchSection = cfg.webSearch
     ? `# ----- Web search -----
@@ -136,22 +162,11 @@ ENGINE_WEB_SEARCH_API_KEY=${cfg.webSearch.apiKey}
 `
     : "";
 
-  // Broker passwords / endpoint keys as one JSON blob, keyed by resolved resource
-  // id. Injected into the engine at runtime; never written to the spec. JSON
-  // starts with `{`, so docker compose .env reads it verbatim (no quote stripping).
-  const resourceSecretsSection =
-    Object.keys(resourceSecrets).length > 0
-      ? `# ----- External-resource secrets -----
-FH_RESOURCE_SECRETS=${JSON.stringify(resourceSecrets)}
-
-`
-      : "";
-
   return `# Edge Agents engine — operator configuration.
 # Auto-generated by \`fh-workflow deploy\`. Loaded into the engine via the compose
 # \`env_file\`. Secret values: chmod 600 this file after editing.
 
-${providerSection}${webSearchSection}${resourceSecretsSection}# ----- Runtime -----
+${webSearchSection}# ----- Runtime -----
 ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 `;
 }
@@ -175,12 +190,12 @@ export function camerasJson(cfg: DeployConfig): string | null {
 }
 
 // Exported for testing purposes only.
-export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel: boolean): string {
-  const localProviders = ALL_PROVIDERS.filter((p) => Boolean(cfg.llmKeys[p]));
+export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel: boolean, hasSecrets = false): string {
+  const localProviders = Object.keys(cfg.llmKeys).filter((id) => Boolean(cfg.llmKeys[id]));
   const providerBlock =
     localProviders.length === 0
-      ? "_No local API keys set._ An Agent that uses a catalog model will fail at build — set the matching key in `engine.env`."
-      : localProviders.map((p) => `- **${p}** — runs locally (your API key)`).join("\n");
+      ? "_No provider keys set._ An Agent that uses a catalog model will fail at build — supply the matching provider key at deploy."
+      : localProviders.map((id) => `- **${id}** — runs locally (your API key, in \`engine-secrets.json\`)`).join("\n");
 
   const engine = spec.components.find((c) => c.name === "engine");
   const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
@@ -232,8 +247,9 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
 
 ${providerBlock}
 
-The engine calls each provider directly with the API key from \`engine.env\`. Without
-a key, an Agent node that uses that provider's catalog model fails at build.`);
+Each catalog provider runs locally with your API key, delivered via the mounted
+\`engine-secrets.json\` (never in \`engine.env\` or the spec). Without a key, an Agent
+node that uses that provider's catalog model fails at build.`);
   }
   if (hasHardware) {
     notes.push(`## Hardware access
@@ -246,10 +262,11 @@ and tighten it to your security policy before deploying.`);
   if (hasExternalService) {
     notes.push(`## External resources
 
-The broker/endpoint credentials the engine connects with live in \`engine.env\`
-(\`FH_RESOURCE_SECRETS\`) — keep it \`chmod 600\`. This bundle does not start those
-services; it assumes the broker/endpoint already exists and is reachable from the
-controller.`);
+The broker/endpoint credentials the engine connects with live in the mounted secret
+document \`engine-secrets.json\` (a JSON map of resource id -> secret value, mounted
+read-only at \`/etc/foresthub/secrets.json\`) — keep it \`chmod 600\`. This
+bundle does not start those services; it assumes the broker/endpoint already exists
+and is reachable from the controller.`);
   }
   if (deviceModels.length > 0) {
     notes.push(`## On-device models
@@ -383,7 +400,7 @@ the workflow from \`engine-config.json\` and runs it autonomously:
 - \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest)
 - \`deployment-spec.json\` — the full resolved deployment spec (deployment record)
 - \`engine.env\` — operator configuration loaded into the engine (already filled in, \`chmod 600\` it)
-- \`fh-engine.tar\` — image tarball (you build this in step 1 below)
+${hasSecrets ? "- `engine-secrets.json` — resource credentials, mounted read-only at `/etc/foresthub/secrets.json` (already filled in, `chmod 600` it)\n" : ""}- \`fh-engine.tar\` — image tarball (you build this in step 1 below)
 ${notesBlock}
 ## 1. Build the image (on the dev machine)
 
@@ -420,7 +437,7 @@ docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar${sidecarSav
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
-scp fh-engine.tar ${sidecarTars ? sidecarTars + " " : ""}docker-compose.yml engine-config.json deployment-spec.json engine.env \\
+scp fh-engine.tar ${sidecarTars ? sidecarTars + " " : ""}docker-compose.yml engine-config.json deployment-spec.json engine.env ${hasSecrets ? "engine-secrets.json " : ""}\\
     $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 

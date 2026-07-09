@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
@@ -20,12 +20,12 @@ const cameraCaptureOutID = "output"
 // client's concern; this node only forwards the frame.
 type CameraCapture struct {
 	engine.LinearNode
-	binding workflow.OutputBinding
+	binding workflowapi.OutputBinding
 	client  engine.CaptureClient
 }
 
 // NewCameraCapture builds a CameraCapture bound to one camera's capture client.
-func NewCameraCapture(id string, binding workflow.OutputBinding, client engine.CaptureClient) *CameraCapture {
+func NewCameraCapture(id string, binding workflowapi.OutputBinding, client engine.CaptureClient) *CameraCapture {
 	return &CameraCapture{
 		LinearNode: engine.NewLinearNode(id),
 		binding:    binding,
@@ -46,9 +46,9 @@ func (c *CameraCapture) Execute(ctx context.Context, scope *engine.Scope) (strin
 
 // Outputs declares the single "output" slot — an image. Returns it only if the
 // binding is emit-mode (assign/discard don't materialize a variable).
-func (c *CameraCapture) Outputs() map[string]workflow.DataType {
+func (c *CameraCapture) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{cameraCaptureOutID: workflow.Image},
-		map[string]workflow.OutputBinding{cameraCaptureOutID: c.binding},
+		map[string]workflowapi.DataType{cameraCaptureOutID: workflowapi.Image},
+		map[string]workflowapi.OutputBinding{cameraCaptureOutID: c.binding},
 	)
 }

@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // ReactFlow node/edge type registries
 // Maps ReactFlow type strings to the React components that render them.
-// Shared between CanvasArea (editor) and VersionPreviewCanvas (read-only preview).
 // Lives in graph/ because it references sibling components, but is only consumed
 // by higher-level composing components — no graph/ component imports this file.
 

@@ -8,6 +8,8 @@
     "check-schema": "node ts/workflow-cli/cli/fh-workflow.mjs check-schema",
     "open": "node ts/workflow-cli/cli/fh-workflow.mjs open",
     "update": "node ts/workflow-cli/cli/fh-workflow.mjs update",
-    "deploy": "node ts/workflow-cli/cli/fh-workflow.mjs deploy"
+    "deploy": "node ts/workflow-cli/cli/fh-workflow.mjs deploy",
+    "license-headers": "node scripts/license-headers.mjs",
+    "license-headers:fix": "node scripts/license-headers.mjs --fix"
   }
 }

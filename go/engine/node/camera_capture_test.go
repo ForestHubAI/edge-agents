@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 
@@ -25,7 +25,7 @@ func (s *stubCaptureClient) Capture(_ context.Context) ([]byte, error) {
 }
 
 func TestCameraCapture_Execute(t *testing.T) {
-	emit := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+	emit := workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}
 
 	t.Run("captured frame is emitted as an image value", func(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
@@ -38,7 +38,7 @@ func TestCameraCapture_Execute(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, engine.StateIdle, next)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: "cam1", VarId: cameraCaptureOutID})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: "cam1", VarId: cameraCaptureOutID})
 		require.NoError(t, err)
 		assert.Equal(t, expr.ImageVal(frame), v)
 	})
@@ -58,12 +58,12 @@ func TestCameraCapture_Execute(t *testing.T) {
 
 func TestCameraCapture_Outputs(t *testing.T) {
 	t.Run("emit binding materializes the image slot", func(t *testing.T) {
-		n := NewCameraCapture("cam1", workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}, &stubCaptureClient{})
-		assert.Equal(t, map[string]workflow.DataType{cameraCaptureOutID: workflow.Image}, n.Outputs())
+		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}, &stubCaptureClient{})
+		assert.Equal(t, map[string]workflowapi.DataType{cameraCaptureOutID: workflowapi.Image}, n.Outputs())
 	})
 
 	t.Run("assign binding materializes no slot", func(t *testing.T) {
-		n := NewCameraCapture("cam1", workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeAssign}, &stubCaptureClient{})
+		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeAssign}, &stubCaptureClient{})
 		assert.Empty(t, n.Outputs())
 	})
 }

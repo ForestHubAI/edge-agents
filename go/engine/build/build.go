@@ -1,13 +1,17 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package build
 
 import (
 	"context"
 	"fmt"
-	"slices"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
@@ -16,22 +20,22 @@ import (
 )
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
-// LLMProviders is the boot provider set; Build composes it with any per-deploy
-// custom-model providers into a fresh client scoped to each Runner.
+// Backend (optional; nil = standalone) is the client every backend-routed LLM
+// provider forwards to; Build resolves the boot externalResources into the
+// llmproxy client scoped to the Runner.
 type Builder struct {
-	Drivers      *driver.Registry
-	Transports   *transport.Registry
-	LLMProviders []llmproxy.Provider
-	Memory       *memory.Manager
-	Retriever    engine.Retriever
-	WebSearch    websearch.Provider // optional; nil disables WebSearchTool nodes
+	Drivers    *driver.Registry
+	Transports *transport.Registry
+	Backend    *backend.Client
+	Memory     *memory.Manager
+	Retriever  engine.Retriever
+	WebSearch  websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
-// Build constructs a Runner for the given workflow and network manifest.
-// nm may be nil. Refreshes the memory snapshot before assembling nodes so
-// agent nodes see the latest declared files (including any seeded by the
-// current deploy).
-func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
+// Build constructs a Runner for the given workflow, resource mapping (dm), and
+// external resources (ext); ext may be nil. Refreshes the memory snapshot before
+// assembling nodes so agent nodes see the latest declared files.
+func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
 		if err != nil {
@@ -41,14 +45,14 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 			return nil, fmt.Errorf("reconciling memory: %w", err)
 		}
 	}
-	// Compose a per-deploy LLM client: the boot providers plus any custom-model
-	// providers resolved from this deploy's externalResources. The client is
-	// scoped to this Runner and GC'd on shutdown, so the boot set is never mutated.
-	deployProviders, err := buildDeployProviders(wf, dm, ext)
+	// Compose the LLM client from the boot externalResources: catalog providers
+	// plus any custom-model self-hosted endpoints. The client is scoped to this
+	// Runner and GC'd on shutdown.
+	providers, err := buildProviders(wf, dm, ext, b.Backend)
 	if err != nil {
-		return nil, fmt.Errorf("resolving deploy llm providers: %w", err)
+		return nil, fmt.Errorf("resolving llm providers: %w", err)
 	}
-	llmClient := llmproxy.NewClient(append(slices.Clone(b.LLMProviders), deployProviders...))
+	llmClient := llmproxy.NewClient(providers)
 	if err := validateModelsResolvable(wf, llmClient); err != nil {
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
@@ -63,14 +67,14 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.De
 // declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
 // skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
 // nodes). These are the canonical set of files the memory Manager restores.
-func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
-	var out []workflow.MemoryFile
+func declaredMemoryFiles(wf *workflowapi.Workflow) ([]workflowapi.MemoryFile, error) {
+	var out []workflowapi.MemoryFile
 	for i, m := range wf.Memory {
 		disc, err := m.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)
 		}
-		if disc != string(workflow.MemoryFileTypeMemoryFile) {
+		if disc != string(workflowapi.MemoryFileTypeMemoryFile) {
 			continue
 		}
 		mf, err := m.AsMemoryFile()
@@ -83,16 +87,16 @@ func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
 }
 
 // buildCollections resolves each declared VectorDatabase to its collection id
-// through the deploy mapping, skipping other memory kinds. Hard-fails on a
+// through the resource mapping, skipping other memory kinds. Hard-fails on a
 // missing binding, exactly as buildChannels does for hardware/MQTT channels.
-func buildCollections(wf *workflow.Workflow, dm engine.DeploymentMapping) (map[string]string, error) {
+func buildCollections(wf *workflowapi.Workflow, dm engine.ResourceMapping) (map[string]string, error) {
 	out := make(map[string]string)
 	for i, m := range wf.Memory {
 		disc, err := m.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)
 		}
-		if disc != string(workflow.VectorDatabaseTypeVectorDatabase) {
+		if disc != string(workflowapi.VectorDatabaseTypeVectorDatabase) {
 			continue
 		}
 		vd, err := m.AsVectorDatabase()
@@ -125,7 +129,7 @@ type buildContext struct {
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {

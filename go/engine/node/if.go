@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -17,11 +21,11 @@ var _ engine.Executable = (*If)(nil)
 // port.
 type If struct {
 	engine.LinearNode
-	condition workflow.Expression
+	condition workflowapi.Expression
 }
 
 // NewIf builds an If node.
-func NewIf(id string, condition workflow.Expression) *If {
+func NewIf(id string, condition workflowapi.Expression) *If {
 	return &If{
 		LinearNode: engine.NewLinearNode(id),
 		condition:  condition,

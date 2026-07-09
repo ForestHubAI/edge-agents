@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // `fh-workflow deploy <workflow.json> [flags]`
 //
 // Generates a self-contained Engine deployment bundle (docker-compose.yml,
@@ -22,7 +26,8 @@ import type { DeployComponent, LoadedComponent } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
 import {
-  ALL_PROVIDERS,
+  PROVIDER_IDS,
+  providerFlag,
   familyMismatches,
   ggufNameError,
   hardwareConflicts,
@@ -31,7 +36,9 @@ import {
   unknownIds,
   valuesFileSchema,
 } from "./types";
-import type { DeployConfig, DeployRequirements, LogLevel, Provider, RawFlags } from "./types";
+import type { DeployConfig, DeployRequirements, LogLevel, RawFlags } from "./types";
+import { MODEL_CATALOG } from "../../src/catalog";
+import type { DeploymentInputs } from "@foresthubai/workflow-core/deploy";
 
 // Resolved component images the spec pins. The engine is currently built locally
 // (bare name → local daemon, renderer's pull_policy never); the llama sidecar is a
@@ -53,8 +60,8 @@ engine-config.json, engine.env, README.md). The engine boots the workflow and ru
 autonomously. Missing values are filled in interactively, or supplied via
 --values when there is no terminal.
 
-LLM provider keys (set one for each catalog model an Agent uses):
-${ALL_PROVIDERS.map((p) => `  --${p}-key KEY`).join("\n")}
+LLM provider keys (set one for each provider your Agents use):
+${PROVIDER_IDS.map((id) => `  --${providerFlag(id)}-key KEY`).join("\n")}
 
 Custom components (extra containers to run alongside the engine):
   --component DIR                 folder with a component.json (repeatable)
@@ -75,8 +82,8 @@ Automation (no terminal — e.g. a Claude Code skill or CI):
 // parseFlags / partialFromFlags / loadValues / missingRequired / configFromPartial
 // are exported for unit testing; deployCommand is their only runtime caller.
 export function parseFlags(args: string[]): RawFlags {
-  // One --<provider>-key string flag per provider, derived from ALL_PROVIDERS.
-  const keyOptions = Object.fromEntries(ALL_PROVIDERS.map((p) => [`${p}-key`, { type: "string" as const }]));
+  // One --<provider>-key string flag per catalog provider (flag = id lowercased).
+  const keyOptions = Object.fromEntries(PROVIDER_IDS.map((id) => [`${providerFlag(id)}-key`, { type: "string" as const }]));
   const { values } = parseArgs({
     args,
     options: {
@@ -94,10 +101,10 @@ export function parseFlags(args: string[]): RawFlags {
   // Collect the set provider keys back into one record, dropping the unset ones.
   // The --<provider>-key flags are built dynamically, so parseArgs doesn't know
   // them by name — reach them through an untyped view and narrow with typeof.
-  const llmKeys: Partial<Record<Provider, string>> = {};
-  for (const p of ALL_PROVIDERS) {
-    const key = (values as Record<string, unknown>)[`${p}-key`];
-    if (typeof key === "string") llmKeys[p] = key;
+  const llmKeys: Record<string, string> = {};
+  for (const id of PROVIDER_IDS) {
+    const key = (values as Record<string, unknown>)[`${providerFlag(id)}-key`];
+    if (typeof key === "string") llmKeys[id] = key;
   }
   return {
     llmKeys,
@@ -114,7 +121,7 @@ export function parseFlags(args: string[]): RawFlags {
 // keys merge per provider; the scalar flags override only when actually set.
 // An invalid --log-level exits 1 — loud like a bad values file, not silent.
 export function partialFromFlags(flags: RawFlags, fileValues: Partial<DeployConfig>): Partial<DeployConfig> {
-  const llmKeys: Partial<Record<Provider, string>> = { ...(fileValues.llmKeys ?? {}), ...flags.llmKeys };
+  const llmKeys: Record<string, string> = { ...(fileValues.llmKeys ?? {}), ...flags.llmKeys };
 
   // Same schema the values file is checked against — one list of valid levels.
   let flagLogLevel: LogLevel | undefined;
@@ -219,6 +226,9 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
     }
   }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
+  for (const prov of req.catalogProviders) {
+    if (!p.llmKeys?.[prov.id]) missing.push(`provider "${prov.id}": API key`);
+  }
   missing.push(...unknownIds(req, p));
   return missing;
 }
@@ -336,7 +346,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
   }
-  const req = deriveRequirements(domain);
+  const req = deriveRequirements(domain, MODEL_CATALOG);
 
   // Custom models are handled per model in the prompts (on-device sidecar vs. an
   // endpoint the operator runs) and explained accurately in the generated README —
@@ -401,25 +411,39 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // and throws on a gap — turn that into a clean exit rather than a stack trace.
   let built;
   try {
+    // OSS path: every catalog provider runs locally with the operator's key. The
+    // key rides in secrets.json (resolver → resourceSecrets), never .env. Backend
+    // routing (backendLlm) is a paid-path concern and is never emitted here.
+    const inputs: DeploymentInputs = {
+      hardware: cfg.hardware,
+      mqtt: cfg.mqtt,
+      llmModels: cfg.llmModels,
+      mlModels: cfg.mlModels,
+      cameras: cfg.cameras,
+      providers: Object.fromEntries(
+        Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "local" as const, apiKey }]),
+      ),
+    };
     built = buildDeploymentSpec(
       domain,
-      cfg,
+      inputs,
       {
         id: slugify(workflowName),
-        status: "active",
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
         mlSidecarImage: ML_SIDECAR_IMAGE,
         cameraSidecarImage: CAMERA_SIDECAR_IMAGE,
       },
       customComponents,
+      MODEL_CATALOG,
     );
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
   }
 
-  // Write the bundle. Secrets (resourceSecrets) go to .env, never the spec.
+  // Write the bundle. Secrets (resourceSecrets) ride in a mounted secret document,
+  // never in .env or the spec.
   let files: string[];
   try {
     files = await writeOutput(built.spec, built.resourceSecrets, cfg, req, componentEnv);

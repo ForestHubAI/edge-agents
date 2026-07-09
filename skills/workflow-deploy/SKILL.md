@@ -261,12 +261,13 @@ Give the operator:
 1. **The bundle path and its files** — take this verbatim from the command's own success output;
    don't reason about which files "should" be there. The CLI always writes `engine-config.json`,
    `docker-compose.yml`, `engine.env`, `deployment-spec.json`, and `README.md` (even a no-secrets
-   bundle has an `engine.env` — it carries the log level), and adds a `models/` folder, a custom
-   component's `<name>.env` / `<name>-config.json`, etc. when the setup needs them. Never claim a file
-   is absent that the command listed.
-2. **The placeholders they must still fill** — prominently. List every `REPLACE_ME_…` you wrote; they
-   all land in `engine.env` (provider/web-search keys directly, MQTT passwords and network-model keys
-   inside the `FH_RESOURCE_SECRETS` blob). Also flag any custom component's `<name>.env`, where empty
+   bundle has an `engine.env` — it carries the log level), and adds an `engine-secrets.json` (when any
+   MQTT password / network-model key resolves), a `models/` folder, a custom component's `<name>.env` /
+   `<name>-config.json`, etc. when the setup needs them. Never claim a file is absent that the command
+   listed.
+2. **The placeholders they must still fill** — prominently. List every `REPLACE_ME_…` you wrote:
+   provider/web-search keys land in `engine.env`; MQTT passwords and network-model keys land in
+   `engine-secrets.json` (the resource-credential doc). Also flag any custom component's `<name>.env`, where empty
    values were left blank. Remind them every such file is `chmod 600` and to keep it so.
 3. **The defaultable values you set** (output dir, log level, and any baud), each with its
    value, and ask plainly whether any should change — so nothing was decided silently.

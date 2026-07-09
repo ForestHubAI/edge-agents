@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package expr
 
 import (
 	"fmt"
 	"strconv"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 )
 
 // Value is the runtime representation of a typed workflow variable.
@@ -18,29 +22,29 @@ import (
 // system lives in the interpreter's data structures rather than in the
 // host language's compiler.
 type Value struct {
-	Type workflow.DataType
+	Type workflowapi.DataType
 	Raw  any // int64, float64, bool, string, or []byte (image)
 }
 
-func IntVal(v int64) Value     { return Value{Type: workflow.Int, Raw: v} }
-func FloatVal(v float64) Value { return Value{Type: workflow.Float, Raw: v} }
-func BoolVal(v bool) Value     { return Value{Type: workflow.Bool, Raw: v} }
-func StringVal(v string) Value { return Value{Type: workflow.String, Raw: v} }
+func IntVal(v int64) Value     { return Value{Type: workflowapi.Int, Raw: v} }
+func FloatVal(v float64) Value { return Value{Type: workflowapi.Float, Raw: v} }
+func BoolVal(v bool) Value     { return Value{Type: workflowapi.Bool, Raw: v} }
+func StringVal(v string) Value { return Value{Type: workflowapi.String, Raw: v} }
 
 // ImageVal wraps an encoded frame blob (e.g. JPEG bytes). It is an opaque
 // value — there is no Cast/AsX path into or out of it beyond AsImage.
-func ImageVal(v []byte) Value { return Value{Type: workflow.Image, Raw: v} }
+func ImageVal(v []byte) Value { return Value{Type: workflowapi.Image, Raw: v} }
 
 // ZeroValue returns the zero value for a given data type.
-func ZeroValue(dt workflow.DataType) Value {
+func ZeroValue(dt workflowapi.DataType) Value {
 	switch dt {
-	case workflow.Int:
+	case workflowapi.Int:
 		return IntVal(0)
-	case workflow.Float:
+	case workflowapi.Float:
 		return FloatVal(0)
-	case workflow.Bool:
+	case workflowapi.Bool:
 		return BoolVal(false)
-	case workflow.Image:
+	case workflowapi.Image:
 		return ImageVal(nil)
 	default:
 		return StringVal("")
@@ -120,7 +124,7 @@ func (v Value) AsString() string {
 
 // AsImage returns the raw image bytes, or an error if the value is not an image.
 func (v Value) AsImage() ([]byte, error) {
-	if v.Type != workflow.Image {
+	if v.Type != workflowapi.Image {
 		return nil, fmt.Errorf("cannot read %s as image", v.Type)
 	}
 	b, _ := v.Raw.([]byte)
@@ -128,18 +132,18 @@ func (v Value) AsImage() ([]byte, error) {
 }
 
 // Cast converts a value to the target data type.
-func (v Value) Cast(target workflow.DataType) Value {
+func (v Value) Cast(target workflowapi.DataType) Value {
 	if v.Type == target {
 		return v
 	}
 	switch target {
-	case workflow.Int:
+	case workflowapi.Int:
 		return IntVal(v.AsInt())
-	case workflow.Float:
+	case workflowapi.Float:
 		return FloatVal(v.AsFloat())
-	case workflow.Bool:
+	case workflowapi.Bool:
 		return BoolVal(v.AsBool())
-	case workflow.String:
+	case workflowapi.String:
 		return StringVal(v.AsString())
 	default:
 		return v
@@ -149,30 +153,30 @@ func (v Value) Cast(target workflow.DataType) Value {
 // Coerce converts any into a typed Value of the declared data type. Nil is
 // treated as absence and returns the zero value without error; any other
 // concrete type that doesn't match dt returns a non-nil error.
-func Coerce(dt workflow.DataType, raw any) (Value, error) {
+func Coerce(dt workflowapi.DataType, raw any) (Value, error) {
 	if raw == nil {
 		return ZeroValue(dt), nil
 	}
 	switch dt {
-	case workflow.Int:
+	case workflowapi.Int:
 		switch v := raw.(type) {
 		case float64:
 			return IntVal(int64(v)), nil
 		case int64:
 			return IntVal(v), nil
 		}
-	case workflow.Float:
+	case workflowapi.Float:
 		switch v := raw.(type) {
 		case float64:
 			return FloatVal(v), nil
 		case int64:
 			return FloatVal(float64(v)), nil
 		}
-	case workflow.Bool:
+	case workflowapi.Bool:
 		if b, ok := raw.(bool); ok {
 			return BoolVal(b), nil
 		}
-	case workflow.String:
+	case workflowapi.String:
 		if s, ok := raw.(string); ok {
 			return StringVal(s), nil
 		}

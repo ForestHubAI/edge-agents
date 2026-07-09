@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -20,6 +24,8 @@ import type { DeployConfig, DeployRequirements } from "./types";
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
     hasProviderModel: false,
+    catalogProviders: [],
+    unresolvedCatalogModels: [],
     hasRetriever: false,
     hasWebSearch: false,
     hardwareChannels: [],
@@ -114,14 +120,21 @@ describe("promptMissing", () => {
     expect(cfg.hardware.u).toEqual({ chipOrDevice: "/dev/ttyUSB0", baud: 9600 });
   });
 
-  it("drops unchecked providers and prompts the checked ones", async () => {
+  it("prompts one key per referenced catalog provider, skipping flag-supplied ones", async () => {
     script({
-      checkbox: [[/providers/, ["anthropic"]]],
-      password: [[/anthropic API key/, "sk-x"]],
+      password: [
+        [/Anthropic API key/, "sk-a"],
+        [/OpenAI API key/, "sk-o"],
+      ],
       input: [[/Output directory/, "b"]],
     });
-    const cfg = await run({ llmKeys: { openai: "flag-o" } }, "def", reqOf({ hasProviderModel: true }));
-    expect(cfg.llmKeys).toEqual({ anthropic: "sk-x" });
+    // OpenAI key arrives via flag/--values → not re-prompted; Anthropic is asked.
+    const cfg = await run(
+      { llmKeys: { OpenAI: "flag-o" } },
+      "def",
+      reqOf({ catalogProviders: [{ id: "Anthropic" }, { id: "OpenAI" }] }),
+    );
+    expect(cfg.llmKeys).toEqual({ OpenAI: "flag-o", Anthropic: "sk-a" });
   });
 
   it("attaches only the broker URL when optional mqtt fields are blank", async () => {

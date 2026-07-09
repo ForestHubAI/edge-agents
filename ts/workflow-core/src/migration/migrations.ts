@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 /**
  * A single-step upgrade of the persisted workflow format, from `from` to
  * `from + 1`. Operates on the raw parsed document, never the domain types.

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package gemini implements the Gemini LLM provider using the Google genai SDK.
 package gemini
 
@@ -15,8 +19,8 @@ import (
 
 const ProviderID llmproxy.ProviderID = "Gemini"
 
-// availableModels is the canonical list of Gemini models exposed by this provider.
-var availableModels = []llmproxy.ModelInfo{
+// AvailableModels is the canonical list of Gemini models exposed by this provider.
+var AvailableModels = []llmproxy.ModelInfo{
 	{ID: "gemini-2.5-flash", Label: "Gemini 2.5 Flash", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "gemini-2.5-flash-lite", Label: "Gemini 2.5 Flash Lite", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat}, TokenModifier: 1.0},
 	{ID: "gemini-embedding-001", Label: "Gemini Embedding 001", Provider: ProviderID, Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityEmbedding}, TokenModifier: 1.0, EmbeddingDimension: pointer.Ptr(3072)},
@@ -64,7 +68,7 @@ func (p *Provider) ProviderID() llmproxy.ProviderID {
 
 // AvailableModels returns the static list of Anthropic models exposed by this provider.
 func (p *Provider) AvailableModels() []llmproxy.ModelInfo {
-	return availableModels
+	return AvailableModels
 }
 
 // Health pings Gemini to ensure connectivity.
@@ -189,7 +193,7 @@ func (p *Provider) Embed(ctx context.Context, req *llmproxy.EmbeddingRequest) (*
 
 // EmbeddingDimension returns the output dimension for the given embedding model.
 func (p *Provider) EmbeddingDimension(model llmproxy.ModelID) (int, error) {
-	for _, m := range availableModels {
+	for _, m := range AvailableModels {
 		if m.ID == model && m.EmbeddingDimension != nil {
 			return *m.EmbeddingDimension, nil
 		}

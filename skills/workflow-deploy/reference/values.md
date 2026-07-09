@@ -38,11 +38,14 @@ MqttBinding       { "brokerUrl": string, "username"?: string, "password"?: strin
 ModelBinding      { "location": "device",  "modelFile": string }          // a GGUF run as a sidecar
                 | { "location": "network", "url": string, "apiKey"?: string }  // an endpoint you run
 WebSearchBinding  { "provider": string, "apiKey": string }
-llmKeys           { "anthropic"?: string, "openai"?: string, "gemini"?: string, "mistral"?: string }
+llmKeys           { "Anthropic"?: string, "OpenAI"?: string, "Gemini"?: string, "Mistral"?: string }
 ```
 
-The four providers are the only keys the wizard knows; a custom/self-hosted model never needs one
-(it goes through `models`, not `llmKeys`).
+`llmKeys` is keyed by the **provider id** (the llmproxy ProviderID: `Anthropic`, `OpenAI`, `Gemini`,
+`Mistral`) — the same id the wizard prompts for and that a deploy needs a key for. The `--<provider>-key`
+flag is the lowercased alias (`--anthropic-key` sets `Anthropic`). Only the providers a workflow's
+`Agent`s actually reference are asked for; a custom/self-hosted model never needs one (it goes through
+`models`, not `llmKeys`).
 
 ## What's required, what's secret
 
@@ -61,8 +64,9 @@ these and lists any gap before refusing to run:
 | `Agent` using a catalog model | nothing *blocking* — but the matching `llmKeys` entry is needed at **build** time | **yes** |
 
 **Secret fields:** `llmKeys.*`, `mqtt.*.password`, `webSearch.apiKey`, `models.*.apiKey` (network).
-These all end up in `engine.env` (the provider/web-search keys directly; the MQTT passwords and
-network-model keys inside the `FH_RESOURCE_SECRETS` blob), written `chmod 600`. The skill never asks
+The provider/web-search keys end up in `engine.env`; the MQTT passwords and network-model keys end up
+in `engine-secrets.json` (the resource-credential doc, mounted read-only at
+`/etc/foresthub/secrets.json`). Both are written `chmod 600`. The skill never asks
 for or writes a real secret — it writes a **sentinel placeholder** (see below) so the value is
 present (the command runs) but obviously not real, and the operator swaps it in afterwards.
 
@@ -117,9 +121,10 @@ REPLACE_ME_WEB_SEARCH_API_KEY
 REPLACE_ME_MODEL_API_KEY
 ```
 
-A placeholder is non-empty, so the deploy command's required-checks pass and the value flows into
-`engine.env` (already `chmod 600`). The final report lists every placeholder the operator must replace
-there before the bundle will actually run.
+A placeholder is non-empty, so the deploy command's required-checks pass and the value flows into its
+secret file — provider/web-search keys into `engine.env`, MQTT/network-model keys into
+`engine-secrets.json` (both already `chmod 600`). The final report lists every placeholder the
+operator must replace before the bundle will actually run.
 
 ## A complete annotated example
 

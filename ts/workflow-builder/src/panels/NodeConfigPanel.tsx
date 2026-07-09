@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { Button } from "../components/ui/button";
 import { AddButton } from "../components/ui/add-button";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
@@ -33,7 +37,7 @@ import { useFunctionRegistry } from "../hooks/useFunctionRegistry";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { buildFunctionNodeDef } from "../hooks/useNodeDefinitions";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { migrateFunctionCallNodes } from "../utils/migrateFunctionNodes";
 import { getNodeDescription } from "../utils/translation";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";

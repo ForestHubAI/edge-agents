@@ -1,20 +1,24 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package build
 
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // vectorDB builds a workflow Memory wrapping a VectorDatabase with the given id.
-func vectorDB(t *testing.T, id string) workflow.Memory {
+func vectorDB(t *testing.T, id string) workflowapi.Memory {
 	t.Helper()
-	var m workflow.Memory
-	require.NoError(t, m.FromVectorDatabase(workflow.VectorDatabase{
-		Type:  workflow.VectorDatabaseTypeVectorDatabase,
+	var m workflowapi.Memory
+	require.NoError(t, m.FromVectorDatabase(workflowapi.VectorDatabase{
+		Type:  workflowapi.VectorDatabaseTypeVectorDatabase,
 		Id:    id,
 		Label: id,
 	}))
@@ -22,11 +26,11 @@ func vectorDB(t *testing.T, id string) workflow.Memory {
 }
 
 // memFile builds a workflow Memory wrapping a MemoryFile with the given id.
-func memFile(t *testing.T, id string) workflow.Memory {
+func memFile(t *testing.T, id string) workflowapi.Memory {
 	t.Helper()
-	var m workflow.Memory
-	require.NoError(t, m.FromMemoryFile(workflow.MemoryFile{
-		Type:        workflow.MemoryFileTypeMemoryFile,
+	var m workflowapi.Memory
+	require.NoError(t, m.FromMemoryFile(workflowapi.MemoryFile{
+		Type:        workflowapi.MemoryFileTypeMemoryFile,
 		Id:          id,
 		Label:       id,
 		Content:     "x",
@@ -36,8 +40,8 @@ func memFile(t *testing.T, id string) workflow.Memory {
 }
 
 func TestBuildCollections_ResolvesVectorDatabase(t *testing.T) {
-	wf := &workflow.Workflow{Memory: []workflow.Memory{vectorDB(t, "kb-1")}}
-	dm := engine.DeploymentMapping{"kb-1": {Ref: "collection-abc"}}
+	wf := &workflowapi.Workflow{Memory: []workflowapi.Memory{vectorDB(t, "kb-1")}}
+	dm := engine.ResourceMapping{"kb-1": {Ref: "collection-abc"}}
 
 	got, err := buildCollections(wf, dm)
 	require.NoError(t, err)
@@ -45,15 +49,15 @@ func TestBuildCollections_ResolvesVectorDatabase(t *testing.T) {
 }
 
 func TestBuildCollections_MissingBindingFails(t *testing.T) {
-	wf := &workflow.Workflow{Memory: []workflow.Memory{vectorDB(t, "kb-1")}}
+	wf := &workflowapi.Workflow{Memory: []workflowapi.Memory{vectorDB(t, "kb-1")}}
 
 	_, err := buildCollections(wf, nil)
 	require.Error(t, err)
 }
 
 func TestBuildCollections_SkipsMemoryFile(t *testing.T) {
-	wf := &workflow.Workflow{Memory: []workflow.Memory{memFile(t, "f-1"), vectorDB(t, "kb-1")}}
-	dm := engine.DeploymentMapping{"kb-1": {Ref: "collection-abc"}}
+	wf := &workflowapi.Workflow{Memory: []workflowapi.Memory{memFile(t, "f-1"), vectorDB(t, "kb-1")}}
+	dm := engine.ResourceMapping{"kb-1": {Ref: "collection-abc"}}
 
 	got, err := buildCollections(wf, dm)
 	require.NoError(t, err)
@@ -63,7 +67,7 @@ func TestBuildCollections_SkipsMemoryFile(t *testing.T) {
 }
 
 func TestDeclaredMemoryFiles_ExtractsOnlyMemoryFiles(t *testing.T) {
-	wf := &workflow.Workflow{Memory: []workflow.Memory{memFile(t, "f-1"), vectorDB(t, "kb-1")}}
+	wf := &workflowapi.Workflow{Memory: []workflowapi.Memory{memFile(t, "f-1"), vectorDB(t, "kb-1")}}
 
 	got, err := declaredMemoryFiles(wf)
 	require.NoError(t, err)
@@ -72,7 +76,7 @@ func TestDeclaredMemoryFiles_ExtractsOnlyMemoryFiles(t *testing.T) {
 }
 
 func TestDeclaredMemoryFiles_EmptyWhenNoMemory(t *testing.T) {
-	got, err := declaredMemoryFiles(&workflow.Workflow{})
+	got, err := declaredMemoryFiles(&workflowapi.Workflow{})
 	require.NoError(t, err)
 	assert.Empty(t, got)
 }

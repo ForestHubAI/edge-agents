@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { describe, it, expect } from "vitest";
 import { camerasJson, composeYaml, envFile, readme, slugify } from "./generate";
 import type { DeployConfig } from "./types";
@@ -66,7 +70,7 @@ function cameraComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
 }
 
 function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
-  return { schemaVersion: 1, id: "test", status: "active", components };
+  return { schemaVersion: 1, id: "test", components };
 }
 
 function cfgOf(p: Partial<DeployConfig> = {}): DeployConfig {
@@ -90,8 +94,10 @@ describe("envFile", () => {
     expect(env).not.toContain("WEB_SEARCH");
   });
 
-  it("writes a provider key when set", () => {
-    expect(envFile(cfgOf({ llmKeys: { anthropic: "sk-x" } }))).toContain("ANTHROPIC_API_KEY=sk-x");
+  it("never writes provider keys into env — they ride secrets.json now", () => {
+    const env = envFile(cfgOf({ llmKeys: { Anthropic: "sk-x" } }));
+    expect(env).not.toContain("sk-x");
+    expect(env).not.toContain("API_KEY");
   });
 
   it("writes the web-search section only when configured", () => {
@@ -100,13 +106,28 @@ describe("envFile", () => {
     expect(env).toContain("ENGINE_WEB_SEARCH_API_KEY=ws-key");
   });
 
-  it("writes the resource-secrets blob only when there are secrets", () => {
-    expect(envFile(cfgOf(), { "mqtt-b": { password: "pw" } })).toContain("FH_RESOURCE_SECRETS=");
-    expect(envFile(cfgOf())).not.toContain("FH_RESOURCE_SECRETS=");
+  it("never writes resource secrets into env — they ride a mounted file now", () => {
+    expect(envFile(cfgOf())).not.toContain("FH_RESOURCE_SECRETS");
   });
 });
 
 describe("composeYaml", () => {
+  it("mounts the secret doc read-only and stamps a secrets-hash when the owner has secrets", () => {
+    const yaml = composeYaml(specOf(), { engine: { "mqtt-b": "pw" } });
+    expect(yaml).toContain("./engine-secrets.json:/etc/foresthub/secrets.json:ro");
+    expect(yaml).toContain("com.foresthub.secrets-hash:");
+    // The secret value itself never lands in the compose file — only a hash of it.
+    expect(yaml).not.toContain("pw");
+  });
+
+  it("omits the secret mount and label when there is no secret doc", () => {
+    const yaml = composeYaml(specOf());
+    expect(yaml).not.toContain("engine-secrets.json");
+    expect(yaml).not.toContain("secrets-hash");
+    // An empty doc for the owner is treated as no doc (anonymous broker / keyless).
+    expect(composeYaml(specOf(), { engine: {} })).not.toContain("engine-secrets.json");
+  });
+
   it("mounts the config file at the convention path and has no hardware blocks for a bare spec", () => {
     const yaml = composeYaml(specOf());
     expect(yaml).toContain("./engine-config.json:/etc/foresthub/config.json:ro");

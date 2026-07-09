@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package selfhosted
 
 import (
@@ -173,8 +177,12 @@ func (p *Provider) Embed(ctx context.Context, req *llmproxy.EmbeddingRequest) (*
 		return nil, fmt.Errorf("failed to get embeddings from local endpoint: %w", err)
 	}
 
+	// Index comes from the remote server — never trust it as a slice index.
 	embeddings := make([][]float32, len(localResp.Data))
 	for _, d := range localResp.Data {
+		if d.Index < 0 || d.Index >= len(embeddings) {
+			return nil, fmt.Errorf("embedding endpoint returned out-of-range index %d for %d inputs", d.Index, len(localResp.Data))
+		}
 		embeddings[d.Index] = d.Embedding
 	}
 

@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Interactive prompt layer: fills any value the flags didn't provide.
 // This is the "ask" step. Flags pre-fill; prompts cover the rest.
 
-import { checkbox, confirm, editor, input, password, select } from "@inquirer/prompts";
+import { confirm, editor, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { ALL_PROVIDERS, ggufNameError, hardwareAddressKey, hardwareAddressLabel, mlModelNameError } from "./types";
+import { ggufNameError, hardwareAddressKey, hardwareAddressLabel, mlModelNameError } from "./types";
 import type {
   CameraBinding,
   CameraChannel,
@@ -21,7 +25,6 @@ import type {
   MLModelBinding,
   MqttBinding,
   MqttChannel,
-  Provider,
   WebSearchBinding,
 } from "./types";
 
@@ -366,7 +369,7 @@ export async function promptMissing(
   const llmModelsTodo = req.customLLMModels.filter((m) => !partial.llmModels?.[m.id]);
   const mlModelsTodo = req.customMLModels.filter((m) => !partial.mlModels?.[m.id]);
   const camerasTodo = req.cameraChannels.filter((ch) => !partial.cameras?.[ch.id]);
-  const askKeys = req.hasProviderModel;
+  const askKeys = req.catalogProviders.length > 0;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
   // Output asks only when the directory is still open, or the pre-filled one
@@ -397,26 +400,17 @@ export async function promptMissing(
   const named = workflowName ? ` for "${workflowName}"` : "";
   process.stdout.write(`\n◆ Standalone deployment bundle${named}\n  Boots on the controller — no backend, no account.\n`);
 
-  // LLM keys: single multi-select over all four providers, skipped entirely
-  // when the workflow has no catalog model. Custom-only workflows (every Agent
-  // model declared in workflow.models) need no provider key.
-  const llmKeys: Partial<Record<Provider, string>> = { ...(partial.llmKeys ?? {}) };
+  // LLM keys: one prompt per catalog provider the workflow's Agents actually
+  // reference (from the derived requirements) — not a blanket pick-from-all. A
+  // custom-only workflow references no catalog provider and skips this. Every key
+  // runs that provider locally (`localLlm`); there is no backend option in OSS.
+  const llmKeys: Record<string, string> = { ...(partial.llmKeys ?? {}) };
   if (askKeys) {
-    section("LLM provider keys");
-    const selectedProviders = await checkbox<Provider>({
-      message: "Which providers should run with a local API key?",
-      choices: ALL_PROVIDERS.map((p) => ({ value: p, name: p })),
-    });
-    // Drop keys for providers the operator unchecked, even if they came in
-    // via a CLI flag — the multi-select is authoritative.
-    for (const p of ALL_PROVIDERS) {
-      if (!selectedProviders.includes(p)) delete llmKeys[p];
-    }
-    // Prompt for keys for selected providers that don't have one yet.
-    for (const provider of selectedProviders) {
-      if (llmKeys[provider]) continue;
-      const key = await password({ message: `${provider} API key`, mask: "*" });
-      if (key) llmKeys[provider] = key;
+    section("LLM provider keys", req.catalogProviders.length);
+    for (const prov of req.catalogProviders) {
+      if (llmKeys[prov.id]) continue; // already supplied via flag / --values
+      const key = await password({ message: `${prov.id} API key`, mask: "*" });
+      if (key) llmKeys[prov.id] = key;
     }
   }
 

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
@@ -13,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -63,13 +67,13 @@ func newWebFetchClient() *http.Client {
 // text to the bound slot. Control-flow only — not exposed as an LLM tool.
 type WebFetch struct {
 	engine.LinearNode
-	url      workflow.Expression
+	url      workflowapi.Expression
 	maxChars int
-	binding  workflow.OutputBinding
+	binding  workflowapi.OutputBinding
 }
 
 // NewWebFetch builds a WebFetch node. maxChars <= 0 falls back to the default cap.
-func NewWebFetch(id string, urlExpr workflow.Expression, maxChars int, binding workflow.OutputBinding) *WebFetch {
+func NewWebFetch(id string, urlExpr workflowapi.Expression, maxChars int, binding workflowapi.OutputBinding) *WebFetch {
 	if maxChars <= 0 {
 		maxChars = webFetchDefaultMaxChars
 	}
@@ -81,10 +85,10 @@ func NewWebFetch(id string, urlExpr workflow.Expression, maxChars int, binding w
 	}
 }
 
-func (n *WebFetch) Outputs() map[string]workflow.DataType {
+func (n *WebFetch) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{webFetchOutID: workflow.String},
-		map[string]workflow.OutputBinding{webFetchOutID: n.binding},
+		map[string]workflowapi.DataType{webFetchOutID: workflowapi.String},
+		map[string]workflowapi.OutputBinding{webFetchOutID: n.binding},
 	)
 }
 

@@ -7,17 +7,17 @@ import (
 	"testing"
 
 	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func cameraChannel(t *testing.T, id string, width, height *int) workflow.Channel {
+func cameraChannel(t *testing.T, id string, width, height *int) workflowapi.Channel {
 	t.Helper()
-	var c workflow.Channel
-	require.NoError(t, c.FromCAMERAChannel(workflow.CAMERAChannel{
-		Type:   workflow.CAMERA,
+	var c workflowapi.Channel
+	require.NoError(t, c.FromCAMERAChannel(workflowapi.CAMERAChannel{
+		Type:   workflowapi.CAMERA,
 		Id:     id,
 		Label:  id,
 		Width:  width,
@@ -26,11 +26,11 @@ func cameraChannel(t *testing.T, id string, width, height *int) workflow.Channel
 	return c
 }
 
-func mqttChannel(t *testing.T, id string) workflow.Channel {
+func mqttChannel(t *testing.T, id string) workflowapi.Channel {
 	t.Helper()
-	var c workflow.Channel
-	require.NoError(t, c.FromMQTTChannel(workflow.MQTTChannel{
-		Type:  workflow.MQTT,
+	var c workflowapi.Channel
+	require.NoError(t, c.FromMQTTChannel(workflowapi.MQTTChannel{
+		Type:  workflowapi.MQTT,
 		Id:    id,
 		Label: id,
 		Topic: "t",
@@ -39,8 +39,8 @@ func mqttChannel(t *testing.T, id string) workflow.Channel {
 }
 
 func TestBuildDeployCapture_ResolvesCamera(t *testing.T) {
-	wf := &workflow.Workflow{Channels: []workflow.Channel{cameraChannel(t, "front", nil, nil)}}
-	dm := engine.DeploymentMapping{"front": {Ref: "cam-sidecar"}}
+	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
+	dm := engine.ResourceMapping{"front": {Ref: "cam-sidecar"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
 		"cam-sidecar": {URL: "http://fh-camera:8100"},
 	}}
@@ -56,7 +56,7 @@ func TestBuildDeployCapture_ResolvesCamera(t *testing.T) {
 
 func TestBuildDeployCapture_SkipsNonCamera(t *testing.T) {
 	// wf.Channels holds every channel kind; a non-camera must not produce an endpoint.
-	wf := &workflow.Workflow{Channels: []workflow.Channel{mqttChannel(t, "bus")}}
+	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{mqttChannel(t, "bus")}}
 
 	eps, err := buildDeployCapture(wf, nil, nil)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestBuildDeployCapture_SkipsNonCamera(t *testing.T) {
 }
 
 func TestBuildDeployCapture_UnboundFails(t *testing.T) {
-	wf := &workflow.Workflow{Channels: []workflow.Channel{cameraChannel(t, "front", nil, nil)}}
+	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
 
 	_, err := buildDeployCapture(wf, nil, nil)
 	require.Error(t, err)
@@ -72,8 +72,8 @@ func TestBuildDeployCapture_UnboundFails(t *testing.T) {
 }
 
 func TestBuildDeployCapture_BoundButNoConfigFails(t *testing.T) {
-	wf := &workflow.Workflow{Channels: []workflow.Channel{cameraChannel(t, "front", nil, nil)}}
-	dm := engine.DeploymentMapping{"front": {Ref: "missing"}}
+	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
+	dm := engine.ResourceMapping{"front": {Ref: "missing"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{}}
 
 	_, err := buildDeployCapture(wf, dm, ext)
@@ -83,11 +83,11 @@ func TestBuildDeployCapture_BoundButNoConfigFails(t *testing.T) {
 
 func TestBuildDeployCapture_MultipleShareURL(t *testing.T) {
 	// One sidecar owns a set of cameras, so many channels may share a ref.
-	wf := &workflow.Workflow{Channels: []workflow.Channel{
+	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{
 		cameraChannel(t, "front", nil, nil),
 		cameraChannel(t, "rear", nil, nil),
 	}}
-	dm := engine.DeploymentMapping{"front": {Ref: "cam"}, "rear": {Ref: "cam"}}
+	dm := engine.ResourceMapping{"front": {Ref: "cam"}, "rear": {Ref: "cam"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
 		"cam": {URL: "http://fh-camera:8100"},
 	}}

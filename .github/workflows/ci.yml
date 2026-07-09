@@ -58,6 +58,16 @@ jobs:
       - run: python -m pytest -q
       - run: python -m compileall app
 
+  license-headers:
+    name: License headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+      - run: node scripts/license-headers.mjs
+
   drift:
     name: Contract codegen drift
     runs-on: ubuntu-latest

@@ -1,26 +1,31 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package mapping
 
 import (
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
 
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
-// deploy-time configs) onto the engine domain type at the HTTP boundary,
-// routing each arm by its discriminator: MQTT connections into MQTTs, custom
-// LLM provider configs into Providers, ML inference endpoints into MLInference,
-// camera capture endpoints into Cameras. Unknown arms are skipped.
+// boot config) onto the engine domain type at the api→domain boundary, routing
+// each arm by its discriminator: MQTT connections into MQTTs, LLM provider
+// instances (local / backend / self-hosted) into Providers, ML inference
+// endpoints into MLInference, camera capture endpoints into Cameras. Unknown
+// arms are skipped.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
 // spec). Credentials arrive separately in secrets, keyed by the same resource
 // id, and are merged in here so the domain connection the engine builds from is
 // complete. A missing secret leaves the credential empty (the connection may
 // still be valid — e.g. an anonymous broker or a keyless endpoint).
-func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.ResourceSecrets) *engine.ExternalResources {
+func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.Secrets) *engine.ExternalResources {
 	if in == nil {
 		return nil
 	}
@@ -45,7 +50,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 				BrokerURL:       c.BrokerURL,
 				ClientID:        pointer.Val(c.ClientID),
 				Username:        pointer.Val(c.Username),
-				Password:        secrets[id].Password,
+				Password:        secrets[id],
 				PublishPrefix:   pointer.Val(c.PublishPrefix),
 				SubscribePrefix: pointer.Val(c.SubscribePrefix),
 			}
@@ -58,15 +63,16 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 				}
 			}
 			out.MQTTs[id] = mc
-		case string(engineapi.Selfhosted):
+		case string(engineapi.LocalLlm), string(engineapi.BackendLlm), string(engineapi.SelfhostedLlm):
 			c, err := rc.AsLLMProviderConfig()
 			if err != nil {
 				continue
 			}
 			out.Providers[id] = engine.LLMProviderConfig{
-				URL:    c.Url,
-				APIKey: secrets[id].APIKey,
-				Model:  pointer.Val(c.Model),
+				Kind:     engine.LLMProviderKind(c.Type),
+				Provider: pointer.Val(c.Provider),
+				URL:      pointer.Val(c.Url),
+				APIKey:   secrets[id],
 			}
 		case string(engineapi.MlInference):
 			c, err := rc.AsMLInferenceConfig()
@@ -85,13 +91,21 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.R
 	return out
 }
 
-// DeploymentMappingToDomain maps the wire DeploymentMapping (workflow resource
-// id -> binding) onto the engine domain type at the HTTP boundary.
-func DeploymentMappingToDomain(in *engineapi.DeploymentMapping) engine.DeploymentMapping {
+// SecretsToDomain maps the wire EngineSecrets (the mounted secret store: secret
+// id -> opaque value) onto the engine domain type ExternalResourcesToDomain
+// merges into connections. Both are a string map, so this is a plain type
+// conversion; a nil input converts to nil (no resource needs a secret).
+func SecretsToDomain(in engineapi.EngineSecrets) engine.Secrets {
+	return engine.Secrets(in)
+}
+
+// ResourceMappingToDomain maps the wire ResourceMapping (workflow resource id ->
+// binding) onto the engine domain type at the HTTP boundary.
+func ResourceMappingToDomain(in *engineapi.ResourceMapping) engine.ResourceMapping {
 	if in == nil {
 		return nil
 	}
-	out := make(engine.DeploymentMapping, len(*in))
+	out := make(engine.ResourceMapping, len(*in))
 	for k, v := range *in {
 		out[k] = engine.ResourceBinding{Ref: v.Ref, Index: v.Index}
 	}
@@ -140,13 +154,13 @@ func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest 
 }
 
 // TickerInterval converts a wire ticker (value + unit) into a runtime duration.
-func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) time.Duration {
+func TickerInterval(value int, unit workflowapi.TickerNodeArgumentsIntervalUnit) time.Duration {
 	switch unit {
-	case workflow.Seconds:
+	case workflowapi.Seconds:
 		return time.Duration(value) * time.Second
-	case workflow.Minutes:
+	case workflowapi.Minutes:
 		return time.Duration(value) * time.Minute
-	case workflow.Hours:
+	case workflowapi.Hours:
 		return time.Duration(value) * time.Hour
 	default:
 		return time.Duration(value) * time.Millisecond
@@ -156,13 +170,13 @@ func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) ti
 // JSONTypeFor maps a workflow data type to its JSON Schema type name. Shared
 // by nodes that build runtime schemas (Agent response format, FunctionCall
 // tool parameters).
-func JSONTypeFor(dt workflow.DataType) string {
+func JSONTypeFor(dt workflowapi.DataType) string {
 	switch dt {
-	case workflow.Int:
+	case workflowapi.Int:
 		return "integer"
-	case workflow.Float:
+	case workflowapi.Float:
 		return "number"
-	case workflow.Bool:
+	case workflowapi.Bool:
 		return "boolean"
 	default:
 		return "string"

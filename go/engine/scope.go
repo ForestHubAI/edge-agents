@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package engine
 
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
@@ -30,7 +34,7 @@ type Scope struct {
 }
 
 // NewMainScope creates a scope for the main workflow, initialized with the given declared variables.
-func NewMainScope(declaredVars []workflow.Variable) (*Scope, error) {
+func NewMainScope(declaredVars []workflowapi.Variable) (*Scope, error) {
 	s := &Scope{Vars: make(map[string]expr.Value), subscribers: make(map[string][]chan expr.Value)}
 	if err := s.initialize(declaredVars); err != nil {
 		return nil, fmt.Errorf("seeding main scope declared variables: %w", err)
@@ -40,7 +44,7 @@ func NewMainScope(declaredVars []workflow.Variable) (*Scope, error) {
 
 // NewFunctionScope creates an isolated scope for function execution, with the
 // given arguments pre-seeded under SrcFnArg and initialized declared variables.
-func NewFunctionScope(declaredVars []workflow.Variable, args map[string]expr.Value) (*Scope, error) {
+func NewFunctionScope(declaredVars []workflowapi.Variable, args map[string]expr.Value) (*Scope, error) {
 	// Set up function scope with args
 	vars := make(map[string]expr.Value, len(args))
 	for argUid, v := range args {
@@ -55,7 +59,7 @@ func NewFunctionScope(declaredVars []workflow.Variable, args map[string]expr.Val
 }
 
 // Resolve implements expr.VarResolver.
-func (s *Scope) Resolve(ref workflow.Reference) (expr.Value, error) {
+func (s *Scope) Resolve(ref workflowapi.Reference) (expr.Value, error) {
 	v, ok := s.Vars[contextKey(ref.SrcId, ref.VarId)]
 	if !ok {
 		return expr.Value{}, fmt.Errorf("unresolved reference %s:%s", ref.SrcId, ref.VarId)
@@ -95,14 +99,14 @@ func RegisterNodeOutputs(scp *Scope, em Emitter) {
 }
 
 // ApplyOutput stores a value into the scope according to the binding mode.
-func ApplyOutput(s *Scope, nodeID, slotID string, binding workflow.OutputBinding, val expr.Value) error {
+func ApplyOutput(s *Scope, nodeID, slotID string, binding workflowapi.OutputBinding, val expr.Value) error {
 	if !binding.Active {
 		return nil
 	}
 	switch binding.Mode {
-	case workflow.OutputBindingModeEmit:
+	case workflowapi.OutputBindingModeEmit:
 		s.Set(nodeID, slotID, val)
-	case workflow.OutputBindingModeAssign:
+	case workflowapi.OutputBindingModeAssign:
 		if binding.Target == nil {
 			return fmt.Errorf("assign binding for %s:%s has no target", nodeID, slotID)
 		}
@@ -112,14 +116,14 @@ func ApplyOutput(s *Scope, nodeID, slotID string, binding workflow.OutputBinding
 }
 
 // ApplyDeclaration stores a value into the scope according to the declaration mode.
-func ApplyDeclaration(s *Scope, nodeID string, od workflow.OutputDeclaration, val expr.Value) error {
+func ApplyDeclaration(s *Scope, nodeID string, od workflowapi.OutputDeclaration, val expr.Value) error {
 	switch od.Mode {
-	case workflow.OutputDeclarationModeEmit:
+	case workflowapi.OutputDeclarationModeEmit:
 		if od.Uid == nil {
 			return fmt.Errorf("emit declaration %q on node %s missing uid", od.Name, nodeID)
 		}
 		s.Set(nodeID, *od.Uid, val)
-	case workflow.OutputDeclarationModeAssign:
+	case workflowapi.OutputDeclarationModeAssign:
 		if od.Target == nil {
 			return fmt.Errorf("assign declaration on node %s missing target", nodeID)
 		}
@@ -131,7 +135,7 @@ func ApplyDeclaration(s *Scope, nodeID string, od workflow.OutputDeclaration, va
 }
 
 // initialize declares and sets user-declared variables in the scope.
-func (s *Scope) initialize(vars []workflow.Variable) error {
+func (s *Scope) initialize(vars []workflowapi.Variable) error {
 	for _, v := range vars {
 		val, err := expr.Coerce(v.DataType, v.InitialValue)
 		if err != nil {

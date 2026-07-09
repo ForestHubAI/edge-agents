@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
@@ -36,7 +40,7 @@ type WebSearchTool struct {
 
 // NewWebSearchTool builds a WebSearchTool node bound to the given provider.
 // provider may be nil; the build path is expected to reject that case so a
-// misconfigured engine fails at deploy rather than at tool-call time.
+// misconfigured engine fails at boot rather than at tool-call time.
 func NewWebSearchTool(id string, provider websearch.Provider, maxResults int) *WebSearchTool {
 	if maxResults <= 0 || maxResults > webSearchHardMax {
 		maxResults = webSearchDefaultMax

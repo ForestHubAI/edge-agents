@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 ForestHub.
+
 openapi: 3.0.3
 info:
   title: ForestHub Workflow Contract
@@ -29,7 +32,7 @@ components:
 
     Workflow:
       type: object
-      description: Workflow represents the deployment format of a project, passed to agents.
+      description: The deployment format of a workflow project.
       required:
         [
           schemaVersion,
@@ -255,7 +258,7 @@ components:
           description: Stable identifier that survives renames; referenced from MemoryRef.
         label:
           type: string
-          description: Display name. Unique per agent (LLM tool enums use it).
+          description: Display name. Unique per agent.
         description:
           type: string
         content:
@@ -319,7 +322,7 @@ components:
           description: Display name.
         capabilities:
           type: array
-          description: Capabilities this model supports (used to filter model pickers).
+          description: Capabilities this model supports.
           items:
             $ref: "llmproxy.yaml#/components/schemas/ModelCapability"
 
@@ -486,9 +489,7 @@ components:
                 $ref: "#/components/schemas/OutputBinding"
             toolDescription:
               type: string
-              description: >
-                Description exposed to the LLM when this function is wired as
-                a tool. Ignored in exec mode.
+              description: Description used when this function is exposed as a tool; ignored in exec mode.
 
     OnFunctionCallNode:
       type: object
@@ -600,7 +601,7 @@ components:
               $ref: "#/components/schemas/OutputBinding"
             toolDescription:
               type: string
-              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     WebFetchNode:
       type: object
@@ -684,7 +685,7 @@ components:
               $ref: "#/components/schemas/OutputBinding"
             toolDescription:
               type: string
-              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     WritePinNode:
       type: object
@@ -742,7 +743,7 @@ components:
                 $ref: "#/components/schemas/MemoryRef"
             toolDescription:
               type: string
-              description: Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode.
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     IfNode:
       type: object
@@ -954,7 +955,7 @@ components:
         label: { type: string }
         topic:
           type: string
-          description: Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime.
+          description: Topic this channel publishes to / subscribes on.
 
     CAMERAChannel:
       type: object
@@ -980,7 +981,7 @@ components:
         level:
           type: string
           enum: [debug, info, warn, error]
-          description: Severity the engine records messages written to this channel at.
+          description: Severity for messages written to this channel.
         tag:
           type: string
-          description: Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics.
+          description: Optional category label stamped on each line written to this channel.

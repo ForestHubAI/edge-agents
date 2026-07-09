@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package driver is the OS-level abstraction for I/O resources. Each
 // driver instance owns one opened kernel handle (a GPIO chip, an IIO
 // device, a PWM chip, a serial port) and any thread that produces events

@@ -77,7 +77,7 @@ npm run generate    # regen workflow-core/src/api/workflow.ts from contract YAML
 npm run build       # tsc -b across all three packages → dist/
 npm run typecheck   # tsc -b workflow-core workflow-builder (tests excluded)
 npm run lint        # eslint . (flat config)
-npm run test        # vitest run (workflow-core only)
+npm run test        # vitest run, all three packages
 npm run dev         # vite dev server (workflow-cli)
 ```
 

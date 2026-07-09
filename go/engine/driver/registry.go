@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package driver
 
 import (
@@ -21,7 +25,7 @@ type Registry struct {
 // drivers opened so far are closed before returning, so callers never see a
 // partially-initialised Registry.
 func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
-	//TODO read from workflow.Manifest
+	//TODO read from workflowapi.Manifest
 	r := &Registry{
 		gpios:   make(map[string]GPIODriver),
 		adcs:    make(map[string]ADCDriver),

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -107,6 +111,8 @@ describe("familyMismatches", () => {
 
 const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
   hasProviderModel: false,
+  catalogProviders: [],
+  unresolvedCatalogModels: [],
   hasRetriever: false,
   hardwareChannels: [],
   mqttChannels: [],

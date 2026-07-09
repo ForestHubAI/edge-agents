@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -17,12 +21,12 @@ var _ engine.Executable = (*SetVariable)(nil)
 // declared variable in the main scope.
 type SetVariable struct {
 	engine.LinearNode
-	variable workflow.Reference
-	value    workflow.Expression
+	variable workflowapi.Reference
+	value    workflowapi.Expression
 }
 
 // NewSetVariable builds a SetVariable node.
-func NewSetVariable(id string, variable workflow.Reference, value workflow.Expression) *SetVariable {
+func NewSetVariable(id string, variable workflowapi.Reference, value workflowapi.Expression) *SetVariable {
 	return &SetVariable{
 		LinearNode: engine.NewLinearNode(id),
 		variable:   variable,

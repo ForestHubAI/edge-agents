@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package mistral
 
 //go:generate go tool oapi-codegen -old-config-style -generate types,skip-prune -o ./types.gen.go -package mistral ./openapi.yaml

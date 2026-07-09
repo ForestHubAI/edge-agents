@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { AddButton } from "../components/ui/add-button";
 import { Variable as VariableIcon } from "lucide-react";
 import { cn } from "../cn";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { type Variable, type DeclaredVariable } from "@foresthubai/workflow-core/variable";

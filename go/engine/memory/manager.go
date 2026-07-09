@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Package memory manages the engine's local copy of an agent's declared
 // memory files. The device filesystem is the sole source of truth: the
 // manager owns a directory of <uid>.json records, reads them at boot, and
@@ -16,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 )
 
 // ErrFileNotFound is returned when the LLM references a memory file that
@@ -73,16 +77,15 @@ func NewManager(dir string) *Manager {
 	}
 }
 
-// Reconcile converges the working copy to the files declared by the current
-// deploy. Called from Builder.Build, so every deploy reconciles state
-// (boot and post-rename redeploy). The device filesystem wins: for each
+// Reconcile converges the working copy to the files declared by the workflow.
+// Called from Builder.Build at boot. The device filesystem wins: for each
 // declared file an existing local copy is kept as-is (preserving the
-// agent's accumulated edits). Files with no local copy are seeded from the
-// declared content carried in the workflow. Declared metadata (name,
-// description, size cap) is always authoritative; only content is preserved
-// across redeploys. ctx is unused today, kept for a future device→cloud
+// agent's accumulated edits from prior runs). Files with no local copy are
+// seeded from the declared content carried in the workflow. Declared metadata
+// (name, description, size cap) is always authoritative; only content is
+// preserved across restarts. ctx is unused today, kept for a future device→cloud
 // backup push.
-func (m *Manager) Reconcile(_ context.Context, declared []workflow.MemoryFile) error {
+func (m *Manager) Reconcile(_ context.Context, declared []workflowapi.MemoryFile) error {
 	local, err := m.readLocal()
 	if err != nil {
 		return fmt.Errorf("memory: read local: %w", err)
@@ -231,7 +234,7 @@ func (m *Manager) readLocal() (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		var mf workflow.MemoryFile
+		var mf workflowapi.MemoryFile
 		if err := json.Unmarshal(b, &mf); err != nil {
 			return nil, err
 		}
@@ -244,13 +247,13 @@ func (m *Manager) readLocal() (map[string]string, error) {
 // stored so the working copy is self-describing and can be read back at
 // boot without a remote. Caller holds m.mu.
 func (m *Manager) persist(uid string, e *entry) error {
-	mf := workflow.MemoryFile{
+	mf := workflowapi.MemoryFile{
 		Id:           uid,
 		Label:        e.name,
 		Description:  e.description,
 		Content:      e.content,
 		MaxSizeBytes: e.maxSizeBytes,
-		Type:         workflow.MemoryFileTypeMemoryFile,
+		Type:         workflowapi.MemoryFileTypeMemoryFile,
 	}
 	b, err := json.Marshal(mf)
 	if err != nil {

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "../components/ui/button";
 import { Separator } from "../components/ui/separator";
@@ -7,7 +11,7 @@ import type { Diagnostic } from "@foresthubai/workflow-core/diagnostics";
 import ParameterEditor from "../inputs/ParameterEditor";
 import { MAIN_CANVAS_ID } from "../stores/canvasStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { useParamErrors } from "../hooks/useParamErrors";
 import { ReadOnlyBanner } from "../components/ui/readonly-banner";
 import { DeleteButton } from "../components/ui/delete-button";

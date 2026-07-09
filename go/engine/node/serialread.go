@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -25,14 +29,14 @@ const serialReadOutID = "output"
 // so any concurrent OnSerialReceive trigger pauses for the duration.
 type SerialRead struct {
 	engine.LinearNode
-	binding workflow.OutputBinding
+	binding workflowapi.OutputBinding
 	prompt  string
 	uart    *channel.UART
 }
 
 // NewSerialRead builds a SerialRead bound to the given UART channel.
 // prompt may be empty.
-func NewSerialRead(id string, binding workflow.OutputBinding, prompt string, uart *channel.UART) *SerialRead {
+func NewSerialRead(id string, binding workflowapi.OutputBinding, prompt string, uart *channel.UART) *SerialRead {
 	return &SerialRead{
 		LinearNode: engine.NewLinearNode(id),
 		binding:    binding,
@@ -62,9 +66,9 @@ func (r *SerialRead) Execute(ctx context.Context, scope *engine.Scope) (string, 
 
 // Outputs declares the single "output" slot — a string line. Returns it only
 // if the binding is emit-mode (assign/discard don't materialize a variable).
-func (r *SerialRead) Outputs() map[string]workflow.DataType {
+func (r *SerialRead) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{serialReadOutID: workflow.String},
-		map[string]workflow.OutputBinding{serialReadOutID: r.binding},
+		map[string]workflowapi.DataType{serialReadOutID: workflowapi.String},
+		map[string]workflowapi.OutputBinding{serialReadOutID: r.binding},
 	)
 }

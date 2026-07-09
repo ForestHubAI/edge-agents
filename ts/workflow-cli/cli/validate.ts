@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { migrate, validateWorkflow } from "@foresthubai/workflow-core";
@@ -80,6 +84,11 @@ function printReport(file: string, result: ValidationResult): void {
     out.write(`\n  memory:\n`);
     for (const d of result.memoryDiagnostics) printDiagnostic(d, "    ");
   }
+
+  if (result.modelDiagnostics.length > 0) {
+    out.write(`\n  models:\n`);
+    for (const d of result.modelDiagnostics) printDiagnostic(d, "    ");
+  }
 }
 
 function printDiagnostic(d: Diagnostic, indent: string): void {
@@ -87,6 +96,9 @@ function printDiagnostic(d: Diagnostic, indent: string): void {
   if (d.nodeId) where.push(`node ${d.nodeId}`);
   if (d.edgeId) where.push(`edge ${d.edgeId}`);
   if (d.channelId) where.push(`channel ${d.channelId}`);
+  if (d.memoryId) where.push(`memory ${d.memoryId}`);
+  if (d.modelId) where.push(`model ${d.modelId}`);
+  if (d.functionId) where.push(`function ${d.functionId}`);
   if (d.paramId) where.push(`param ${d.paramId}`);
   if (d.outputId) where.push(`output ${d.outputId}`);
   const location = where.length > 0 ? ` (${where.join(", ")})` : "";

@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package build
 
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +15,7 @@ import (
 )
 
 func TestBindingFor_ReturnsBinding(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: "res-1", Index: pointer.Ptr(3)}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: "res-1", Index: pointer.Ptr(3)}}
 
 	b, err := bindingFor(dm, "ch-1")
 	require.NoError(t, err)
@@ -24,14 +28,14 @@ func TestBindingFor_NilMappingFails(t *testing.T) {
 }
 
 func TestBindingFor_MissingKeyFails(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: "res-1"}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: "res-1"}}
 
 	_, err := bindingFor(dm, "ch-2")
 	require.Error(t, err)
 }
 
 func TestBindingFor_EmptyRefFails(t *testing.T) {
-	dm := engine.DeploymentMapping{"ch-1": {Ref: ""}}
+	dm := engine.ResourceMapping{"ch-1": {Ref: ""}}
 
 	_, err := bindingFor(dm, "ch-1")
 	require.Error(t, err)
@@ -52,7 +56,7 @@ func TestBuildChannels_SkipsCamera(t *testing.T) {
 	// A camera resolves to a capture sidecar in buildDeployCapture, so
 	// buildChannels must skip it cleanly — not reject it as an unsupported type
 	// (which would fail every camera deploy at boot).
-	chs, err := buildChannels([]workflow.Channel{cameraChannel(t, "front", nil, nil)}, nil, nil, nil, nil)
+	chs, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, chs)
 }

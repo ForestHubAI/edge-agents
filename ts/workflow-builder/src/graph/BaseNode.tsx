@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
@@ -16,7 +20,7 @@ import { getOrCreateCanvasStore } from "../stores/canvasStore";
 import { useDebugStore } from "../stores/debugStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { categoryIcons } from "../utils/categoryConstants";
 import { computeNodeDiagnostics } from "@foresthubai/workflow-core/diagnostics";
 import {
@@ -46,8 +50,9 @@ export const BaseNode = memo(
   ({ id, data, selected, nodeDefinition, isStale = false, isDeleted = false }: BaseNodeProps) => {
     const nodeData = data as NodeData;
     const isHighlighted = selected ?? false;
-    // Skip diagnostics when in read-only mode OR when rendered inside VersionPreviewCanvas
-    const isPreview = useEditorStore((s) => isReadOnly(s.builderMode)) || !!(data as Record<string, unknown>)?._preview;
+    // Read-only (preview/debug) disables edit affordances (e.g. add-edge handles)
+    // but must NOT hide diagnostics — a viewer still needs to see errors/warnings.
+    const isReadOnlyMode = useEditorStore((s) => isReadOnly(s.builderMode));
 
     // Debug cursor: true when this node is the current debug step target
     const isDebugCursor = useDebugStore(
@@ -63,10 +68,12 @@ export const BaseNode = memo(
     // Get active canvas ID with imperative access (no subscription), since it doesn't change for a node
     const activeCanvasId = useEditorStore.getState().activeCanvasId;
 
-    // Get necessary canvas store data
+    // Get necessary canvas store data.
+    // BaseNode must NEVER subscribe to s.nodes: dragging replaces the nodes array
+    // every frame, so a nodes subscription re-renders all N nodes per frame (O(N²)).
+    // Subscribing to s.edges is fine — edges keep their identity during a drag.
     const canvasStore = getOrCreateCanvasStore(activeCanvasId);
     const edges = canvasStore((s) => s.edges);
-    const nodes = canvasStore((s) => s.nodes);
     const channels = useEditorStore((s) => s.channels);
     const memory = useEditorStore((s) => s.memory);
     const models = useEditorStore((s) => s.models);
@@ -103,7 +110,7 @@ export const BaseNode = memo(
     }, [availableModels, models]);
 
     // Get port definitions using centralized dispatcher
-    const portDefinitions = getPorts(nodeData);
+    const portDefinitions = useMemo(() => getPorts(nodeData), [nodeData]);
 
     // Separate ports by type for positioning
     const { executionInputs, toolInputs, executionOutputs, toolOutputs } = useMemo(() => {
@@ -187,14 +194,15 @@ export const BaseNode = memo(
     const hasErrors = diagnostics.some((d) => d.severity === "error");
     const hasWarnings = diagnostics.some((d) => d.severity === "warning");
 
-    // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project)
+    // Write diagnostics to store (cleanup on unmount; validateAllCanvases handles full-project).
+    // Runs in every mode: read-only viewers still need errors/warnings surfaced in
+    // the sidebar and config panels.
     const setNodeDiagnostics = useDiagnosticsStore((s) => s.setNodeDiagnostics);
     const clearNodeDiagnostics = useDiagnosticsStore((s) => s.clearNodeDiagnostics);
     useEffect(() => {
-      if (isPreview) return;
       setNodeDiagnostics(id, diagnostics);
       return () => clearNodeDiagnostics(id);
-    }, [id, diagnostics, setNodeDiagnostics, clearNodeDiagnostics, isPreview]);
+    }, [id, diagnostics, setNodeDiagnostics, clearNodeDiagnostics]);
 
     const usedInControlFlow = useMemo(() => {
       return edges.some((e) => {
@@ -508,7 +516,7 @@ export const BaseNode = memo(
 
         {/* Execution output handles (right) — disabled when tool input is connected */}
         {executionOutputs.map((port, index) => {
-          const canAccept = !isPreview && !usedAsToolInput && canPortAcceptEdge(id, port.id, nodes, edges);
+          const canAccept = !isReadOnlyMode && !usedAsToolInput && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}
@@ -533,7 +541,7 @@ export const BaseNode = memo(
 
         {/* Tool output handles (bottom) */}
         {toolOutputs.map((port, index) => {
-          const canAccept = !isPreview && canPortAcceptEdge(id, port.id, nodes, edges);
+          const canAccept = !isReadOnlyMode && canPortAcceptEdge(nodeData, port.id, edges);
           return (
             <PortHandle
               key={port.id}

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Shared vocabulary for the `deploy` command. The resolution logic — requirement
 // derivation, the binding shapes, the spec resolver and its validators — lives in
 // @foresthubai/workflow-core/deploy (shared with the FE). This module re-exports
@@ -34,10 +38,10 @@ export {
 
 import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";
 
-// Single source of truth for the providers the wizard can take a key for: the
-// Provider type, the CLI key flags, and the key prompts all derive from it.
-export const ALL_PROVIDERS = ["anthropic", "openai", "gemini", "mistral"] as const;
-export type Provider = (typeof ALL_PROVIDERS)[number];
+// The providers the wizard can take a key for come from the model catalog (the
+// snapshot of the engine's llmproxy). Provider ids are the llmproxy ProviderID
+// (capitalized, e.g. "Anthropic") — they flow into `localLlm.provider`.
+export { PROVIDER_IDS, providerFlag, providerFromFlag } from "../../src/catalog";
 
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 export type LogLevel = z.infer<typeof logLevelSchema>;
@@ -117,7 +121,9 @@ export function unknownIds(req: DeployRequirements, p: Partial<DeployConfig>): s
 // the CLI-only render knobs (output dir, force, log level) and device-env
 // secrets (provider keys, web search) that never enter the spec.
 const deployConfigSchema = z.strictObject({
-  llmKeys: z.partialRecord(z.enum(ALL_PROVIDERS), z.string()),
+  // provider id (catalog / llmproxy ProviderID) -> API key. Each becomes a
+  // `localLlm` provider whose key rides in secrets.json (never the spec, never .env).
+  llmKeys: z.record(z.string(), z.string()),
   outputDir: z.string(),
   force: z.boolean(),
   logLevel: logLevelSchema,
@@ -137,7 +143,7 @@ export const valuesFileSchema = deployConfigSchema.partial();
 
 // The raw, still-unvalidated flag values straight off the command line.
 export interface RawFlags {
-  llmKeys: Partial<Record<Provider, string>>;
+  llmKeys: Record<string, string>;
   output?: string;
   logLevel?: string;
   values?: string;

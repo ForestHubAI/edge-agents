@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
@@ -5,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -22,14 +26,14 @@ type MqttPublish struct {
 	engine.LinearNode
 	channel  *channel.MQTT
 	topic    string
-	dataType workflow.DataType
-	value    workflow.Expression
+	dataType workflowapi.DataType
+	value    workflowapi.Expression
 	qos      byte
 	retain   bool
 }
 
 // NewMqttPublish builds an MqttPublish bound to the given MQTT channel.
-func NewMqttPublish(id string, ch *channel.MQTT, topic string, dataType workflow.DataType, value workflow.Expression, qos byte, retain bool) *MqttPublish {
+func NewMqttPublish(id string, ch *channel.MQTT, topic string, dataType workflowapi.DataType, value workflowapi.Expression, qos byte, retain bool) *MqttPublish {
 	return &MqttPublish{
 		LinearNode: engine.NewLinearNode(id),
 		channel:    ch,

@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Main component + its contract
 export { WorkflowBuilder } from "./WorkflowBuilder";
 export type { WorkflowBuilderProps, WorkflowBuilderHandle } from "./WorkflowBuilder";
 
 // Editor mode the embedder constructs and passes via setMode / initialMode
-export type { BuilderMode } from "./WorkflowBuilder";
+export type { BuilderMode } from "./mode";
 
 // Debug phase the embedder pushes from the engine via setDebugPhase
 export type { DebugSessionPhase } from "./stores/debugStore";

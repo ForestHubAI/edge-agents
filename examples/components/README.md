@@ -28,8 +28,9 @@ Pick whichever your image already supports — they are not exclusive:
 2. **env** — a `<name>.env.example` of `KEY=value` lines. Best for images that read
    their settings from environment variables (Grafana's `GF_*`, Postgres's `POSTGRES_*`).
 3. **native JSON `config`** — a `config` object, rendered to a JSON file and
-   bind-mounted at `configPath` (default `/etc/foresthub/config.json`). Only useful
-   if your image already reads JSON from that path.
+   bind-mounted at the fixed path `/etc/foresthub/config.json`. Only useful if your
+   image already reads JSON from that path (otherwise add a thin entrypoint that
+   symlinks it to where your image expects).
 
 ## The `<name>.env.example` convention
 

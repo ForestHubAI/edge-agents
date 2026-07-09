@@ -3,7 +3,7 @@ package expr
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,7 +12,7 @@ func TestImageVal_Roundtrip(t *testing.T) {
 	data := []byte{0xFF, 0xD8, 0xFF}
 	v := ImageVal(data)
 
-	assert.Equal(t, workflow.Image, v.Type)
+	assert.Equal(t, workflowapi.Image, v.Type)
 
 	got, err := v.AsImage()
 	require.NoError(t, err)
@@ -20,7 +20,7 @@ func TestImageVal_Roundtrip(t *testing.T) {
 }
 
 func TestZeroValue_Image(t *testing.T) {
-	assert.Equal(t, ImageVal(nil), ZeroValue(workflow.Image))
+	assert.Equal(t, ImageVal(nil), ZeroValue(workflowapi.Image))
 }
 
 func TestAsImage_NonImage(t *testing.T) {
@@ -33,8 +33,8 @@ func TestImage_Opaque(t *testing.T) {
 	img := ImageVal([]byte{0x01})
 
 	assert.Empty(t, img.AsString())
-	assert.Equal(t, StringVal(""), img.Cast(workflow.String))
+	assert.Equal(t, StringVal(""), img.Cast(workflowapi.String))
 
-	_, err := Coerce(workflow.Image, []byte{0x01})
+	_, err := Coerce(workflowapi.Image, []byte{0x01})
 	assert.Error(t, err)
 }

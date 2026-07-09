@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package trigger
 
 import (
@@ -5,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -16,13 +20,13 @@ import (
 
 // newTestThreshold constructs an OnThreshold against a fresh scope and
 // returns the trigger plus the scope used to push values.
-func newTestThreshold(t *testing.T, threshold float64, dir Direction, deadband float64, binding *workflow.OutputBinding) (*OnThreshold, *engine.Scope) {
+func newTestThreshold(t *testing.T, threshold float64, dir Direction, deadband float64, binding *workflowapi.OutputBinding) (*OnThreshold, *engine.Scope) {
 	t.Helper()
 	scope, err := engine.NewMainScope(nil)
 	require.NoError(t, err)
 	tr := NewOnThreshold(
 		"th",
-		workflow.Reference{SrcId: "src", VarId: "v"},
+		workflowapi.Reference{SrcId: "src", VarId: "v"},
 		threshold,
 		dir,
 		deadband,
@@ -108,17 +112,17 @@ func TestOnThreshold_Outputs(t *testing.T) {
 	})
 
 	t.Run("emit binding exposes the output slot", func(t *testing.T) {
-		binding := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+		binding := workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}
 		tr, _ := newTestThreshold(t, 0, DirBoth, 0, &binding)
 		out := tr.Outputs()
-		assert.Equal(t, workflow.Float, out["output"])
+		assert.Equal(t, workflowapi.Float, out["output"])
 	})
 
 	t.Run("assign-mode binding produces no emitter outputs", func(t *testing.T) {
-		binding := workflow.OutputBinding{
+		binding := workflowapi.OutputBinding{
 			Active: true,
-			Mode:   workflow.OutputBindingModeAssign,
-			Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			Mode:   workflowapi.OutputBindingModeAssign,
+			Target: &workflowapi.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
 		}
 		tr, _ := newTestThreshold(t, 0, DirBoth, 0, &binding)
 		assert.NotContains(t, tr.Outputs(), "output")
@@ -127,7 +131,7 @@ func TestOnThreshold_Outputs(t *testing.T) {
 
 func TestOnThreshold_Wait(t *testing.T) {
 	t.Run("emits event with Apply that writes triggering value", func(t *testing.T) {
-		binding := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+		binding := workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}
 		tr, scope := newTestThreshold(t, 50, DirBoth, 0, &binding)
 		require.NoError(t, tr.AddTransition("", engine.Transition{TargetID: "next"}))
 
@@ -149,7 +153,7 @@ func TestOnThreshold_Wait(t *testing.T) {
 
 		// Apply the event onto the scope and verify the slot is populated.
 		ev.Apply(scope)
-		v, err := scope.Resolve(workflow.Reference{SrcId: "th", VarId: "output"})
+		v, err := scope.Resolve(workflowapi.Reference{SrcId: "th", VarId: "output"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.FloatVal(60), v)
 	})

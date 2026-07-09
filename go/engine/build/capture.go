@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
@@ -69,14 +69,14 @@ func captureErrorMessage(resp *captureapi.CaptureResponse) string {
 // missing config is a deploy error. Many cameras may resolve to the same sidecar
 // url — expected, since one sidecar owns a set of cameras and the camera name is
 // sent per request. No network call is made here.
-func buildDeployCapture(wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) (map[string]*captureEndpoint, error) {
+func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*captureEndpoint, error) {
 	endpoints := make(map[string]*captureEndpoint)
 	for _, cu := range wf.Channels {
 		disc, err := cu.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("declared channel: %w", err)
 		}
-		if disc != string(workflow.CAMERA) {
+		if disc != string(workflowapi.CAMERA) {
 			continue
 		}
 		ch, err := cu.AsCAMERAChannel()

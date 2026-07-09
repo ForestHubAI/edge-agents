@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import type { FunctionDeclaration } from "@foresthubai/workflow-core/function";
 import type { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,7 +20,7 @@ import { DebugConsolePanel } from "./panels/DebugConsolePanel";
 import type { CanvasTab } from "./hooks/useCanvasTabs";
 import { getOrCreateCanvasStore, MAIN_CANVAS_ID } from "./stores/canvasStore";
 import { useEditorStore } from "./stores/editorStore";
-import { isReadOnly } from "./WorkflowBuilder";
+import { isReadOnly } from "./mode";
 
 /**
  * Chrome composer. Stable across canvas switches — only the {@link CanvasEditor}
@@ -196,69 +200,55 @@ export const BuilderLayout = ({
     [graph],
   );
 
-  // Debug mode: clicking a node sets the debug cursor.
-  // useEffect(() => {
-  //   if (!isDebugMode || selectedNodeIds.length !== 1) return;
-  //   const nodeId = selectedNodeIds[0];
-  //   const phase = useDebugStore.getState().phase;
-  //   if (phase.status === "idle") {
-  //     useDebugStore
-  //       .getState()
-  //       .setPhase({ status: "paused", sessionId: phase.sessionId, cursorNodeId: nodeId });
-  //   } else if (phase.status === "paused") {
-  //     useDebugStore.getState().setPhase({ ...phase, cursorNodeId: nodeId });
-  //   }
-  // }, [isDebugMode, selectedNodeIds]);
-
-  // Keyboard handlers — undo/redo/copy/paste/delete/escape.
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) {
-        return;
-      }
-      if (readOnly) {
-        if (event.key === "Escape") clearSelection();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
-        event.preventDefault();
-        if (canUndo()) {
-          clearSelection();
-          undo();
-        }
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && (event.key === "y" || (event.key === "z" && event.shiftKey))) {
-        event.preventDefault();
-        if (canRedo()) {
-          clearSelection();
-          redo();
-        }
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key === "c") {
-        if (selection.kind === "graph" && selection.nodeIds.length > 0) {
-          event.preventDefault();
-          graph.copySelection(selection.nodeIds);
-        }
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key === "v") {
-        event.preventDefault();
-        handlePaste();
-        return;
-      }
-      if (event.key === "Delete" || event.key === "Backspace") {
-        deleteSelected();
-      }
-      if (event.key === "Escape") {
+  // Keyboard handlers — undo/redo/copy/paste/delete/escape. Attached to the
+  // builder's root element (focusable via tabIndex), NOT to document: an
+  // embedded component must not steal Ctrl+Z/Delete from the host page. The
+  // handler fires only while focus is inside the builder, which clicking the
+  // canvas or any panel establishes.
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) {
+      return;
+    }
+    if (readOnly) {
+      if (event.key === "Escape") clearSelection();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+      event.preventDefault();
+      if (canUndo()) {
         clearSelection();
+        undo();
       }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [canUndo, canRedo, undo, redo, clearSelection, deleteSelected, selection, graph, handlePaste, readOnly]);
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && (event.key === "y" || (event.key === "z" && event.shiftKey))) {
+      event.preventDefault();
+      if (canRedo()) {
+        clearSelection();
+        redo();
+      }
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "c") {
+      if (selection.kind === "graph" && selection.nodeIds.length > 0) {
+        event.preventDefault();
+        graph.copySelection(selection.nodeIds);
+      }
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === "v") {
+      event.preventDefault();
+      handlePaste();
+      return;
+    }
+    if (event.key === "Delete" || event.key === "Backspace") {
+      deleteSelected();
+    }
+    if (event.key === "Escape") {
+      clearSelection();
+    }
+  };
 
   const isFunctionCanvas = activeCanvasId !== MAIN_CANVAS_ID;
 
@@ -292,7 +282,10 @@ export const BuilderLayout = ({
   );
 
   return (
-    <div className="h-full bg-canvas-bg flex flex-col">
+    // tabIndex makes the root focusable so clicks anywhere inside land focus
+    // here (nearest focusable ancestor) and the scoped key handler receives
+    // shortcuts; outline-none suppresses the focus ring this would add.
+    <div className="h-full bg-canvas-bg flex flex-col outline-none" tabIndex={-1} onKeyDown={handleKeyDown}>
       <div className="flex-1 flex overflow-hidden">
         <BuilderSidebar
           canvasId={activeCanvasId}

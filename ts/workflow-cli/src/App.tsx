@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   WorkflowBuilder,
@@ -10,7 +14,7 @@ import {
   // they share the builder's toast style/surface instead of a second one.
   toast,
 } from "@foresthubai/workflow-builder";
-import type { ModelInfo } from "@foresthubai/workflow-core/model";
+import { MODEL_CATALOG } from "./catalog";
 import { CheckCircle2, FileText, FolderOpen, Redo2, Save, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n, { LANG_STORAGE_KEY, type Language } from "./i18n";
@@ -18,15 +22,10 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { ToolbarButton } from "./components/ToolbarButton";
 
-// Static model catalog — the models the llmproxy supports. The embedder owns
-// this list (the builder takes it via props); a real deployment would source it
-// from the llmproxy rather than hardcoding. Self-hosted models are declared in
-// the builder's Models tab instead.
-const MODEL_CATALOG: ModelInfo[] = [
-  { id: "claude-opus-4-6", label: "Claude Opus 4.6", capabilities: ["chat"] },
-  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", capabilities: ["chat"] },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5", capabilities: ["chat"] },
-];
+// The static model catalog is a snapshot mirror of the engine's llmproxy, shared
+// with the deploy CLI (`src/catalog.ts`). The builder takes it via props; a real
+// deployment would source it from the llmproxy rather than a snapshot. Self-hosted
+// models are declared in the builder's Models tab instead.
 
 // Where a workflow lives, so Save can write without re-prompting. Two backends:
 // a real disk PATH (only the CLI bridge has one — the dev server writes it), or
@@ -55,7 +54,6 @@ export default function App() {
   const { t } = useTranslation();
   const builderRef = useRef<WorkflowBuilderHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const loadingRef = useRef(false);
   const initialLoadDone = useRef(false);
   const [dirty, setDirty] = useState(false);
   // Undo/redo availability for the active canvas, pushed by the builder's
@@ -108,12 +106,10 @@ export default function App() {
       })
       .then((workflow) => {
         if (!workflow) return;
-        loadingRef.current = true;
+        // loadWorkflow never fires onChange (builder contract), so the dirty
+        // flag can be reset synchronously — no echo guard needed.
         builderRef.current?.loadWorkflow(workflow);
-        queueMicrotask(() => {
-          loadingRef.current = false;
-          setDirty(false);
-        });
+        setDirty(false);
       })
       .catch((err) => toast({ title: t("toast.loadFailed"), description: err.message, variant: "destructive" }));
   }, [t]);
@@ -129,16 +125,10 @@ export default function App() {
         toast({ title: t("toast.loadFailed"), description: t("error.invalidJson"), variant: "destructive" });
         return;
       }
-      loadingRef.current = true;
       builderRef.current?.loadWorkflow(workflow);
-      // Microtask: let onChange events from loadWorkflow drain before we drop the
-      // loading guard, so the load itself doesn't mark the canvas dirty.
-      queueMicrotask(() => {
-        loadingRef.current = false;
-        setDirty(false);
-        setFileName(name);
-        setFileTarget(target);
-      });
+      setDirty(false);
+      setFileName(name);
+      setFileTarget(target);
     },
     [t],
   );
@@ -243,20 +233,14 @@ export default function App() {
 
   const handleNew = useCallback(() => {
     if (dirty && !window.confirm(t("confirm.discard"))) return;
-    loadingRef.current = true;
     builderRef.current?.clear();
-    queueMicrotask(() => {
-      loadingRef.current = false;
-      setDirty(false);
-      // New starts an untitled document. A CLI-bound path is kept — Save writes
-      // the empty canvas back to that file (resetting it). A browser handle or
-      // no target is dropped, so the next Save prompts for a fresh location.
-      if (fileTarget?.kind !== "path") {
-        setFileTarget(null);
-        setFileName(null);
-      }
-    });
-  }, [dirty, fileTarget, t]);
+    setDirty(false);
+    // New starts an untitled document with NO file target — including a
+    // CLI-bound path: keeping it would make the next Save silently truncate
+    // the file the session was opened on. Save prompts for a location instead.
+    setFileTarget(null);
+    setFileName(null);
+  }, [dirty, t]);
 
   // The builder owns the validate UX (success toast / issues dialog), so this is
   // just a trigger.
@@ -265,7 +249,6 @@ export default function App() {
   }, []);
 
   const handleChange = useCallback(() => {
-    if (loadingRef.current) return;
     setDirty(true);
   }, []);
 

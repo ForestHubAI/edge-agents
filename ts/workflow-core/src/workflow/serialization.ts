@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Pure conversion between the api format (Schemas["Workflow"])
 // and the domain shape (Workflow).
 // Two producers feed serialize: the editor reads its live stores into

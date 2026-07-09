@@ -4,7 +4,7 @@
     "summary-out": { "brokerUrl": "tcp://broker.local:1883" }
   },
   "llmKeys": {
-    "anthropic": "REPLACE_ME_ANTHROPIC_API_KEY"
+    "Anthropic": "REPLACE_ME_ANTHROPIC_API_KEY"
   },
   "logLevel": "info",
   "outputDir": "./mqtt-agent-bundle"

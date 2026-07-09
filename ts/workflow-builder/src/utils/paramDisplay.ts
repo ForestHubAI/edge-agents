@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 // Presentation-only formatters for inline node display. These render domain
 // values to human-readable text; they live in the builder (not headless
 // workflow-core) because formatting for display is an editor concern.

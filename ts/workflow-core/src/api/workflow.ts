@@ -17,7 +17,7 @@ export interface components {
             x: number;
             y: number;
         };
-        /** @description Workflow represents the deployment format of a project, passed to agents. */
+        /** @description The deployment format of a workflow project. */
         Workflow: {
             /**
              * Format: int32
@@ -115,7 +115,7 @@ export interface components {
             type: "MemoryFile";
             /** @description Stable identifier that survives renames; referenced from MemoryRef. */
             id: string;
-            /** @description Display name. Unique per agent (LLM tool enums use it). */
+            /** @description Display name. Unique per agent. */
             label: string;
             description: string;
             content: string;
@@ -157,7 +157,7 @@ export interface components {
             id: string;
             /** @description Display name. */
             label: string;
-            /** @description Capabilities this model supports (used to filter model pickers). */
+            /** @description Capabilities this model supports. */
             capabilities: components["schemas"]["ModelCapability"][];
         };
         /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
@@ -254,7 +254,7 @@ export interface components {
                 outputBindings?: {
                     [key: string]: components["schemas"]["OutputBinding"];
                 };
-                /** @description Description exposed to the LLM when this function is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this function is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -354,7 +354,7 @@ export interface components {
                 /** @description Search query expression */
                 query: components["schemas"]["Expression"];
                 output: components["schemas"]["OutputBinding"];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -421,7 +421,7 @@ export interface components {
                 pinReference?: string;
                 signalType: components["schemas"]["SignalType"];
                 output: components["schemas"]["OutputBinding"];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -462,7 +462,7 @@ export interface components {
                 outputDeclarations: components["schemas"]["OutputDeclaration"][];
                 /** @description Memory files this agent can access, each with an access mode. */
                 memoryRefs: components["schemas"]["MemoryRef"][];
-                /** @description Description exposed to the LLM when this node is wired as a tool. Ignored in exec mode. */
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
             };
         };
@@ -635,7 +635,7 @@ export interface components {
             type: "MQTT";
             id: string;
             label: string;
-            /** @description Topic this channel publishes to / subscribes on. The engine wraps it with the bound broker's prefix at runtime. */
+            /** @description Topic this channel publishes to / subscribes on. */
             topic: string;
         };
         CAMERAChannel: {
@@ -660,11 +660,11 @@ export interface components {
             id: string;
             label: string;
             /**
-             * @description Severity the engine records messages written to this channel at.
+             * @description Severity for messages written to this channel.
              * @enum {string}
              */
             level: "debug" | "info" | "warn" | "error";
-            /** @description Optional category stamped on each line so the backend can group workflow-emitted logs apart from engine diagnostics. */
+            /** @description Optional category label stamped on each line written to this channel. */
             tag?: string;
         };
         /** @enum {string} */

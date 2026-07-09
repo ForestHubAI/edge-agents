@@ -8,17 +8,17 @@ import (
 	"testing"
 
 	"github.com/ForestHubAI/edge-agents/go/api/mlinferenceapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func mlModel(t *testing.T, id string) workflow.Model {
+func mlModel(t *testing.T, id string) workflowapi.Model {
 	t.Helper()
-	var m workflow.Model
-	require.NoError(t, m.FromMLModel(workflow.MLModel{
-		Type:  workflow.MLModelTypeMLModel,
+	var m workflowapi.Model
+	require.NoError(t, m.FromMLModel(workflowapi.MLModel{
+		Type:  workflowapi.MLModelTypeMLModel,
 		Id:    id,
 		Label: id,
 	}))
@@ -26,8 +26,8 @@ func mlModel(t *testing.T, id string) workflow.Model {
 }
 
 func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{mlModel(t, "yolo")}}
-	dm := engine.DeploymentMapping{"yolo": {Ref: "onnx-1"}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
+	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1"}}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
 		"onnx-1": {URL: "http://onnx:9000", Model: "yolov8n"},
 	}}
@@ -44,7 +44,7 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 
 func TestBuildDeployML_SkipsLLMModel(t *testing.T) {
 	// wf.Models holds both kinds; an LLM model must not produce an ML endpoint.
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama")}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "my-llama")}}
 
 	eps, err := buildDeployML(wf, nil, nil)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestBuildDeployML_SkipsLLMModel(t *testing.T) {
 }
 
 func TestBuildDeployML_UnboundFails(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{mlModel(t, "yolo")}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
 
 	_, err := buildDeployML(wf, nil, nil)
 	require.Error(t, err)
@@ -60,8 +60,8 @@ func TestBuildDeployML_UnboundFails(t *testing.T) {
 }
 
 func TestBuildDeployML_BoundButNoConfigFails(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{mlModel(t, "yolo")}}
-	dm := engine.DeploymentMapping{"yolo": {Ref: "missing"}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
+	dm := engine.ResourceMapping{"yolo": {Ref: "missing"}}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{}}
 
 	_, err := buildDeployML(wf, dm, ext)
@@ -71,11 +71,11 @@ func TestBuildDeployML_BoundButNoConfigFails(t *testing.T) {
 
 func TestBuildDeployML_MultipleModelsShareURL(t *testing.T) {
 	// One sidecar serves a repository of models, so many models may share a ref.
-	wf := &workflow.Workflow{Models: []workflow.Model{
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{
 		mlModel(t, "yolo"),
 		mlModel(t, "resnet"),
 	}}
-	dm := engine.DeploymentMapping{"yolo": {Ref: "onnx"}, "resnet": {Ref: "onnx"}}
+	dm := engine.ResourceMapping{"yolo": {Ref: "onnx"}, "resnet": {Ref: "onnx"}}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
 		"onnx": {URL: "http://onnx:9000"},
 	}}

@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package engine
 
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
@@ -48,7 +52,7 @@ func TestLinearNode_Next(t *testing.T) {
 		n := NewLinearNode("n1")
 		require.NoError(t, n.AddTransition(PortCtrl, Transition{
 			TargetID: "next",
-			EdgeType: workflow.AgentChoice, // clears conversation as a side effect
+			EdgeType: workflowapi.AgentChoice, // clears conversation as a side effect
 		}))
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
@@ -64,7 +68,7 @@ func TestLinearNode_Next(t *testing.T) {
 		n := NewLinearNode("n1")
 		require.NoError(t, n.AddTransition(PortCtrl, Transition{
 			TargetID: "next",
-			EdgeType: workflow.AgentTask,
+			EdgeType: workflowapi.AgentTask,
 			Prompt:   nil, // AgentTask requires prompt → error
 		}))
 		s, err := NewMainScope(nil)
@@ -137,24 +141,24 @@ func TestTriggerNode(t *testing.T) {
 
 func TestFilterEmitted(t *testing.T) {
 	t.Run("unbound slot defaults to emit and is kept", func(t *testing.T) {
-		raw := map[string]workflow.DataType{"out": workflow.Int}
+		raw := map[string]workflowapi.DataType{"out": workflowapi.Int}
 		out := FilterEmitted(raw, nil)
 		assert.Equal(t, raw, out)
 	})
 
 	t.Run("emit-mode binding keeps the slot", func(t *testing.T) {
-		raw := map[string]workflow.DataType{"out": workflow.Int}
-		bindings := map[string]workflow.OutputBinding{
-			"out": {Active: true, Mode: workflow.OutputBindingModeEmit},
+		raw := map[string]workflowapi.DataType{"out": workflowapi.Int}
+		bindings := map[string]workflowapi.OutputBinding{
+			"out": {Active: true, Mode: workflowapi.OutputBindingModeEmit},
 		}
 		out := FilterEmitted(raw, bindings)
 		assert.Equal(t, raw, out)
 	})
 
 	t.Run("assign-mode binding strips the slot", func(t *testing.T) {
-		raw := map[string]workflow.DataType{"out": workflow.Int, "kept": workflow.String}
-		bindings := map[string]workflow.OutputBinding{
-			"out": {Active: true, Mode: workflow.OutputBindingModeAssign, Target: &workflow.Reference{}},
+		raw := map[string]workflowapi.DataType{"out": workflowapi.Int, "kept": workflowapi.String}
+		bindings := map[string]workflowapi.OutputBinding{
+			"out": {Active: true, Mode: workflowapi.OutputBindingModeAssign, Target: &workflowapi.Reference{}},
 		}
 		out := FilterEmitted(raw, bindings)
 		assert.NotContains(t, out, "out")
@@ -163,9 +167,9 @@ func TestFilterEmitted(t *testing.T) {
 
 	t.Run("inactive emit binding still keeps the slot (mode trumps active)", func(t *testing.T) {
 		// FilterEmitted only inspects mode, not active. This documents the contract.
-		raw := map[string]workflow.DataType{"out": workflow.Int}
-		bindings := map[string]workflow.OutputBinding{
-			"out": {Active: false, Mode: workflow.OutputBindingModeEmit, Name: pointer.Ptr("n")},
+		raw := map[string]workflowapi.DataType{"out": workflowapi.Int}
+		bindings := map[string]workflowapi.OutputBinding{
+			"out": {Active: false, Mode: workflowapi.OutputBindingModeEmit, Name: pointer.Ptr("n")},
 		}
 		out := FilterEmitted(raw, bindings)
 		assert.Contains(t, out, "out")

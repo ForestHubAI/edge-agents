@@ -1,13 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 // Operator-supplied bindings: the per-deploy values that bind a workflow's
 // logical resource ids to a concrete environment. Shared by every spec
 // producer (the CLI prompts/--values, the FE deploy forms) — how the values are
 // collected differs per renderer, but the shape they resolve to is one thing.
 //
-// Secrets policy: provider API keys and the web-search key are NOT here — they
-// are device/operator-scoped engine env, injected at render time, never frozen
-// into a versioned spec. Only deployment-scoped resource creds (broker, custom
-// endpoint) live in these bindings, because EngineConfig.externalResources needs
-// them resolved inline.
+// Secrets policy: the web-search key is NOT here — it is device/operator-scoped
+// engine env, injected at render time, never frozen into a versioned spec.
+// Deployment-scoped resource creds (broker password, custom-endpoint bearer,
+// catalog providerKey API key) DO live here: they resolve into
+// EngineConfig.externalResources' refs and their secret values are pulled out
+// into secrets.json — never into the versioned spec itself.
 
 // One hardware channel's physical address. `index` = sub-address (addressable
 // families: GPIO line, ADC/DAC/PWM channel); `baud` = serial only.
@@ -61,12 +65,21 @@ export type CameraBinding =
     }
   | { location: "network"; url: string };
 
+// One catalog provider's routing, keyed by provider id. `local` = the engine's
+// built-in adapter serves it with a deploy-delivered API key (pulled into
+// secrets.json, keyed by the resolved resource ref); `backend` = the engine
+// proxies this provider through the backend and holds no key.
+export type ProviderBinding = { routing: "local"; apiKey?: string } | { routing: "backend" };
+
 // The complete set of bindings a deploy supplies, keyed by workflow logical id
-// (channel id / model id). Empty for any resource kind the workflow doesn't use.
+// (channel id / model id / provider id). Empty for any resource kind the
+// workflow doesn't use. `providers` is optional: absent leaves catalog providers
+// unbound (a gap assertDeployable reports only when the workflow needs them).
 export interface DeploymentInputs {
   hardware: Record<string, HardwareBinding>;
   mqtt: Record<string, MqttBinding>;
   llmModels: Record<string, LLMModelBinding>;
   mlModels: Record<string, MLModelBinding>;
   cameras: Record<string, CameraBinding>;
+  providers?: Record<string, ProviderBinding>;
 }

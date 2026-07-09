@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/mlinferenceapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
@@ -134,18 +134,18 @@ func inferErrorMessage(resp *mlinferenceapi.InferResponse) string {
 
 // buildDeployML resolves a workflow's declared ML models into per-model inference
 // endpoints. wf.Models also holds LLM models (resolved separately in
-// buildDeployProviders); those are skipped here by discriminator. An unbound or
+// selfHostedEndpoints); those are skipped here by discriminator. An unbound or
 // unconfigured ML model is a deploy error. Many models may resolve to the same
 // sidecar url — expected, since one sidecar serves a repository of models and the
 // model name is sent per request. No network call is made here.
-func buildDeployML(wf *workflow.Workflow, dm engine.DeploymentMapping, ext *engine.ExternalResources) (map[string]*mlEndpoint, error) {
+func buildDeployML(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*mlEndpoint, error) {
 	endpoints := make(map[string]*mlEndpoint)
 	for _, mu := range wf.Models {
 		disc, err := mu.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("declared model: %w", err)
 		}
-		if disc != string(workflow.MLModelTypeMLModel) {
+		if disc != string(workflowapi.MLModelTypeMLModel) {
 			continue
 		}
 		m, err := mu.AsMLModel()

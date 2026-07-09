@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import { Badge } from "../components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible";
 import { Input } from "../components/ui/input";
@@ -13,7 +17,7 @@ import { useTranslation } from "react-i18next";
 import { NodeDefinition } from "@foresthubai/workflow-core/node";
 import { categoryIcons, categoryColors } from "../utils/categoryConstants";
 import { useEditorStore } from "../stores/editorStore";
-import { isReadOnly } from "../WorkflowBuilder";
+import { isReadOnly } from "../mode";
 import { FunctionNodeDefinition } from "@foresthubai/workflow-core/node";
 import { Parameter } from "@foresthubai/workflow-core/parameter";
 import { getNodeDescription } from "../utils/translation";

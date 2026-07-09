@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 import {
   applyEdgeChanges,
   applyNodeChanges,
@@ -24,7 +28,7 @@ import { isValidConnection as validateConnection } from "./utils/connectionRules
 import { getOrCreateCanvasStore } from "./stores/canvasStore";
 import { useEditorStore } from "./stores/editorStore";
 import { nodeTypes, edgeTypes } from "./graph/reactFlowRegistry";
-import { isReadOnly } from "./WorkflowBuilder";
+import { isReadOnly } from "./mode";
 
 interface CanvasProps {
   canvasId: string;
@@ -55,10 +59,15 @@ const CanvasArea = ({
   const { screenToFlowPosition, getViewport, fitView } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
 
+  // Measure THIS canvas's container, never document.querySelector(".react-flow"):
+  // that grabs the first match on the page and breaks with two mounted builders
+  // or a host app that uses React Flow itself.
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Expose viewport center calculation to parent via ref so new nodes can be dropped there.
   useEffect(() => {
     viewportCenterRef.current = () => {
-      const container = document.querySelector(".react-flow");
+      const container = containerRef.current;
       if (!container) return { x: 250, y: 100 };
       const { width, height } = container.getBoundingClientRect();
       const { x, y, zoom } = getViewport();
@@ -190,7 +199,7 @@ const CanvasArea = ({
     //  - display:none removes layout boxes, so nodes never measure and the fit can't compute.
     // opacity applies to the whole subtree as a group (children can't override it) yet keeps
     // layout intact, so measurement/fitView work while it's invisible.
-    <div className="w-full h-full" style={{ opacity: ready ? 1 : 0 }}>
+    <div ref={containerRef} className="w-full h-full" style={{ opacity: ready ? 1 : 0 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
+
 package node
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -20,12 +24,12 @@ var _ engine.Executable = (*SerialWrite)(nil)
 // newline / framing.
 type SerialWrite struct {
 	engine.LinearNode
-	value workflow.Expression
+	value workflowapi.Expression
 	dst   channel.TextWriter
 }
 
 // NewSerialWrite builds a SerialWrite bound to the given text channel.
-func NewSerialWrite(id string, value workflow.Expression, dst channel.TextWriter) *SerialWrite {
+func NewSerialWrite(id string, value workflowapi.Expression, dst channel.TextWriter) *SerialWrite {
 	return &SerialWrite{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,

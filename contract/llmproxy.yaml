@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 ForestHub.
+
 openapi: 3.0.3
 info:
   title: ForestHub -Proxy Contract
@@ -43,7 +46,7 @@ components:
           description: Maximum number of tokens supported by the model.
         embeddingDimension:
           type: integer
-          description: Dimension of the model's embedding output (only applicable for embedding-capable models)
+          description: Dimension of the model's embedding output.
 
     ProviderInfo:
       type: object
@@ -54,7 +57,7 @@ components:
           description: Provider identifier (e.g. OpenAI, Anthropic, Local).
         models:
           type: array
-          description: Concrete models (only populated for Local provider).
+          description: Concrete models offered by this provider.
           items:
             $ref: "#/components/schemas/ModelInfo"
 

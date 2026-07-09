@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 ForestHub.
+
 import type { ApiWorkflow } from "../workflow/Workflow";
 import { MIGRATIONS, type Migration } from "./migrations";
 import { BASELINE_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION } from "./version";
