@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Tests for handler resolution: built-ins, the file: custom-handler path, errors.
 
 The file: path loads arbitrary operator-trusted Python from a bundle; these

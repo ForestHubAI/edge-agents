@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Tests for the model-repository loader.
 
 Only the fail-fast error paths are covered here — they run without ONNX weights.

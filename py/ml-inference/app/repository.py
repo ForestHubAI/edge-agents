@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """The model repository: turn a mounted directory of bundles into a registry.
 
 At startup the sidecar scans the models directory — one ``<model-id>/`` sub-folder

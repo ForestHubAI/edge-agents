@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Handler interface.
 
 A handler turns a model's raw input into an ONNX Runtime feed, and the model's

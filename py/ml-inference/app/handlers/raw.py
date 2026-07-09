@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Built-in passthrough handler (named tensors in, named tensors out).
 
 For models that need no pre/post-processing: the request supplies the model's

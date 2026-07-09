@@ -101,7 +101,8 @@ Use clear, prefixed messages: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`.
 
 Edge Agents uses a **two-tier license model**: the `contract/` and
 `ts/workflow-core/` subdirectories are released under [Apache-2.0](../contract/LICENSE),
-and all other components (engine, LLM proxy, workflow-builder, workflow-cli) are released
+and all other components (engine, LLM proxy, workflow-builder, workflow-cli,
+ml-inference) are released
 under [AGPL-3.0](../LICENSE) with the option for ForestHub to also offer them under a
 separate commercial license for use cases that are incompatible with the AGPL
 (commercial licensing: root@foresthub.ai). To keep this model viable, every
@@ -162,9 +163,9 @@ The repository uses a two-tier license model:
 
 - Contributions to `contract/` and `ts/workflow-core/` are released under
   **Apache-2.0**.
-- Contributions to all other paths (engine, LLM proxy, workflow-builder, workflow-cli) are
-  released under **AGPL-3.0-only** with the option for ForestHub to also offer them
-  under a commercial license (per the CLA above).
+- Contributions to all other paths (engine, LLM proxy, workflow-builder, workflow-cli,
+  ml-inference) are released under **AGPL-3.0-only** with the option for ForestHub to
+  also offer them under a commercial license (per the CLA above).
 
 If your PR touches both tiers, the per-file license header (or, where absent, the
 directory-level `LICENSE`/`NOTICE`) governs.

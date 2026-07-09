@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Tests for the request-body size middleware.
 
 Mounted on a minimal app with a tiny cap so the Content-Length gate can be

@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 ForestHub. All rights reserved.
+# For commercial licensing, contact root@foresthub.ai
+
 """Unit tests for the Handler base interface — the ``infer`` run step.
 
 A lightweight fake session stands in for ONNX Runtime, so these run without the
