@@ -48,12 +48,14 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    cameraChannels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
 function cfgOf(outputDir: string, p: Partial<DeployConfig> = {}): DeployConfig {
-  return { llmKeys: {}, outputDir, force: false, logLevel: "info", hardware: {}, mqtt: {}, models: {}, ...p };
+  return { llmKeys: {}, outputDir, force: false, logLevel: "info", hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, ...p };
 }
 
 const tmp = () => fs.mkdtemp(path.join(os.tmpdir(), "fhwrite-"));
@@ -142,12 +144,38 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
+  it("pre-creates each on-device ml model's repository sub-folder, named by model", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const cfg = cfgOf(out, { mlModels: { yolo: { location: "device", model: "yolov8n" } } });
+    await writeOutput(specOf(), {}, cfg, reqOf());
+    expect((await fs.stat(path.join(out, "workspaces", "fh-onnx", "yolov8n"))).isDirectory()).toBe(true);
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
   it("writes a <name>-config.json for a custom component carrying config", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     const custom: DeployComponent = { name: "dash", image: "x", config: { foo: "bar" } };
     await writeOutput(specOf([engineComponent(), custom]), {}, cfgOf(out), reqOf());
     expect(JSON.parse(await fs.readFile(path.join(out, "dash-config.json"), "utf-8"))).toEqual({ foo: "bar" });
+    await fs.rm(base, { recursive: true, force: true });
+  });
+
+  it("writes the capture sidecar's cameras.json as a file for on-device cameras", async () => {
+    const base = await tmp();
+    const out = path.join(base, "bundle");
+    const camera: DeployComponent = {
+      name: "fh-camera",
+      image: "fh-camera:latest",
+      volumes: ["./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro"],
+    };
+    const cfg = cfgOf(out, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } });
+    await writeOutput(specOf([engineComponent(), camera]), {}, cfg, reqOf());
+    const camerasFile = path.join(out, "workspaces", "fh-camera", "cameras.json");
+    // The file-mount source is written as a file — not created as a directory.
+    expect((await fs.stat(camerasFile)).isFile()).toBe(true);
+    expect(JSON.parse(await fs.readFile(camerasFile, "utf-8"))).toEqual({ cameras: { front: { source: "v4l2", device: "/dev/video0" } } });
     await fs.rm(base, { recursive: true, force: true });
   });
 });

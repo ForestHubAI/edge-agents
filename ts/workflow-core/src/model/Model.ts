@@ -20,9 +20,9 @@ import type { Schemas } from "../api";
 /** A capability a model supports (chat, embedding, vision, ...). From the api. */
 export type ModelCapability = Schemas["ModelCapability"];
 
-export type ModelType = "LLMModel";
+export type ModelType = "LLMModel" | "MLModel";
 
-export const ALL_MODEL_TYPES: ModelType[] = ["LLMModel"];
+export const ALL_MODEL_TYPES: ModelType[] = ["LLMModel", "MLModel"];
 
 export interface Model {
   id: string;

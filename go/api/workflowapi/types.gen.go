@@ -56,6 +56,36 @@ func (e AlarmNodeType) Valid() bool {
 	}
 }
 
+// Defines values for CAMERAChannelType.
+const (
+	CAMERA CAMERAChannelType = "CAMERA"
+)
+
+// Valid indicates whether the value is a known member of the CAMERAChannelType enum.
+func (e CAMERAChannelType) Valid() bool {
+	switch e {
+	case CAMERA:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CameraCaptureNodeType.
+const (
+	CameraCapture CameraCaptureNodeType = "CameraCapture"
+)
+
+// Valid indicates whether the value is a known member of the CameraCaptureNodeType enum.
+func (e CameraCaptureNodeType) Valid() bool {
+	switch e {
+	case CameraCapture:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DACChannelType.
 const (
 	DAC DACChannelType = "DAC"
@@ -75,6 +105,7 @@ func (e DACChannelType) Valid() bool {
 const (
 	Bool   DataType = "bool"
 	Float  DataType = "float"
+	Image  DataType = "image"
 	Int    DataType = "int"
 	String DataType = "string"
 )
@@ -85,6 +116,8 @@ func (e DataType) Valid() bool {
 	case Bool:
 		return true
 	case Float:
+		return true
+	case Image:
 		return true
 	case Int:
 		return true
@@ -266,6 +299,36 @@ const (
 func (e LOGChannelType) Valid() bool {
 	switch e {
 	case LOG:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MLInferenceNodeType.
+const (
+	MLInference MLInferenceNodeType = "MLInference"
+)
+
+// Valid indicates whether the value is a known member of the MLInferenceNodeType enum.
+func (e MLInferenceNodeType) Valid() bool {
+	switch e {
+	case MLInference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MLModelType.
+const (
+	MLModelTypeMLModel MLModelType = "MLModel"
+)
+
+// Valid indicates whether the value is a known member of the MLModelType enum.
+func (e MLModelType) Valid() bool {
+	switch e {
+	case MLModelTypeMLModel:
 		return true
 	default:
 		return false
@@ -805,6 +868,37 @@ type AlarmNode struct {
 // AlarmNodeType defines model for AlarmNode.Type.
 type AlarmNodeType string
 
+// CAMERAChannel defines model for CAMERAChannel.
+type CAMERAChannel struct {
+	// Height Default capture height in pixels. The source picks its native resolution when omitted.
+	Height *int              `json:"height,omitempty"`
+	Id     string            `json:"id"`
+	Label  string            `json:"label"`
+	Type   CAMERAChannelType `json:"type"`
+
+	// Width Default capture width in pixels. The source picks its native resolution when omitted.
+	Width *int `json:"width,omitempty"`
+}
+
+// CAMERAChannelType defines model for CAMERAChannel.Type.
+type CAMERAChannelType string
+
+// CameraCaptureNode defines model for CameraCaptureNode.
+type CameraCaptureNode struct {
+	Arguments struct {
+		// CameraReference Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time.
+		CameraReference string        `json:"cameraReference"`
+		Output          OutputBinding `json:"output"`
+	} `json:"arguments"`
+	Id       string                `json:"id"`
+	Label    *string               `json:"label,omitempty"`
+	Position NodePosition          `json:"position"`
+	Type     CameraCaptureNodeType `json:"type"`
+}
+
+// CameraCaptureNodeType defines model for CameraCaptureNode.Type.
+type CameraCaptureNodeType string
+
 // Channel defines model for Channel.
 type Channel struct {
 	union json.RawMessage
@@ -978,6 +1072,37 @@ type LOGChannelLevel string
 
 // LOGChannelType defines model for LOGChannel.Type.
 type LOGChannelType string
+
+// MLInferenceNode defines model for MLInferenceNode.
+type MLInferenceNode struct {
+	Arguments struct {
+		Input Reference `json:"input"`
+
+		// Model Reference to an MLModel id.
+		Model  string        `json:"model"`
+		Output OutputBinding `json:"output"`
+	} `json:"arguments"`
+	Id       string              `json:"id"`
+	Label    *string             `json:"label,omitempty"`
+	Position NodePosition        `json:"position"`
+	Type     MLInferenceNodeType `json:"type"`
+}
+
+// MLInferenceNodeType defines model for MLInferenceNode.Type.
+type MLInferenceNodeType string
+
+// MLModel A machine-learning model, served by an inference sidecar, that nodes can reference.
+type MLModel struct {
+	// Id Stable identifier; this is the model name nodes reference and the sidecar selects on.
+	Id string `json:"id"`
+
+	// Label Display name.
+	Label string      `json:"label"`
+	Type  MLModelType `json:"type"`
+}
+
+// MLModelType defines model for MLModel.Type.
+type MLModelType string
 
 // MQTTChannel defines model for MQTTChannel.
 type MQTTChannel struct {
@@ -1642,6 +1767,34 @@ func (t *Channel) MergeMQTTChannel(v MQTTChannel) error {
 	return err
 }
 
+// AsCAMERAChannel returns the union data inside the Channel as a CAMERAChannel
+func (t Channel) AsCAMERAChannel() (CAMERAChannel, error) {
+	var body CAMERAChannel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCAMERAChannel overwrites any union data inside the Channel as the provided CAMERAChannel
+func (t *Channel) FromCAMERAChannel(v CAMERAChannel) error {
+	v.Type = "CAMERA"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCAMERAChannel performs a merge with any union data inside the Channel, using the provided CAMERAChannel
+func (t *Channel) MergeCAMERAChannel(v CAMERAChannel) error {
+	v.Type = "CAMERA"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 // AsLOGChannel returns the union data inside the Channel as a LOGChannel
 func (t Channel) AsLOGChannel() (LOGChannel, error) {
 	var body LOGChannel
@@ -1686,6 +1839,8 @@ func (t Channel) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "ADC":
 		return t.AsADCChannel()
+	case "CAMERA":
+		return t.AsCAMERAChannel()
 	case "DAC":
 		return t.AsDACChannel()
 	case "GPIOIN":
@@ -1832,6 +1987,34 @@ func (t *Model) MergeLLMModel(v LLMModel) error {
 	return err
 }
 
+// AsMLModel returns the union data inside the Model as a MLModel
+func (t Model) AsMLModel() (MLModel, error) {
+	var body MLModel
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMLModel overwrites any union data inside the Model as the provided MLModel
+func (t *Model) FromMLModel(v MLModel) error {
+	v.Type = "MLModel"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMLModel performs a merge with any union data inside the Model, using the provided MLModel
+func (t *Model) MergeMLModel(v MLModel) error {
+	v.Type = "MLModel"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Model) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -1848,6 +2031,8 @@ func (t Model) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "LLMModel":
 		return t.AsLLMModel()
+	case "MLModel":
+		return t.AsMLModel()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}
@@ -2077,6 +2262,62 @@ func (t *Node) FromWebFetchNode(v WebFetchNode) error {
 // MergeWebFetchNode performs a merge with any union data inside the Node, using the provided WebFetchNode
 func (t *Node) MergeWebFetchNode(v WebFetchNode) error {
 	v.Type = "WebFetch"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMLInferenceNode returns the union data inside the Node as a MLInferenceNode
+func (t Node) AsMLInferenceNode() (MLInferenceNode, error) {
+	var body MLInferenceNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMLInferenceNode overwrites any union data inside the Node as the provided MLInferenceNode
+func (t *Node) FromMLInferenceNode(v MLInferenceNode) error {
+	v.Type = "MLInference"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMLInferenceNode performs a merge with any union data inside the Node, using the provided MLInferenceNode
+func (t *Node) MergeMLInferenceNode(v MLInferenceNode) error {
+	v.Type = "MLInference"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCameraCaptureNode returns the union data inside the Node as a CameraCaptureNode
+func (t Node) AsCameraCaptureNode() (CameraCaptureNode, error) {
+	var body CameraCaptureNode
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCameraCaptureNode overwrites any union data inside the Node as the provided CameraCaptureNode
+func (t *Node) FromCameraCaptureNode(v CameraCaptureNode) error {
+	v.Type = "CameraCapture"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCameraCaptureNode performs a merge with any union data inside the Node, using the provided CameraCaptureNode
+func (t *Node) MergeCameraCaptureNode(v CameraCaptureNode) error {
+	v.Type = "CameraCapture"
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2469,12 +2710,16 @@ func (t Node) ValueByDiscriminator() (interface{}, error) {
 		return t.AsAgentNode()
 	case "Alarm":
 		return t.AsAlarmNode()
+	case "CameraCapture":
+		return t.AsCameraCaptureNode()
 	case "Delay":
 		return t.AsDelayNode()
 	case "FunctionCall":
 		return t.AsFunctionCallNode()
 	case "If":
 		return t.AsIfNode()
+	case "MLInference":
+		return t.AsMLInferenceNode()
 	case "MqttPublish":
 		return t.AsMqttPublishNode()
 	case "OnFunctionCall":

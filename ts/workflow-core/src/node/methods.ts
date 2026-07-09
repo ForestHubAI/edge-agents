@@ -66,6 +66,7 @@ export function getPorts(node: NodeData): PortDefinitions {
     case "WritePin":
     case "SerialWrite":
     case "MqttPublish":
+    case "CameraCapture":
       return {
         input: [{ id: "ctrl", type: "control" }],
         output: [{ id: "ctrl", type: "control" }],
@@ -128,6 +129,11 @@ export function getPorts(node: NodeData): PortDefinitions {
         output: [{ id: "ctrl", type: "control" }],
       };
     case "WebFetch":
+      return {
+        input: [{ id: "ctrl", type: "control" }],
+        output: [{ id: "ctrl", type: "control" }],
+      };
+    case "MLInference":
       return {
         input: [{ id: "ctrl", type: "control" }],
         output: [{ id: "ctrl", type: "control" }],

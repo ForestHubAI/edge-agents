@@ -8,7 +8,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        DataType: "int" | "float" | "bool" | "string";
+        DataType: "int" | "float" | "bool" | "string" | "image";
         /** @enum {string} */
         SignalType: "digital" | "analog";
         /** @enum {string} */
@@ -145,7 +145,7 @@ export interface components {
              */
             mode: "r" | "rw";
         };
-        Model: components["schemas"]["LLMModel"];
+        Model: components["schemas"]["LLMModel"] | components["schemas"]["MLModel"];
         /** @description A custom or self-hosted language model that agent nodes can reference. */
         LLMModel: {
             /**
@@ -160,7 +160,19 @@ export interface components {
             /** @description Capabilities this model supports. */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
+        /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
+        MLModel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLModel";
+            /** @description Stable identifier; this is the model name nodes reference and the sidecar selects on. */
+            id: string;
+            /** @description Display name. */
+            label: string;
+        };
+        Node: components["schemas"]["ReadPinNode"] | components["schemas"]["WritePinNode"] | components["schemas"]["AgentNode"] | components["schemas"]["IfNode"] | components["schemas"]["SerialReadNode"] | components["schemas"]["SerialWriteNode"] | components["schemas"]["RetrieverNode"] | components["schemas"]["WebFetchNode"] | components["schemas"]["MLInferenceNode"] | components["schemas"]["CameraCaptureNode"] | components["schemas"]["FunctionCallNode"] | components["schemas"]["OnFunctionCallNode"] | components["schemas"]["DelayNode"] | components["schemas"]["TickerNode"] | components["schemas"]["AlarmNode"] | components["schemas"]["WebSearchToolNode"] | components["schemas"]["OnStartupNode"] | components["schemas"]["OnPinEdgeNode"] | components["schemas"]["OnSerialReceiveNode"] | components["schemas"]["OnThresholdNode"] | components["schemas"]["SetVariableNode"] | components["schemas"]["MqttPublishNode"] | components["schemas"]["OnMqttMessageNode"];
         WebSearchToolNode: {
             id: string;
             /**
@@ -363,6 +375,38 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
+        MLInferenceNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MLInference";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to an MLModel id. */
+                model: string;
+                /** @description Variable holding the model input. Its type is resolved at runtime and dispatched to the matching handler. */
+                input: components["schemas"]["Reference"];
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
+        CameraCaptureNode: {
+            id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CameraCapture";
+            label?: string;
+            position: components["schemas"]["NodePosition"];
+            arguments: {
+                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time. */
+                cameraReference: string;
+                output: components["schemas"]["OutputBinding"];
+            };
+        };
         ReadPinNode: {
             id: string;
             /**
@@ -519,7 +563,7 @@ export interface components {
                 output: components["schemas"]["OutputBinding"];
             };
         };
-        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["LOGChannel"];
+        Channel: components["schemas"]["GPIOINChannel"] | components["schemas"]["GPIOOUTChannel"] | components["schemas"]["ADCChannel"] | components["schemas"]["PWMChannel"] | components["schemas"]["DACChannel"] | components["schemas"]["UARTChannel"] | components["schemas"]["MQTTChannel"] | components["schemas"]["CAMERAChannel"] | components["schemas"]["LOGChannel"];
         GPIOINChannel: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -593,6 +637,19 @@ export interface components {
             label: string;
             /** @description Topic this channel publishes to / subscribes on. */
             topic: string;
+        };
+        CAMERAChannel: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CAMERA";
+            id: string;
+            label: string;
+            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
+            width?: number;
+            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
+            height?: number;
         };
         LOGChannel: {
             /**

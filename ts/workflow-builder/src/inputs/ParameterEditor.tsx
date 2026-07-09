@@ -285,10 +285,11 @@ const ParameterEditor = ({
         const hasAllCaps = (caps: ModelCapability[]) =>
           !requiredCaps?.length || requiredCaps.every((c) => caps.includes(c));
 
-        // Static catalog (props): the always-available models the llmproxy supports.
-        const catalogOptions = availableModels
-          .filter((m) => hasAllCaps(m.capabilities))
-          .map((m) => ({ value: m.id, label: m.label }));
+        // Static catalog (props): the always-available LLM models the llmproxy
+        // supports — only offered when this parameter accepts LLM models.
+        const catalogOptions = allowedTypes.includes("LLMModel")
+          ? availableModels.filter((m) => hasAllCaps(m.capabilities)).map((m) => ({ value: m.id, label: m.label }))
+          : [];
 
         // Declared custom models of a compatible type (capabilities default to chat).
         const customOptions = Object.values(models)
@@ -306,10 +307,14 @@ const ParameterEditor = ({
         const isStale = !!(selectedId && !options.some((o) => o.value === selectedId));
 
         if (options.length === 0) {
+          // Catalog-backed selects (LLM) being empty means the catalog failed to
+          // load — a support case. Declared-only selects (ML) just need the user
+          // to declare a model of the right type first.
+          const emptyMessage = allowedTypes.includes("LLMModel") ? t("noLLMModelsAvailable") : t("noMLModelsAvailable");
           return (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{t("noModelsAvailable")}</AlertDescription>
+              <AlertDescription>{emptyMessage}</AlertDescription>
             </Alert>
           );
         }
@@ -469,6 +474,17 @@ const ParameterEditor = ({
         const selectedId = currentValue as string | undefined;
         const isStale = !!(selectedId && !matching.some((v) => v.id === selectedId));
         const options = matching.map((v) => ({ value: v.id, label: v.label }));
+
+        if (options.length === 0) {
+          // No channel of the accepted type is declared; the user must add one in
+          // the Channels panel before this node can reference it.
+          return (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>{t("noChannelsAvailable")}</AlertDescription>
+            </Alert>
+          );
+        }
 
         return (
           <ReferenceSelect

@@ -10,10 +10,11 @@ import { addModel } from "../utils/modelOperations";
 import { ResourceListPanel } from "./ResourceListPanel";
 
 /**
- * Lists DECLARED custom/self-hosted models. The static catalog (built-in models
- * the llmproxy supports) is not shown here — those are always available as
- * picker options on agent nodes and need no declaration. This tab only manages
- * the custom models that get mapped to llmproxy providers at deploy.
+ * Lists DECLARED custom/self-hosted models: LLM models (mapped to an llmproxy
+ * provider at deploy) and ML models (served by an inference sidecar). The static
+ * catalog (built-in models) is not shown here — those are always available as
+ * picker options on nodes and need no declaration. This tab manages only the
+ * models a workflow declares and binds at deploy.
  */
 export const ModelsPanel = () => {
   const { t } = useTranslation();
@@ -28,12 +29,13 @@ export const ModelsPanel = () => {
       selectedId={selection.kind === "model" ? selection.id : null}
       onSelect={selectModel}
       diagnosticsSlot={byModelId}
-      badge={() => t("modelLLMBadge", "LLM")}
+      badge={(m) => (m.type === "MLModel" ? t("modelMLBadge", "ML") : t("modelLLMBadge", "LLM"))}
       emptyIcon={BrainCircuit}
       emptyText={t("noModels", "No custom models yet")}
       emptyHint={t("noModelsHint", "Built-in models are always available. Declare custom or self-hosted models here.")}
       addActions={[
-        { label: t("addCustomModel", "Add Custom Model"), icon: Plus, onAdd: () => selectModel(addModel("LLMModel").id) },
+        { label: t("addLLMModel", "Add LLM Model"), icon: Plus, onAdd: () => selectModel(addModel("LLMModel").id) },
+        { label: t("addMLModel", "Add ML Model"), icon: Plus, onAdd: () => selectModel(addModel("MLModel").id) },
       ]}
     />
   );

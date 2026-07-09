@@ -119,6 +119,8 @@ type buildContext struct {
 	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
 	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
 	mainScope   *engine.Scope
+	ml          map[string]*mlEndpoint      // resolved ML model id → inference endpoint; MLInference nodes look up their endpoint here
+	capture     map[string]*captureEndpoint // resolved camera channel id → capture endpoint; CameraCapture nodes look up their endpoint here
 	// clients for building nodes that rely on external services
 	llm       engine.LlmClient
 	memory    *memory.Manager
@@ -146,6 +148,18 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.Resour
 		return nil, fmt.Errorf("collections: %w", err)
 	}
 
+	// Resolve declared ML models to their bound inference endpoints
+	mlEndpoints, err := buildDeployML(wf, dm, ext)
+	if err != nil {
+		return nil, fmt.Errorf("ml inference: %w", err)
+	}
+
+	// Resolve declared camera channels to their bound capture endpoints
+	captureEndpoints, err := buildDeployCapture(wf, dm, ext)
+	if err != nil {
+		return nil, fmt.Errorf("camera capture: %w", err)
+	}
+
 	// Forward declare functions so FunctionCall nodes can resolve them during build()
 	functions := make(map[string]*engine.Function, len(wf.Functions))
 	for i := range wf.Functions {
@@ -153,7 +167,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.Resour
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, channels: chs, collections: collections, functions: functions, mainScope: ms, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
+	bc := &buildContext{ctx: ctx, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, capture: captureEndpoints, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))

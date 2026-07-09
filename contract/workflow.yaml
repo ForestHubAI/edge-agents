@@ -11,7 +11,7 @@ components:
   schemas:
     DataType:
       type: string
-      enum: [int, float, bool, string]
+      enum: [int, float, bool, string, image]
 
     SignalType:
       type: string
@@ -301,10 +301,12 @@ components:
     Model:
       oneOf:
         - $ref: "#/components/schemas/LLMModel"
+        - $ref: "#/components/schemas/MLModel"
       discriminator:
         propertyName: type
         mapping:
           LLMModel: "#/components/schemas/LLMModel"
+          MLModel: "#/components/schemas/MLModel"
 
     LLMModel:
       type: object
@@ -324,6 +326,19 @@ components:
           items:
             $ref: "llmproxy.yaml#/components/schemas/ModelCapability"
 
+    MLModel:
+      type: object
+      description: A machine-learning model, served by an inference sidecar, that nodes can reference.
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [MLModel] }
+        id:
+          type: string
+          description: Stable identifier; this is the model name nodes reference and the sidecar selects on.
+        label:
+          type: string
+          description: Display name.
+
     # ====== Nodes ======
 
     Node:
@@ -336,6 +351,8 @@ components:
         - $ref: "#/components/schemas/SerialWriteNode"
         - $ref: "#/components/schemas/RetrieverNode"
         - $ref: "#/components/schemas/WebFetchNode"
+        - $ref: "#/components/schemas/MLInferenceNode"
+        - $ref: "#/components/schemas/CameraCaptureNode"
         - $ref: "#/components/schemas/FunctionCallNode"
         - $ref: "#/components/schemas/OnFunctionCallNode"
         - $ref: "#/components/schemas/DelayNode"
@@ -360,6 +377,8 @@ components:
           SerialWrite: "#/components/schemas/SerialWriteNode"
           Retriever: "#/components/schemas/RetrieverNode"
           WebFetch: "#/components/schemas/WebFetchNode"
+          MLInference: "#/components/schemas/MLInferenceNode"
+          CameraCapture: "#/components/schemas/CameraCaptureNode"
           FunctionCall: "#/components/schemas/FunctionCallNode"
           OnFunctionCall: "#/components/schemas/OnFunctionCallNode"
           Delay: "#/components/schemas/DelayNode"
@@ -606,6 +625,45 @@ components:
             output:
               $ref: "#/components/schemas/OutputBinding"
 
+    MLInferenceNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [MLInference] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [input, model, output]
+          properties:
+            model:
+              type: string
+              description: Reference to an MLModel id.
+            input:
+              $ref: "#/components/schemas/Reference"
+              description: Variable holding the model input. Its type is resolved at runtime and dispatched to the matching handler.
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
+    CameraCaptureNode:
+      type: object
+      required: [id, type, arguments, position]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [CameraCapture] }
+        label: { type: string }
+        position: { $ref: "#/components/schemas/NodePosition" }
+        arguments:
+          type: object
+          required: [cameraReference, output]
+          properties:
+            cameraReference:
+              type: string
+              description: Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time.
+            output:
+              $ref: "#/components/schemas/OutputBinding"
+
     ReadPinNode:
       type: object
       required: [id, type, arguments, position]
@@ -815,6 +873,7 @@ components:
         - $ref: "#/components/schemas/DACChannel"
         - $ref: "#/components/schemas/UARTChannel"
         - $ref: "#/components/schemas/MQTTChannel"
+        - $ref: "#/components/schemas/CAMERAChannel"
         - $ref: "#/components/schemas/LOGChannel"
       discriminator:
         propertyName: type
@@ -826,6 +885,7 @@ components:
           DAC: "#/components/schemas/DACChannel"
           UART: "#/components/schemas/UARTChannel"
           MQTT: "#/components/schemas/MQTTChannel"
+          CAMERA: "#/components/schemas/CAMERAChannel"
           LOG: "#/components/schemas/LOGChannel"
 
     GPIOINChannel:
@@ -896,6 +956,20 @@ components:
         topic:
           type: string
           description: Topic this channel publishes to / subscribes on.
+
+    CAMERAChannel:
+      type: object
+      required: [type, id, label]
+      properties:
+        type: { type: string, enum: [CAMERA] }
+        id: { type: string }
+        label: { type: string }
+        width:
+          type: integer
+          description: Default capture width in pixels. The source picks its native resolution when omitted.
+        height:
+          type: integer
+          description: Default capture height in pixels. The source picks its native resolution when omitted.
 
     LOGChannel:
       type: object

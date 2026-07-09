@@ -2,8 +2,17 @@
 // Copyright (c) 2026 ForestHub.
 
 export { getReferencedCatalogModelIds, deriveRequirements } from "./requirements";
-export type { DeployRequirements, HardwareChannel, MqttChannel, CustomModel, CatalogProvider, HardwareFamily } from "./requirements";
-export type { DeploymentInputs, HardwareBinding, MqttBinding, ModelBinding, ProviderBinding } from "./inputs";
+export type {
+  DeployRequirements,
+  HardwareChannel,
+  MqttChannel,
+  CameraChannel,
+  CustomLLMModel,
+  CustomMLModel,
+  CatalogProvider,
+  HardwareFamily,
+} from "./requirements";
+export type { DeploymentInputs, HardwareBinding, MqttBinding, LLMModelBinding, MLModelBinding, CameraBinding, ProviderBinding } from "./inputs";
 export {
   buildDeploymentSpec,
   assertDeployable,
@@ -12,6 +21,9 @@ export {
   hardwareAddressKey,
   hardwareAddressLabel,
   ggufNameError,
-  sidecarServiceName,
+  mlModelNameError,
+  llmSidecarServiceName,
+  mlSidecarServiceName,
+  cameraSidecarServiceName,
 } from "./spec";
 export type { DeploymentSpecMeta, DeploymentSpecResult, EngineSecrets } from "./spec";

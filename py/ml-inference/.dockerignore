@@ -1,0 +1,11 @@
+# Build context = requirements.txt + app/ only. Everything else stays in the
+# repo but is kept out of the image (dev-only files, mounted-at-runtime weights).
+examples/
+scripts/
+tests/
+README.md
+**/__pycache__/
+**/*.pyc
+**/*.onnx
+.pytest_cache/
+.ruff_cache/

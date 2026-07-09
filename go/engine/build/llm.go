@@ -89,13 +89,22 @@ func buildProviders(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *en
 	return providers, nil
 }
 
-// selfHostedEndpoints resolves every declared workflow model (all customs) to a
-// self-hosted endpoint via its resource mapping and provider config. Several models
-// on one endpoint become several ModelEndpoints sharing a url. A declared model
-// bound to a non-self-hosted provider is a config error.
+// selfHostedEndpoints resolves every declared workflow LLM model (all customs) to
+// a self-hosted endpoint via its resource mapping and provider config. Several
+// models on one endpoint become several ModelEndpoints sharing a url. wf.Models
+// also holds ML models (served by an inference sidecar, resolved separately in
+// buildDeployML); those are skipped here by discriminator. A declared model bound
+// to a non-self-hosted provider is a config error.
 func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	for _, mu := range wf.Models {
+		disc, err := mu.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("declared model: %w", err)
+		}
+		if disc != string(workflowapi.LLMModelTypeLLMModel) {
+			continue
+		}
 		m, err := mu.AsLLMModel()
 		if err != nil {
 			return nil, fmt.Errorf("declared model: %w", err)

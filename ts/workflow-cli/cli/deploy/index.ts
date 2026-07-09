@@ -4,10 +4,10 @@
 
 // `fh-workflow deploy <workflow.json> [flags]`
 //
-// Generates a self-contained Engine deployment bundle (workflow.json,
-// docker-compose.yml, .env, README.md) from a workflow. The bundle is always
-// STANDALONE: the engine boots the workflow from workflow.json and runs
-// autonomously.
+// Generates a self-contained Engine deployment bundle (docker-compose.yml,
+// engine-config.json, engine.env, README.md) from a workflow. The bundle is
+// always STANDALONE: the engine boots the workflow from engine-config.json and
+// runs autonomously.
 //
 // Flow: read workflow -> inspect (derive requirements) -> prompt (fill values)
 // -> write (emit files). Flags pre-fill any value; whatever is missing is asked
@@ -25,7 +25,17 @@ import { parseDeployComponents, readComponentJson, resolveComponentEnv } from ".
 import type { DeployComponent, LoadedComponent } from "./components";
 import { writeOutput } from "./write";
 import { slugify } from "./generate";
-import { PROVIDER_IDS, providerFlag, familyMismatches, ggufNameError, hardwareConflicts, logLevelSchema, unknownIds, valuesFileSchema } from "./types";
+import {
+  PROVIDER_IDS,
+  providerFlag,
+  familyMismatches,
+  ggufNameError,
+  hardwareConflicts,
+  logLevelSchema,
+  mlModelNameError,
+  unknownIds,
+  valuesFileSchema,
+} from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, RawFlags } from "./types";
 import { MODEL_CATALOG } from "../../src/catalog";
 import type { DeploymentInputs } from "@foresthubai/workflow-core/deploy";
@@ -36,6 +46,8 @@ import type { DeploymentInputs } from "@foresthubai/workflow-core/deploy";
 // a registry host and the renderer's pull_policy flips to missing.
 const ENGINE_IMAGE = "fh-engine:latest";
 const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
+const ML_SIDECAR_IMAGE = "fh-onnx:latest";
+const CAMERA_SIDECAR_IMAGE = "fh-camera:latest";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -43,8 +55,8 @@ const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
 
 const USAGE = `Usage: fh-workflow deploy <workflow.json> [flags]
 
-Generates a self-contained, standalone Engine deployment bundle (workflow.json,
-docker-compose.yml, .env, README.md). The engine boots the workflow and runs
+Generates a self-contained, standalone Engine deployment bundle (docker-compose.yml,
+engine-config.json, engine.env, README.md). The engine boots the workflow and runs
 autonomously. Missing values are filled in interactively, or supplied via
 --values when there is no terminal.
 
@@ -188,13 +200,29 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
   for (const ch of req.mqttChannels) {
     if (!p.mqtt?.[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
-  for (const m of req.customModels) {
-    const b = p.models?.[m.id];
+  for (const m of req.customLLMModels) {
+    const b = p.llmModels?.[m.id];
     if (b?.location === "device") {
       const err = ggufNameError(b.modelFile);
       if (err) missing.push(`model "${m.id}": ${err}`);
     } else if (!b?.url) {
       missing.push(`model "${m.id}": endpoint URL`);
+    }
+  }
+  for (const m of req.customMLModels) {
+    const b = p.mlModels?.[m.id];
+    const nameErr = mlModelNameError(b?.model);
+    if (nameErr) missing.push(`model "${m.id}": ${nameErr}`);
+    if (b?.location !== "device" && !b?.url) {
+      missing.push(`model "${m.id}": on-device or endpoint URL`);
+    }
+  }
+  for (const ch of req.cameraChannels) {
+    const b = p.cameras?.[ch.id];
+    if (b?.location === "device") {
+      if (!b.device) missing.push(`camera "${ch.id}": capture source device`);
+    } else if (!b?.url) {
+      missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
     }
   }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
@@ -215,7 +243,9 @@ export function configFromPartial(p: Partial<DeployConfig>, outputDirDefault: st
     logLevel: p.logLevel ?? "info",
     hardware: p.hardware ?? {},
     mqtt: p.mqtt ?? {},
-    models: p.models ?? {},
+    llmModels: p.llmModels ?? {},
+    mlModels: p.mlModels ?? {},
+    cameras: p.cameras ?? {},
     webSearch: p.webSearch,
   };
 }
@@ -387,7 +417,9 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     const inputs: DeploymentInputs = {
       hardware: cfg.hardware,
       mqtt: cfg.mqtt,
-      models: cfg.models,
+      llmModels: cfg.llmModels,
+      mlModels: cfg.mlModels,
+      cameras: cfg.cameras,
       providers: Object.fromEntries(
         Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "local" as const, apiKey }]),
       ),
@@ -399,6 +431,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
         id: slugify(workflowName),
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
+        mlSidecarImage: ML_SIDECAR_IMAGE,
+        cameraSidecarImage: CAMERA_SIDECAR_IMAGE,
       },
       customComponents,
       MODEL_CATALOG,

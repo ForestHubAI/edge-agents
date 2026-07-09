@@ -5,20 +5,24 @@
 // Interactive prompt layer: fills any value the flags didn't provide.
 // This is the "ask" step. Flags pre-fill; prompts cover the rest.
 
-import { input, password, select } from "@inquirer/prompts";
+import { confirm, editor, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { ggufNameError, hardwareAddressKey, hardwareAddressLabel } from "./types";
+import { ggufNameError, hardwareAddressKey, hardwareAddressLabel, mlModelNameError } from "./types";
 import type {
-  CustomModel,
+  CameraBinding,
+  CameraChannel,
+  CustomLLMModel,
+  CustomMLModel,
   DeployConfig,
   DeployRequirements,
   HardwareBinding,
   HardwareChannel,
   HardwareFamily,
-  ModelBinding,
+  LLMModelBinding,
+  MLModelBinding,
   MqttBinding,
   MqttChannel,
   WebSearchBinding,
@@ -131,14 +135,14 @@ async function promptMqtt(
   return result;
 }
 
-// Per custom model: first where it runs, then the values that location needs.
+// Per custom LLM model: first where it runs, then the values that location needs.
 // device -> a llama-server sidecar this bundle generates (a model filename);
 // network -> an endpoint the operator runs elsewhere (its URL + optional key).
-async function promptModels(
-  models: CustomModel[],
-  seed: Record<string, ModelBinding>,
-): Promise<Record<string, ModelBinding>> {
-  const result: Record<string, ModelBinding> = { ...seed };
+async function promptLLMModels(
+  models: CustomLLMModel[],
+  seed: Record<string, LLMModelBinding>,
+): Promise<Record<string, LLMModelBinding>> {
+  const result: Record<string, LLMModelBinding> = { ...seed };
   for (const m of models) {
     if (result[m.id]) continue;
     const location = await select<"device" | "network">({
@@ -171,9 +175,163 @@ async function promptModels(
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });
     const apiKey = await password({ message: `${m.label}: API key (optional)`, mask: "*" });
-    const binding: ModelBinding = { location: "network", url: url.trim() };
+    const binding: LLMModelBinding = { location: "network", url: url.trim() };
     if (apiKey) binding.apiKey = apiKey;
     result[m.id] = binding;
+  }
+  return result;
+}
+
+// Per custom ML model: where it runs, then the name the sidecar selects it by.
+// device -> served by the shared inference sidecar this bundle generates (the
+// name is the model's sub-folder in the repository the operator fills); network
+// -> an endpoint the operator runs elsewhere (the name must match what that
+// sidecar calls the model; its URL, no credential).
+async function promptMLModels(
+  models: CustomMLModel[],
+  seed: Record<string, MLModelBinding>,
+): Promise<Record<string, MLModelBinding>> {
+  const result: Record<string, MLModelBinding> = { ...seed };
+  for (const m of models) {
+    if (result[m.id]) continue;
+    const location = await select<"device" | "network">({
+      message: `${m.label}: where does this model run?`,
+      choices: [
+        { value: "device", name: "on this device (served by the shared inference sidecar)" },
+        { value: "network", name: "on another machine on the network (call its endpoint URL)" },
+      ],
+    });
+
+    const model = (
+      await input({
+        message: `${m.label}: model name the sidecar selects on (e.g. yolov8n)`,
+        validate: (v) => mlModelNameError(v) ?? true,
+      })
+    ).trim();
+
+    if (location === "device") {
+      result[m.id] = { location: "device", model };
+      continue;
+    }
+
+    const url = await input({
+      message: `${m.label}: inference endpoint URL (a sidecar you run elsewhere)`,
+      default: "http://localhost:8000",
+      validate: (v) => v.trim().length > 0 || "endpoint URL is required",
+    });
+    result[m.id] = { location: "network", url: url.trim(), model };
+  }
+  return result;
+}
+
+// Per camera channel: first where it runs, then what that location needs.
+// device -> read by the shared capture sidecar this bundle generates (a capture
+// source: a v4l2 /dev node or a gstreamer source element); network -> a capture
+// endpoint the operator runs elsewhere (its URL, no credential).
+async function promptCameras(
+  channels: CameraChannel[],
+  seed: Record<string, CameraBinding>,
+): Promise<Record<string, CameraBinding>> {
+  const result: Record<string, CameraBinding> = { ...seed };
+  for (const ch of channels) {
+    if (result[ch.id]) continue;
+    const location = await select<"device" | "network">({
+      message: `${ch.label}: where does this camera run?`,
+      choices: [
+        { value: "device", name: "on this device (read by the shared capture sidecar)" },
+        { value: "network", name: "on another machine on the network (call its endpoint URL)" },
+      ],
+    });
+
+    if (location === "device") {
+      const source = await select<"v4l2" | "gstreamer">({
+        message: `${ch.label}: capture source`,
+        choices: [
+          { value: "v4l2", name: "v4l2 — a USB/UVC camera at a /dev/video* node" },
+          { value: "gstreamer", name: "gstreamer — a source element (e.g. libcamerasrc for CSI/ISP cameras)" },
+        ],
+      });
+      const device =
+        source === "v4l2"
+          ? (
+              await input({
+                message: `${ch.label}: device path (prefer a stable /dev/v4l/by-id/... path)`,
+                default: "/dev/video0",
+                validate: (v) => v.trim().length > 0 || "device path is required",
+              })
+            ).trim()
+          : (
+              await input({
+                message: `${ch.label}: gstreamer source element`,
+                default: "libcamerasrc",
+                validate: (v) => v.trim().length > 0 || "source element is required",
+              })
+            ).trim();
+      const warmup = Number(
+        (
+          await input({
+            message: `${ch.label}: warmup frames to discard so auto-exposure settles (0 to disable, ~5-8 for CSI cameras)`,
+            default: "0",
+            validate: (v) => {
+              const n = Number(v.trim());
+              return (Number.isInteger(n) && n >= 0) || "enter a whole number >= 0";
+            },
+          })
+        ).trim(),
+      );
+      // Statically configured CSI/ISP pipelines need their media-ctl/v4l2-ctl
+      // sequence (from the board docs) replayed on every container start. The
+      // sequence is multi-line, so it is pasted into $EDITOR in one go.
+      let setup: string[] = [];
+      const needsSetup = await confirm({
+        message: `${ch.label}: add setup commands? (only for statically configured pipelines, see README)`,
+        default: false,
+      });
+      while (needsSetup) {
+        const text = await editor({
+          message: `${ch.label}: setup commands (opens $EDITOR — default vim; e.g. EDITOR=nano to change)`,
+          postfix: ".sh",
+          default:
+            "# One shell command per line; comment lines are dropped.\n" +
+            "# All lines run as one script at every container start (see the bundle README).\n",
+        });
+        setup = text
+          .split("\n")
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0 && !l.startsWith("#"));
+        if (setup.length > 0) break;
+        // Empty result (editor closed without saving, only comments, or an
+        // $EDITOR that doesn't edit) would silently drop the setup step.
+        const proceed = await confirm({
+          message: `${ch.label}: the editor returned no commands — continue without a setup step? (No re-opens the editor)`,
+          default: false,
+        });
+        if (proceed) break;
+      }
+      let devices: string[] = [];
+      if (setup.length > 0) {
+        devices = (
+          await input({
+            message: `${ch.label}: device nodes those commands touch, space-separated (e.g. /dev/media0 /dev/v4l-subdev0)`,
+          })
+        )
+          .split(/\s+/)
+          .filter((s) => s.length > 0);
+      }
+      const binding: Extract<CameraBinding, { location: "device" }> = { location: "device", source, device };
+      if (warmup > 0) binding.warmupFrames = warmup;
+      if (setup.length > 0) binding.setup = setup;
+      if (devices.length > 0) binding.devices = devices;
+      result[ch.id] = binding;
+      continue;
+    }
+
+    const url = await input({
+      message: `${ch.label}: capture endpoint URL (a capture sidecar you run elsewhere)`,
+      default: "http://localhost:8100",
+      validate: (v) => v.trim().length > 0 || "endpoint URL is required",
+    });
+    result[ch.id] = { location: "network", url: url.trim() };
   }
   return result;
 }
@@ -208,7 +366,9 @@ export async function promptMissing(
   // neither a header nor a slot in the [step/total] denominator.
   const hwTodo = req.hardwareChannels.filter((ch) => !partial.hardware?.[ch.id]);
   const mqttTodo = req.mqttChannels.filter((ch) => !partial.mqtt?.[ch.id]);
-  const modelsTodo = req.customModels.filter((m) => !partial.models?.[m.id]);
+  const llmModelsTodo = req.customLLMModels.filter((m) => !partial.llmModels?.[m.id]);
+  const mlModelsTodo = req.customMLModels.filter((m) => !partial.mlModels?.[m.id]);
+  const camerasTodo = req.cameraChannels.filter((ch) => !partial.cameras?.[ch.id]);
   const askKeys = req.catalogProviders.length > 0;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
@@ -224,7 +384,9 @@ export async function promptMissing(
   // +1: the custom-components section is always offered (a yes/no gate), so it
   // always occupies a slot in the denominator, before Output.
   const total =
-    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, modelsTodo.length > 0, askWeb, askOut].filter(Boolean).length + 1;
+    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, llmModelsTodo.length > 0, mlModelsTodo.length > 0, camerasTodo.length > 0, askWeb, askOut].filter(
+      Boolean,
+    ).length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.
@@ -258,8 +420,12 @@ export async function promptMissing(
   const hardware = await promptHardware(req.hardwareChannels, partial.hardware ?? {});
   if (mqttTodo.length > 0) section("MQTT brokers", mqttTodo.length);
   const mqtt = await promptMqtt(req.mqttChannels, partial.mqtt ?? {});
-  if (modelsTodo.length > 0) section("Custom models", modelsTodo.length);
-  const models = await promptModels(req.customModels, partial.models ?? {});
+  if (llmModelsTodo.length > 0) section("Custom LLM models", llmModelsTodo.length);
+  const llmModels = await promptLLMModels(req.customLLMModels, partial.llmModels ?? {});
+  if (mlModelsTodo.length > 0) section("Custom ML models", mlModelsTodo.length);
+  const mlModels = await promptMLModels(req.customMLModels, partial.mlModels ?? {});
+  if (camerasTodo.length > 0) section("Cameras", camerasTodo.length);
+  const cameras = await promptCameras(req.cameraChannels, partial.cameras ?? {});
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 
@@ -313,7 +479,9 @@ export async function promptMissing(
     logLevel: partial.logLevel ?? "info",
     hardware,
     mqtt,
-    models,
+    llmModels,
+    mlModels,
+    cameras,
     webSearch,
   };
   return { config, customComponents, componentEnv };

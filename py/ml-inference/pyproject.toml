@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fh-onnx"
+version = "0.1.0"
+description = "ForestHub ONNX inference sidecar — a generic model repository serving ONNX models over HTTP."
+requires-python = ">=3.13"
+# Runtime dependencies are pinned in requirements.txt (installed into the image).
+# This file declares dev tooling and tool configuration only.
+
+[project.optional-dependencies]
+dev = [
+    "datamodel-code-generator>=0.25",
+    "httpx>=0.27",
+    "pytest>=8",
+    "ruff>=0.5",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# Regenerate the contract bindings:  cd py/ml-inference && datamodel-codegen
+# (never hand-edit app/api/models.py — edit contract/mlinference.yaml and rerun)
+[tool.datamodel-codegen]
+input = "../../contract/mlinference.yaml"
+input-file-type = "openapi"
+output = "app/api/models.py"
+output-model-type = "pydantic_v2.BaseModel"
+target-python-version = "3.13"
+use-schema-description = true
+use-field-description = true
+# Pin formatters and drop the timestamp so regeneration is byte-stable for the CI drift guard.
+formatters = ["black", "isort"]
+disable-timestamp = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

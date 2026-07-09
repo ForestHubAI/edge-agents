@@ -31,8 +31,19 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		Type:     engineapi.LocalLlm,
 		Provider: pointer.Ptr("Anthropic"),
 	}))
+	var ml engineapi.ExternalResourceConfig
+	require.NoError(t, ml.FromMLInferenceConfig(engineapi.MLInferenceConfig{
+		Type:  engineapi.MlInference,
+		Url:   "http://onnx:8000",
+		Model: "yolov8n",
+	}))
+	var cam engineapi.ExternalResourceConfig
+	require.NoError(t, cam.FromCameraConfig(engineapi.CameraConfig{
+		Type: engineapi.Camera,
+		Url:  "http://fh-camera:8100",
+	}))
 
-	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local}
+	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml, "cam-1": cam}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
 	secrets := engine.Secrets{
 		"mqtt-1": "brokerpw",
@@ -56,6 +67,13 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, engine.LLMLocal, out.Providers["llm-2"].Kind)
 	assert.Equal(t, "Anthropic", out.Providers["llm-2"].Provider)
 	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
+
+	// Credential-free sidecar arms route by discriminator too.
+	require.Len(t, out.MLInference, 1)
+	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
+	assert.Equal(t, "yolov8n", out.MLInference["ml-1"].Model)
+	require.Len(t, out.Cameras, 1)
+	assert.Equal(t, "http://fh-camera:8100", out.Cameras["cam-1"].URL)
 }
 
 func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {

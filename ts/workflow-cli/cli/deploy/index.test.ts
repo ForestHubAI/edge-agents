@@ -21,7 +21,9 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    cameraChannels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
@@ -108,7 +110,7 @@ describe("missingRequired", () => {
     const m = missingRequired(
       reqOf({
         mqttChannels: [{ id: "m", label: "m" }],
-        customModels: [{ id: "llm", label: "llm" }],
+        customLLMModels: [{ id: "llm", label: "llm" }],
         hasWebSearch: true,
       }),
       {},
@@ -153,18 +155,39 @@ describe("missingRequired", () => {
   });
 
   it("flags a device model whose filename is not a .gguf", () => {
-    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
-      models: { llm: { location: "device", modelFile: "qwen" } },
+    const m = missingRequired(reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }), {
+      llmModels: { llm: { location: "device", modelFile: "qwen" } },
     }).join();
     expect(m).toMatch(/llm/);
     expect(m).toMatch(/\.gguf/);
   });
 
   it("accepts a device model with a valid .gguf filename", () => {
-    const m = missingRequired(reqOf({ customModels: [{ id: "llm", label: "llm" }] }), {
-      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
+    const m = missingRequired(reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }), {
+      llmModels: { llm: { location: "device", modelFile: "qwen.gguf" } },
     });
     expect(m).toEqual([]);
+  });
+
+  it("flags an unbound camera and accepts a bound one", () => {
+    const req = reqOf({ cameraChannels: [{ id: "front", label: "front" }] });
+    expect(missingRequired(req, {}).join()).toMatch(/camera "front"/);
+    expect(missingRequired(req, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } })).toEqual([]);
+    expect(missingRequired(req, { cameras: { front: { location: "network", url: "http://cam:8100" } } })).toEqual([]);
+  });
+
+  it("flags an unbound ml model and accepts device or a network url", () => {
+    const req = reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] });
+    expect(missingRequired(req, {}).join()).toMatch(/yolo/);
+    expect(missingRequired(req, { mlModels: { yolo: { location: "device", model: "yolov8n" } } })).toEqual([]);
+    expect(
+      missingRequired(req, { mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }),
+    ).toEqual([]);
+  });
+
+  it("flags a device ml model with no model name", () => {
+    const req = reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] });
+    expect(missingRequired(req, { mlModels: { yolo: { location: "device", model: "" } } }).join()).toMatch(/model name/);
   });
 });
 
@@ -177,7 +200,9 @@ describe("configFromPartial", () => {
       logLevel: "info",
       hardware: {},
       mqtt: {},
-      models: {},
+      llmModels: {},
+      mlModels: {},
+      cameras: {},
       webSearch: undefined,
     });
   });
@@ -258,7 +283,7 @@ describe("loadValues", () => {
     const file = path.join(dir, "v.json");
     const values = {
       hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17 } },
-      models: { llm: { location: "device", modelFile: "qwen.gguf" } },
+      llmModels: { llm: { location: "device", modelFile: "qwen.gguf" } },
       logLevel: "debug",
     };
     await fs.writeFile(file, JSON.stringify(values));

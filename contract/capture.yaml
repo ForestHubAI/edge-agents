@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 ForestHub.
+
+openapi: 3.0.3
+info:
+  title: ForestHub Capture Sidecar Contract
+  version: 0.1.0
+  description: "Engine<->sidecar capture wire. One container owns several named capture devices and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the sidecar's generated server."
+
+paths:
+  /capture:
+    get:
+      operationId: capture
+      summary: Capture one frame from a configured device, selected by name.
+      description: "Reads a single frame from the named device. Unknown name yields 404; a capture failure yields 500."
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Name of the configured device to read (see /metadata).
+          schema:
+            type: string
+        - name: width
+          in: query
+          required: false
+          description: Optional width hint in pixels; ignored by sources that lack it.
+          schema:
+            type: integer
+            minimum: 1
+        - name: height
+          in: query
+          required: false
+          description: Optional height hint in pixels; ignored by sources that lack it.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: "Encoded captured frame (opaque binary; the concrete Content-Type is set by the server, e.g. image/jpeg for fh-camera)."
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No device with the requested name is configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: The device failed to capture a frame.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /healthz:
+    get:
+      operationId: healthz
+      summary: Liveness — the process is up.
+      description: Always 200 while the process is alive; use /readyz for config state.
+      responses:
+        "200":
+          description: The process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /readyz:
+    get:
+      operationId: readyz
+      summary: Readiness — the device configuration finished loading.
+      description: 200 once the configuration is loaded; 503 while still loading or empty.
+      responses:
+        "200":
+          description: The configuration is loaded and capture can be served.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: The configuration is not yet loaded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /metadata:
+    get:
+      operationId: metadata
+      summary: List the configured capture devices.
+      description: Names every configured device — the valid /capture name selectors.
+      responses:
+        "200":
+          description: The sidecar's configured devices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureMetadata"
+
+components:
+  schemas:
+    CaptureMetadata:
+      type: object
+      description: The set of configured capture devices.
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          description: Every configured capture device.
+          items:
+            $ref: "#/components/schemas/DeviceMetadata"
+
+    DeviceMetadata:
+      type: object
+      description: Descriptive metadata for one configured capture device.
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Name (id) of the device — the /capture name selector.
+        description:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Optional human-readable device description.
+
+    Health:
+      type: object
+      description: A simple health-probe response.
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: "Probe status (e.g. ok, loading)."
+
+    Error:
+      type: object
+      description: A structured error response.
+      required: [message]
+      properties:
+        message:
+          type: string
+          description: Human-readable error description.

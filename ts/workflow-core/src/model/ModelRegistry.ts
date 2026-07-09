@@ -4,6 +4,7 @@
 import type { ModelType } from "./Model";
 import type { ModelDefinition } from "./ModelDefinition";
 import { LLMModelDefinition } from "./LLMModelDefinition";
+import { MLModelDefinition } from "./MLModelDefinition";
 
 /**
  * Central registry for declared (custom) model variant definitions (one per
@@ -16,6 +17,7 @@ class ModelDefinitionRegistry {
   initialize() {
     if (this.initialized) return;
     this.register(LLMModelDefinition);
+    this.register(MLModelDefinition);
     this.initialized = true;
   }
 

@@ -25,7 +25,7 @@ type Registry struct {
 // drivers opened so far are closed before returning, so callers never see a
 // partially-initialised Registry.
 func NewRegistry(m *engine.DeviceManifest) (*Registry, error) {
-	//TODO read from workflow.Manifest
+	//TODO read from workflowapi.Manifest
 	r := &Registry{
 		gpios:   make(map[string]GPIODriver),
 		adcs:    make(map[string]ADCDriver),

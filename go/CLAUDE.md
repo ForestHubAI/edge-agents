@@ -7,8 +7,11 @@ the `contract/` being the source of truth applies here — see the root `CLAUDE.
 
 ```
 cmd/engine/   main binary: loads config, wires deps, runs the HTTP server.
+cmd/camera/   fh-camera capture sidecar: serves capture.yaml, captures via a
+              gst-launch-1.0 subprocess.
 api/          oapi-codegen output from ../contract/*.yaml (engineapi, workflow,
-              llmapi, debugapi). GENERATED — never hand-edit; regen instead.
+              llmapi, debugapi, mlinferenceapi, captureapi). GENERATED — never
+              hand-edit; regen instead.
 engine/       core runtime. Sub-pkgs: runner (state machine), node, expr, build,
               backend, driver, channel, memory, transport, websearch.
 logging/      generic zerolog wrapper + pluggable HTTPWriter for log shipping.

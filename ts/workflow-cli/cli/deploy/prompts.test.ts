@@ -14,9 +14,10 @@ vi.mock("@inquirer/prompts", () => ({
   select: vi.fn(),
   checkbox: vi.fn(),
   confirm: vi.fn(),
+  editor: vi.fn(),
 }));
 
-import { input, password, select, checkbox, confirm } from "@inquirer/prompts";
+import { input, password, select, checkbox, confirm, editor } from "@inquirer/prompts";
 import { promptMissing } from "./prompts";
 import type { DeployConfig, DeployRequirements } from "./types";
 
@@ -29,7 +30,9 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],
-    customModels: [],
+    cameraChannels: [],
+    customLLMModels: [],
+    customMLModels: [],
     ...p,
   };
 }
@@ -47,14 +50,15 @@ const respond =
   };
 const setMock = (fn: unknown, r: Responder) => (fn as { mockImplementation: (f: Responder) => void }).mockImplementation(r);
 
-function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][]; confirm?: [RegExp, unknown][] }) {
+function script(p: { input?: [RegExp, unknown][]; password?: [RegExp, unknown][]; select?: [RegExp, unknown][]; checkbox?: [RegExp, unknown][]; confirm?: [RegExp, unknown][]; editor?: [RegExp, unknown][] }) {
   setMock(input, respond(p.input ?? []));
   setMock(password, respond(p.password ?? []));
   setMock(select, respond(p.select ?? []));
   setMock(checkbox, respond(p.checkbox ?? []));
-  // The custom-components section always asks its yes/no gate; default to no so a
-  // test that doesn't care about components is never forced to script it.
-  setMock(confirm, respond(p.confirm ?? [[/custom component/, false]]));
+  // Yes/no gates a test usually doesn't care about default to no: the
+  // custom-components section (always offered) and a camera's setup commands.
+  setMock(confirm, respond(p.confirm ?? [[/custom component/, false], [/setup commands/, false]]));
+  setMock(editor, respond(p.editor ?? []));
 }
 
 // promptMissing now returns the whole interactive result (config + custom
@@ -168,8 +172,8 @@ describe("promptMissing", () => {
         [/Output directory/, "b"],
       ],
     });
-    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.models.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
+    const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
+    expect(cfg.llmModels.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
   });
 
   it("network model: asks where it runs, then url + key", async () => {
@@ -181,8 +185,146 @@ describe("promptMissing", () => {
       ],
       password: [[/API key/, "sk-1"]],
     });
-    const cfg = await run({}, "def", reqOf({ customModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.models.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
+    const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
+    expect(cfg.llmModels.llm).toEqual({ location: "network", url: "http://x:8080", apiKey: "sk-1" });
+  });
+
+  it("device ml model: asks where it runs, then the model name", async () => {
+    script({
+      select: [[/where does this model run/, "device"]],
+      input: [
+        [/model name the sidecar selects on/, "yolov8n"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
+    expect(cfg.mlModels.yolo).toEqual({ location: "device", model: "yolov8n" });
+  });
+
+  it("network ml model: asks where it runs, then the model name and url", async () => {
+    script({
+      select: [[/where does this model run/, "network"]],
+      input: [
+        [/model name the sidecar selects on/, "yolov8n"],
+        [/endpoint URL/, "http://onnx:8000"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ customMLModels: [{ id: "yolo", label: "yolo" }] }));
+    expect(cfg.mlModels.yolo).toEqual({ location: "network", url: "http://onnx:8000", model: "yolov8n" });
+  });
+
+  it("device camera (v4l2): asks where it runs, source, then the device path", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      input: [
+        [/device path/, "/dev/video2"],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "front", label: "front" }] }));
+    expect(cfg.cameras.front).toEqual({ location: "device", source: "v4l2", device: "/dev/video2" });
+  });
+
+  it("device camera (gstreamer): asks source, then the source element", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "gstreamer"],
+      ],
+      input: [
+        [/gstreamer source element/, "libcamerasrc"],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
+    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc" });
+  });
+
+  it("device camera: keeps warmupFrames when set above zero", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "gstreamer"],
+      ],
+      input: [
+        [/gstreamer source element/, "libcamerasrc"],
+        [/warmup frames/, "8"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
+    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 });
+  });
+
+  it("device camera: collects setup commands via the editor and their device nodes", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      confirm: [
+        [/setup commands/, true],
+        [/custom component/, false],
+      ],
+      // Comment and blank lines are dropped; command lines survive verbatim.
+      editor: [[/setup commands/, "# from the board docs\nmedia-ctl -d /dev/media2 -r\n\nv4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800\n"]],
+      input: [
+        [/device path/, "/dev/video1"],
+        [/warmup frames/, "0"],
+        [/device nodes/, "  /dev/media2   /dev/v4l-subdev7 "],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    expect(cfg.cameras.cam).toEqual({
+      location: "device",
+      source: "v4l2",
+      device: "/dev/video1",
+      setup: ["media-ctl -d /dev/media2 -r", "v4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800"],
+      devices: ["/dev/media2", "/dev/v4l-subdev7"],
+    });
+  });
+
+  it("device camera: an editor that returns nothing is caught, and continuing drops the setup step", async () => {
+    script({
+      select: [
+        [/where does this camera run/, "device"],
+        [/capture source/, "v4l2"],
+      ],
+      confirm: [
+        [/add setup commands/, true],
+        [/continue without a setup step/, true],
+        [/custom component/, false],
+      ],
+      // Only comments come back -> empty after filtering -> the guard fires.
+      editor: [[/setup commands/, "# I quit without writing anything\n"]],
+      input: [
+        [/device path/, "/dev/video1"],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    // No setup / devices keys — the empty result did not silently become a setup step.
+    expect(cfg.cameras.cam).toEqual({ location: "device", source: "v4l2", device: "/dev/video1" });
+  });
+
+  it("network camera: asks where it runs, then url", async () => {
+    script({
+      select: [[/where does this camera run/, "network"]],
+      input: [
+        [/capture endpoint URL/, "http://cam:8100"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    expect(cfg.cameras.cam).toEqual({ location: "network", url: "http://cam:8100" });
   });
 
   // The mocks answer prompts without running their validate callbacks; these

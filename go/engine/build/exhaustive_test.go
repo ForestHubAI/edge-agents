@@ -100,6 +100,67 @@ func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 	}
 }
 
+// channelTypesFromContract reads the Channel discriminator mapping out of the
+// contract YAML and returns every declared channel `type` string. Like its node
+// sibling, the list is derived from the contract, so a channel added to the
+// schema is picked up here automatically.
+func channelTypesFromContract(t *testing.T) []string {
+	t.Helper()
+	raw, err := os.ReadFile(contractPath)
+	require.NoError(t, err, "reading contract at %s", contractPath)
+
+	var doc struct {
+		Components struct {
+			Schemas struct {
+				Channel struct {
+					Discriminator struct {
+						Mapping map[string]string `yaml:"mapping"`
+					} `yaml:"discriminator"`
+				} `yaml:"Channel"`
+			} `yaml:"schemas"`
+		} `yaml:"components"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &doc), "parsing contract YAML")
+
+	mapping := doc.Components.Schemas.Channel.Discriminator.Mapping
+	require.NotEmpty(t, mapping, "no components.schemas.Channel.discriminator.mapping in contract")
+
+	types := make([]string, 0, len(mapping))
+	for typ := range mapping {
+		types = append(types, typ)
+	}
+	return types
+}
+
+// TestBuildChannelsHandlesEveryContractChannel is the channel counterpart to
+// TestBuildSwitchHandlesEveryContractNode: it asserts the hand-written type
+// switch in buildChannels has a case arm for EVERY channel type the contract
+// declares. A channel added to the contract but forgotten in buildChannels
+// compiles clean and fails only at deploy time via the "unsupported type"
+// default — this moves that failure left to `go test`.
+//
+// Mechanism: feed a bare {"type": T} channel through buildChannels with empty
+// deps. Most types trip a missing-binding error first — that is fine: reaching
+// ANY arm proves the case exists. Only the default-arm sentinel is a real
+// failure.
+func TestBuildChannelsHandlesEveryContractChannel(t *testing.T) {
+	for _, typ := range channelTypesFromContract(t) {
+		t.Run(typ, func(t *testing.T) {
+			var c workflowapi.Channel
+			require.NoError(t,
+				json.Unmarshal(fmt.Appendf(nil, `{"id":"c1","type":%q,"label":"c1"}`, typ), &c),
+				"constructing a %q channel", typ)
+
+			_, err := buildChannels([]workflowapi.Channel{c}, nil, nil, nil, nil)
+			if err == nil {
+				return // handled cleanly (a camera, for instance, is a no-op here)
+			}
+			require.NotContains(t, err.Error(), "unsupported type",
+				"channel type %q is declared in the contract but has no case arm in buildChannels — add one", typ)
+		})
+	}
+}
+
 // safeBuild runs build() for a single node, converting a panic from a node
 // constructor (fed deliberately-empty arguments) into a nil error: a panic still
 // proves the type switch reached that arm, which is all this test checks. The

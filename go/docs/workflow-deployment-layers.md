@@ -23,10 +23,13 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │     gpios/adcs/dacs/serials/pwms : ref ─► {chip|device|port}                │
 │                                                                             │
 │   ExternalResources      ◄── environment-supplied facts (brokers, endpoints)│
-│     MQTTs     : ref ─► MQTTConnection   {brokerUrl, prefixes, will, ...}     │
-│     Providers : ref ─► LLMProviderConfig {type, provider|url}               │
+│     MQTTs       : ref ─► MQTTConnection   {brokerUrl, prefixes, will, ...}   │
+│     Providers   : ref ─► LLMProviderConfig {type, provider|url}             │
+│     MLInference : ref ─► MLInferenceConfig {url, model} (ML sidecar)         │
+│     Cameras     : ref ─► CameraConfig      {url}        (capture sidecar)    │
 │                                                                             │
-│   Both arrive together in the single EngineConfig, read once at boot.       │
+│   Manifest and ExternalResources ride in the one EngineConfig, read once at │
+│   boot; the credentials they reference arrive in the secrets document.      │
 └───────────────────────────────────────────────────────────────────────────┘
             │
             │  engine registries  (built once at boot, live for the process)
@@ -36,6 +39,8 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │   driver.Registry   : ref ─► GPIODriver / ADCDriver / ... (opened at boot)  │
 │   transport.Registry: ref ─► MQTTTransport (paho conn, opened at boot)      │
 │   llmproxy.Client    : modelID ─► Provider (local/backend/selfhosted routed) │
+│   build/ml.go        : modelID ─► mlEndpoint      (ML sidecar client)       │
+│   build/capture.go   : channelID ─► captureEndpoint (capture sidecar client)│
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,11 +90,15 @@ workflow*, not to the device:
 | `PWM`        | `frequency`                             | yes (channel)  | DeviceManifest     |
 | `UART`       | —                                       | no             | DeviceManifest     |
 | `MQTT`       | `topic`                                 | no             | ExternalResources  |
+| `CAMERA`     | `width?`, `height?`                     | no             | ExternalResources  |
 
-**`Models[]`** — declared custom/self-hosted `LLMModel`s (`id`, `label`,
-`capabilities`). Static catalog models (built into the llmproxy) are referenced by
-id from agent nodes and need **no** declaration here; only custom models are listed,
-because only they need an environment-supplied endpoint.
+**`Models[]`** — a discriminated union (`type`) of declared models. `LLMModel`s
+(`id`, `label`, `capabilities`) are custom/self-hosted language models; static
+catalog models (built into the llmproxy) are referenced by id from agent nodes and
+need **no** declaration here. `MLModel`s (`id`, `label`) are machine-learning models
+an `MLInference` node runs on a sidecar. Both kinds are listed only because they need
+an environment-supplied endpoint. (A `CAMERA` capture source is a `Channel`, not a
+model.)
 
 The split is deliberate: `frequency`, `bias`, `topic`, `capabilities` describe *the
 workflow's intent* and travel with it everywhere. The physical pin, the broker URL,
@@ -106,7 +115,7 @@ type ResourceMapping map[string]ResourceBinding   // keyed by workflow logical i
 
 type ResourceBinding struct {
     Ref   string `json:"ref"`             // shared platform resource id
-    Index *int   `json:"index,omitempty"` // physical sub-address; nil for UART/MQTT/memory/model
+    Index *int   `json:"index,omitempty"` // physical sub-address; nil for UART/MQTT/CAMERA/memory/model
 }
 ```
 
@@ -117,7 +126,9 @@ that id:
 
 - a hardware channel's `ref` → a key in the **DeviceManifest**;
 - an MQTT channel's `ref` → a key in the **ExternalResources.MQTTs**;
-- a declared model's `ref` → a key in the **ExternalResources.Providers**.
+- a `CAMERA` channel's `ref` → a key in the **ExternalResources.Cameras**;
+- a declared `LLMModel`'s `ref` → a key in **ExternalResources.Providers**;
+- a declared `MLModel`'s `ref` → a key in **ExternalResources.MLInference**.
 
 `index` is the per-channel physical line/channel number *within* the bound driver
 instance. This is why a single `gpiochip0` driver (`ref`) can back many GPIO
@@ -169,19 +180,20 @@ has. A different workflow on the same device sees the same manifest.
 ### ExternalResources — environment-supplied
 
 `go/engine/types.go`. The configs that describe the *network/service environment* and
-are not owned by the device: brokers and LLM provider instances. Also carried in the
-boot `EngineConfig`:
+are not owned by the device: brokers, LLM provider instances, and the sidecars the
+engine doesn't ship. Also carried in the boot `EngineConfig`:
 
 ```go
 type ExternalResources struct {
-    MQTTs     map[string]MQTTConnection    // ref ─► broker connection
-    Providers map[string]LLMProviderConfig // ref ─► one LLM provider instance
+    MQTTs       map[string]MQTTConnection    // ref ─► broker connection
+    Providers   map[string]LLMProviderConfig // ref ─► one LLM provider instance
+    MLInference map[string]MLInferenceConfig // ref ─► ML inference sidecar
+    Cameras     map[string]CameraConfig      // ref ─► camera capture sidecar
 }
 ```
 
 `MQTTConnection` carries `brokerUrl`, optional `clientId`, the `publishPrefix` /
 `subscribePrefix` the engine prepends to workflow topics, and an optional last-will.
-
 `LLMProviderConfig` is **one provider instance** the engine registers into its single
 llmproxy, discriminated by `Kind`:
 
@@ -202,9 +214,14 @@ api→domain boundary. A catalog provider's served model ids are its built-in
 `AvailableModels`, so they are **not** listed here (and, per the join above, carry no
 mapping entry).
 
+`MLInferenceConfig` carries a `url` + the `model` the sidecar selects on;
+`CameraConfig` carries just a `url` — the sidecar owns a set of cameras and the one to
+read is named per request. Both are trusted in-deployment endpoints with no
+credential.
+
 `ExternalResourceConfig` is a tagged union discriminated by `type`
-(`mqtt` | `localLlm` | `backendLlm` | `selfhostedLlm`); new external-resource kinds
-extend that `oneOf`.
+(`mqtt` | `localLlm` | `backendLlm` | `selfhostedLlm` | `ml-inference` | `camera`);
+new external-resource kinds extend that `oneOf`.
 
 ---
 
@@ -260,6 +277,17 @@ There is **no implicit backend fallback** — the client's providers are exactly
 is no client-level default. Like everything in Layer 3, `buildProviders` runs once,
 at boot.
 
+### sidecar endpoints — resolved per deploy
+
+`go/engine/build/ml.go` + `capture.go`. Unlike the pooled registries above, ML
+inference and camera capture are **not** engine-hosted: each resolves to a separate
+sidecar container reached by URL. `buildDeployML` walks `wf.Models` and
+`buildDeployCapture` walks the `CAMERA` channels, resolving each via the mapping to an
+`ExternalResources` config, and builds one small HTTP adapter (`mlEndpoint` /
+`captureEndpoint`) per model / camera — bound to that name, satisfying the
+`MLInferenceClient` / `CaptureClient` port. Many models or cameras may share one
+sidecar URL; the name is sent per request. See `docs/engine-ports.md`.
+
 ---
 
 ## The full resolution walk
@@ -281,7 +309,10 @@ Tracing boot through `cmd/engine/main.go` and `go/engine/build/`:
      entry (self-hosted endpoints for declared models; local/backend stand-ins for
      catalog providers) → the LLM client; `validateModelsResolvable` fails fast if an
      agent node references a model no provider can serve.
-   - `buildRunner` assembles channels, collections, functions, and the graph.
+   - `buildRunner` assembles channels, collections, functions, and the graph. It also
+     resolves the sidecar clients the node switch in `graph.go` needs:
+     `buildDeployML(wf, dm, ext)` → per-model inference endpoints, and
+     `buildDeployCapture(wf, dm, ext)` → per-camera capture endpoints.
 
 4. **`buildChannels(wf.Channels, dm, drivers, transports, ext)`** (`channel.go`) —
    the heart of the join. For each declared channel, by type:
@@ -326,6 +357,8 @@ instance, so subscriber lists and driver reservations stay consistent.
 | declared model bound to a non-self-hosted provider   | `selfHostedEndpoints`          |
 | unknown catalog provider id (`localLlm`/`backendLlm`)| `buildProviders`               |
 | `backendLlm` provider but no backend configured      | `buildProviders`               |
+| `CAMERA` channel unbound / `ref` not in `ext.Cameras` | `buildDeployCapture` (`capture.go`) |
+| ML model unbound / `ref` has no ml-inference config   | `buildDeployML` (`ml.go`)      |
 | agent node references an unservable model            | `validateModelsResolvable`     |
 | `VectorDatabase` id has no mapping entry             | `buildCollections`             |
 
@@ -369,7 +402,9 @@ workflow and device manifest, become the `EngineConfig` the device boots from.
    - hardware channel → keys of the matching `DeviceManifest` family (already known
      from the device Ranger provisioned);
    - MQTT channel → existing/new MQTT connection definitions;
-   - declared model → existing/new self-hosted endpoint definitions;
+   - `CAMERA` channel → existing/new capture-sidecar endpoints;
+   - declared `LLMModel` → existing/new self-hosted endpoint definitions;
+   - declared `MLModel` → existing/new inference-sidecar endpoints;
    - declared collection → existing/new vector-collection ids.
 
    Catalog providers aren't *bound* (they get no mapping entry) — instead offer a
@@ -381,9 +416,9 @@ workflow and device manifest, become the `EngineConfig` the device boots from.
    picks that isn't device-owned needs an `ExternalResources` entry: broker URL +
    prefixes + credentials for MQTT; endpoint URL + optional bearer for a self-hosted
    model; for a catalog provider, a `localLlm` entry (with an API key) or a
-   `backendLlm` entry (no key). Secrets go to the mounted secret document keyed by
-   `ref`, never into the config. Device-owned refs need nothing — their config is in
-   the device manifest.
+   `backendLlm` entry (no key); a sidecar URL for an ML model or a camera. Secrets go
+   to the mounted secret document keyed by `ref`, never into the config. Device-owned
+   refs need nothing — their config is in the device manifest.
 
 4. **Validate before submit.** Re-run the boot-time checks client-side so the user
    fixes gaps in the wizard, not via a failed container: every channel mapped, every

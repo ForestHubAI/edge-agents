@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2026 ForestHub.
 
-import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition } from "./InputNode";
+import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition, CameraCaptureNodeDefinition } from "./InputNode";
 import { AgentNodeDefinition } from "./AgentNode";
+import { MLInferenceNodeDefinition } from "./MLInferenceNode";
 import {
   DelayNodeDefinition,
   TickerNodeDefinition,
@@ -38,6 +39,7 @@ class NodeDefinitionRegistry {
     this.register(WritePinNodeDefinition);
     this.register(SerialWriteNodeDefinition);
     this.register(AgentNodeDefinition);
+    this.register(MLInferenceNodeDefinition);
     this.register(IfNodeDefinition);
     this.register(SetVariableNodeDefinition);
     // Register trigger nodes
@@ -54,6 +56,7 @@ class NodeDefinitionRegistry {
     // Register input tool nodes
     this.register(RetrieverNodeDefinition);
     this.register(WebFetchNodeDefinition);
+    this.register(CameraCaptureNodeDefinition);
     // Register MQTT nodes
     this.register(MqttPublishNodeDefinition);
     this.register(OnMqttMessageNodeDefinition);

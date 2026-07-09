@@ -23,13 +23,17 @@ import (
 // host language's compiler.
 type Value struct {
 	Type workflowapi.DataType
-	Raw  any // int64, float64, bool, or string
+	Raw  any // int64, float64, bool, string, or []byte (image)
 }
 
 func IntVal(v int64) Value     { return Value{Type: workflowapi.Int, Raw: v} }
 func FloatVal(v float64) Value { return Value{Type: workflowapi.Float, Raw: v} }
 func BoolVal(v bool) Value     { return Value{Type: workflowapi.Bool, Raw: v} }
 func StringVal(v string) Value { return Value{Type: workflowapi.String, Raw: v} }
+
+// ImageVal wraps an encoded frame blob (e.g. JPEG bytes). It is an opaque
+// value — there is no Cast/AsX path into or out of it beyond AsImage.
+func ImageVal(v []byte) Value { return Value{Type: workflowapi.Image, Raw: v} }
 
 // ZeroValue returns the zero value for a given data type.
 func ZeroValue(dt workflowapi.DataType) Value {
@@ -40,6 +44,8 @@ func ZeroValue(dt workflowapi.DataType) Value {
 		return FloatVal(0)
 	case workflowapi.Bool:
 		return BoolVal(false)
+	case workflowapi.Image:
+		return ImageVal(nil)
 	default:
 		return StringVal("")
 	}
@@ -114,6 +120,15 @@ func (v Value) AsString() string {
 	default:
 		return ""
 	}
+}
+
+// AsImage returns the raw image bytes, or an error if the value is not an image.
+func (v Value) AsImage() ([]byte, error) {
+	if v.Type != workflowapi.Image {
+		return nil, fmt.Errorf("cannot read %s as image", v.Type)
+	}
+	b, _ := v.Raw.([]byte)
+	return b, nil
 }
 
 // Cast converts a value to the target data type.

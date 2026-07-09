@@ -63,9 +63,23 @@ export interface MqttChannel {
   label: string;
 }
 
-// One custom/self-hosted model declared in workflow.models — needs an
+// One camera channel the workflow declares — needs an ExternalResources camera
+// entry + a mapping (and a share of the capture sidecar when bound on-device).
+export interface CameraChannel {
+  id: string;
+  label: string;
+}
+
+// One custom/self-hosted LLM model declared in workflow.models — needs an
 // ExternalResources provider entry (a device sidecar or a network endpoint).
-export interface CustomModel {
+export interface CustomLLMModel {
+  id: string;
+  label: string;
+}
+
+// One custom ML model declared in workflow.models — served by an inference
+// sidecar (on-device or a network endpoint), selected by id.
+export interface CustomMLModel {
   id: string;
   label: string;
 }
@@ -107,15 +121,27 @@ export interface DeployRequirements {
   hardwareChannels: HardwareChannel[];
   // Every MQTT channel; each becomes an ExternalResources entry + a mapping.
   mqttChannels: MqttChannel[];
-  // Every declared custom model; each becomes an ExternalResources provider + a
-  // mapping (and a llama-server sidecar when bound on-device).
-  customModels: CustomModel[];
+  // Every camera channel; each becomes an ExternalResources entry + a mapping
+  // (and a share of the capture sidecar when bound on-device).
+  cameraChannels: CameraChannel[];
+  // Every declared custom LLM model; each becomes an ExternalResources provider
+  // + a mapping (and a llama-server sidecar when bound on-device).
+  customLLMModels: CustomLLMModel[];
+  // Every declared custom ML model; each becomes an ExternalResources entry + a
+  // mapping (and a share of the inference sidecar when bound on-device).
+  customMLModels: CustomMLModel[];
 }
 
 // Drift sentinel: a new ChannelType widens the switch input and breaks
 // compilation here until the new type is classified above.
 function assertNeverChannel(t: never): never {
   throw new Error(`unhandled channel type: ${String(t)}`);
+}
+
+// Drift sentinel: a new ModelType breaks compilation here until it is sorted
+// into the LLM / ML pool below.
+function assertNeverModel(t: never): never {
+  throw new Error(`unhandled model type: ${String(t)}`);
 }
 
 // deriveRequirements reads what a workflow demands of its environment. Pure —
@@ -128,6 +154,7 @@ function assertNeverChannel(t: never): never {
 export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []): DeployRequirements {
   const hardwareChannels: HardwareChannel[] = [];
   const mqttChannels: MqttChannel[] = [];
+  const cameraChannels: CameraChannel[] = [];
 
   for (const channel of Object.values(workflow.channels)) {
     switch (channel.type) {
@@ -150,6 +177,9 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
       case "MQTT":
         mqttChannels.push({ id: channel.id, label: channel.label });
         break;
+      case "CAMERA":
+        cameraChannels.push({ id: channel.id, label: channel.label });
+        break;
       case "LOG":
         // Resolves to the ambient engine logger — no platform resource to bind, so
         // it demands nothing of the deploy environment.
@@ -168,7 +198,23 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
     }
   }
 
-  const customModels: CustomModel[] = Object.values(workflow.models).map((m) => ({ id: m.id, label: m.label }));
+  // wf.models holds both model families; split them by type. LLM models drive
+  // the provider/llama-server path, ML models the inference sidecar — mixing
+  // them would send an ML model down the LLM provider build.
+  const customLLMModels: CustomLLMModel[] = [];
+  const customMLModels: CustomMLModel[] = [];
+  for (const m of Object.values(workflow.models)) {
+    switch (m.type) {
+      case "LLMModel":
+        customLLMModels.push({ id: m.id, label: m.label });
+        break;
+      case "MLModel":
+        customMLModels.push({ id: m.id, label: m.label });
+        break;
+      default:
+        return assertNeverModel(m.type);
+    }
+  }
 
   // Resolve referenced catalog ids to their distinct providers via the catalog.
   // With no catalog the map is unknown: leave provider requirements empty
@@ -195,6 +241,8 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
     hasWebSearch,
     hardwareChannels,
     mqttChannels,
-    customModels,
+    cameraChannels,
+    customLLMModels,
+    customMLModels,
   };
 }

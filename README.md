@@ -324,11 +324,12 @@ See [`go/CLAUDE.md`](go/CLAUDE.md) and [`ts/CLAUDE.md`](ts/CLAUDE.md) for deeper
 
 | Path                                         | What it contains                                                                                            |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go and TS.                                               |
-| [`go/`](go)                                  | Engine binary, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
+| [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go, TS and Python.                                       |
+| [`go/`](go)                                  | Engine binary, `fh-camera` capture sidecar, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
 | [`ts/workflow-core`](ts/workflow-core)       | `@foresthubai/workflow-core` — headless workflow model, validation, (de)serialization. No React.            |
 | [`ts/workflow-builder`](ts/workflow-builder) | `@foresthubai/workflow-builder` — React canvas component.                                                   |
 | [`ts/workflow-cli`](ts/workflow-cli)         | `@foresthubai/workflow-cli` — the `fh-workflow` CLI + the reference SPA it serves.                          |
+| [`py/ml-inference`](py/ml-inference)         | `fh-onnx` — generic ONNX inference sidecar (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`. |
 
 ## Releases
 
@@ -380,6 +381,7 @@ Edge Agents uses a **two-tier license model** designed to make the wire format a
 | [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "Edge Agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
 | [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                                                                                    |
 | [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                                                                                        |
+| [`py/ml-inference`](py/ml-inference) (`fh-onnx` inference sidecar)                | **AGPL-3.0-only** or **commercial** | A service shipped alongside the engine; same dual-license terms.                                                                                                                                          |
 
 For the AGPL components, the AGPL network clause applies — providing a modified version over a network requires making the corresponding source available to users of that service.
 

@@ -59,6 +59,8 @@ components:
       oneOf:
         - $ref: "#/components/schemas/MQTTConnection"
         - $ref: "#/components/schemas/LLMProviderConfig"
+        - $ref: "#/components/schemas/MLInferenceConfig"
+        - $ref: "#/components/schemas/CameraConfig"
       discriminator:
         propertyName: type
         mapping:
@@ -66,6 +68,8 @@ components:
           localLlm: "#/components/schemas/LLMProviderConfig"
           backendLlm: "#/components/schemas/LLMProviderConfig"
           selfhostedLlm: "#/components/schemas/LLMProviderConfig"
+          ml-inference: "#/components/schemas/MLInferenceConfig"
+          camera: "#/components/schemas/CameraConfig"
 
     LLMProviderConfig:
       type: object
@@ -81,6 +85,33 @@ components:
         url:
           type: string
           description: selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
+
+    MLInferenceConfig:
+      type: object
+      description: "Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential."
+      required: [type, url, model]
+      properties:
+        type:
+          type: string
+          enum: [ml-inference]
+        url:
+          type: string
+          description: Base URL of the inference sidecar (http:// or https://).
+        model:
+          type: string
+          description: Model name the sidecar selects on.
+
+    CameraConfig:
+      type: object
+      description: "Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [camera]
+        url:
+          type: string
+          description: Base URL of the capture sidecar (http:// or https://).
 
     MQTTConnection:
       type: object

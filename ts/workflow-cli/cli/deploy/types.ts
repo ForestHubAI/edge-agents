@@ -16,19 +16,24 @@ export type {
   DeployRequirements,
   HardwareChannel,
   MqttChannel,
-  CustomModel,
+  CameraChannel,
+  CustomLLMModel,
+  CustomMLModel,
   HardwareFamily,
   HardwareBinding,
   MqttBinding,
-  ModelBinding,
+  LLMModelBinding,
+  MLModelBinding,
+  CameraBinding,
 } from "@foresthubai/workflow-core/deploy";
 export {
   ggufNameError,
+  mlModelNameError,
   hardwareConflicts,
   familyMismatches,
   hardwareAddressKey,
   hardwareAddressLabel,
-  sidecarServiceName,
+  llmSidecarServiceName,
 } from "@foresthubai/workflow-core/deploy";
 
 import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";
@@ -56,7 +61,7 @@ const mqttBindingSchema = z.strictObject({
   password: z.string().optional(),
 });
 
-const modelBindingSchema = z.discriminatedUnion("location", [
+const llmModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({
     location: z.literal("device"),
     modelFile: z.string(),
@@ -64,6 +69,23 @@ const modelBindingSchema = z.discriminatedUnion("location", [
     ctxSize: z.number().int().positive().optional(),
   }),
   z.strictObject({ location: z.literal("network"), url: z.string(), apiKey: z.string().optional() }),
+]);
+
+const mlModelBindingSchema = z.discriminatedUnion("location", [
+  z.strictObject({ location: z.literal("device"), model: z.string() }),
+  z.strictObject({ location: z.literal("network"), url: z.string(), model: z.string() }),
+]);
+
+const cameraBindingSchema = z.discriminatedUnion("location", [
+  z.strictObject({
+    location: z.literal("device"),
+    source: z.enum(["v4l2", "gstreamer"]),
+    device: z.string(),
+    warmupFrames: z.number().int().min(0).optional(),
+    setup: z.array(z.string()).optional(),
+    devices: z.array(z.string()).optional(),
+  }),
+  z.strictObject({ location: z.literal("network"), url: z.string() }),
 ]);
 
 // Web-search provider + key. Engine-wide, so just one. Device env, never in the
@@ -88,14 +110,16 @@ export function unknownIds(req: DeployRequirements, p: Partial<DeployConfig>): s
   };
   check("hardware", req.hardwareChannels.map((c) => c.id), p.hardware);
   check("mqtt", req.mqttChannels.map((c) => c.id), p.mqtt);
-  check("model", req.customModels.map((m) => m.id), p.models);
+  check("model", req.customLLMModels.map((m) => m.id), p.llmModels);
+  check("model", req.customMLModels.map((m) => m.id), p.mlModels);
+  check("camera", req.cameraChannels.map((c) => c.id), p.cameras);
   return unknown;
 }
 
-// What the prompts + flags collect from the operator. The hardware/mqtt/models
-// fields ARE the core DeploymentInputs (structurally), plus the CLI-only render
-// knobs (output dir, force, log level) and device-env secrets (provider keys,
-// web search) that never enter the spec.
+// What the prompts + flags collect from the operator. The hardware/mqtt/
+// llmModels/mlModels fields ARE the core DeploymentInputs (structurally), plus
+// the CLI-only render knobs (output dir, force, log level) and device-env
+// secrets (provider keys, web search) that never enter the spec.
 const deployConfigSchema = z.strictObject({
   // provider id (catalog / llmproxy ProviderID) -> API key. Each becomes a
   // `localLlm` provider whose key rides in secrets.json (never the spec, never .env).
@@ -105,7 +129,9 @@ const deployConfigSchema = z.strictObject({
   logLevel: logLevelSchema,
   hardware: z.record(z.string(), hardwareBindingSchema),
   mqtt: z.record(z.string(), mqttBindingSchema),
-  models: z.record(z.string(), modelBindingSchema),
+  llmModels: z.record(z.string(), llmModelBindingSchema),
+  mlModels: z.record(z.string(), mlModelBindingSchema),
+  cameras: z.record(z.string(), cameraBindingSchema),
   webSearch: webSearchBindingSchema.optional(),
 });
 export type DeployConfig = z.infer<typeof deployConfigSchema>;

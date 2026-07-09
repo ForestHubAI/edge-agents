@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
-import { composeYaml, envFile, readme, slugify } from "./generate";
+import { camerasJson, composeYaml, envFile, readme, slugify } from "./generate";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
 
@@ -47,12 +47,34 @@ function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployCompone
   };
 }
 
+// The shared inference sidecar (fh-onnx): self-built, pull:never.
+function onnxComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
+  return {
+    name: "fh-onnx",
+    image: "fh-onnx:latest",
+    pull: "never",
+    volumes: ["./workspaces/fh-onnx:/var/lib/foresthub/models:ro"],
+    ...overrides,
+  };
+}
+
+// The shared capture sidecar (fh-camera): self-built, pull:never.
+function cameraComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
+  return {
+    name: "fh-camera",
+    image: "fh-camera:latest",
+    pull: "never",
+    volumes: ["./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro"],
+    ...overrides,
+  };
+}
+
 function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
   return { schemaVersion: 1, id: "test", components };
 }
 
 function cfgOf(p: Partial<DeployConfig> = {}): DeployConfig {
-  return { llmKeys: {}, outputDir: "out", force: false, logLevel: "info", hardware: {}, mqtt: {}, models: {}, ...p };
+  return { llmKeys: {}, outputDir: "out", force: false, logLevel: "info", hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, ...p };
 }
 
 describe("slugify", () => {
@@ -218,6 +240,19 @@ describe("composeYaml", () => {
     expect(yaml).toContain("- path: grafana.env");
     expect(yaml).toContain("  grafana-storage:"); // declared as a top-level named volume
   });
+
+  it("renders the camera sidecar with device passthrough and a read-only cameras.json file mount", () => {
+    const yaml = composeYaml(specOf([engineComponent(), cameraComponent({ devices: ["/dev/video0"] })]));
+    expect(yaml).toContain("fh-camera:");
+    expect(yaml).toContain("image: fh-camera:latest");
+    expect(yaml).toContain("pull_policy: never");
+    expect(yaml).toContain('- "/dev/video0:/dev/video0"');
+    expect(yaml).toContain("./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro");
+    // A file bind mount needs no top-level named volume; no container_name is set
+    // (several bundles may share one host).
+    expect(yaml).not.toContain("container_name");
+    expect(yaml).not.toMatch(/^volumes:/m);
+  });
 });
 
 describe("readme", () => {
@@ -244,14 +279,14 @@ describe("readme", () => {
   });
 
   it("an on-device model adds the on-device note with the model file", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("## On-device models");
     expect(md).toContain("- `./workspaces/llama-gemma-3/gemma.gguf`");
     expect(md).not.toContain("## Network models");
   });
 
   it("a network model adds the network-models note", () => {
-    const md = readme(specOf(), cfgOf({ models: { llm: { location: "network", url: "http://x:8080" } } }), false);
+    const md = readme(specOf(), cfgOf({ llmModels: { llm: { location: "network", url: "http://x:8080" } } }), false);
     expect(md).toContain("## Network models");
     expect(md).not.toContain("## On-device models");
   });
@@ -269,7 +304,7 @@ describe("readme", () => {
   });
 
   it("a device model adds the model scp transfer and inspects all containers on run", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ models: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("scp -r workspaces/");
     expect(md).toContain("docker compose ps");
   });
@@ -279,5 +314,115 @@ describe("readme", () => {
     expect(md).toContain("docker compose logs -f engine");
     expect(md).not.toContain("scp -r models/");
     expect(md).not.toContain("docker compose ps");
+  });
+
+  it("a device ml model adds the shared inference sidecar note", () => {
+    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
+    expect(md).toContain("## On-device ML models");
+    expect(md).toContain("fh-onnx");
+  });
+
+  it("a network ml model adds only the network note", () => {
+    const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
+    expect(md).toContain("## Network ML models");
+    expect(md).not.toContain("## On-device ML models");
+  });
+
+  it("a gstreamer camera adds the media-graph operator note", () => {
+    const md = readme(specOf(), cfgOf({ cameras: { csi: { location: "device", source: "gstreamer", device: "libcamerasrc" } } }), false);
+    expect(md).toContain("## On-device cameras");
+    expect(md).toContain("/dev/media*");
+  });
+
+  it("a network camera adds only the network note", () => {
+    const md = readme(specOf(), cfgOf({ cameras: { cam: { location: "network", url: "http://cam.remote:8100" } } }), false);
+    expect(md).toContain("## Network cameras");
+    expect(md).not.toContain("## On-device cameras");
+  });
+
+  it("documents building, saving and loading a self-built ML sidecar image", () => {
+    const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
+    expect(md).toContain("docker build -t fh-onnx:latest py/ml-inference");
+    expect(md).toContain("docker save fh-onnx:latest");
+    expect(md).toContain("docker load -i fh-onnx.tar");
+    expect(md).toContain("scp fh-engine.tar fh-onnx.tar");
+  });
+
+  it("documents building and loading a self-built camera sidecar image", () => {
+    const md = readme(
+      specOf([engineComponent(), cameraComponent()]),
+      cfgOf({ cameras: { cam: { location: "device", source: "v4l2", device: "/dev/video0" } } }),
+      false,
+    );
+    expect(md).toContain("docker build -f go/Dockerfile.camera -t fh-camera:latest go");
+    expect(md).toContain("docker load -i fh-camera.tar");
+  });
+
+  it("adds no sidecar build step when nothing is self-built (network ML model, llama)", () => {
+    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
+    expect(md).not.toContain("docker build -t fh-onnx");
+    expect(md).not.toContain("docker load -i fh-onnx.tar");
+  });
+});
+
+describe("camerasJson", () => {
+  it("emits one entry per on-device camera, keyed by channel id", () => {
+    const out = camerasJson(
+      cfgOf({
+        cameras: {
+          front: { location: "device", source: "v4l2", device: "/dev/video0" },
+          csi: { location: "device", source: "gstreamer", device: "libcamerasrc" },
+        },
+      }),
+    );
+    expect(out && JSON.parse(out)).toEqual({
+      cameras: {
+        front: { source: "v4l2", device: "/dev/video0" },
+        csi: { source: "gstreamer", device: "libcamerasrc" },
+      },
+    });
+  });
+
+  it("skips network cameras and returns null when none is on-device", () => {
+    expect(camerasJson(cfgOf({ cameras: { cam: { location: "network", url: "http://cam.remote:8100" } } }))).toBeNull();
+    expect(camerasJson(cfgOf())).toBeNull();
+  });
+
+  it("includes setup commands; binding devices stay out (compose-only)", () => {
+    const out = camerasJson(
+      cfgOf({
+        cameras: {
+          cam: {
+            location: "device",
+            source: "v4l2",
+            device: "/dev/video1",
+            setup: ["media-ctl -d /dev/media2 -r"],
+            devices: ["/dev/media2"],
+          },
+        },
+      }),
+    );
+    expect(out && JSON.parse(out)).toEqual({
+      cameras: {
+        cam: { source: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] },
+      },
+    });
+  });
+
+  it("includes warmupFrames only when set above zero", () => {
+    const out = camerasJson(
+      cfgOf({
+        cameras: {
+          warm: { location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
+          none: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 0 },
+        },
+      }),
+    );
+    expect(out && JSON.parse(out)).toEqual({
+      cameras: {
+        warm: { source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
+        none: { source: "v4l2", device: "/dev/video0" },
+      },
+    });
   });
 });

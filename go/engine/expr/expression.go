@@ -34,6 +34,11 @@ func Eval(expr workflowapi.Expression, resolve VarResolver) (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
+		// An image has no text or scalar form; using one in an expression
+		// would silently coerce the frame to an empty/zero value.
+		if v.Type == workflowapi.Image {
+			return Value{}, fmt.Errorf("an image value cannot be used in an expression")
+		}
 		refs[i] = v
 	}
 

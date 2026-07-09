@@ -120,12 +120,33 @@ type PWMConfig struct {
 
 // ExternalResources holds the resolved, boot-delivered configs for a workflow's
 // non-device external resources, keyed by the platform resource id the
-// ResourceMapping points at. The engine builds transports from MQTTs and LLM
+// ResourceMapping points at. The engine builds transports from MQTTs, LLM
 // providers from Providers (the connection for each declared custom/self-hosted
-// model).
+// model), inference clients from MLInference (the sidecar endpoint each declared
+// ML model is served from), and capture clients from Cameras (the sidecar
+// endpoint each declared camera channel is read from).
 type ExternalResources struct {
-	MQTTs     map[string]MQTTConnection
-	Providers map[string]LLMProviderConfig
+	MQTTs       map[string]MQTTConnection
+	Providers   map[string]LLMProviderConfig
+	MLInference map[string]MLInferenceConfig
+	Cameras     map[string]CameraConfig
+}
+
+// MLInferenceConfig is the resolved connection to an ML inference sidecar the
+// engine doesn't ship. The declared workflow model supplies the id; this
+// supplies how to reach the sidecar and the name it selects on. Model is sent
+// per request, so many models may share one endpoint.
+type MLInferenceConfig struct {
+	URL   string
+	Model string
+}
+
+// CameraConfig is the resolved connection to a camera capture sidecar the
+// engine doesn't ship. The declared workflow channel supplies the id; this
+// supplies how to reach the sidecar. Which camera to read is sent per request,
+// so many cameras may share one endpoint.
+type CameraConfig struct {
+	URL string
 }
 
 // LLMProviderKind selects how the engine reaches one provider instance when

@@ -1,0 +1,19 @@
+# Inference runtime, web server and the broad scientific stack — frozen so any
+# ONNX model's handler (built-in or custom) works out of the box, with no
+# per-deploy pip install. All permissive licenses:
+#   onnxruntime  MIT        fastapi   MIT       uvicorn          BSD-3
+#   numpy        BSD-3      scipy     BSD-3     scikit-learn     BSD-3
+#   opencv-python-headless  Apache-2.0          pyyaml           MIT
+#   pydantic     MIT        python-multipart    Apache-2.0
+#   Pillow       MIT-CMU
+onnxruntime==1.27.0
+fastapi==0.138.1
+uvicorn[standard]==0.49.0
+python-multipart==0.0.32
+numpy==2.5.0
+opencv-python-headless==4.13.0.92
+scipy==1.18.0
+scikit-learn==1.9.0
+pyyaml==6.0.3
+pydantic==2.13.4
+Pillow==12.3.0

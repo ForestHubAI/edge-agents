@@ -1,0 +1,8 @@
+schemaVersion: 1
+handler: file:handler.py     # custom handler shipped in this bundle (not a built-in)
+model: model.onnx
+params:
+  input: { width: 640, height: 640 }
+  labels: coco.txt
+  confThreshold: 0.25
+  nmsThreshold: 0.45
