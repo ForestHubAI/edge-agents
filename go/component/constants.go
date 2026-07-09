@@ -34,6 +34,15 @@ const (
 	Workspace = "/var/lib/foresthub/workspace"
 )
 
+// Component identity names — the stable, canonical name each first-party component
+// stamps on its logs and the control plane addresses it by. A cross-boundary
+// contract: the value must match what the renderer/backend uses to name the
+// container and correlate its output. Constants, not configuration.
+const (
+	// NameEngine is the workflow-runtime component's identity.
+	NameEngine = "engine"
+)
+
 // Process exit codes a first-party component uses to tell the orchestrator how to
 // react to a failure. Only a permanent failure gets a dedicated code; any other
 // nonzero exit is treated as transient — the orchestrator may restart the
