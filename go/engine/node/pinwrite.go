@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -26,7 +26,7 @@ var _ engine.Executable = (*WritePin)(nil)
 //   - Analog (DAC)  → dac (millivolts)
 type WritePin struct {
 	engine.LinearNode
-	value workflow.Expression
+	value workflowapi.Expression
 
 	gpioout *channel.GPIOOutput
 	pwm     *channel.PWM
@@ -34,7 +34,7 @@ type WritePin struct {
 }
 
 // NewWritePinDigital builds a WritePin bound to a GPIO output channel.
-func NewWritePinDigital(id string, value workflow.Expression, gpioout *channel.GPIOOutput) *WritePin {
+func NewWritePinDigital(id string, value workflowapi.Expression, gpioout *channel.GPIOOutput) *WritePin {
 	return &WritePin{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,
@@ -43,7 +43,7 @@ func NewWritePinDigital(id string, value workflow.Expression, gpioout *channel.G
 }
 
 // NewWritePinPWM builds a WritePin bound to a PWM output channel.
-func NewWritePinPWM(id string, value workflow.Expression, pwm *channel.PWM) *WritePin {
+func NewWritePinPWM(id string, value workflowapi.Expression, pwm *channel.PWM) *WritePin {
 	return &WritePin{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,
@@ -52,7 +52,7 @@ func NewWritePinPWM(id string, value workflow.Expression, pwm *channel.PWM) *Wri
 }
 
 // NewWritePinDAC builds a WritePin bound to a DAC output channel.
-func NewWritePinDAC(id string, value workflow.Expression, dac *channel.DAC) *WritePin {
+func NewWritePinDAC(id string, value workflowapi.Expression, dac *channel.DAC) *WritePin {
 	return &WritePin{
 		LinearNode: engine.NewLinearNode(id),
 		value:      value,

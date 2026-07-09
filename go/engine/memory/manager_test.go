@@ -11,19 +11,19 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // mf is a terse MemoryFile builder for declarations and snapshots.
-func mf(id, label, content string) workflow.MemoryFile {
-	return workflow.MemoryFile{Id: id, Label: label, Description: label, Content: content}
+func mf(id, label, content string) workflowapi.MemoryFile {
+	return workflowapi.MemoryFile{Id: id, Label: label, Description: label, Content: content}
 }
 
 // writeLocalRecord seeds a <uid>.json record directly, simulating a warm
 // volume left behind by a prior run.
-func writeLocalRecord(t *testing.T, dir string, f workflow.MemoryFile) {
+func writeLocalRecord(t *testing.T, dir string, f workflowapi.MemoryFile) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	b, err := json.Marshal(f)
@@ -34,7 +34,7 @@ func writeLocalRecord(t *testing.T, dir string, f workflow.MemoryFile) {
 func TestManager_Reconcile_SeedsFromDeclaredWhenLocalEmpty(t *testing.T) {
 	// Empty local dir: declared content is the seed.
 	mgr := NewManager(t.TempDir())
-	declared := []workflow.MemoryFile{mf("uid-notes", "notes", "hello"), mf("uid-log", "log", "")}
+	declared := []workflowapi.MemoryFile{mf("uid-notes", "notes", "hello"), mf("uid-log", "log", "")}
 	require.NoError(t, mgr.Reconcile(context.Background(), declared))
 
 	got, err := mgr.Read("uid-notes")
@@ -56,7 +56,7 @@ func TestManager_Reconcile_LocalWinsOverDeclared(t *testing.T) {
 	writeLocalRecord(t, dir, mf("uid-notes", "notes", "kept local edits"))
 
 	mgr := NewManager(dir)
-	require.NoError(t, mgr.Reconcile(context.Background(), []workflow.MemoryFile{mf("uid-notes", "notes", "declared seed")}))
+	require.NoError(t, mgr.Reconcile(context.Background(), []workflowapi.MemoryFile{mf("uid-notes", "notes", "declared seed")}))
 
 	got, err := mgr.Read("uid-notes")
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestManager_Reconcile_DeclaredMetadataIsAuthoritative(t *testing.T) {
 	writeLocalRecord(t, dir, mf("uid-notes", "old-name", "content"))
 
 	mgr := NewManager(dir)
-	require.NoError(t, mgr.Reconcile(context.Background(), []workflow.MemoryFile{mf("uid-notes", "new-name", "ignored seed")}))
+	require.NoError(t, mgr.Reconcile(context.Background(), []workflowapi.MemoryFile{mf("uid-notes", "new-name", "ignored seed")}))
 
 	card, err := mgr.Card("uid-notes")
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestManager_Reconcile_DeclaredMetadataIsAuthoritative(t *testing.T) {
 
 func TestManager_Append(t *testing.T) {
 	mgr := NewManager(t.TempDir())
-	require.NoError(t, mgr.Reconcile(context.Background(), []workflow.MemoryFile{mf("uid-log", "log", "first line\n")}))
+	require.NoError(t, mgr.Reconcile(context.Background(), []workflowapi.MemoryFile{mf("uid-log", "log", "first line\n")}))
 
 	require.NoError(t, mgr.Append(context.Background(), "uid-log", "second line\n"))
 	got, err := mgr.Read("uid-log")
@@ -91,7 +91,7 @@ func TestManager_Append(t *testing.T) {
 
 func TestManager_Edit_FoundAndMissing(t *testing.T) {
 	mgr := NewManager(t.TempDir())
-	require.NoError(t, mgr.Reconcile(context.Background(), []workflow.MemoryFile{mf("uid-notes", "notes", "prefers tea")}))
+	require.NoError(t, mgr.Reconcile(context.Background(), []workflowapi.MemoryFile{mf("uid-notes", "notes", "prefers tea")}))
 
 	require.NoError(t, mgr.Edit(context.Background(), "uid-notes", "tea", "coffee"))
 	got, _ := mgr.Read("uid-notes")
@@ -104,7 +104,7 @@ func TestManager_Edit_FoundAndMissing(t *testing.T) {
 func TestManager_Append_SizeCap(t *testing.T) {
 	max := 5
 	mgr := NewManager(t.TempDir())
-	declared := []workflow.MemoryFile{{Id: "uid-tiny", Label: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max}}
+	declared := []workflowapi.MemoryFile{{Id: "uid-tiny", Label: "tiny", Description: "n", Content: "abc", MaxSizeBytes: &max}}
 	require.NoError(t, mgr.Reconcile(context.Background(), declared))
 
 	err := mgr.Append(context.Background(), "uid-tiny", "xyz") // "abcxyz" (6 > 5)

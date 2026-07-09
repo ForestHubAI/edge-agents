@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
@@ -33,7 +33,7 @@ import (
 //
 // backendClient may be nil (no backend configured); a backendLlm instance then
 // is a config error. An unbound or unconfigured declared model is a config error.
-func buildProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
+func buildProviders(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
 	if ext == nil {
 		ext = &engine.ExternalResources{}
 	}
@@ -93,7 +93,7 @@ func buildProviders(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engin
 // self-hosted endpoint via its resource mapping and provider config. Several models
 // on one endpoint become several ModelEndpoints sharing a url. A declared model
 // bound to a non-self-hosted provider is a config error.
-func selfHostedEndpoints(wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
+func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	for _, mu := range wf.Models {
 		m, err := mu.AsLLMModel()
@@ -130,8 +130,8 @@ func selfHostedEndpoints(wf *workflow.Workflow, dm engine.ResourceMapping, ext *
 // that no provider in the composed client can serve. Without this the failure
 // surfaces lazily at the first Chat ("no suitable provider"); here it's a clear
 // boot-time error naming the model.
-func validateModelsResolvable(wf *workflow.Workflow, client *llmproxy.Client) error {
-	ids, err := requiredModelIDs(wf)
+func validateModelsResolvable(wf *workflowapi.Workflow, client *llmproxy.Client) error {
+	ids, err := workflowapi.ReferencedModelIDs(wf)
 	if err != nil {
 		return fmt.Errorf("scanning referenced models: %w", err)
 	}
@@ -145,41 +145,4 @@ func validateModelsResolvable(wf *workflow.Workflow, client *llmproxy.Client) er
 		}
 	}
 	return nil
-}
-
-// requiredModelIDs collects the chat-model ids referenced by Agent nodes across
-// the main graph and every function body — the models the engine must be able
-// to serve. Only Agent nodes reference chat models today; nodes with a missing
-// model id are skipped here (the graph build reports that as a MissingField).
-func requiredModelIDs(wf *workflow.Workflow) ([]string, error) {
-	seen := make(map[string]struct{})
-	var out []string
-	scan := func(nodes []workflow.Node) error {
-		for _, n := range nodes {
-			v, err := n.ValueByDiscriminator()
-			if err != nil {
-				return err
-			}
-			a, ok := v.(workflow.AgentNode)
-			if !ok || a.Arguments.Model == nil || *a.Arguments.Model == "" {
-				continue
-			}
-			id := *a.Arguments.Model
-			if _, dup := seen[id]; dup {
-				continue
-			}
-			seen[id] = struct{}{}
-			out = append(out, id)
-		}
-		return nil
-	}
-	if err := scan(wf.Nodes); err != nil {
-		return nil, err
-	}
-	for _, f := range wf.Functions {
-		if err := scan(f.Nodes); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
 }

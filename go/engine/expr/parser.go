@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 )
 
 // parseAndEval evaluates a simple expression string with literals
 // and operators. Supports: +, -, *, /, %, ==, !=, <, >, <=, >=, &&, ||, !
-func parseAndEval(expr string, targetType workflow.DataType) (Value, error) {
+func parseAndEval(expr string, targetType workflowapi.DataType) (Value, error) {
 	p := &parser{input: expr, pos: 0}
 	val, err := p.parseOr()
 	if err != nil {
@@ -170,7 +170,7 @@ func (p *parser) parseAddSub() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if left.Type == workflow.Float || right.Type == workflow.Float {
+		if left.Type == workflowapi.Float || right.Type == workflowapi.Float {
 			if ch == '+' {
 				left = FloatVal(left.AsFloat() + right.AsFloat())
 			} else {
@@ -202,7 +202,7 @@ func (p *parser) parseMulDiv() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if left.Type == workflow.Float || right.Type == workflow.Float {
+		if left.Type == workflowapi.Float || right.Type == workflowapi.Float {
 			switch ch {
 			case '*':
 				left = FloatVal(left.AsFloat() * right.AsFloat())
@@ -261,7 +261,7 @@ func (p *parser) parseUnary() (Value, error) {
 		if err != nil {
 			return Value{}, err
 		}
-		if val.Type == workflow.Float {
+		if val.Type == workflowapi.Float {
 			return FloatVal(-val.AsFloat()), nil
 		}
 		return IntVal(-val.AsInt()), nil
@@ -393,7 +393,7 @@ func isIdentChar(ch byte) bool {
 }
 
 func compareValues(a, b Value) int {
-	if a.Type == workflow.String || b.Type == workflow.String {
+	if a.Type == workflowapi.String || b.Type == workflowapi.String {
 		as, bs := a.AsString(), b.AsString()
 		if as < bs {
 			return -1

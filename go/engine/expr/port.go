@@ -4,10 +4,10 @@
 
 package expr
 
-import "github.com/ForestHubAI/edge-agents/go/api/workflow"
+import "github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 // VarResolver looks up a variable value by reference. Any type that holds
 // variables (engine.Scope or a test double) can satisfy it.
 type VarResolver interface {
-	Resolve(ref workflow.Reference) (Value, error)
+	Resolve(ref workflowapi.Reference) (Value, error)
 }

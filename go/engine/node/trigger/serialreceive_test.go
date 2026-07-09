@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestSerialReceive(id string, binding workflow.OutputBinding, incoming <-chan string) *OnSerialReceive {
+func newTestSerialReceive(id string, binding workflowapi.OutputBinding, incoming <-chan string) *OnSerialReceive {
 	return &OnSerialReceive{
 		TriggerNode: engine.NewTriggerNode(id),
 		binding:     binding,
@@ -28,18 +28,18 @@ func newTestSerialReceive(id string, binding workflow.OutputBinding, incoming <-
 
 func TestOnSerialReceive_Outputs(t *testing.T) {
 	t.Run("emit binding exposes the output slot", func(t *testing.T) {
-		tr := newTestSerialReceive("t", workflow.OutputBinding{
-			Active: true, Mode: workflow.OutputBindingModeEmit,
+		tr := newTestSerialReceive("t", workflowapi.OutputBinding{
+			Active: true, Mode: workflowapi.OutputBindingModeEmit,
 		}, nil)
 		out := tr.Outputs()
-		assert.Equal(t, workflow.String, out["output"])
+		assert.Equal(t, workflowapi.String, out["output"])
 	})
 
 	t.Run("assign-mode binding produces no emitter outputs", func(t *testing.T) {
-		tr := newTestSerialReceive("t", workflow.OutputBinding{
+		tr := newTestSerialReceive("t", workflowapi.OutputBinding{
 			Active: true,
-			Mode:   workflow.OutputBindingModeAssign,
-			Target: &workflow.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
+			Mode:   workflowapi.OutputBindingModeAssign,
+			Target: &workflowapi.Reference{SrcId: engine.SrcDeclared, VarId: "x"},
 		}, nil)
 		assert.NotContains(t, tr.Outputs(), "output")
 	})
@@ -49,7 +49,7 @@ func TestOnSerialReceive_Wait(t *testing.T) {
 	t.Run("emits event with Apply that writes the line", func(t *testing.T) {
 		ch := make(chan string, 1)
 		ch <- "hello"
-		binding := workflow.OutputBinding{Active: true, Mode: workflow.OutputBindingModeEmit}
+		binding := workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}
 		tr := newTestSerialReceive("t", binding, ch)
 		require.NoError(t, tr.AddTransition("", engine.Transition{TargetID: "next"}))
 
@@ -64,14 +64,14 @@ func TestOnSerialReceive_Wait(t *testing.T) {
 		require.NoError(t, err)
 		ev.Apply(s)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: "t", VarId: "output"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: "t", VarId: "output"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal("hello"), v)
 	})
 
 	t.Run("ctx cancel returns ctx.Err", func(t *testing.T) {
 		ch := make(chan string)
-		tr := newTestSerialReceive("t", workflow.OutputBinding{}, ch)
+		tr := newTestSerialReceive("t", workflowapi.OutputBinding{}, ch)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err := tr.Wait(ctx)
@@ -81,14 +81,14 @@ func TestOnSerialReceive_Wait(t *testing.T) {
 	t.Run("closed stream errors", func(t *testing.T) {
 		ch := make(chan string)
 		close(ch)
-		tr := newTestSerialReceive("t", workflow.OutputBinding{}, ch)
+		tr := newTestSerialReceive("t", workflowapi.OutputBinding{}, ch)
 		_, err := tr.Wait(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "stream closed")
 	})
 
 	t.Run("Close is a no-op", func(t *testing.T) {
-		tr := newTestSerialReceive("t", workflow.OutputBinding{}, nil)
+		tr := newTestSerialReceive("t", workflowapi.OutputBinding{}, nil)
 		assert.NoError(t, tr.Close())
 	})
 }

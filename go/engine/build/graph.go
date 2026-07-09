@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 
@@ -43,7 +43,7 @@ func newGraph(bc *buildContext) *graph {
 // triggers, tools, and allNodes as a side effect.
 // Registers hardware resources in channels as nodes are constructed.
 // Returns the initial state (target of the OnStartup/OnFunctionCall edge, or StateIdle if absent).
-func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, error) {
+func (b *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) (string, error) {
 	var onStartUpID string // Possible ID of the single OnStartup/OnFunctionCall node
 
 	// Instantiate every node. Unsupported types fail the build.
@@ -55,12 +55,12 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 		switch nd := val.(type) {
 		// Not a runtime trigger — wireEdges converts its outgoing edge
 		// into the runner's initial state (or function entry).
-		case workflow.OnStartupNode:
+		case workflowapi.OnStartupNode:
 			onStartUpID = nd.Id
-		case workflow.OnFunctionCallNode:
+		case workflowapi.OnFunctionCallNode:
 			onStartUpID = nd.Id
 
-		case workflow.TickerNode:
+		case workflowapi.TickerNode:
 			if nd.Arguments.IntervalValue == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "intervalValue"}
 			}
@@ -72,7 +72,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.AlarmNode:
+		case workflowapi.AlarmNode:
 			t, err := trigger.NewAlarm(nd.Id, pointer.Val(nd.Arguments.Time), nd.Arguments.Days)
 			if err != nil {
 				return "", err
@@ -80,7 +80,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.DelayNode:
+		case workflowapi.DelayNode:
 			if nd.Arguments.DelayMs == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "delayMs"}
 			}
@@ -88,7 +88,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.OnSerialReceiveNode:
+		case workflowapi.OnSerialReceiveNode:
 			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
@@ -97,7 +97,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.OnPinEdgeNode:
+		case workflowapi.OnPinEdgeNode:
 			if nd.Arguments.PinReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
 			}
@@ -109,7 +109,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.OnThresholdNode:
+		case workflowapi.OnThresholdNode:
 			if nd.Arguments.Variable == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "variable"}
 			}
@@ -132,7 +132,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.SetVariableNode:
+		case workflowapi.SetVariableNode:
 			if nd.Arguments.Variable == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "variable"}
 			}
@@ -140,12 +140,12 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.IfNode:
+		case workflowapi.IfNode:
 			n := node.NewIf(nd.Id, nd.Arguments.Condition)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.ReadPinNode:
+		case workflowapi.ReadPinNode:
 			n, err := b.buildReadPin(nd)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
@@ -153,7 +153,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.WritePinNode:
+		case workflowapi.WritePinNode:
 			n, err := b.buildWritePin(nd)
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
@@ -161,7 +161,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.SerialReadNode:
+		case workflowapi.SerialReadNode:
 			uart, err := b.channels.uart(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
@@ -174,7 +174,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.SerialWriteNode:
+		case workflowapi.SerialWriteNode:
 			dst, err := b.channels.textWriter(pointer.Val(nd.Arguments.PortReference))
 			if err != nil {
 				return "", fmt.Errorf("node %s: %w", nd.Id, err)
@@ -183,7 +183,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.MqttPublishNode:
+		case workflowapi.MqttPublishNode:
 			if nd.Arguments.ChannelReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "channelReference"}
 			}
@@ -195,7 +195,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.OnMqttMessageNode:
+		case workflowapi.OnMqttMessageNode:
 			if nd.Arguments.ChannelReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "channelReference"}
 			}
@@ -210,7 +210,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = t
 			b.triggers[nd.Id] = t
 
-		case workflow.FunctionCallNode:
+		case workflowapi.FunctionCallNode:
 			fn, ok := b.functions[nd.Id]
 			if !ok {
 				return "", fmt.Errorf("node %s: function %q not declared in workflow", nd.Id, nd.Id)
@@ -228,7 +228,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.RetrieverNode:
+		case workflowapi.RetrieverNode:
 			if b.retriever == nil {
 				return "", fmt.Errorf("node %s: retriever node requires a configured RAG backend, none available", nd.Id)
 			}
@@ -246,7 +246,7 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.WebFetchNode:
+		case workflowapi.WebFetchNode:
 			maxChars := 0
 			if nd.Arguments.MaxChars != nil {
 				maxChars = *nd.Arguments.MaxChars
@@ -255,14 +255,14 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 
-		case workflow.WebSearchToolNode:
+		case workflowapi.WebSearchToolNode:
 			if b.webSearch == nil {
 				return "", fmt.Errorf("node %s: web search tool requires ENGINE_WEB_SEARCH_API_KEY to be configured", nd.Id)
 			}
 			n := node.NewWebSearchTool(nd.Id, b.webSearch, pointer.Val(nd.Arguments.MaxResults))
 			b.allNodes[nd.Id] = n
 
-		case workflow.AgentNode:
+		case workflowapi.AgentNode:
 			if b.llm == nil {
 				return "", fmt.Errorf("node %s: agent node requires an llm client, none configured", nd.Id)
 			}
@@ -295,10 +295,10 @@ func (b *graph) build(apiNodes []workflow.Node, edges []workflow.Edge) (string, 
 
 // buildReadPin resolves the linked channel from the workflow's
 // declarations and constructs the right ReadPin variant for signalType.
-func (b *graph) buildReadPin(nd workflow.ReadPinNode) (*node.ReadPin, error) {
+func (b *graph) buildReadPin(nd workflowapi.ReadPinNode) (*node.ReadPin, error) {
 	desc := pointer.Val(nd.Arguments.ToolDescription)
 	switch nd.Arguments.SignalType {
-	case workflow.Digital:
+	case workflowapi.Digital:
 		if nd.Arguments.PinReference == nil {
 			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
 		}
@@ -307,7 +307,7 @@ func (b *graph) buildReadPin(nd workflow.ReadPinNode) (*node.ReadPin, error) {
 			return nil, err
 		}
 		return node.NewReadPinDigital(nd.Id, nd.Arguments.Output, desc, v), nil
-	case workflow.Analog:
+	case workflowapi.Analog:
 		if nd.Arguments.PinReference == nil {
 			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
 		}
@@ -324,9 +324,9 @@ func (b *graph) buildReadPin(nd workflow.ReadPinNode) (*node.ReadPin, error) {
 // buildWritePin resolves the linked channel and constructs the right
 // WritePin variant. Digital → GPIOOUT. Analog → PWM or DAC, picked by
 // whichever channel the pinReference resolves to.
-func (b *graph) buildWritePin(nd workflow.WritePinNode) (*node.WritePin, error) {
+func (b *graph) buildWritePin(nd workflowapi.WritePinNode) (*node.WritePin, error) {
 	switch nd.Arguments.SignalType {
-	case workflow.Digital:
+	case workflowapi.Digital:
 		if nd.Arguments.PinReference == nil {
 			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
 		}
@@ -335,7 +335,7 @@ func (b *graph) buildWritePin(nd workflow.WritePinNode) (*node.WritePin, error) 
 			return nil, err
 		}
 		return node.NewWritePinDigital(nd.Id, nd.Arguments.Value, v), nil
-	case workflow.Analog:
+	case workflowapi.Analog:
 		// Analog pin can be either a PWM or DAC channel. Try PWM first; if
 		// the id isn't in the PWM map, fall back to DAC.
 		if nd.Arguments.PinReference == nil {
@@ -357,12 +357,12 @@ func (b *graph) buildWritePin(nd workflow.WritePinNode) (*node.WritePin, error) 
 // wireEdges connects nodes based on the workflow's connections and partitions
 // tool-wired receivers out of actions into tools.
 // Returns the initial state (target of the OnStartup/OnFunctionCall edge, or StateIdle if absent).
-func (b *graph) wireEdges(edges []workflow.Edge, onStartupID string) (string, error) {
+func (b *graph) wireEdges(edges []workflowapi.Edge, onStartupID string) (string, error) {
 	// First identify tool-wired receivers and extract them from actions.
 	// Done before the wiring pass so control-flow edges can reject a target
 	// that's already tool-wired, regardless of edge ordering in the input.
 	for _, e := range edges {
-		if e.Type != workflow.Tool {
+		if e.Type != workflowapi.Tool {
 			continue
 		}
 		n, ok := b.allNodes[e.To.NodeId]
@@ -390,7 +390,7 @@ func (b *graph) wireEdges(edges []workflow.Edge, onStartupID string) (string, er
 			return "", fmt.Errorf("edge to unknown node %s", e.To.NodeId)
 		}
 		// Tool edge: attach the provider to the agent's tool list
-		if e.Type == workflow.Tool {
+		if e.Type == workflowapi.Tool {
 			tool, ok := receiver.(engine.ToolProvider)
 			if !ok {
 				return "", fmt.Errorf("tool edge from %s to %s: receiver is not a ToolProvider", e.From.NodeId, e.To.NodeId)

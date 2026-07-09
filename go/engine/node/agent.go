@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/agent"
@@ -40,9 +40,9 @@ type Agent struct {
 	engine.BranchingNode
 	name            string
 	instructions    string
-	answerBinding   workflow.OutputBinding       // binding for the agent's free-form "answer" slot
-	outputDecl      []workflow.OutputDeclaration // user-declared outputs (each carries its own routing via ApplyDeclaration)
-	memoryRefs      []workflow.MemoryRef         // memory files the LLM may read/write, with per-ref access mode
+	answerBinding   workflowapi.OutputBinding       // binding for the agent's free-form "answer" slot
+	outputDecl      []workflowapi.OutputDeclaration // user-declared outputs (each carries its own routing via ApplyDeclaration)
+	memoryRefs      []workflowapi.MemoryRef         // memory files the LLM may read/write, with per-ref access mode
 	memory          *memory.Manager              // engine-scoped memory subsystem; may be nil if no refs are wired
 	runner          *agent.Runner                // pre-built (model + max_turns fixed)
 	options         *llmproxy.Options            // generation options; nil for provider defaults
@@ -67,9 +67,9 @@ func NewAgent(
 	name string,
 	model string,
 	instructions *string,
-	answer workflow.OutputBinding,
-	outputDecls []workflow.OutputDeclaration,
-	memoryRefs []workflow.MemoryRef,
+	answer workflowapi.OutputBinding,
+	outputDecls []workflowapi.OutputDeclaration,
+	memoryRefs []workflowapi.MemoryRef,
 	maxTurns *int,
 	toolDescription string,
 	client engine.LlmClient,
@@ -96,15 +96,15 @@ func NewAgent(
 	}
 }
 
-func (n *Agent) Outputs() map[string]workflow.DataType {
-	out := make(map[string]workflow.DataType)
+func (n *Agent) Outputs() map[string]workflowapi.DataType {
+	out := make(map[string]workflowapi.DataType)
 	// Add answer slot if it's emitted
-	if n.answerBinding.Mode == workflow.OutputBindingModeEmit {
-		out[agentAnswerOutID] = workflow.String
+	if n.answerBinding.Mode == workflowapi.OutputBindingModeEmit {
+		out[agentAnswerOutID] = workflowapi.String
 	}
 	// Add emit-mode declarations
 	for _, od := range n.outputDecl {
-		if od.Mode == workflow.OutputDeclarationModeEmit {
+		if od.Mode == workflowapi.OutputDeclarationModeEmit {
 			// Asserts that uid is non-nil when mode=emit
 			out[*od.Uid] = od.DataType
 		}

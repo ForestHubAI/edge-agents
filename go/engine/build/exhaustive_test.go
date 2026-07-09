@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -82,7 +82,7 @@ func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 				mainScope: ms,
 			}
 
-			var n workflow.Node
+			var n workflowapi.Node
 			require.NoError(t,
 				json.Unmarshal(fmt.Appendf(nil, `{"id":"n1","type":%q,"arguments":{}}`, typ), &n),
 				"constructing a %q node", typ)
@@ -105,12 +105,12 @@ func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 // proves the type switch reached that arm, which is all this test checks. The
 // default arm returns an error rather than panicking, so a genuine missing case
 // can never be masked by this recover.
-func safeBuild(bc *buildContext, n workflow.Node) (err error) {
+func safeBuild(bc *buildContext, n workflowapi.Node) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = nil
 		}
 	}()
-	_, err = newGraph(bc).build([]workflow.Node{n}, nil)
+	_, err = newGraph(bc).build([]workflowapi.Node{n}, nil)
 	return err
 }

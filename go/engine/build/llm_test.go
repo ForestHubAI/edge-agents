@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/selfhosted"
@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func llmModel(t *testing.T, id string, caps ...llmapi.ModelCapability) workflow.Model {
+func llmModel(t *testing.T, id string, caps ...llmapi.ModelCapability) workflowapi.Model {
 	t.Helper()
-	var m workflow.Model
-	require.NoError(t, m.FromLLMModel(workflow.LLMModel{
-		Type:         workflow.LLMModelTypeLLMModel,
+	var m workflowapi.Model
+	require.NoError(t, m.FromLLMModel(workflowapi.LLMModel{
+		Type:         workflowapi.LLMModelTypeLLMModel,
 		Id:           id,
 		Label:        id,
 		Capabilities: caps,
@@ -30,12 +30,12 @@ func llmModel(t *testing.T, id string, caps ...llmapi.ModelCapability) workflow.
 }
 
 // agentNode builds a workflow Node wrapping an Agent that references model.
-func agentNode(t *testing.T, id, model string) workflow.Node {
+func agentNode(t *testing.T, id, model string) workflowapi.Node {
 	t.Helper()
-	var a workflow.AgentNode
+	var a workflowapi.AgentNode
 	a.Id = id
 	a.Arguments.Model = pointer.Ptr(model)
-	var n workflow.Node
+	var n workflowapi.Node
 	require.NoError(t, n.FromAgentNode(a))
 	return n
 }
@@ -61,7 +61,7 @@ func selfHosted(url string) engine.LLMProviderConfig {
 }
 
 func TestBuildProviders_ResolvesChatModel(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "my-llama", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"prov-1": {Kind: engine.LLMSelfHosted, URL: "http://llm:8000", APIKey: "k"},
@@ -80,20 +80,20 @@ func TestBuildProviders_ResolvesChatModel(t *testing.T) {
 
 func TestBuildProviders_UnboundModelFails(t *testing.T) {
 	// Declared models are always custom — an unbound one is a broken config.
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "my-llama", llmapi.Chat)}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "my-llama", llmapi.Chat)}}
 	_, err := buildProviders(wf, nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not bound")
 }
 
 func TestBuildProviders_NoModels(t *testing.T) {
-	provs, err := buildProviders(&workflow.Workflow{}, nil, nil, nil)
+	provs, err := buildProviders(&workflowapi.Workflow{}, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Nil(t, provs)
 }
 
 func TestBuildProviders_BoundButNoConfig(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"m": {Ref: "missing"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{}}
 
@@ -104,7 +104,7 @@ func TestBuildProviders_BoundButNoConfig(t *testing.T) {
 
 func TestBuildProviders_DeclaredModelOnNonSelfHostedFails(t *testing.T) {
 	// A declared (custom) model must bind to a self-hosted provider, not a catalog one.
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "m", llmapi.Chat)}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"m": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"p": {Kind: engine.LLMLocal, Provider: "Anthropic"},
@@ -116,7 +116,7 @@ func TestBuildProviders_DeclaredModelOnNonSelfHostedFails(t *testing.T) {
 }
 
 func TestBuildProviders_EmbeddingUnsupported(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{llmModel(t, "embed", llmapi.Embedding)}}
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "embed", llmapi.Embedding)}}
 	dm := engine.ResourceMapping{"embed": {Ref: "p"}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": selfHosted("http://e:8000")}}
 
@@ -126,7 +126,7 @@ func TestBuildProviders_EmbeddingUnsupported(t *testing.T) {
 }
 
 func TestBuildProviders_MultipleModelsOneProvider(t *testing.T) {
-	wf := &workflow.Workflow{Models: []workflow.Model{
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{
 		llmModel(t, "a", llmapi.Chat),
 		llmModel(t, "b", llmapi.Chat),
 	}}
@@ -149,7 +149,7 @@ func TestBuildProviders_LocalCatalogProvider(t *testing.T) {
 		"anthropic": {Kind: engine.LLMLocal, Provider: "Anthropic", APIKey: "sk-ant"},
 	}}
 
-	provs, err := buildProviders(&workflow.Workflow{}, nil, ext, nil)
+	provs, err := buildProviders(&workflowapi.Workflow{}, nil, ext, nil)
 	require.NoError(t, err)
 	require.Len(t, provs, 1)
 	assert.Equal(t, llmproxy.ProviderID("Anthropic"), provs[0].ProviderID())
@@ -160,7 +160,7 @@ func TestBuildProviders_UnknownLocalProviderFails(t *testing.T) {
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"x": {Kind: engine.LLMLocal, Provider: "Bogus", APIKey: "k"},
 	}}
-	_, err := buildProviders(&workflow.Workflow{}, nil, ext, nil)
+	_, err := buildProviders(&workflowapi.Workflow{}, nil, ext, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown catalog provider")
 }
@@ -170,47 +170,23 @@ func TestBuildProviders_BackendWithoutClientFails(t *testing.T) {
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"anthropic": {Kind: engine.LLMBackend, Provider: "Anthropic"},
 	}}
-	_, err := buildProviders(&workflow.Workflow{}, nil, ext, nil)
+	_, err := buildProviders(&workflowapi.Workflow{}, nil, ext, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no backend is configured")
 }
 
-func TestRequiredModelIDs_ScansAgentsAndFunctionsDeduped(t *testing.T) {
-	wf := &workflow.Workflow{
-		Nodes: []workflow.Node{agentNode(t, "a1", "gpt-4o"), agentNode(t, "a2", "gpt-4o")},
-		Functions: []workflow.Function{
-			{Nodes: []workflow.Node{agentNode(t, "f1", "claude")}},
-		},
-	}
-	ids, err := requiredModelIDs(wf)
-	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{"gpt-4o", "claude"}, ids)
-}
-
-func TestRequiredModelIDs_IgnoresNonAgentAndMissingModel(t *testing.T) {
-	var noModel workflow.AgentNode
-	noModel.Id = "a-empty" // Model left nil
-	var n workflow.Node
-	require.NoError(t, n.FromAgentNode(noModel))
-
-	wf := &workflow.Workflow{Nodes: []workflow.Node{n}}
-	ids, err := requiredModelIDs(wf)
-	require.NoError(t, err)
-	assert.Empty(t, ids)
-}
-
 func TestValidateModelsResolvable_AllResolvable(t *testing.T) {
-	wf := &workflow.Workflow{Nodes: []workflow.Node{agentNode(t, "a", "known")}}
+	wf := &workflowapi.Workflow{Nodes: []workflowapi.Node{agentNode(t, "a", "known")}}
 	assert.NoError(t, validateModelsResolvable(wf, chatClient("known")))
 }
 
 func TestValidateModelsResolvable_UnresolvableFails(t *testing.T) {
-	wf := &workflow.Workflow{Nodes: []workflow.Node{agentNode(t, "a", "ghost")}}
+	wf := &workflowapi.Workflow{Nodes: []workflowapi.Node{agentNode(t, "a", "ghost")}}
 	err := validateModelsResolvable(wf, chatClient("known"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ghost")
 }
 
 func TestValidateModelsResolvable_NoAgentsPasses(t *testing.T) {
-	assert.NoError(t, validateModelsResolvable(&workflow.Workflow{}, chatClient()))
+	assert.NoError(t, validateModelsResolvable(&workflowapi.Workflow{}, chatClient()))
 }

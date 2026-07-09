@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
@@ -28,18 +28,18 @@ const pinReadOutID = "output"
 // picks one of the two pointers based on signalType; the other stays nil.
 type ReadPin struct {
 	engine.LinearNode
-	signalType      workflow.SignalType
-	binding         workflow.OutputBinding
+	signalType      workflowapi.SignalType
+	binding         workflowapi.OutputBinding
 	gpioin          *channel.GPIOInput
 	adc             *channel.ADC
 	toolDescription string
 }
 
 // NewReadPinDigital builds a ReadPin bound to a GPIO input channel.
-func NewReadPinDigital(id string, binding workflow.OutputBinding, toolDescription string, gpioin *channel.GPIOInput) *ReadPin {
+func NewReadPinDigital(id string, binding workflowapi.OutputBinding, toolDescription string, gpioin *channel.GPIOInput) *ReadPin {
 	return &ReadPin{
 		LinearNode:      engine.NewLinearNode(id),
-		signalType:      workflow.Digital,
+		signalType:      workflowapi.Digital,
 		binding:         binding,
 		gpioin:          gpioin,
 		toolDescription: toolDescription,
@@ -47,10 +47,10 @@ func NewReadPinDigital(id string, binding workflow.OutputBinding, toolDescriptio
 }
 
 // NewReadPinAnalog builds a ReadPin bound to an ADC channel.
-func NewReadPinAnalog(id string, binding workflow.OutputBinding, toolDescription string, adc *channel.ADC) *ReadPin {
+func NewReadPinAnalog(id string, binding workflowapi.OutputBinding, toolDescription string, adc *channel.ADC) *ReadPin {
 	return &ReadPin{
 		LinearNode:      engine.NewLinearNode(id),
-		signalType:      workflow.Analog,
+		signalType:      workflowapi.Analog,
 		binding:         binding,
 		adc:             adc,
 		toolDescription: toolDescription,
@@ -68,14 +68,14 @@ func (r *ReadPin) Execute(ctx context.Context, scope *engine.Scope) (string, err
 	return r.Next(engine.PortCtrl, scope)
 }
 
-func (r *ReadPin) Outputs() map[string]workflow.DataType {
-	dt := workflow.Bool
-	if r.signalType == workflow.Analog {
-		dt = workflow.Float
+func (r *ReadPin) Outputs() map[string]workflowapi.DataType {
+	dt := workflowapi.Bool
+	if r.signalType == workflowapi.Analog {
+		dt = workflowapi.Float
 	}
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{pinReadOutID: dt},
-		map[string]workflow.OutputBinding{pinReadOutID: r.binding},
+		map[string]workflowapi.DataType{pinReadOutID: dt},
+		map[string]workflowapi.OutputBinding{pinReadOutID: r.binding},
 	)
 }
 
@@ -94,13 +94,13 @@ func (r *ReadPin) Tools() ([]llmproxy.FunctionTool, error) {
 // readPin is the actual implementation of the tool call, unwrapped from the node execution signature
 func (r *ReadPin) readPin(_ context.Context, _ llmproxy.NoArgs) (expr.Value, error) {
 	switch r.signalType {
-	case workflow.Digital:
+	case workflowapi.Digital:
 		v, err := r.gpioin.Read()
 		if err != nil {
 			return expr.Value{}, fmt.Errorf("readPin %s: %w", r.ID(), err)
 		}
 		return expr.BoolVal(v), nil
-	case workflow.Analog:
+	case workflowapi.Analog:
 		v, err := r.adc.Read()
 		if err != nil {
 			return expr.Value{}, fmt.Errorf("readPin %s: %w", r.ID(), err)

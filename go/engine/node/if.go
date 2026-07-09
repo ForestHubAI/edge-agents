@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
@@ -21,11 +21,11 @@ var _ engine.Executable = (*If)(nil)
 // port.
 type If struct {
 	engine.LinearNode
-	condition workflow.Expression
+	condition workflowapi.Expression
 }
 
 // NewIf builds an If node.
-func NewIf(id string, condition workflow.Expression) *If {
+func NewIf(id string, condition workflowapi.Expression) *If {
 	return &If{
 		LinearNode: engine.NewLinearNode(id),
 		condition:  condition,

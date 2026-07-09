@@ -7,7 +7,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
@@ -26,7 +26,7 @@ func TestScope_SetResolve(t *testing.T) {
 
 		s.Set("nodeA", "out", expr.IntVal(42))
 
-		v, err := s.Resolve(workflow.Reference{SrcId: "nodeA", VarId: "out"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: "nodeA", VarId: "out"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(42), v)
 	})
@@ -35,7 +35,7 @@ func TestScope_SetResolve(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
 
-		_, err = s.Resolve(workflow.Reference{SrcId: "nope", VarId: "missing"})
+		_, err = s.Resolve(workflowapi.Reference{SrcId: "nope", VarId: "missing"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unresolved reference")
 	})
@@ -93,35 +93,35 @@ func TestScope_Subscribe(t *testing.T) {
 
 func TestNewMainScope(t *testing.T) {
 	t.Run("seeds declared variables", func(t *testing.T) {
-		s, err := NewMainScope([]workflow.Variable{
-			{Uid: "x", DataType: workflow.Int, InitialValue: float64(7)},
-			{Uid: "name", DataType: workflow.String, InitialValue: "alice"},
+		s, err := NewMainScope([]workflowapi.Variable{
+			{Uid: "x", DataType: workflowapi.Int, InitialValue: float64(7)},
+			{Uid: "name", DataType: workflowapi.String, InitialValue: "alice"},
 		})
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "x"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "x"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(7), v)
 
-		v, err = s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "name"})
+		v, err = s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "name"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal("alice"), v)
 	})
 
 	t.Run("nil InitialValue resolves to zero", func(t *testing.T) {
-		s, err := NewMainScope([]workflow.Variable{
-			{Uid: "x", DataType: workflow.Int, InitialValue: nil},
+		s, err := NewMainScope([]workflowapi.Variable{
+			{Uid: "x", DataType: workflowapi.Int, InitialValue: nil},
 		})
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "x"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "x"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(0), v)
 	})
 
 	t.Run("type-mismatched InitialValue returns error", func(t *testing.T) {
-		_, err := NewMainScope([]workflow.Variable{
-			{Uid: "x", DataType: workflow.Int, InitialValue: "not an int"},
+		_, err := NewMainScope([]workflowapi.Variable{
+			{Uid: "x", DataType: workflowapi.Int, InitialValue: "not an int"},
 		})
 		require.Error(t, err)
 	})
@@ -130,23 +130,23 @@ func TestNewMainScope(t *testing.T) {
 func TestNewFunctionScope(t *testing.T) {
 	t.Run("seeds args under SrcFnArg and declared variables", func(t *testing.T) {
 		s, err := NewFunctionScope(
-			[]workflow.Variable{{Uid: "local", DataType: workflow.String, InitialValue: "init"}},
+			[]workflowapi.Variable{{Uid: "local", DataType: workflowapi.String, InitialValue: "init"}},
 			map[string]expr.Value{"a": expr.IntVal(5)},
 		)
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: SrcFnArg, VarId: "a"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: SrcFnArg, VarId: "a"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(5), v)
 
-		v, err = s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "local"})
+		v, err = s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "local"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.StringVal("init"), v)
 	})
 
 	t.Run("declared variable seeding error propagates", func(t *testing.T) {
 		_, err := NewFunctionScope(
-			[]workflow.Variable{{Uid: "bad", DataType: workflow.Int, InitialValue: "nope"}},
+			[]workflowapi.Variable{{Uid: "bad", DataType: workflowapi.Int, InitialValue: "nope"}},
 			nil,
 		)
 		require.Error(t, err)
@@ -157,38 +157,38 @@ func TestApplyOutput(t *testing.T) {
 	t.Run("inactive binding writes nothing", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyOutput(s, "node", "slot", workflow.OutputBinding{Active: false}, expr.IntVal(1))
+		err = ApplyOutput(s, "node", "slot", workflowapi.OutputBinding{Active: false}, expr.IntVal(1))
 		require.NoError(t, err)
-		_, err = s.Resolve(workflow.Reference{SrcId: "node", VarId: "slot"})
+		_, err = s.Resolve(workflowapi.Reference{SrcId: "node", VarId: "slot"})
 		assert.Error(t, err) // not present
 	})
 
 	t.Run("emit mode writes under nodeID:slotID", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyOutput(s, "node", "slot", workflow.OutputBinding{
-			Active: true, Mode: workflow.OutputBindingModeEmit,
+		err = ApplyOutput(s, "node", "slot", workflowapi.OutputBinding{
+			Active: true, Mode: workflowapi.OutputBindingModeEmit,
 		}, expr.IntVal(42))
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: "node", VarId: "slot"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: "node", VarId: "slot"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(42), v)
 	})
 
 	t.Run("assign mode writes to target", func(t *testing.T) {
-		s, err := NewMainScope([]workflow.Variable{
-			{Uid: "x", DataType: workflow.Int},
+		s, err := NewMainScope([]workflowapi.Variable{
+			{Uid: "x", DataType: workflowapi.Int},
 		})
 		require.NoError(t, err)
-		err = ApplyOutput(s, "node", "slot", workflow.OutputBinding{
+		err = ApplyOutput(s, "node", "slot", workflowapi.OutputBinding{
 			Active: true,
-			Mode:   workflow.OutputBindingModeAssign,
-			Target: &workflow.Reference{SrcId: SrcDeclared, VarId: "x"},
+			Mode:   workflowapi.OutputBindingModeAssign,
+			Target: &workflowapi.Reference{SrcId: SrcDeclared, VarId: "x"},
 		}, expr.IntVal(99))
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "x"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "x"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(99), v)
 	})
@@ -196,9 +196,9 @@ func TestApplyOutput(t *testing.T) {
 	t.Run("assign mode without target returns error", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyOutput(s, "node", "slot", workflow.OutputBinding{
+		err = ApplyOutput(s, "node", "slot", workflowapi.OutputBinding{
 			Active: true,
-			Mode:   workflow.OutputBindingModeAssign,
+			Mode:   workflowapi.OutputBindingModeAssign,
 			Target: nil,
 		}, expr.IntVal(1))
 		require.Error(t, err)
@@ -210,8 +210,8 @@ func TestApplyDeclaration(t *testing.T) {
 	t.Run("emit mode requires uid", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyDeclaration(s, "node", workflow.OutputDeclaration{
-			Name: "out", Mode: workflow.OutputDeclarationModeEmit, Uid: nil,
+		err = ApplyDeclaration(s, "node", workflowapi.OutputDeclaration{
+			Name: "out", Mode: workflowapi.OutputDeclarationModeEmit, Uid: nil,
 		}, expr.IntVal(1))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing uid")
@@ -220,12 +220,12 @@ func TestApplyDeclaration(t *testing.T) {
 	t.Run("emit writes under nodeID:uid", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyDeclaration(s, "node", workflow.OutputDeclaration{
-			Name: "out", Mode: workflow.OutputDeclarationModeEmit, Uid: pointer.Ptr("slot-uid"),
+		err = ApplyDeclaration(s, "node", workflowapi.OutputDeclaration{
+			Name: "out", Mode: workflowapi.OutputDeclarationModeEmit, Uid: pointer.Ptr("slot-uid"),
 		}, expr.IntVal(7))
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: "node", VarId: "slot-uid"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: "node", VarId: "slot-uid"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(7), v)
 	})
@@ -233,24 +233,24 @@ func TestApplyDeclaration(t *testing.T) {
 	t.Run("assign without target errors", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyDeclaration(s, "node", workflow.OutputDeclaration{
-			Name: "out", Mode: workflow.OutputDeclarationModeAssign, Target: nil,
+		err = ApplyDeclaration(s, "node", workflowapi.OutputDeclaration{
+			Name: "out", Mode: workflowapi.OutputDeclarationModeAssign, Target: nil,
 		}, expr.IntVal(1))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing target")
 	})
 
 	t.Run("assign writes to target", func(t *testing.T) {
-		s, err := NewMainScope([]workflow.Variable{{Uid: "y", DataType: workflow.Int}})
+		s, err := NewMainScope([]workflowapi.Variable{{Uid: "y", DataType: workflowapi.Int}})
 		require.NoError(t, err)
-		err = ApplyDeclaration(s, "node", workflow.OutputDeclaration{
+		err = ApplyDeclaration(s, "node", workflowapi.OutputDeclaration{
 			Name:   "out",
-			Mode:   workflow.OutputDeclarationModeAssign,
-			Target: &workflow.Reference{SrcId: SrcDeclared, VarId: "y"},
+			Mode:   workflowapi.OutputDeclarationModeAssign,
+			Target: &workflowapi.Reference{SrcId: SrcDeclared, VarId: "y"},
 		}, expr.IntVal(123))
 		require.NoError(t, err)
 
-		v, err := s.Resolve(workflow.Reference{SrcId: SrcDeclared, VarId: "y"})
+		v, err := s.Resolve(workflowapi.Reference{SrcId: SrcDeclared, VarId: "y"})
 		require.NoError(t, err)
 		assert.Equal(t, expr.IntVal(123), v)
 	})
@@ -258,7 +258,7 @@ func TestApplyDeclaration(t *testing.T) {
 	t.Run("unknown mode errors", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		err = ApplyDeclaration(s, "node", workflow.OutputDeclaration{
+		err = ApplyDeclaration(s, "node", workflowapi.OutputDeclaration{
 			Name: "out", Mode: "bogus",
 		}, expr.IntVal(1))
 		require.Error(t, err)
@@ -269,12 +269,12 @@ func TestApplyDeclaration(t *testing.T) {
 // fakeEmitter is a minimal Emitter used to test RegisterNodeOutputs.
 type fakeEmitter struct {
 	id      string
-	outputs map[string]workflow.DataType
+	outputs map[string]workflowapi.DataType
 }
 
 func (f *fakeEmitter) ID() string                             { return f.id }
 func (f *fakeEmitter) AddTransition(string, Transition) error { return nil }
-func (f *fakeEmitter) Outputs() map[string]workflow.DataType  { return f.outputs }
+func (f *fakeEmitter) Outputs() map[string]workflowapi.DataType  { return f.outputs }
 
 func TestRegisterNodeOutputs(t *testing.T) {
 	s, err := NewMainScope(nil)
@@ -282,18 +282,18 @@ func TestRegisterNodeOutputs(t *testing.T) {
 
 	em := &fakeEmitter{
 		id: "n1",
-		outputs: map[string]workflow.DataType{
-			"a": workflow.Int,
-			"b": workflow.String,
+		outputs: map[string]workflowapi.DataType{
+			"a": workflowapi.Int,
+			"b": workflowapi.String,
 		},
 	}
 	RegisterNodeOutputs(s, em)
 
-	v, err := s.Resolve(workflow.Reference{SrcId: "n1", VarId: "a"})
+	v, err := s.Resolve(workflowapi.Reference{SrcId: "n1", VarId: "a"})
 	require.NoError(t, err)
 	assert.Equal(t, expr.IntVal(0), v)
 
-	v, err = s.Resolve(workflow.Reference{SrcId: "n1", VarId: "b"})
+	v, err = s.Resolve(workflowapi.Reference{SrcId: "n1", VarId: "b"})
 	require.NoError(t, err)
 	assert.Equal(t, expr.StringVal(""), v)
 }

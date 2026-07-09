@@ -8,17 +8,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
 
 // Function is a compiled, callable sub-workflow. Synchronous, no triggers.
 type Function struct {
-	Info              workflow.FunctionInfo
-	DeclaredVars      []workflow.Variable            // function-local declared variables to seed into the function scope at call time
+	Info              workflowapi.FunctionInfo
+	DeclaredVars      []workflowapi.Variable            // function-local declared variables to seed into the function scope at call time
 	InitialState      string                         // entry node id (from OnFunctionCall's outgoing edge)
 	Actions           map[string]Executable          // action nodes, keyed by node id
-	OutputAssignments map[string]workflow.Expression // return uid → expression evaluated in callee scope at end
+	OutputAssignments map[string]workflowapi.Expression // return uid → expression evaluated in callee scope at end
 }
 
 // Call runs the function in a fresh FunctionScope and returns

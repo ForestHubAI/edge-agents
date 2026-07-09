@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
@@ -139,13 +139,13 @@ func DeviceManifestToDomain(in *engineapi.DeviceManifest) engine.DeviceManifest 
 }
 
 // TickerInterval converts a wire ticker (value + unit) into a runtime duration.
-func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) time.Duration {
+func TickerInterval(value int, unit workflowapi.TickerNodeArgumentsIntervalUnit) time.Duration {
 	switch unit {
-	case workflow.Seconds:
+	case workflowapi.Seconds:
 		return time.Duration(value) * time.Second
-	case workflow.Minutes:
+	case workflowapi.Minutes:
 		return time.Duration(value) * time.Minute
-	case workflow.Hours:
+	case workflowapi.Hours:
 		return time.Duration(value) * time.Hour
 	default:
 		return time.Duration(value) * time.Millisecond
@@ -155,13 +155,13 @@ func TickerInterval(value int, unit workflow.TickerNodeArgumentsIntervalUnit) ti
 // JSONTypeFor maps a workflow data type to its JSON Schema type name. Shared
 // by nodes that build runtime schemas (Agent response format, FunctionCall
 // tool parameters).
-func JSONTypeFor(dt workflow.DataType) string {
+func JSONTypeFor(dt workflowapi.DataType) string {
 	switch dt {
-	case workflow.Int:
+	case workflowapi.Int:
 		return "integer"
-	case workflow.Float:
+	case workflowapi.Float:
 		return "number"
-	case workflow.Bool:
+	case workflowapi.Bool:
 		return "boolean"
 	default:
 		return "string"

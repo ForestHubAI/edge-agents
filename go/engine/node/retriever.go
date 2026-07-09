@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
@@ -36,8 +36,8 @@ type Retriever struct {
 	engine.LinearNode
 	collectionID    string
 	topK            int
-	query           workflow.Expression
-	binding         workflow.OutputBinding
+	query           workflowapi.Expression
+	binding         workflowapi.OutputBinding
 	toolDescription string
 	retriever       engine.Retriever
 	logger          zerolog.Logger // child of logging.Logger with stable per-node attrs
@@ -49,8 +49,8 @@ func NewRetriever(
 	id string,
 	collectionID string,
 	topK int,
-	query workflow.Expression,
-	binding workflow.OutputBinding,
+	query workflowapi.Expression,
+	binding workflowapi.OutputBinding,
 	toolDescription string,
 	ret engine.Retriever,
 ) *Retriever {
@@ -70,10 +70,10 @@ func NewRetriever(
 	}
 }
 
-func (r *Retriever) Outputs() map[string]workflow.DataType {
+func (r *Retriever) Outputs() map[string]workflowapi.DataType {
 	return engine.FilterEmitted(
-		map[string]workflow.DataType{retrieverOutID: workflow.String},
-		map[string]workflow.OutputBinding{retrieverOutID: r.binding},
+		map[string]workflowapi.DataType{retrieverOutID: workflowapi.String},
+		map[string]workflowapi.OutputBinding{retrieverOutID: r.binding},
 	)
 }
 

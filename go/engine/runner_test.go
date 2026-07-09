@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestRunner_CancelStopsNodeCycle(t *testing.T) {
 
 func TestFunction_CallCancelStopsCycle(t *testing.T) {
 	fn := &Function{
-		Info:         workflow.FunctionInfo{Name: "loop", Id: "fn1"},
+		Info:         workflowapi.FunctionInfo{Name: "loop", Id: "fn1"},
 		InitialState: "a",
 		Actions: map[string]Executable{
 			"a": &fakeAction{id: "a", next: "b"},

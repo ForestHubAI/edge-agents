@@ -10,15 +10,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 )
 
 var placeholderRE = regexp.MustCompile(`\$\{\}`)
 var castOverrideRE = regexp.MustCompile(`\b(int|float|bool|str)\(\$\{\}\)`)
 
-// Eval evaluates an workflow.Expression against resolved references,
+// Eval evaluates an workflowapi.Expression against resolved references,
 // returning a typed Value.
-func Eval(expr workflow.Expression, resolve VarResolver) (Value, error) {
+func Eval(expr workflowapi.Expression, resolve VarResolver) (Value, error) {
 	plCount := len(placeholderRE.FindAllStringIndex(expr.Expression, -1))
 	refCount := len(expr.References)
 	if plCount != refCount {
@@ -37,14 +37,14 @@ func Eval(expr workflow.Expression, resolve VarResolver) (Value, error) {
 		refs[i] = v
 	}
 
-	if expr.DataType == workflow.String {
+	if expr.DataType == workflowapi.String {
 		return evalStringExpr(expr.Expression, refs)
 	}
 	return evalCodeExpr(expr.Expression, expr.DataType, refs)
 }
 
 // EvalString is a convenience that evaluates and returns a string.
-func EvalString(expr workflow.Expression, resolve VarResolver) (string, error) {
+func EvalString(expr workflowapi.Expression, resolve VarResolver) (string, error) {
 	v, err := Eval(expr, resolve)
 	if err != nil {
 		return "", err
@@ -53,7 +53,7 @@ func EvalString(expr workflow.Expression, resolve VarResolver) (string, error) {
 }
 
 // EvalBool evaluates and returns a bool.
-func EvalBool(expr workflow.Expression, resolve VarResolver) (bool, error) {
+func EvalBool(expr workflowapi.Expression, resolve VarResolver) (bool, error) {
 	v, err := Eval(expr, resolve)
 	if err != nil {
 		return false, err
@@ -72,7 +72,7 @@ func evalStringExpr(expression string, refs []Value) (Value, error) {
 
 	expression, refs = applyCastsInString(expression, refs)
 
-	if expression == "${}" && len(refs) == 1 && refs[0].Type == workflow.String {
+	if expression == "${}" && len(refs) == 1 && refs[0].Type == workflowapi.String {
 		return refs[0], nil
 	}
 
@@ -109,7 +109,7 @@ func applyCastsInString(expression string, refs []Value) (string, []Value) {
 }
 
 // evalCodeExpr handles non-string expressions (arithmetic, comparison, boolean).
-func evalCodeExpr(expression string, targetType workflow.DataType, refs []Value) (Value, error) {
+func evalCodeExpr(expression string, targetType workflowapi.DataType, refs []Value) (Value, error) {
 	expression, refs = applyCastsInCode(expression, refs)
 
 	if expression == "${}" && len(refs) == 1 {
@@ -148,11 +148,11 @@ func applyCastsInCode(expression string, refs []Value) (string, []Value) {
 
 func valueToLiteral(v Value) string {
 	switch v.Type {
-	case workflow.Int:
+	case workflowapi.Int:
 		return strconv.FormatInt(v.AsInt(), 10)
-	case workflow.Float:
+	case workflowapi.Float:
 		return strconv.FormatFloat(v.AsFloat(), 'f', -1, 64)
-	case workflow.Bool:
+	case workflowapi.Bool:
 		if v.AsBool() {
 			return "true"
 		}
@@ -162,17 +162,17 @@ func valueToLiteral(v Value) string {
 	}
 }
 
-func castNameToDataType(name string) workflow.DataType {
+func castNameToDataType(name string) workflowapi.DataType {
 	switch name {
 	case "int":
-		return workflow.Int
+		return workflowapi.Int
 	case "float":
-		return workflow.Float
+		return workflowapi.Float
 	case "bool":
-		return workflow.Bool
+		return workflowapi.Bool
 	case "str":
-		return workflow.String
+		return workflowapi.String
 	default:
-		return workflow.String
+		return workflowapi.String
 	}
 }

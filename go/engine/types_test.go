@@ -7,7 +7,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
@@ -18,8 +18,8 @@ import (
 )
 
 // stringExpr is a tiny helper for literal-string expressions with no references.
-func literalString(s string) workflow.Expression {
-	return workflow.Expression{Expression: s, DataType: workflow.String}
+func literalString(s string) workflowapi.Expression {
+	return workflowapi.Expression{Expression: s, DataType: workflowapi.String}
 }
 
 func TestTransition_Apply(t *testing.T) {
@@ -31,7 +31,7 @@ func TestTransition_Apply(t *testing.T) {
 
 		tr := Transition{
 			TargetID: "next",
-			EdgeType: workflow.AgentTask,
+			EdgeType: workflowapi.AgentTask,
 			Prompt:   pointer.Ptr(literalString("hello task")),
 		}
 		require.NoError(t, tr.Apply(s))
@@ -44,7 +44,7 @@ func TestTransition_Apply(t *testing.T) {
 	t.Run("AgentTask without prompt errors", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		tr := Transition{TargetID: "next", EdgeType: workflow.AgentTask, Prompt: nil}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.AgentTask, Prompt: nil}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing prompt")
@@ -57,7 +57,7 @@ func TestTransition_Apply(t *testing.T) {
 
 		tr := Transition{
 			TargetID: "next",
-			EdgeType: workflow.AgentDelegate,
+			EdgeType: workflowapi.AgentDelegate,
 			Prompt:   pointer.Ptr(literalString("second")),
 		}
 		require.NoError(t, tr.Apply(s))
@@ -73,7 +73,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("keep"))
 
-		tr := Transition{TargetID: "next", EdgeType: workflow.AgentDelegate, Prompt: nil}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.AgentDelegate, Prompt: nil}
 		require.NoError(t, tr.Apply(s))
 
 		conv := s.GetConversation()
@@ -86,7 +86,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("anything"))
 
-		tr := Transition{TargetID: "next", EdgeType: workflow.AgentChoice}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.AgentChoice}
 		require.NoError(t, tr.Apply(s))
 
 		assert.Empty(t, s.GetConversation())
@@ -97,7 +97,7 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 		s.SetConversation(llmproxy.InputString("preserved"))
 
-		tr := Transition{TargetID: "next", EdgeType: workflow.Control}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.Control}
 		require.NoError(t, tr.Apply(s))
 
 		conv := s.GetConversation()
@@ -110,12 +110,12 @@ func TestTransition_Apply(t *testing.T) {
 		require.NoError(t, err)
 
 		// Expression references a missing variable.
-		bad := workflow.Expression{
+		bad := workflowapi.Expression{
 			Expression: "${}",
-			DataType:   workflow.String,
-			References: []workflow.Reference{{SrcId: "missing", VarId: "x"}},
+			DataType:   workflowapi.String,
+			References: []workflowapi.Reference{{SrcId: "missing", VarId: "x"}},
 		}
-		tr := Transition{TargetID: "next", EdgeType: workflow.AgentTask, Prompt: &bad}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.AgentTask, Prompt: &bad}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "agent task prompt")
@@ -124,12 +124,12 @@ func TestTransition_Apply(t *testing.T) {
 	t.Run("AgentDelegate propagates expression evaluation error", func(t *testing.T) {
 		s, err := NewMainScope(nil)
 		require.NoError(t, err)
-		bad := workflow.Expression{
+		bad := workflowapi.Expression{
 			Expression: "${}",
-			DataType:   workflow.String,
-			References: []workflow.Reference{{SrcId: "missing", VarId: "x"}},
+			DataType:   workflowapi.String,
+			References: []workflowapi.Reference{{SrcId: "missing", VarId: "x"}},
 		}
-		tr := Transition{TargetID: "next", EdgeType: workflow.AgentDelegate, Prompt: &bad}
+		tr := Transition{TargetID: "next", EdgeType: workflowapi.AgentDelegate, Prompt: &bad}
 		err = tr.Apply(s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "agent delegate prompt")

@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
@@ -53,7 +53,7 @@ type Executable interface {
 type Emitter interface {
 	Wirable
 	// Outputs returns the output a node does actually emit (bindingMode = emit)
-	Outputs() map[string]workflow.DataType
+	Outputs() map[string]workflowapi.DataType
 }
 
 // HasSetup is implemented by nodes that need ctx-bound, fallible initialization
@@ -64,11 +64,11 @@ type HasSetup interface {
 // FilterEmitted filters raw declared output slots to only those whose binding
 // is emit-mode (or unbound, which defaults to emit). Used by EmitsVariables
 // implementations to produce the seedable slot map.
-func FilterEmitted(raw map[string]workflow.DataType, bindings map[string]workflow.OutputBinding) map[string]workflow.DataType {
-	out := make(map[string]workflow.DataType, len(raw))
+func FilterEmitted(raw map[string]workflowapi.DataType, bindings map[string]workflowapi.OutputBinding) map[string]workflowapi.DataType {
+	out := make(map[string]workflowapi.DataType, len(raw))
 	for slotID, dt := range raw {
 		b, ok := bindings[slotID]
-		if !ok || b.Mode == workflow.OutputBindingModeEmit {
+		if !ok || b.Mode == workflowapi.OutputBindingModeEmit {
 			out[slotID] = dt
 		}
 	}

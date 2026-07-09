@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
@@ -35,7 +35,7 @@ type Builder struct {
 // Build constructs a Runner for the given workflow, resource mapping (dm), and
 // external resources (ext); ext may be nil. Refreshes the memory snapshot before
 // assembling nodes so agent nodes see the latest declared files.
-func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
+func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
 		if err != nil {
@@ -67,14 +67,14 @@ func (b *Builder) Build(ctx context.Context, wf *workflow.Workflow, dm engine.Re
 // declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
 // skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
 // nodes). These are the canonical set of files the memory Manager restores.
-func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
-	var out []workflow.MemoryFile
+func declaredMemoryFiles(wf *workflowapi.Workflow) ([]workflowapi.MemoryFile, error) {
+	var out []workflowapi.MemoryFile
 	for i, m := range wf.Memory {
 		disc, err := m.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)
 		}
-		if disc != string(workflow.MemoryFileTypeMemoryFile) {
+		if disc != string(workflowapi.MemoryFileTypeMemoryFile) {
 			continue
 		}
 		mf, err := m.AsMemoryFile()
@@ -89,14 +89,14 @@ func declaredMemoryFiles(wf *workflow.Workflow) ([]workflow.MemoryFile, error) {
 // buildCollections resolves each declared VectorDatabase to its collection id
 // through the resource mapping, skipping other memory kinds. Hard-fails on a
 // missing binding, exactly as buildChannels does for hardware/MQTT channels.
-func buildCollections(wf *workflow.Workflow, dm engine.ResourceMapping) (map[string]string, error) {
+func buildCollections(wf *workflowapi.Workflow, dm engine.ResourceMapping) (map[string]string, error) {
 	out := make(map[string]string)
 	for i, m := range wf.Memory {
 		disc, err := m.Discriminator()
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)
 		}
-		if disc != string(workflow.VectorDatabaseTypeVectorDatabase) {
+		if disc != string(workflowapi.VectorDatabaseTypeVectorDatabase) {
 			continue
 		}
 		vd, err := m.AsVectorDatabase()
@@ -127,7 +127,7 @@ type buildContext struct {
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflow.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {

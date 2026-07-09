@@ -7,7 +7,7 @@ package build
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -18,7 +18,7 @@ import (
 )
 
 // channels is the per-build typed registry of channel instances. One
-// instance per declared workflow.Channel, keyed by its id. Nodes look up their
+// instance per declared workflowapi.Channel, keyed by its id. Nodes look up their
 // linked channel here at build time and hold the pointer; the same
 // instance is shared across every node referencing the same id (so
 // subscriber lists and driver handle reservations stay consistent).
@@ -41,7 +41,7 @@ type channels struct {
 // MQTT config + open transport). Hard-fails when a channel has no binding in the
 // mapping, or an MQTT channel references a config externalResources doesn't carry —
 // silent degradation hides config bugs.
-func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
+func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -58,7 +58,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 			return nil, fmt.Errorf("channel: %w", err)
 		}
 		switch x := val.(type) {
-		case workflow.GPIOINChannel:
+		case workflowapi.GPIOINChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -77,7 +77,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				Bias:       driver.Bias(x.Bias),
 				DebounceMs: x.DebounceMs,
 			}
-		case workflow.GPIOOUTChannel:
+		case workflowapi.GPIOOUTChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -94,7 +94,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				Driver: d,
 				Line:   line,
 			}
-		case workflow.ADCChannel:
+		case workflowapi.ADCChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -111,7 +111,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				Driver:  d,
 				Channel: channelNum,
 			}
-		case workflow.DACChannel:
+		case workflowapi.DACChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -128,7 +128,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				Driver:  d,
 				Channel: channelNum,
 			}
-		case workflow.PWMChannel:
+		case workflowapi.PWMChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -146,7 +146,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				Channel:   channelNum,
 				Frequency: x.Frequency,
 			}
-		case workflow.UARTChannel:
+		case workflowapi.UARTChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -156,7 +156,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
-		case workflow.MQTTChannel:
+		case workflowapi.MQTTChannel:
 			b, err := bindingFor(dm, x.Id)
 			if err != nil {
 				return nil, err
@@ -181,7 +181,7 @@ func buildChannels(apiChannels []workflow.Channel, dm engine.ResourceMapping, dr
 				PublishPrefix:   cfg.PublishPrefix,
 				SubscribePrefix: cfg.SubscribePrefix,
 			}
-		case workflow.LOGChannel:
+		case workflowapi.LOGChannel:
 			// No bindingFor: a log channel resolves to the ambient engine logger,
 			// not a device driver or external resource, so the mapping carries no
 			// entry for it. Level is contract-constrained to a known enum; parse

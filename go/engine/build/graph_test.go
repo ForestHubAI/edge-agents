@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflow"
+	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
@@ -25,13 +25,13 @@ func (stubRetriever) QueryRAG(context.Context, engine.RAGQueryParams) ([]engine.
 
 // retrieverNode builds a workflow Node wrapping a Retriever that references
 // memoryRef.
-func retrieverNode(t *testing.T, id, memoryRef string) workflow.Node {
+func retrieverNode(t *testing.T, id, memoryRef string) workflowapi.Node {
 	t.Helper()
-	var r workflow.RetrieverNode
+	var r workflowapi.RetrieverNode
 	r.Id = id
 	r.Arguments.MemoryReference = pointer.Ptr(memoryRef)
 	r.Arguments.TopK = pointer.Ptr(1)
-	var n workflow.Node
+	var n workflowapi.Node
 	require.NoError(t, n.FromRetrieverNode(r))
 	return n
 }
@@ -53,7 +53,7 @@ func retrieverGraph(t *testing.T, collections map[string]string) *graph {
 func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {
 	g := retrieverGraph(t, map[string]string{"kb-1": "collection-abc"})
 
-	_, err := g.build([]workflow.Node{retrieverNode(t, "r1", "kb-1")}, nil)
+	_, err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.NoError(t, err)
 	_, ok := g.actions["r1"]
 	assert.True(t, ok, "retriever node must be registered as an action")
@@ -62,7 +62,7 @@ func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {
 func TestBuildRetriever_UndeclaredCollectionFails(t *testing.T) {
 	g := retrieverGraph(t, map[string]string{})
 
-	_, err := g.build([]workflow.Node{retrieverNode(t, "r1", "kb-1")}, nil)
+	_, err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "r1")
 }
