@@ -43,7 +43,7 @@ func main() {
 	// a logger field — it is structural, carried by the on-device log path Ranger
 	// assigns (device-filesystem.md §5). The closer drains in-flight HTTP sends so
 	// Fatal events land before exit.
-	cfg.Log.Component = component.NameEngine
+	cfg.Log.Component = component.Engine
 	closer := logging.Configure(cfg.Log)
 	defer closer.Close()
 

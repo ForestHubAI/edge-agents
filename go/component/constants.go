@@ -39,8 +39,8 @@ const (
 // contract: the value must match what the renderer/backend uses to name the
 // container and correlate its output. Constants, not configuration.
 const (
-	// NameEngine is the workflow-runtime component's identity.
-	NameEngine = "engine"
+	// Engine is the workflow-runtime component's identity.
+	Engine = "engine"
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to
