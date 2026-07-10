@@ -10,7 +10,6 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.44.0
 	github.com/caarlos0/env/v9 v9.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
-	github.com/go-chi/chi/v5 v5.2.5
 	github.com/invopop/jsonschema v0.13.0
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/openai/openai-go/v2 v2.7.1
