@@ -229,9 +229,6 @@ func (b *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) (st
 			b.actions[nd.Id] = n
 
 		case workflowapi.RetrieverNode:
-			if b.retriever == nil {
-				return "", fmt.Errorf("node %s: retriever node requires a configured RAG backend, none available", nd.Id)
-			}
 			if nd.Arguments.MemoryReference == nil {
 				return "", &engine.MissingFieldError{NodeID: nd.Id, Field: "memoryReference"}
 			}
@@ -242,7 +239,11 @@ func (b *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) (st
 			if !ok {
 				return "", fmt.Errorf("node %s: memory %q is not a declared VectorDatabase", nd.Id, *nd.Arguments.MemoryReference)
 			}
-			n := node.NewRetriever(nd.Id, collID, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), b.retriever)
+			ret := b.retrieverFor(collID)
+			if ret == nil {
+				return "", fmt.Errorf("node %s: retriever node requires a vectorStore resource or a configured RAG backend, none available", nd.Id)
+			}
+			n := node.NewRetriever(nd.Id, collID, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), ret)
 			b.allNodes[nd.Id] = n
 			b.actions[nd.Id] = n
 

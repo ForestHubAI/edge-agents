@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stubRetriever satisfies engine.Retriever so the retriever case passes its
-// nil-backend guard; the build path never queries it.
+// stubRetriever satisfies engine.Retriever so the retriever case finds one for
+// its collection; the build path never queries it.
 type stubRetriever struct{}
 
 func (stubRetriever) QueryRAG(context.Context, engine.RAGQueryParams) ([]engine.RAGQueryResult, error) {
@@ -46,8 +46,26 @@ func retrieverGraph(t *testing.T, collections map[string]string) *graph {
 		collections: collections,
 		functions:   map[string]*engine.Function{},
 		mainScope:   ms,
-		retriever:   stubRetriever{},
+		retrieverFor: func(string) engine.Retriever {
+			return stubRetriever{}
+		},
 	})
+}
+
+func TestBuildRetriever_NoRetrieverForCollectionFailsBuild(t *testing.T) {
+	ms, err := engine.NewMainScope(nil)
+	require.NoError(t, err)
+	g := newGraph(&buildContext{
+		ctx:          context.Background(),
+		channels:     &channels{},
+		collections:  map[string]string{"kb-1": "collection-abc"},
+		functions:    map[string]*engine.Function{},
+		mainScope:    ms,
+		retrieverFor: func(string) engine.Retriever { return nil },
+	})
+
+	_, err = g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
+	assert.ErrorContains(t, err, "requires a vectorStore resource or a configured RAG backend")
 }
 
 func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {

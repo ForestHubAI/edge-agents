@@ -10,6 +10,7 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
+	"github.com/ForestHubAI/edge-agents/go/component"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/driver"
@@ -22,13 +23,16 @@ import (
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
 // Backend (optional; nil = standalone) is the client every backend-routed LLM
 // provider forwards to; Build resolves the boot externalResources into the
-// llmproxy client scoped to the Runner.
+// llmproxy client scoped to the Runner. Retriever is the fallback for vector
+// databases not bound to a local store; RAGDir is where those stores are read
+// from (empty → component.RAGStore).
 type Builder struct {
 	Drivers    *driver.Registry
 	Transports *transport.Registry
 	Backend    *backend.Client
 	Memory     *memory.Manager
 	Retriever  engine.Retriever
+	RAGDir     string
 	WebSearch  websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
@@ -57,7 +61,12 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, dm engine
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
 
-	runner, err := buildRunner(ctx, wf, dm, ext, b.Transports, b.Drivers, llmClient, b.Memory, b.Retriever, b.WebSearch)
+	ragDir := b.RAGDir
+	if ragDir == "" {
+		ragDir = component.RAGStore
+	}
+
+	runner, err := buildRunner(ctx, wf, dm, ext, b.Transports, b.Drivers, llmClient, b.Memory, b.Retriever, ragDir, b.WebSearch)
 	if err != nil {
 		return nil, err
 	}
@@ -122,14 +131,15 @@ type buildContext struct {
 	ml          map[string]*mlEndpoint      // resolved ML model id → inference endpoint; MLInference nodes look up their endpoint here
 	capture     map[string]*captureEndpoint // resolved camera channel id → capture endpoint; CameraCapture nodes look up their endpoint here
 	// clients for building nodes that rely on external services
-	llm       engine.LlmClient
-	memory    *memory.Manager
-	retriever engine.Retriever
-	webSearch websearch.Provider
+	llm    engine.LlmClient
+	memory *memory.Manager
+	// retrieverFor answers which retriever serves a bound vector database
+	retrieverFor retrieverLookup
+	webSearch    websearch.Provider
 }
 
 // buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
+func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, ragDir string, webSearch websearch.Provider) (*engine.Runner, error) {
 	// Create main scope
 	ms, err := engine.NewMainScope(wf.DeclaredVariables)
 	if err != nil {
@@ -146,6 +156,12 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.Resour
 	collections, err := buildCollections(wf, dm)
 	if err != nil {
 		return nil, fmt.Errorf("collections: %w", err)
+	}
+
+	// Route each bound VectorDatabase to a local store or the fallback retriever
+	retrieverFor, err := buildRetriever(collections, ext, ragDir, ret)
+	if err != nil {
+		return nil, fmt.Errorf("retrievers: %w", err)
 	}
 
 	// Resolve declared ML models to their bound inference endpoints
@@ -167,7 +183,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, dm engine.Resour
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, capture: captureEndpoints, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
+	bc := &buildContext{ctx: ctx, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, capture: captureEndpoints, llm: llm, memory: mem, retrieverFor: retrieverFor, webSearch: webSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))

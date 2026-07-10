@@ -114,10 +114,10 @@ func main() {
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
 	}
 
-	// Retriever: backend if cloud mode, otherwise nil. No offline RAG backend
-	// exists yet, and a nil retriever makes the build reject any workflow that
-	// declares a Retriever node (clear boot-time error) rather than silently
-	// returning empty context at runtime.
+	// Retriever: the fallback for vector databases not bound to a local store,
+	// backend if cloud mode, otherwise nil. The build rejects a Retriever node
+	// with neither (clear boot-time error) rather than silently returning empty
+	// context at runtime.
 	var retriever engine.Retriever
 	if backendClient != nil {
 		retriever = backendClient
