@@ -32,6 +32,10 @@ const (
 	// Workspace is the durable, device-authoritative working dir (memory, model
 	// files, broker state), persisted across deployments.
 	Workspace = "/var/lib/foresthub/workspace"
+	// RAGStore is the read-only mount holding the retrieval artifacts, one
+	// subdirectory per store, each with an index.db. Built off-device and shipped
+	// with the deployment; the engine never writes here.
+	RAGStore = "/var/lib/foresthub/rag"
 )
 
 // Component identity names — the stable, canonical name each first-party component
