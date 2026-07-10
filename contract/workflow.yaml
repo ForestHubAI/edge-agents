@@ -328,13 +328,13 @@ components:
 
     MLModel:
       type: object
-      description: A machine-learning model, served by an inference sidecar, that nodes can reference.
+      description: A machine-learning model, served by an inference component, that nodes can reference.
       required: [type, id, label]
       properties:
         type: { type: string, enum: [MLModel] }
         id:
           type: string
-          description: Stable identifier; this is the model name nodes reference and the sidecar selects on.
+          description: Stable identifier; this is the model name nodes reference and the component selects on.
         label:
           type: string
           description: Display name.
@@ -660,7 +660,7 @@ components:
           properties:
             cameraReference:
               type: string
-              description: Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time.
+              description: Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time.
             output:
               $ref: "#/components/schemas/OutputBinding"
 

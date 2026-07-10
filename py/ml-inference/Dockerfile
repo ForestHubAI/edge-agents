@@ -1,4 +1,4 @@
-# fh-onnx — generic ONNX inference sidecar (model repository).
+# fh-onnx — generic ONNX inference component (model repository).
 #
 # Debian-slim base (a musl base would break the manylinux-only ML wheels).
 # Multi-arch: docker buildx --platform linux/amd64,linux/arm64.

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub.
 
 import { describe, it, expect } from "vitest";
-import { buildDeploymentSpec, assertDeployable, llmSidecarServiceName, mlSidecarServiceName, cameraSidecarServiceName } from "./spec";
+import { buildDeploymentSpec, assertDeployable, llmComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
 import { deriveRequirements } from "./requirements";
 import type { DeploymentInputs } from "./inputs";
 import { MAIN_CANVAS_ID, type Workflow } from "../workflow";
@@ -23,7 +23,7 @@ function engineOf(spec: Spec): DeploymentSchemas["DeployComponent"] {
 function engineConfigOf(spec: Spec): EngineSchemas["EngineConfig"] {
   return engineOf(spec).config as EngineSchemas["EngineConfig"];
 }
-const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.name === llmSidecarServiceName(modelId));
+const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.name === llmComponentServiceName(modelId));
 
 function channel(id: string, type: Channel["type"], args: Record<string, unknown> = {}): Channel {
   return { id, label: id, type, arguments: args };
@@ -88,8 +88,8 @@ const meta = {
   id: "dep-1",
   engineImage: "fh-engine:0.4.2",
   llamaServerImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-  mlSidecarImage: "fh-onnx:latest",
-  cameraSidecarImage: "fh-camera:latest",
+  mlComponentImage: "fh-onnx:latest",
+  cameraComponentImage: "fh-camera:latest",
 };
 
 describe("buildDeploymentSpec", () => {
@@ -126,21 +126,21 @@ describe("buildDeploymentSpec", () => {
     expect(engine.user).toBe("0:0");
   });
 
-  it("emits a llama-server component and points the engine's provider at the sidecar", () => {
+  it("emits a llama-server component and points the engine's provider at the component", () => {
     const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     expect(llamaOf(spec, "local-llm")).toMatchObject({
-      name: llmSidecarServiceName("local-llm"),
+      name: llmComponentServiceName("local-llm"),
       image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
       command: ["--model", "/var/lib/foresthub/workspace/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
       volumes: ["./workspaces/llama-local-llm:/var/lib/foresthub/workspace:ro"],
     });
-    // The external-resource provider URL must point at the sidecar service name.
+    // The external-resource provider URL must point at the component service name.
     const ext = engineConfigOf(spec).externalResources!;
     const provider = Object.values(ext).find((r) => r.type === "selfhostedLlm");
-    expect(provider).toMatchObject({ url: `http://${llmSidecarServiceName("local-llm")}:8080` });
+    expect(provider).toMatchObject({ url: `http://${llmComponentServiceName("local-llm")}:8080` });
   });
 
-  it("omits privileged and the llama sidecar when neither applies", () => {
+  it("omits privileged and the llama component when neither applies", () => {
     const wf: Workflow = {
       canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
       functions: {},
@@ -151,11 +151,11 @@ describe("buildDeploymentSpec", () => {
     const { spec } = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta);
     const engine = engineOf(spec);
     expect(engine.privileged).toBeUndefined();
-    expect(spec.components).toHaveLength(1); // engine only, no sidecar
+    expect(spec.components).toHaveLength(1); // engine only, no component
     expect(engine.devices).toEqual(["/dev/gpiochip0"]);
   });
 
-  it("uses a network model's own endpoint and runs no sidecar", () => {
+  it("uses a network model's own endpoint and runs no component", () => {
     const wf: Workflow = {
       canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
       functions: {},
@@ -171,7 +171,7 @@ describe("buildDeploymentSpec", () => {
       cameras: {},
     };
     const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta);
-    expect(spec.components).toHaveLength(1); // engine only, no sidecar
+    expect(spec.components).toHaveLength(1); // engine only, no component
     // The provider config in the spec is secret-free; the apiKey is pulled out.
     const ext = engineConfigOf(spec).externalResources!;
     const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhostedLlm")!;
@@ -293,8 +293,8 @@ describe("buildDeploymentSpec custom components", () => {
     );
   });
 
-  it("rejects a custom name colliding with a generated llama sidecar", () => {
-    const dup = { name: llmSidecarServiceName("local-llm"), image: "x" };
+  it("rejects a custom name colliding with a generated llama component", () => {
+    const dup = { name: llmComponentServiceName("local-llm"), image: "x" };
     expect(() => buildDeploymentSpec(fullWorkflow(), fullInputs, meta, [dup])).toThrow(/duplicate component name/);
   });
 
@@ -353,8 +353,8 @@ describe("deriveRequirements", () => {
   });
 });
 
-describe("buildDeploymentSpec ML inference sidecar", () => {
-  it("emits ONE shared inference sidecar for on-device ML models and points each at it", () => {
+describe("buildDeploymentSpec ML inference component", () => {
+  it("emits ONE shared inference component for on-device ML models and points each at it", () => {
     const wf = mlWorkflow({ detector: mlModel("detector"), classifier: mlModel("classifier") });
     const inputs: DeploymentInputs = {
       hardware: {},
@@ -365,25 +365,25 @@ describe("buildDeploymentSpec ML inference sidecar", () => {
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
 
-    // Exactly one sidecar for both models — not one per model.
-    const sidecars = spec.components.filter((c) => c.name === mlSidecarServiceName());
-    expect(sidecars).toHaveLength(1);
-    expect(sidecars[0]).toMatchObject({
+    // Exactly one component for both models — not one per model.
+    const components = spec.components.filter((c) => c.name === mlComponentServiceName());
+    expect(components).toHaveLength(1);
+    expect(components[0]).toMatchObject({
       image: "fh-onnx:latest",
       pull: "never",
-      volumes: [`./workspaces/${mlSidecarServiceName()}:/var/lib/foresthub/models:ro`],
+      volumes: [`./workspaces/${mlComponentServiceName()}:/var/lib/foresthub/models:ro`],
     });
 
-    // Every on-device model resolves to the same sidecar url; each is mapped by id.
+    // Every on-device model resolves to the same component url; each is mapped by id.
     const ext = engineConfigOf(spec).externalResources!;
     const mlUrls = Object.values(ext)
       .filter((r) => r.type === "ml-inference")
       .map((r) => (r as { url: string }).url);
-    expect(mlUrls).toEqual([`http://${mlSidecarServiceName()}:8000`, `http://${mlSidecarServiceName()}:8000`]);
+    expect(mlUrls).toEqual([`http://${mlComponentServiceName()}:8000`, `http://${mlComponentServiceName()}:8000`]);
     expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["classifier", "detector"]);
   });
 
-  it("uses a network ML model's own endpoint and runs no sidecar", () => {
+  it("uses a network ML model's own endpoint and runs no component", () => {
     const wf = mlWorkflow({ detector: mlModel("detector") });
     const inputs: DeploymentInputs = {
       hardware: {},
@@ -393,14 +393,14 @@ describe("buildDeploymentSpec ML inference sidecar", () => {
       cameras: {},
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
-    expect(spec.components).toHaveLength(1); // engine only, no sidecar
+    expect(spec.components).toHaveLength(1); // engine only, no component
     const ext = engineConfigOf(spec).externalResources!;
     const mlRes = Object.values(ext).find((r) => r.type === "ml-inference");
     expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000", model: "yolov8n" });
   });
 });
 
-describe("buildDeploymentSpec capture sidecar", () => {
+describe("buildDeploymentSpec capture component", () => {
   const cameraWorkflow = (ids: string[]): Workflow => ({
     canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
     functions: {},
@@ -413,7 +413,7 @@ describe("buildDeploymentSpec capture sidecar", () => {
       .filter((r) => r.type === "camera")
       .map((r) => (r as { url: string }).url);
 
-  it("emits ONE shared capture sidecar for on-device cameras and points each at it", () => {
+  it("emits ONE shared capture component for on-device cameras and points each at it", () => {
     const inputs: DeploymentInputs = {
       hardware: {},
       mqtt: {},
@@ -426,23 +426,23 @@ describe("buildDeploymentSpec capture sidecar", () => {
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "rear"]), inputs, meta);
 
-    // Exactly one sidecar for both cameras — not one per camera.
-    const sidecars = spec.components.filter((c) => c.name === cameraSidecarServiceName());
-    expect(sidecars).toHaveLength(1);
-    expect(sidecars[0]).toMatchObject({
+    // Exactly one component for both cameras — not one per camera.
+    const components = spec.components.filter((c) => c.name === cameraComponentServiceName());
+    expect(components).toHaveLength(1);
+    expect(components[0]).toMatchObject({
       image: "fh-camera:latest",
       pull: "never",
-      volumes: [`./workspaces/${cameraSidecarServiceName()}/cameras.json:/etc/foresthub/cameras.json:ro`],
+      volumes: [`./workspaces/${cameraComponentServiceName()}/cameras.json:/etc/foresthub/cameras.json:ro`],
     });
-    // Both v4l2 nodes are passed through to the sidecar.
-    expect(sidecars[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
+    // Both v4l2 nodes are passed through to the component.
+    expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
 
-    // Every on-device camera resolves to the same sidecar url; each is mapped by id.
-    expect(camUrls(spec)).toEqual([`http://${cameraSidecarServiceName()}:8100`, `http://${cameraSidecarServiceName()}:8100`]);
+    // Every on-device camera resolves to the same component url; each is mapped by id.
+    expect(camUrls(spec)).toEqual([`http://${cameraComponentServiceName()}:8100`, `http://${cameraComponentServiceName()}:8100`]);
     expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["front", "rear"]);
   });
 
-  it("uses a network camera's own endpoint and runs no sidecar", () => {
+  it("uses a network camera's own endpoint and runs no component", () => {
     const inputs: DeploymentInputs = {
       hardware: {},
       mqtt: {},
@@ -451,11 +451,11 @@ describe("buildDeploymentSpec capture sidecar", () => {
       cameras: { front: { location: "network", url: "http://cam.remote:8100" } },
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front"]), inputs, meta);
-    expect(spec.components).toHaveLength(1); // engine only, no sidecar
+    expect(spec.components).toHaveLength(1); // engine only, no component
     expect(camUrls(spec)).toEqual(["http://cam.remote:8100"]);
   });
 
-  it("mixes device + network cameras: the sidecar serves only the device ones", () => {
+  it("mixes device + network cameras: the component serves only the device ones", () => {
     const inputs: DeploymentInputs = {
       hardware: {},
       mqtt: {},
@@ -467,8 +467,8 @@ describe("buildDeploymentSpec capture sidecar", () => {
       },
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "remote"]), inputs, meta);
-    expect(spec.components.filter((c) => c.name === cameraSidecarServiceName())).toHaveLength(1);
-    expect(camUrls(spec).sort()).toEqual(["http://cam.remote:8100", `http://${cameraSidecarServiceName()}:8100`]);
+    expect(spec.components.filter((c) => c.name === cameraComponentServiceName())).toHaveLength(1);
+    expect(camUrls(spec).sort()).toEqual(["http://cam.remote:8100", `http://${cameraComponentServiceName()}:8100`]);
   });
 
   it("passes through v4l2 nodes deduped; a gstreamer source grants no device", () => {
@@ -484,10 +484,10 @@ describe("buildDeploymentSpec capture sidecar", () => {
       },
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["a", "b", "csi"]), inputs, meta);
-    const sidecar = spec.components.find((c) => c.name === cameraSidecarServiceName())!;
-    expect(sidecar.devices).toEqual(["/dev/video0"]);
+    const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
+    expect(component.devices).toEqual(["/dev/video0"]);
     // A gstreamer camera means libcamera, which needs the host's udev database.
-    expect(sidecar.volumes).toContain("/run/udev:/run/udev:ro");
+    expect(component.volumes).toContain("/run/udev:/run/udev:ro");
   });
 
   it("passes through the extra device nodes a binding's setup commands touch", () => {
@@ -507,8 +507,8 @@ describe("buildDeploymentSpec capture sidecar", () => {
       },
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["cam"]), inputs, meta);
-    const sidecar = spec.components.find((c) => c.name === cameraSidecarServiceName())!;
-    expect(sidecar.devices).toEqual(["/dev/video1", "/dev/media2", "/dev/v4l-subdev7"]);
+    const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
+    expect(component.devices).toEqual(["/dev/video1", "/dev/media2", "/dev/v4l-subdev7"]);
   });
 
   it("rejects an unbound camera", () => {

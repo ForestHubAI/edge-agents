@@ -14,7 +14,7 @@ DEFAULT_MODELS_DIR = "/var/lib/foresthub/models"
 
 @dataclass(frozen=True)
 class Config:
-    """Resolved sidecar configuration."""
+    """Resolved component configuration."""
 
     models_dir: str
 

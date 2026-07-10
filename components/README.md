@@ -159,7 +159,7 @@ of how it is deployed.
 
 ## Rules worth internalizing
 
-- **`name` must be unique** across the deployment (engine, every llama sidecar, and
+- **`name` must be unique** across the deployment (engine, every llama-server component, and
   your other customs). It is the compose service name; a duplicate is a hard error.
   The same `image` under two different names is fine (e.g. two dashboards).
 - **`pull` controls image fetching.** Omit it for a stock registry image — it

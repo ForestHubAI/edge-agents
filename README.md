@@ -151,7 +151,7 @@ the file for you.
 asks for the values it can't infer (device paths, broker URLs, model files, API keys),
 and writes a self-contained bundle: `docker-compose.yml`, `.env`, the workflow, and any
 config files the workflow needs — plus a `README.md` with the build/transfer/run steps.
-For an on-device SLM it even drops in a `llama.cpp` sidecar wired to the engine over the
+For an on-device SLM it even drops in a `llama-server` component wired to the engine over the
 compose network. Without a terminal (CI, a Claude Code skill) feed the answers with
 `--values <file.json>`. The rest of this section explains what ends up in that bundle —
 and how to assemble it by hand if you'd rather.
@@ -204,7 +204,7 @@ the engine**. Reference the model in the workflow as a **custom `LLMModel`**; th
 talks to its endpoint over HTTP.
 
 The easy way is to mark that model as **on-device** and let `fh-workflow deploy` add the
-`llama.cpp` sidecar to the generated `docker-compose.yml` for you — reached by service
+`llama-server` component to the generated `docker-compose.yml` for you — reached by service
 name over the compose network, no host networking, no hand-written compose (see
 [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
 
@@ -325,11 +325,11 @@ See [`go/CLAUDE.md`](go/CLAUDE.md) and [`ts/CLAUDE.md`](ts/CLAUDE.md) for deeper
 | Path                                         | What it contains                                                                                            |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go, TS and Python.                                       |
-| [`go/`](go)                                  | Engine binary, `fh-camera` capture sidecar, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
+| [`go/`](go)                                  | Engine binary, `fh-camera` capture component, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
 | [`ts/workflow-core`](ts/workflow-core)       | `@foresthubai/workflow-core` — headless workflow model, validation, (de)serialization. No React.            |
 | [`ts/workflow-builder`](ts/workflow-builder) | `@foresthubai/workflow-builder` — React canvas component.                                                   |
 | [`ts/workflow-cli`](ts/workflow-cli)         | `@foresthubai/workflow-cli` — the `fh-workflow` CLI + the reference SPA it serves.                          |
-| [`py/ml-inference`](py/ml-inference)         | `fh-onnx` — generic ONNX inference sidecar (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`. |
+| [`py/ml-inference`](py/ml-inference)         | `fh-onnx` — generic ONNX inference component (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`. |
 
 ## Releases
 
@@ -381,7 +381,7 @@ Edge Agents uses a **two-tier license model** designed to make the wire format a
 | [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "Edge Agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
 | [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                                                                                    |
 | [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                                                                                        |
-| [`py/ml-inference`](py/ml-inference) (`fh-onnx` inference sidecar)                | **AGPL-3.0-only** or **commercial** | A service shipped alongside the engine; same dual-license terms.                                                                                                                                          |
+| [`py/ml-inference`](py/ml-inference) (`fh-onnx` inference component)              | **AGPL-3.0-only** or **commercial** | A service shipped alongside the engine; same dual-license terms.                                                                                                                                          |
 
 For the AGPL components, the AGPL network clause applies — providing a modified version over a network requires making the corresponding source available to users of that service.
 

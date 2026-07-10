@@ -41,7 +41,7 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	require.Len(t, eps, 1)
 	ep := eps["yolo"]
 	require.NotNil(t, ep)
-	// The sidecar selector comes from the config's model name, not the workflow id.
+	// The component selector comes from the config's model name, not the workflow id.
 	assert.Equal(t, "yolov8n", ep.modelName)
 	assert.NotNil(t, ep.client)
 }
@@ -74,7 +74,7 @@ func TestBuildDeployML_BoundButNoConfigFails(t *testing.T) {
 }
 
 func TestBuildDeployML_MultipleModelsShareURL(t *testing.T) {
-	// One sidecar serves a repository of models, so many models may share a ref.
+	// One component serves a repository of models, so many models may share a ref.
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{
 		mlModel(t, "yolo"),
 		mlModel(t, "resnet"),

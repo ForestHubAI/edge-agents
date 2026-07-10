@@ -3,9 +3,9 @@
 
 openapi: 3.0.3
 info:
-  title: ForestHub ML Inference Sidecar Contract
+  title: ForestHub ML Inference Component Contract
   version: 0.1.0
-  description: "Engine<->sidecar inference wire. The sidecar (fh-onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the sidecar's generated Pydantic models."
+  description: "Engine<->component inference wire. The component (fh-onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
 
 paths:
   /infer:
@@ -40,7 +40,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "413":
-          description: The request body exceeds the sidecar's size limit.
+          description: The request body exceeds the component's size limit.
           content:
             application/json:
               schema:
@@ -143,7 +143,7 @@ components:
 
     RepositoryMetadata:
       type: object
-      description: The set of models the sidecar currently has loaded.
+      description: The set of models the component currently has loaded.
       required: [models]
       properties:
         models:

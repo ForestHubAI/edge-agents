@@ -168,7 +168,7 @@ describe("promptMissing", () => {
       input: [
         [/model filename/, "gemma.gguf"],
         [/context window/, "8192"],
-        [/sidecar port/, "9090"],
+        [/component port/, "9090"],
         [/Output directory/, "b"],
       ],
     });
@@ -193,7 +193,7 @@ describe("promptMissing", () => {
     script({
       select: [[/where does this model run/, "device"]],
       input: [
-        [/model name the sidecar selects on/, "yolov8n"],
+        [/model name the component selects on/, "yolov8n"],
         [/Output directory/, "b"],
       ],
     });
@@ -205,7 +205,7 @@ describe("promptMissing", () => {
     script({
       select: [[/where does this model run/, "network"]],
       input: [
-        [/model name the sidecar selects on/, "yolov8n"],
+        [/model name the component selects on/, "yolov8n"],
         [/endpoint URL/, "http://onnx:8000"],
         [/Output directory/, "b"],
       ],

@@ -160,14 +160,14 @@ export interface components {
             /** @description Capabilities this model supports. */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
+        /** @description A machine-learning model, served by an inference component, that nodes can reference. */
         MLModel: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "MLModel";
-            /** @description Stable identifier; this is the model name nodes reference and the sidecar selects on. */
+            /** @description Stable identifier; this is the model name nodes reference and the component selects on. */
             id: string;
             /** @description Display name. */
             label: string;
@@ -402,7 +402,7 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time. */
+                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time. */
                 cameraReference: string;
                 output: components["schemas"]["OutputBinding"];
             };

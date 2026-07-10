@@ -8,7 +8,11 @@
 # stdout and Ranger captures it. The base image already bundles llama-swap +
 # llama-server, so nothing is compiled here.
 #
-# Config shape: contract/llama-server.yaml (LlamaServerConfig).
+# Boot config shape (JSON at $CONFIG):
+# {"models":[{"id":"qwen","file":"qwen.gguf","args":["--ctx-size","4096"]}]}
+# id  = model address (the engine's `model` field); unique per component.
+# file = bare .gguf filename under $WORKSPACE.
+# args = optional extra llama-server flags.
 set -euo pipefail
 
 # Fixed device-filesystem contract paths (edge-agents go/component). Overridable for

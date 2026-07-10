@@ -33,7 +33,7 @@ export {
   familyMismatches,
   hardwareAddressKey,
   hardwareAddressLabel,
-  llmSidecarServiceName,
+  llmComponentServiceName,
 } from "@foresthubai/workflow-core/deploy";
 
 import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";

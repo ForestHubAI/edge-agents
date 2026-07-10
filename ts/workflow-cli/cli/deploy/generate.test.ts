@@ -36,7 +36,7 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
   };
 }
 
-// An on-device model's llama-server sidecar: image + frozen CLI flags, no config.
+// An on-device model's llama-server component: image + frozen CLI flags, no config.
 function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "llama-gemma-3",
@@ -47,7 +47,7 @@ function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployCompone
   };
 }
 
-// The shared inference sidecar (fh-onnx): self-built, pull:never.
+// The shared inference component (fh-onnx): self-built, pull:never.
 function onnxComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "fh-onnx",
@@ -58,7 +58,7 @@ function onnxComponent(overrides: Partial<DeployComponent> = {}): DeployComponen
   };
 }
 
-// The shared capture sidecar (fh-camera): self-built, pull:never.
+// The shared capture component (fh-camera): self-built, pull:never.
 function cameraComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "fh-camera",
@@ -179,7 +179,7 @@ describe("composeYaml", () => {
     expect(yaml).not.toContain("ENGINE_WEB_SEARCH_API_KEY");
   });
 
-  it("an on-device model adds a llama sidecar with no start-ordering and a frozen command", () => {
+  it("an on-device model adds a llama component with no start-ordering and a frozen command", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
     expect(yaml).toContain("llama-gemma-3:");
     expect(yaml).toContain("image: ghcr.io/ggml-org/llama.cpp:server-b8589");
@@ -191,7 +191,7 @@ describe("composeYaml", () => {
     expect(yaml).not.toContain("network_mode: host");
   });
 
-  it("renders the sidecar's port and context size frozen in the command", () => {
+  it("renders the component's port and context size frozen in the command", () => {
     const llama = llamaComponent({ command: ["--model", "/var/lib/foresthub/workspace/gemma.gguf", "--host", "0.0.0.0", "--port", "9090", "--ctx-size", "8192"] });
     const yaml = composeYaml(specOf([engineComponent(), llama]));
     expect(yaml).toContain('- "9090"');
@@ -220,7 +220,7 @@ describe("composeYaml", () => {
     expect(grab(b)).not.toBe(grab(a));
   });
 
-  it("no llama component means no sidecar service", () => {
+  it("no llama component means no component service", () => {
     const yaml = composeYaml(specOf());
     expect(yaml).not.toContain("server-b8589");
   });
@@ -241,7 +241,7 @@ describe("composeYaml", () => {
     expect(yaml).toContain("  grafana-storage:"); // declared as a top-level named volume
   });
 
-  it("renders the camera sidecar with device passthrough and a read-only cameras.json file mount", () => {
+  it("renders the camera component with device passthrough and a read-only cameras.json file mount", () => {
     const yaml = composeYaml(specOf([engineComponent(), cameraComponent({ devices: ["/dev/video0"] })]));
     expect(yaml).toContain("fh-camera:");
     expect(yaml).toContain("image: fh-camera:latest");
@@ -316,7 +316,7 @@ describe("readme", () => {
     expect(md).not.toContain("docker compose ps");
   });
 
-  it("a device ml model adds the shared inference sidecar note", () => {
+  it("a device ml model adds the shared inference component note", () => {
     const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("## On-device ML models");
     expect(md).toContain("fh-onnx");
@@ -340,7 +340,7 @@ describe("readme", () => {
     expect(md).not.toContain("## On-device cameras");
   });
 
-  it("documents building, saving and loading a self-built ML sidecar image", () => {
+  it("documents building, saving and loading a self-built ML component image", () => {
     const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("docker build -t fh-onnx:latest py/ml-inference");
     expect(md).toContain("docker save fh-onnx:latest");
@@ -348,7 +348,7 @@ describe("readme", () => {
     expect(md).toContain("scp fh-engine.tar fh-onnx.tar");
   });
 
-  it("documents building and loading a self-built camera sidecar image", () => {
+  it("documents building and loading a self-built camera component image", () => {
     const md = readme(
       specOf([engineComponent(), cameraComponent()]),
       cfgOf({ cameras: { cam: { location: "device", source: "v4l2", device: "/dev/video0" } } }),
@@ -358,7 +358,7 @@ describe("readme", () => {
     expect(md).toContain("docker load -i fh-camera.tar");
   });
 
-  it("adds no sidecar build step when nothing is self-built (network ML model, llama)", () => {
+  it("adds no component build step when nothing is self-built (network ML model, llama)", () => {
     const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
     expect(md).not.toContain("docker build -t fh-onnx");
     expect(md).not.toContain("docker load -i fh-onnx.tar");

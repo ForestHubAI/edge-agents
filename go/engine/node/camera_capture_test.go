@@ -51,7 +51,7 @@ func TestCameraCapture_Execute(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
 
-		n := NewCameraCapture("camErr", emit, &stubCaptureClient{err: errors.New("sidecar returned 404: no camera")})
+		n := NewCameraCapture("camErr", emit, &stubCaptureClient{err: errors.New("component returned 404: no camera")})
 
 		_, err = n.Execute(context.Background(), s)
 		require.Error(t, err)

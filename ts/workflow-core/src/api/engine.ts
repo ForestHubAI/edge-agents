@@ -47,26 +47,26 @@ export interface components {
             /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
             url?: string;
         };
-        /** @description Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential. */
+        /** @description Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential. */
         MLInferenceConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "ml-inference";
-            /** @description Base URL of the inference sidecar (http:// or https://). */
+            /** @description Base URL of the inference component (http:// or https://). */
             url: string;
-            /** @description Model name the sidecar selects on. */
+            /** @description Model name the component selects on. */
             model: string;
         };
-        /** @description Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
+        /** @description Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
         CameraConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "camera";
-            /** @description Base URL of the capture sidecar (http:// or https://). */
+            /** @description Base URL of the capture component (http:// or https://). */
             url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */
@@ -367,7 +367,7 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time. */
+                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time. */
                 cameraReference: string;
                 output: components["schemas"]["OutputBinding"];
             };
@@ -783,14 +783,14 @@ export interface components {
             /** @description Capabilities this model supports. */
             capabilities: components["schemas"]["ModelCapability"][];
         };
-        /** @description A machine-learning model, served by an inference sidecar, that nodes can reference. */
+        /** @description A machine-learning model, served by an inference component, that nodes can reference. */
         MLModel: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
             type: "MLModel";
-            /** @description Stable identifier; this is the model name nodes reference and the sidecar selects on. */
+            /** @description Stable identifier; this is the model name nodes reference and the component selects on. */
             id: string;
             /** @description Display name. */
             label: string;

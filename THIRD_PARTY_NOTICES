@@ -155,10 +155,10 @@ under MIT. Representative components by license:
 
 
 ================================================================================
-D. PYTHON SIDECAR DEPENDENCIES (py/ml-inference)
+D. PYTHON COMPONENT DEPENDENCIES (py/ml-inference)
 ================================================================================
 
-Runtime stack of the fh-onnx ONNX inference sidecar, pinned in
+Runtime stack of the fh-onnx ONNX inference component, pinned in
 py/ml-inference/requirements.txt. All permissive; transitive dependencies carry
 their own MIT/BSD/Apache-2.0 licenses.
 

@@ -63,7 +63,7 @@ type ModelMetadata struct {
 	Name string `json:"name"`
 }
 
-// RepositoryMetadata The set of models the sidecar currently has loaded.
+// RepositoryMetadata The set of models the component currently has loaded.
 type RepositoryMetadata struct {
 	// Models Every model loaded into the repository.
 	Models []ModelMetadata `json:"models"`

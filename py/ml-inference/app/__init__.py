@@ -2,4 +2,4 @@
 # Copyright (c) 2026 ForestHub. All rights reserved.
 # For commercial licensing, contact root@foresthub.ai
 
-"""fh-onnx inference sidecar application package."""
+"""fh-onnx inference component application package."""

@@ -64,21 +64,21 @@ export interface MqttChannel {
 }
 
 // One camera channel the workflow declares — needs an ExternalResources camera
-// entry + a mapping (and a share of the capture sidecar when bound on-device).
+// entry + a mapping (and a share of the capture component when bound on-device).
 export interface CameraChannel {
   id: string;
   label: string;
 }
 
 // One custom/self-hosted LLM model declared in workflow.models — needs an
-// ExternalResources provider entry (a device sidecar or a network endpoint).
+// ExternalResources provider entry (a device component or a network endpoint).
 export interface CustomLLMModel {
   id: string;
   label: string;
 }
 
 // One custom ML model declared in workflow.models — served by an inference
-// sidecar (on-device or a network endpoint), selected by id.
+// component (on-device or a network endpoint), selected by id.
 export interface CustomMLModel {
   id: string;
   label: string;
@@ -122,13 +122,13 @@ export interface DeployRequirements {
   // Every MQTT channel; each becomes an ExternalResources entry + a mapping.
   mqttChannels: MqttChannel[];
   // Every camera channel; each becomes an ExternalResources entry + a mapping
-  // (and a share of the capture sidecar when bound on-device).
+  // (and a share of the capture component when bound on-device).
   cameraChannels: CameraChannel[];
   // Every declared custom LLM model; each becomes an ExternalResources provider
-  // + a mapping (and a llama-server sidecar when bound on-device).
+  // + a mapping (and a llama-server component when bound on-device).
   customLLMModels: CustomLLMModel[];
   // Every declared custom ML model; each becomes an ExternalResources entry + a
-  // mapping (and a share of the inference sidecar when bound on-device).
+  // mapping (and a share of the inference component when bound on-device).
   customMLModels: CustomMLModel[];
 }
 
@@ -199,7 +199,7 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
   }
 
   // wf.models holds both model families; split them by type. LLM models drive
-  // the provider/llama-server path, ML models the inference sidecar — mixing
+  // the provider/llama-server path, ML models the inference component — mixing
   // them would send an ML model down the LLM provider build.
   const customLLMModels: CustomLLMModel[] = [];
   const customMLModels: CustomMLModel[] = [];

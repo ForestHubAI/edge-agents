@@ -68,7 +68,7 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, "Anthropic", out.Providers["llm-2"].Provider)
 	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
 
-	// Credential-free sidecar arms route by discriminator too.
+	// Credential-free component arms route by discriminator too.
 	require.Len(t, out.MLInference, 1)
 	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
 	assert.Equal(t, "yolov8n", out.MLInference["ml-1"].Model)

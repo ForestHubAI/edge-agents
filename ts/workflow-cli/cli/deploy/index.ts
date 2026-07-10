@@ -41,13 +41,13 @@ import { MODEL_CATALOG } from "../../src/catalog";
 import type { DeploymentInputs } from "@foresthubai/workflow-core/deploy";
 
 // Resolved component images the spec pins. The engine is currently built locally
-// (bare name → local daemon, renderer's pull_policy never); the llama sidecar is a
+// (bare name → local daemon, renderer's pull_policy never); the llama component is a
 // pinned upstream tag. When engine images are published to a registry, this gains
 // a registry host and the renderer's pull_policy flips to missing.
 const ENGINE_IMAGE = "fh-engine:latest";
 const LLAMA_SERVER_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
-const ML_SIDECAR_IMAGE = "fh-onnx:latest";
-const CAMERA_SIDECAR_IMAGE = "fh-camera:latest";
+const ML_COMPONENT_IMAGE = "fh-onnx:latest";
+const CAMERA_COMPONENT_IMAGE = "fh-camera:latest";
 
 // ---------------------------------------------------------------------------
 // Flag parsing
@@ -348,7 +348,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   }
   const req = deriveRequirements(domain, MODEL_CATALOG);
 
-  // Custom models are handled per model in the prompts (on-device sidecar vs. an
+  // Custom models are handled per model in the prompts (on-device component vs. an
   // endpoint the operator runs) and explained accurately in the generated README —
   // no blanket pre-prompt note here, which could only guess at that choice.
 
@@ -431,8 +431,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
         id: slugify(workflowName),
         engineImage: ENGINE_IMAGE,
         llamaServerImage: LLAMA_SERVER_IMAGE,
-        mlSidecarImage: ML_SIDECAR_IMAGE,
-        cameraSidecarImage: CAMERA_SIDECAR_IMAGE,
+        mlComponentImage: ML_COMPONENT_IMAGE,
+        cameraComponentImage: CAMERA_COMPONENT_IMAGE,
       },
       customComponents,
       MODEL_CATALOG,

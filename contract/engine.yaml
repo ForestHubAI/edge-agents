@@ -88,7 +88,7 @@ components:
 
     MLInferenceConfig:
       type: object
-      description: "Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential."
+      description: "Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential."
       required: [type, url, model]
       properties:
         type:
@@ -96,14 +96,14 @@ components:
           enum: [ml-inference]
         url:
           type: string
-          description: Base URL of the inference sidecar (http:// or https://).
+          description: Base URL of the inference component (http:// or https://).
         model:
           type: string
-          description: Model name the sidecar selects on.
+          description: Model name the component selects on.
 
     CameraConfig:
       type: object
-      description: "Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
+      description: "Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
       required: [type, url]
       properties:
         type:
@@ -111,7 +111,7 @@ components:
           enum: [camera]
         url:
           type: string
-          description: Base URL of the capture sidecar (http:// or https://).
+          description: Base URL of the capture component (http:// or https://).
 
     MQTTConnection:
       type: object

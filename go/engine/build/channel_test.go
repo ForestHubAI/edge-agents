@@ -53,7 +53,7 @@ func TestIndexFor_NilIndexFails(t *testing.T) {
 }
 
 func TestBuildChannels_SkipsCamera(t *testing.T) {
-	// A camera resolves to a capture sidecar in buildDeployCapture, so
+	// A camera resolves to a capture component in buildDeployCapture, so
 	// buildChannels must skip it cleanly — not reject it as an unsupported type
 	// (which would fail every camera deploy at boot).
 	chs, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, nil, nil, nil, nil)

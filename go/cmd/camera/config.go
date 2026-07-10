@@ -10,7 +10,7 @@ import (
 	"github.com/caarlos0/env/v9"
 )
 
-// Config holds the sidecar's boot configuration. All values come from env vars.
+// Config holds the component's boot configuration. All values come from env vars.
 type Config struct {
 	// ConfigFile is the path to the cameras.json describing the configured devices.
 	ConfigFile string `env:"CAMERA_CONFIG_FILE" envDefault:"/etc/foresthub/cameras.json"`

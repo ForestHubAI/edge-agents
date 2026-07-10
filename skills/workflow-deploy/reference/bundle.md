@@ -12,7 +12,7 @@ Always written:
 | File                   | Purpose                                                                | Mode |
 | ---------------------- | --------------------------------------------------------------------- | ---- |
 | `engine-config.json`   | the engine's single boot config — workflow + device manifest + resource mapping + external resources, all in one blob | 644 |
-| `docker-compose.yml`   | the deployment template (engine + any sidecars + custom components)   | 644 |
+| `docker-compose.yml`   | the deployment template (engine + any model components + custom components) | 644 |
 | `engine.env`           | operator config — provider keys, web-search key, log level            | **600 (secret)** |
 | `deployment-spec.json` | the full resolved deployment record (secret-free)                     | 644 |
 | `README.md`            | the operator's build/transfer/run guide                               | 644 |
@@ -38,13 +38,13 @@ secrets live in `engine.env` (the engine's own provider/web-search keys), in `en
 `/etc/foresthub/secrets.json`), and in any custom component's `<name>.env`. **Never `cat` the `600`
 files** — inspect them by `ls -l` only. They hold the sentinel placeholders the operator must replace.
 
-## On-device models — the llama-server sidecar
+## On-device models — the llama-server component
 
 A custom model with `location: "device"` makes the bundle self-host it: the compose file gains a
 `llama-<slug>` service (image `ghcr.io/ggml-org/llama.cpp:server-b8589`) that mounts `./models:/models:ro`
 and serves on port 8080; the engine reaches it at `http://llama-<slug>:8080`. There is deliberately
-**no `depends_on` and no healthcheck** — the engine connects at runtime and retries until the sidecar
-is up, so there is no start-ordering between them. The context window is frozen into the sidecar's
+**no `depends_on` and no healthcheck** — the engine connects at runtime and retries until the component
+is up, so there is no start-ordering between them. The context window is frozen into the component's
 compose `command` (`--ctx-size`, default 4096) at deploy time — retuning it is a re-deploy, not an env
 edit. The `.gguf` weights are **not** in the bundle — the operator copies them into `models/`
 separately (the README has the `scp` line).
@@ -57,7 +57,7 @@ over the compose bridge network by service name, and several bundles can coexist
 
 ## Custom components — operator-authored extra containers
 
-Beyond the engine and any model sidecars, the operator can co-deploy **custom components**: extra
+Beyond the engine and any model components, the operator can co-deploy **custom components**: extra
 containers (a dashboard, a local broker, a metrics agent) they author and pass with a repeatable
 `--component <folder>` flag. Each folder holds a `component.json` declaring the container (name,
 image, `pull` policy, ports, volumes, an optional `config` blob) and may ship a `<name>.env.example`.
@@ -83,7 +83,7 @@ The skill stops after writing the bundle; these steps stay manual. Summarize the
 3. **Transfer** — `docker save fh-engine:latest -o fh-engine.tar`, then `scp` the tar + the bundle
    files to the controller. Device-model `.gguf`s go separately (`scp -r models/`) — they're large.
 4. **Run** — on the controller: `docker load -i fh-engine.tar`, then `docker compose up -d`. The
-   engine and any sidecar start independently — the engine retries until the sidecar is up — so
+   engine and any component start independently — the engine retries until the component is up — so
    `docker compose ps` / `logs` (no service filter) show every container while things settle, not just
    the engine.
 

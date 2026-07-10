@@ -7,7 +7,7 @@
 Each model bundle is a sub-folder of the models repository and carries a
 `manifest.yaml` describing how to load and drive its model. The manifest is
 validated when the repository loads at startup; an invalid manifest fails the
-whole sidecar fast — this is the deploy-time validation gate.
+whole component fast — this is the deploy-time validation gate.
 """
 
 from __future__ import annotations

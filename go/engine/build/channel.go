@@ -193,7 +193,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 			}
 			ch.logs[x.Id] = &channel.Log{Level: level, Tag: pointer.Val(x.Tag)}
 		case workflowapi.CAMERAChannel:
-			// A camera resolves to a capture sidecar, not a device driver or
+			// A camera resolves to a capture component, not a device driver or
 			// transport, so there is nothing to build here. Its endpoint is
 			// resolved in buildDeployCapture and the CameraCapture node binds to
 			// that CaptureClient directly.

@@ -4,7 +4,7 @@
 
 """The model repository: turn a mounted directory of bundles into a registry.
 
-At startup the sidecar scans the models directory — one ``<model-id>/`` sub-folder
+At startup the component scans the models directory — one ``<model-id>/`` sub-folder
 per model — and loads every bundle (ONNX session + resolved handler + manifest)
 into a ``name -> LoadedModel`` map. One container thus hosts many models; a request
 selects one by name. Loading is eager and fail-fast: an empty directory or any

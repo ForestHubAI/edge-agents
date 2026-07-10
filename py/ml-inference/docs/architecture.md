@@ -1,6 +1,6 @@
 # Architecture & pipelines
 
-How the sidecar is layered and how a request flows through it. To add a handler see
+How the component is layered and how a request flows through it. To add a handler see
 [handlers.md](./handlers.md); to add a model bundle see [bundles.md](./bundles.md).
 
 The design goal: **one generic image** that can serve any ONNX model, with all

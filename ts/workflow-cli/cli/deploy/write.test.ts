@@ -162,7 +162,7 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  it("writes the capture sidecar's cameras.json as a file for on-device cameras", async () => {
+  it("writes the capture component's cameras.json as a file for on-device cameras", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     const camera: DeployComponent = {

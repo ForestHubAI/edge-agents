@@ -3,9 +3,9 @@
 
 openapi: 3.0.3
 info:
-  title: ForestHub Capture Sidecar Contract
+  title: ForestHub Capture Component Contract
   version: 0.1.0
-  description: "Engine<->sidecar capture wire. One container owns several named capture devices and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the sidecar's generated server."
+  description: "Engine<->component capture wire. One container owns several named capture devices and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the component's generated server."
 
 paths:
   /capture:
@@ -94,7 +94,7 @@ paths:
       description: Names every configured device — the valid /capture name selectors.
       responses:
         "200":
-          description: The sidecar's configured devices.
+          description: The component's configured devices.
           content:
             application/json:
               schema:

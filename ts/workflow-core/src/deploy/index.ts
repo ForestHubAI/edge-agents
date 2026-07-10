@@ -22,8 +22,8 @@ export {
   hardwareAddressLabel,
   ggufNameError,
   mlModelNameError,
-  llmSidecarServiceName,
-  mlSidecarServiceName,
-  cameraSidecarServiceName,
+  llmComponentServiceName,
+  mlComponentServiceName,
+  cameraComponentServiceName,
 } from "./spec";
 export type { DeploymentSpecMeta, DeploymentSpecResult, EngineSecrets } from "./spec";

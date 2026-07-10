@@ -1,4 +1,4 @@
-# Image for the fh-camera capture sidecar. Capture shells out to gst-launch-1.0,
+# Image for the fh-camera capture component. Capture shells out to gst-launch-1.0,
 # so the runtime needs the GStreamer userspace. libcamera is built from a pinned
 # upstream release instead of apt: CSI camera support lands in libcamera release
 # by release, and the distro-packaged version is too old for the platforms we

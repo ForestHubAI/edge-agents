@@ -1,6 +1,6 @@
 # fh-onnx
 
-A generic ONNX inference sidecar: one container that runs your ONNX models behind
+A generic ONNX inference component: one container that runs your ONNX models behind
 a small HTTP API (FastAPI + [ONNX Runtime](https://onnxruntime.ai/)). Built once,
 it serves any model family — vision, classical ML, time-series — because the model
 weights and their pre/post-processing live in **mounted bundles**, not in the image.
@@ -80,7 +80,7 @@ docker run --rm -p 8000:8000 \
   fh-onnx:latest
 ```
 
-In a compose deployment the engine reaches the sidecar over the Docker network;
+In a compose deployment the engine reaches the component over the Docker network;
 because the image is self-built, pin `pull_policy: never`:
 
 ```yaml

@@ -14,14 +14,14 @@ There are three sources of implementation:
 - **Built-in / standalone behavior** — what happens with no backend. For some
   ports that's a real local implementation; for others it's "the port is
   nil and the engine does without."
-- **Deploy-resolved sidecar clients** — the ML inference and camera capture
-  ports are filled from the deploy's `ExternalResources` (a sidecar URL),
+- **Deploy-resolved component clients** — the ML inference and camera capture
+  ports are filled from the deploy's `ExternalResources` (a component URL),
   resolved in the build layer (`engine/build`), not `main.go`. They are
-  backend-independent: the sidecar is a separate container reached by URL, the
+  backend-independent: the component is a separate container reached by URL, the
   same with or without a backend.
 
 `cmd/engine/main.go` decides which adapter fills the backend-or-standalone
-seams (LLM, RAG); the sidecar-backed seams are wired by the build layer from
+seams (LLM, RAG); the component-backed seams are wired by the build layer from
 `ExternalResources`.
 
 ## The matrix
@@ -30,8 +30,8 @@ seams (LLM, RAG); the sidecar-backed seams are wired by the build layer from
 | ------------------- | ----------------------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------- |
 | `LlmClient`         | `Chat`                        | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
 | `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
-| `MLInferenceClient` | `InferTensors`, `InferBinary` | Required **only if** an ML inference node is deployed | Deploy-resolved sidecar client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
-| `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | Deploy-resolved sidecar client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
+| `MLInferenceClient` | `InferTensors`, `InferBinary` | Required **only if** an ML inference node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
+| `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
 
 Three capabilities deliberately are **not** ports:
 
@@ -77,29 +77,29 @@ yet**.
 ## MLInferenceClient — required only when used
 
 `InferTensors` and `InferBinary` are the ML inference seams: both hit one
-sidecar `/infer` endpoint, differing only in how the input is encoded (named
+component `/infer` endpoint, differing only in how the input is encoded (named
 numeric tensors, or an opaque binary blob such as an encoded image). The
 adapter is `build.mlEndpoint`, a generated `mlinferenceapi` client bound to one
 model name.
 
 - **Resolution:** `build/ml.go` resolves each declared ML model against the
-  deploy's `ExternalResources` (`ml-inference` arm → sidecar URL). Many models
-  may share one sidecar — the model name is sent per request.
+  deploy's `ExternalResources` (`ml-inference` arm → component URL). Many models
+  may share one component — the model name is sent per request.
 - **Missing:** an `MLInference` node whose model is unbound or unconfigured
-  **fails the build**. Backend-independent — the sidecar is its own container.
+  **fails the build**. Backend-independent — the component is its own container.
 
 ## CaptureClient — required only when used
 
-`Capture` is the frame-capture seam: the engine asks a sidecar for one encoded
+`Capture` is the frame-capture seam: the engine asks a component for one encoded
 frame. The adapter is `build.captureEndpoint`, a generated `captureapi` client
 bound to one camera name (and its optional width/height), so the node calls it
 parameterless.
 
 - **Resolution:** `build/capture.go` resolves each declared `CAMERA` channel
-  against the deploy's `ExternalResources` (`camera` arm → sidecar URL). Many
-  cameras may share one sidecar — the camera name is sent per request.
+  against the deploy's `ExternalResources` (`camera` arm → component URL). Many
+  cameras may share one component — the camera name is sent per request.
 - **Missing:** a `CameraCapture` node whose channel is unbound or unconfigured
-  **fails the build**. Backend-independent — the sidecar is its own container.
+  **fails the build**. Backend-independent — the component is its own container.
 
 ## Memory — device-storage-only
 

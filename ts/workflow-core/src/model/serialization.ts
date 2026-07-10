@@ -31,7 +31,7 @@ export function deserialize(api: ApiModel): Model {
       args.capabilities = api.capabilities;
       break;
     case "MLModel":
-      // No type-specific arguments; the sidecar selects the model by id.
+      // No type-specific arguments; the component selects the model by id.
       break;
   }
   return { id, label, type, arguments: args };

@@ -886,7 +886,7 @@ type CAMERAChannelType string
 // CameraCaptureNode defines model for CameraCaptureNode.
 type CameraCaptureNode struct {
 	Arguments struct {
-		// CameraReference Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture sidecar endpoint at deploy time.
+		// CameraReference Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time.
 		CameraReference string        `json:"cameraReference"`
 		Output          OutputBinding `json:"output"`
 	} `json:"arguments"`
@@ -1091,9 +1091,9 @@ type MLInferenceNode struct {
 // MLInferenceNodeType defines model for MLInferenceNode.Type.
 type MLInferenceNodeType string
 
-// MLModel A machine-learning model, served by an inference sidecar, that nodes can reference.
+// MLModel A machine-learning model, served by an inference component, that nodes can reference.
 type MLModel struct {
-	// Id Stable identifier; this is the model name nodes reference and the sidecar selects on.
+	// Id Stable identifier; this is the model name nodes reference and the component selects on.
 	Id string `json:"id"`
 
 	// Label Display name.

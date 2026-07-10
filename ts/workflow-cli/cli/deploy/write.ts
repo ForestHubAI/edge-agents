@@ -11,7 +11,7 @@ import path from "node:path";
 import { camerasJson, composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import { cameraSidecarServiceName, mlSidecarServiceName } from "@foresthubai/workflow-core/deploy";
+import { cameraComponentServiceName, mlComponentServiceName } from "@foresthubai/workflow-core/deploy";
 import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -81,11 +81,11 @@ export async function writeOutput(
     await emit(`${name}.env`, text, true);
   }
 
-  // The capture sidecar's cameras.json — a file we write (not an operator-drop
+  // The capture component's cameras.json — a file we write (not an operator-drop
   // dir), so it is created here and skipped in the dir loop below. Its source is
-  // read from the spec's camera-sidecar mount rather than reconstructed, so it
+  // read from the spec's camera-component mount rather than reconstructed, so it
   // always matches the path the renderer emitted (whatever the state root).
-  const cameraComponent = spec.components.find((c) => c.name === cameraSidecarServiceName());
+  const cameraComponent = spec.components.find((c) => c.name === cameraComponentServiceName());
   const camerasSource = (cameraComponent?.volumes ?? [])
     .map((v) => v.split(":")[0] ?? "")
     .find((src) => src.endsWith("/cameras.json"));
@@ -113,7 +113,7 @@ export async function writeOutput(
 
   // Each on-device ML model's repository sub-folder — named by model, not a bind
   // mount, so the loop above misses it. The operator drops model.onnx here.
-  const mlRepoDir = path.join("workspaces", mlSidecarServiceName());
+  const mlRepoDir = path.join("workspaces", mlComponentServiceName());
   for (const b of Object.values(cfg.mlModels)) {
     if (b.location === "device") await fs.mkdir(path.join(dir, mlRepoDir, b.model), { recursive: true });
   }

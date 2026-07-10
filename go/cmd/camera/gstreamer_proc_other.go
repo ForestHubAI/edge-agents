@@ -8,7 +8,7 @@ package main
 
 import "os/exec"
 
-// killChildProcessGroup is a no-op off Linux. The camera sidecar only ever runs
+// killChildProcessGroup is a no-op off Linux. The camera component only ever runs
 // in a Linux edge container; this stub exists so the package still compiles for
 // local development on macOS/Windows, where exec.CommandContext already SIGKILLs
 // the direct child on cancel (process groups are a POSIX concept).

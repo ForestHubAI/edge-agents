@@ -15,8 +15,8 @@ contract/        SOURCE OF TRUTH. Language-neutral OpenAPI 3.0.3 schemas.
   llmproxy.yaml    LLM-proxy request/response types.
   debug.yaml       engine<->editor debug-adapter protocol ($refs workflow.yaml).
   deployment.yaml  deploy bundle/manifest wire ($refs workflow.yaml).
-  mlinference.yaml ML inference sidecar wire (/infer + health/ready/metadata).
-  capture.yaml     capture sidecar wire (/capture + health/ready/metadata).
+  mlinference.yaml ML inference component wire (/infer + health/ready/metadata).
+  capture.yaml     capture component wire (/capture + health/ready/metadata).
 
 go/              Go module — go.mod lives HERE, not at repo root, so `go get`
                  consumers never receive the ts/ or contract/ trees.
@@ -27,7 +27,7 @@ ts/              npm workspace: workflow-core (headless model), workflow-builder
                  See ts/CLAUDE.md.
 
 py/              Python service: ml-inference (fh-onnx) — generic ONNX inference
-                 sidecar, FastAPI + onnxruntime, model-repository pattern.
+                 component, FastAPI + onnxruntime, model-repository pattern.
                  Pydantic models codegen from contract/mlinference.yaml.
                  See py/ml-inference/README.md.
 

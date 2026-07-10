@@ -89,7 +89,7 @@ class Error(BaseModel):
 
 class RepositoryMetadata(BaseModel):
     """
-    The set of models the sidecar currently has loaded.
+    The set of models the component currently has loaded.
     """
 
     models: list[ModelMetadata]

@@ -19,7 +19,7 @@ var _ engine.Emitter = (*CameraCapture)(nil)
 
 const cameraCaptureOutID = "output"
 
-// CameraCapture grabs one frame from a capture sidecar, emits it through the
+// CameraCapture grabs one frame from a capture component, emits it through the
 // output binding as an opaque image value, and advances. Transport is the
 // client's concern; this node only forwards the frame.
 type CameraCapture struct {

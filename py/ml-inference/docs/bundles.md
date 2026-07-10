@@ -1,13 +1,13 @@
 # Model bundles & the repository
 
 A **model bundle** is a folder holding one model plus the metadata that tells the
-sidecar how to load and drive it. The mounted **repository** is a directory of such
+component how to load and drive it. The mounted **repository** is a directory of such
 bundles. This doc covers the bundle format and how to add a model; for the handler a
 bundle selects, see [handlers.md](./handlers.md).
 
 ## The repository
 
-The sidecar scans a mounted directory at startup and loads **every** sub-folder as a
+The component scans a mounted directory at startup and loads **every** sub-folder as a
 bundle (`repository.py`). The folder name is the model **id** — the value a request
 passes as `/infer`'s `model`. The mount is read-only; default `ML_MODELS_DIR` is
 `/var/lib/foresthub/models`.
@@ -57,7 +57,7 @@ field) raises `ManifestError` and aborts startup — never a silent default.
 ## Why `schemaVersion`
 
 `schemaVersion` versions the **manifest format itself** (currently `1`,
-`SCHEMA_VERSION` in `manifest.py`). The bundle and the sidecar image are shipped
+`SCHEMA_VERSION` in `manifest.py`). The bundle and the component image are shipped
 separately and can drift — an old bundle on a new image, or vice versa. If the format
 later changes (a field renamed, or its meaning changed), an image reading a
 mismatched manifest could silently misinterpret it.

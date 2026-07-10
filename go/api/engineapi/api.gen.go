@@ -83,11 +83,11 @@ type ADCConfig struct {
 	Device string `json:"device"`
 }
 
-// CameraConfig Resolved connection to a camera capture sidecar the engine doesn't ship: a separate endpoint that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
+// CameraConfig Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
 type CameraConfig struct {
 	Type CameraConfigType `json:"type"`
 
-	// Url Base URL of the capture sidecar (http:// or https://).
+	// Url Base URL of the capture component (http:// or https://).
 	Url string `json:"url"`
 }
 
@@ -154,13 +154,13 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// MLInferenceConfig Resolved connection to an ML inference sidecar the engine doesn't ship: a separate endpoint that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential.
+// MLInferenceConfig Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential.
 type MLInferenceConfig struct {
-	// Model Model name the sidecar selects on.
+	// Model Model name the component selects on.
 	Model string                `json:"model"`
 	Type  MLInferenceConfigType `json:"type"`
 
-	// Url Base URL of the inference sidecar (http:// or https://).
+	// Url Base URL of the inference component (http:// or https://).
 	Url string `json:"url"`
 }
 

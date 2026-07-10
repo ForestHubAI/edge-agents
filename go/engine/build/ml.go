@@ -20,12 +20,12 @@ import (
 )
 
 // mlClientTimeout bounds a single inference call. Inference can be heavy, so the
-// budget is generous, but it still frees the node if the sidecar becomes
+// budget is generous, but it still frees the node if the component becomes
 // unreachable or wedged rather than blocking the runner indefinitely.
 const mlClientTimeout = 120 * time.Second
 
 // mlEndpoint is the HTTP adapter for one declared ML model: it implements
-// engine.MLInferenceClient over the generated sidecar client, binding the model
+// engine.MLInferenceClient over the generated component client, binding the model
 // name so callers pass only the input.
 type mlEndpoint struct {
 	client    *mlinferenceapi.ClientWithResponses
@@ -34,7 +34,7 @@ type mlEndpoint struct {
 
 var _ engine.MLInferenceClient = (*mlEndpoint)(nil)
 
-// InferTensors sends the tensors to the sidecar as a multipart /infer request
+// InferTensors sends the tensors to the component as a multipart /infer request
 // and returns the handler-produced result object.
 func (e *mlEndpoint) InferTensors(ctx context.Context, tensors map[string]any) (map[string]any, error) {
 	contentType, body, err := buildTensorsBody(e.modelName, tensors)
@@ -44,7 +44,7 @@ func (e *mlEndpoint) InferTensors(ctx context.Context, tensors map[string]any) (
 	return e.infer(ctx, contentType, body)
 }
 
-// InferBinary sends an opaque binary blob (e.g. an encoded image) to the sidecar
+// InferBinary sends an opaque binary blob (e.g. an encoded image) to the component
 // as a multipart /infer request and returns the handler-produced result object.
 func (e *mlEndpoint) InferBinary(ctx context.Context, data []byte) (map[string]any, error) {
 	contentType, body, err := buildBinaryBody(e.modelName, data)
@@ -54,18 +54,18 @@ func (e *mlEndpoint) InferBinary(ctx context.Context, data []byte) (map[string]a
 	return e.infer(ctx, contentType, body)
 }
 
-// infer posts an already-encoded multipart body to the sidecar and unwraps the
+// infer posts an already-encoded multipart body to the component and unwraps the
 // result, shared by the tensors and binary arms.
 func (e *mlEndpoint) infer(ctx context.Context, contentType string, body *bytes.Buffer) (map[string]any, error) {
 	resp, err := e.client.InferWithBodyWithResponse(ctx, contentType, body)
 	if err != nil {
-		return nil, fmt.Errorf("calling sidecar: %w", err)
+		return nil, fmt.Errorf("calling component: %w", err)
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("sidecar returned %d: %s", resp.StatusCode(), inferErrorMessage(resp))
+		return nil, fmt.Errorf("component returned %d: %s", resp.StatusCode(), inferErrorMessage(resp))
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("sidecar returned 200 with no result body")
+		return nil, fmt.Errorf("component returned 200 with no result body")
 	}
 	return resp.JSON200.Result, nil
 }
@@ -119,7 +119,7 @@ func buildBinaryBody(modelName string, data []byte) (string, *bytes.Buffer, erro
 	return w.FormDataContentType(), &buf, nil
 }
 
-// inferErrorMessage extracts the sidecar's error message from a non-2xx
+// inferErrorMessage extracts the component's error message from a non-2xx
 // response, falling back to the HTTP status text.
 func inferErrorMessage(resp *mlinferenceapi.InferResponse) string {
 	switch {
@@ -140,7 +140,7 @@ func inferErrorMessage(resp *mlinferenceapi.InferResponse) string {
 // endpoints. wf.Models also holds LLM models (resolved separately in
 // selfHostedEndpoints); those are skipped here by discriminator. An unbound or
 // unconfigured ML model is a deploy error. Many models may resolve to the same
-// sidecar url — expected, since one sidecar serves a repository of models and the
+// component url — expected, since one component serves a repository of models and the
 // model name is sent per request. No network call is made here.
 func buildDeployML(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*mlEndpoint, error) {
 	endpoints := make(map[string]*mlEndpoint)

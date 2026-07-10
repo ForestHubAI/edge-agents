@@ -1,4 +1,4 @@
-# py/ — ONNX inference sidecar
+# py/ — ONNX inference component
 
 Python service `fh-onnx` (`py/ml-inference/`): a generic ONNX inference **model
 repository** served over HTTP (FastAPI + onnxruntime). The repo-wide rule about the

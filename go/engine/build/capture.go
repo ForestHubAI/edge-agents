@@ -15,13 +15,13 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
 
-// captureClientTimeout bounds a single capture call. It sits above the sidecar's
-// worst case (captureTimeout 15s + WaitDelay 5s) so the sidecar's own 500 wins the
-// race, while still freeing the node if the sidecar is unreachable.
+// captureClientTimeout bounds a single capture call. It sits above the component's
+// worst case (captureTimeout 15s + WaitDelay 5s) so the component's own 500 wins the
+// race, while still freeing the node if the component is unreachable.
 const captureClientTimeout = 25 * time.Second
 
 // captureEndpoint is the HTTP adapter for one declared camera channel: it
-// implements engine.CaptureClient over the generated sidecar client, binding
+// implements engine.CaptureClient over the generated component client, binding
 // the camera name and capture size so callers pass only the context.
 type captureEndpoint struct {
 	client *captureapi.ClientWithResponses
@@ -32,7 +32,7 @@ type captureEndpoint struct {
 
 var _ engine.CaptureClient = (*captureEndpoint)(nil)
 
-// Capture asks the sidecar for one frame from the bound camera and returns the
+// Capture asks the component for one frame from the bound camera and returns the
 // encoded bytes. Width and height are sent only when set.
 func (e *captureEndpoint) Capture(ctx context.Context) ([]byte, error) {
 	params := &captureapi.CaptureParams{Name: e.name}
@@ -44,18 +44,18 @@ func (e *captureEndpoint) Capture(ctx context.Context) ([]byte, error) {
 	}
 	resp, err := e.client.CaptureWithResponse(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("calling sidecar: %w", err)
+		return nil, fmt.Errorf("calling component: %w", err)
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("sidecar returned %d: %s", resp.StatusCode(), captureErrorMessage(resp))
+		return nil, fmt.Errorf("component returned %d: %s", resp.StatusCode(), captureErrorMessage(resp))
 	}
 	if len(resp.Body) == 0 {
-		return nil, fmt.Errorf("sidecar returned an empty frame")
+		return nil, fmt.Errorf("component returned an empty frame")
 	}
 	return resp.Body, nil
 }
 
-// captureErrorMessage extracts the sidecar's error message from a non-2xx
+// captureErrorMessage extracts the component's error message from a non-2xx
 // response, falling back to the HTTP status text.
 func captureErrorMessage(resp *captureapi.CaptureResponse) string {
 	switch {
@@ -70,8 +70,8 @@ func captureErrorMessage(resp *captureapi.CaptureResponse) string {
 
 // buildDeployCapture resolves a workflow's declared camera channels into
 // per-camera capture endpoints. A CAMERA channel that is unbound or points at a
-// missing config is a deploy error. Many cameras may resolve to the same sidecar
-// url — expected, since one sidecar owns a set of cameras and the camera name is
+// missing config is a deploy error. Many cameras may resolve to the same component
+// url — expected, since one component owns a set of cameras and the camera name is
 // sent per request. No network call is made here.
 func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*captureEndpoint, error) {
 	endpoints := make(map[string]*captureEndpoint)

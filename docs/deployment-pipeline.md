@@ -100,7 +100,7 @@ never one of them:
 | component kind                         | who produces its `DeployComponent`   |    needs workflow-derived config?     |
 | -------------------------------------- | ------------------------------------ | :-----------------------------------: |
 | engine, llama (first-party)            | `buildDeploymentSpec` code (Stage 1) | yes — that is _why_ they are built in |
-| broker / dashboard / custom sidecar    | the user, hand-authored              |                  no                   |
+| broker / dashboard / custom component  | the user, hand-authored              |                  no                   |
 | third-party thing coupled to the graph | plugin hook (future, not built)      |       yes — the rare hard case        |
 
 Custom components enter at the Stage-1 **merge**: the resolver appends

@@ -20,7 +20,7 @@ var _ engine.Emitter = (*MLInference)(nil)
 
 const mlInferenceOutID = "output"
 
-// MLInference runs one inference against an ML sidecar and emits its result.
+// MLInference runs one inference against an ML component and emits its result.
 // It resolves the configured input variable, runs it through the bound
 // inference client, and writes the handler-produced result to the bound slot as
 // a JSON string. Control-flow only — not exposed as an LLM tool. Transport is

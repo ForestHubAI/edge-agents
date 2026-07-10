@@ -42,7 +42,7 @@ type Retriever interface {
 }
 
 // MLInferenceClient is the external service for ML model inference. Both methods
-// hit the same sidecar endpoint; they differ only in how the input is encoded —
+// hit the same component endpoint; they differ only in how the input is encoded —
 // named numeric tensors, or an opaque binary blob (e.g. an encoded image).
 type MLInferenceClient interface {
 	InferTensors(ctx context.Context, tensors map[string]any) (map[string]any, error)

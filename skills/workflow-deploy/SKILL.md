@@ -1,6 +1,6 @@
 ---
 name: workflow-deploy
-description: Turn a finished Edge Agents *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama-server sidecars + any operator-authored custom components) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
+description: Turn a finished Edge Agents *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama-server components + any operator-authored custom components) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
 ---
 
 # workflow-deploy
@@ -9,7 +9,7 @@ Take a validated `*.workflow.json` and produce a **standalone deployment bundle*
 build and run on an edge controller: `docker-compose.yml`, the engine's boot config
 (`engine-config.json` — workflow + device manifest + mappings + external resources, all in one blob),
 a filled-in `engine.env`, a `deployment-spec.json` record, a `README.md`, and — depending on what the
-workflow uses — one `llama-server` sidecar per on-device model, plus any operator-authored custom
+workflow uses — one `llama-server` component per on-device model, plus any operator-authored custom
 components.
 
 The bundle is always **standalone**: the engine boots straight from `engine-config.json` and runs on
@@ -21,7 +21,7 @@ values, and the command tells you the moment anything required is missing.
 **What you actually produce is one file — the `--values` JSON.** From that file plus the workflow,
 `fh-workflow deploy` generates the _whole_ bundle on its own: the compose file, `engine.env`, the
 `engine-config.json` (workflow + manifest + mappings + resources), `deployment-spec.json`, the
-`README.md`, the sidecars. You never hand-write any of those. So the task reduces to exactly this:
+`README.md`, the components. You never hand-write any of those. So the task reduces to exactly this:
 read the workflow, ask the operator for **every** value that can go into the values file — required
 and optional alike — write the file in the right shape, point at any custom-component folders, and
 run one command. Get the values file right and the bundle is right.
@@ -85,7 +85,7 @@ from the workflow:
 - **`channels[]`** — each entry's `type` is a hardware family or MQTT. The type→family→device-path
   table in `reference/values.md` tells you what to ask for (a gpio line vs an sysfs ADC path vs a
   serial device + baud).
-- **`models[]`** — each is a custom model needing a binding: a `device` sidecar (a `.gguf` filename)
+- **`models[]`** — each is a custom model needing a binding: a `device` component (a `.gguf` filename)
   or a `network` endpoint (a URL you run elsewhere).
 - **nodes** — an `Agent` whose `arguments.model` is **not** in `models[]` is a _catalog_ model and
   needs that provider's key. A `WebSearchTool` node needs `webSearch`. A **`Retriever` node is a hard
@@ -172,7 +172,7 @@ need auth?"), and if so write a `REPLACE_ME_…` placeholder in Step 3 and repor
 operator fills the real secret afterward.
 
 Not a values-file field: a device model's context window is **not** something you set here — the
-deploy freezes it into the sidecar's compose `command` (default 4096), and changing it is a re-deploy,
+deploy freezes it into the component's compose `command` (default 4096), and changing it is a re-deploy,
 not an env edit.
 
 ## Step 3: Assemble the `--values` file
@@ -286,7 +286,7 @@ Give the operator:
 - **Standalone only.** This bundle has no control plane — the engine runs the one workflow it was
   built with.
 - **device vs network models are different things.** `device` self-hosts a `.gguf` as a
-  `llama-server` sidecar in the bundle; `network` points at an endpoint the operator already runs.
+  `llama-server` component in the bundle; `network` points at an endpoint the operator already runs.
   Ask which; don't assume.
 - **Don't build or transfer.** The skill ends at a written bundle; building the image and copying it
   to the controller are the operator's steps, documented in the README.

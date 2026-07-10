@@ -28,7 +28,7 @@ export interface MqttBinding {
   password?: string;
 }
 
-// One custom LLM model's runtime location. `device` = a llama-server sidecar on
+// One custom LLM model's runtime location. `device` = a llama-server component on
 // this controller (the engine reaches it over the container network by service
 // name); `network` = an inference endpoint the operator runs elsewhere. The
 // endpoint serves the model under its workflow id — no upstream-name aliasing yet.
@@ -37,21 +37,21 @@ export type LLMModelBinding =
   | { location: "network"; url: string; apiKey?: string };
 
 // One custom ML model's runtime location. `device` = served by the shared
-// inference sidecar on this controller (the model repository is a directory the
+// inference component on this controller (the model repository is a directory the
 // operator fills); `network` = an inference endpoint the operator runs
 // elsewhere. Credential-free — a trusted endpoint. `model` = the name the
-// sidecar selects on (its repository sub-folder on device).
+// component selects on (its repository sub-folder on device).
 export type MLModelBinding =
   | { location: "device"; model: string }
   | { location: "network"; url: string; model: string };
 
 // One camera channel's runtime location. `device` = read by the shared capture
-// sidecar on this controller from a local capture source (`v4l2` wraps a
+// component on this controller from a local capture source (`v4l2` wraps a
 // /dev/video* path; `gstreamer` takes a source element verbatim, e.g.
 // libcamerasrc); `network` = a capture endpoint the operator runs elsewhere.
 // Credential-free — a trusted endpoint. `warmupFrames` discards that many leading
 // frames so a sensor's auto-exposure can settle before the returned one.
-// `setup` = shell commands (media-ctl/v4l2-ctl) the sidecar replays on every
+// `setup` = shell commands (media-ctl/v4l2-ctl) the component replays on every
 // container start, for statically configured CSI/ISP pipelines; `devices` = the
 // extra device nodes those commands touch, passed through to the container.
 export type CameraBinding =

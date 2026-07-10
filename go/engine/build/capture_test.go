@@ -44,9 +44,9 @@ func mqttChannel(t *testing.T, id string) workflowapi.Channel {
 
 func TestBuildDeployCapture_ResolvesCamera(t *testing.T) {
 	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
-	dm := engine.ResourceMapping{"front": {Ref: "cam-sidecar"}}
+	dm := engine.ResourceMapping{"front": {Ref: "cam-component"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
-		"cam-sidecar": {URL: "http://fh-camera:8100"},
+		"cam-component": {URL: "http://fh-camera:8100"},
 	}}
 
 	eps, err := buildDeployCapture(wf, dm, ext)
@@ -86,7 +86,7 @@ func TestBuildDeployCapture_BoundButNoConfigFails(t *testing.T) {
 }
 
 func TestBuildDeployCapture_MultipleShareURL(t *testing.T) {
-	// One sidecar owns a set of cameras, so many channels may share a ref.
+	// One component owns a set of cameras, so many channels may share a ref.
 	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{
 		cameraChannel(t, "front", nil, nil),
 		cameraChannel(t, "rear", nil, nil),
@@ -123,7 +123,7 @@ func TestCaptureEndpoint_Capture_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte{0xFF, 0xD8, 0xFF}, frame)
 
-	// The bound name and size reach the sidecar as query params.
+	// The bound name and size reach the component as query params.
 	assert.Equal(t, "front", gotName)
 	assert.Equal(t, "640", gotWidth)
 	assert.Equal(t, "480", gotHeight)
@@ -179,7 +179,7 @@ func TestCaptureEndpoint_Capture_ServerError(t *testing.T) {
 }
 
 func TestCaptureEndpoint_Capture_EmptyBodyRejected(t *testing.T) {
-	// A 200 with no bytes is a sidecar bug; it must not surface as an empty frame.
+	// A 200 with no bytes is a component bug; it must not surface as an empty frame.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/jpeg")
 		w.WriteHeader(http.StatusOK)

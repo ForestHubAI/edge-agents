@@ -99,7 +99,7 @@ func TestMLInference_Execute(t *testing.T) {
 
 	t.Run("empty image input is rejected before the client is called", func(t *testing.T) {
 		// A declared image referenced before any CameraCapture fired carries no
-		// bytes; it must not be forwarded to the sidecar as an empty frame.
+		// bytes; it must not be forwarded to the component as an empty frame.
 		s := scopeWithInput(t, workflowapi.Image, expr.ImageVal(nil))
 
 		client := &stubInferClient{result: map[string]any{"ok": true}}
@@ -114,7 +114,7 @@ func TestMLInference_Execute(t *testing.T) {
 	t.Run("inference error is wrapped with node id", func(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.String, expr.StringVal(`{"x":1}`))
 
-		client := &stubInferClient{err: errors.New("sidecar returned 404: no model")}
+		client := &stubInferClient{err: errors.New("component returned 404: no model")}
 		n := NewMLInference("mlErr", inputRef(), emit, client)
 
 		_, err := n.Execute(context.Background(), s)

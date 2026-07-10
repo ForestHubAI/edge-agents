@@ -136,7 +136,7 @@ async function promptMqtt(
 }
 
 // Per custom LLM model: first where it runs, then the values that location needs.
-// device -> a llama-server sidecar this bundle generates (a model filename);
+// device -> a llama-server component this bundle generates (a model filename);
 // network -> an endpoint the operator runs elsewhere (its URL + optional key).
 async function promptLLMModels(
   models: CustomLLMModel[],
@@ -159,7 +159,7 @@ async function promptLLMModels(
         validate: (v) => ggufNameError(v) ?? true,
       });
       const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });
-      const port = await input({ message: `${m.label}: sidecar port`, default: "8080", validate: isUint });
+      const port = await input({ message: `${m.label}: component port`, default: "8080", validate: isUint });
       result[m.id] = {
         location: "device",
         modelFile: modelFile.trim(),
@@ -182,11 +182,11 @@ async function promptLLMModels(
   return result;
 }
 
-// Per custom ML model: where it runs, then the name the sidecar selects it by.
-// device -> served by the shared inference sidecar this bundle generates (the
+// Per custom ML model: where it runs, then the name the component selects it by.
+// device -> served by the shared inference component this bundle generates (the
 // name is the model's sub-folder in the repository the operator fills); network
 // -> an endpoint the operator runs elsewhere (the name must match what that
-// sidecar calls the model; its URL, no credential).
+// component calls the model; its URL, no credential).
 async function promptMLModels(
   models: CustomMLModel[],
   seed: Record<string, MLModelBinding>,
@@ -197,14 +197,14 @@ async function promptMLModels(
     const location = await select<"device" | "network">({
       message: `${m.label}: where does this model run?`,
       choices: [
-        { value: "device", name: "on this device (served by the shared inference sidecar)" },
+        { value: "device", name: "on this device (served by the shared inference component)" },
         { value: "network", name: "on another machine on the network (call its endpoint URL)" },
       ],
     });
 
     const model = (
       await input({
-        message: `${m.label}: model name the sidecar selects on (e.g. yolov8n)`,
+        message: `${m.label}: model name the component selects on (e.g. yolov8n)`,
         validate: (v) => mlModelNameError(v) ?? true,
       })
     ).trim();
@@ -215,7 +215,7 @@ async function promptMLModels(
     }
 
     const url = await input({
-      message: `${m.label}: inference endpoint URL (a sidecar you run elsewhere)`,
+      message: `${m.label}: inference endpoint URL (a component you run elsewhere)`,
       default: "http://localhost:8000",
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });
@@ -225,7 +225,7 @@ async function promptMLModels(
 }
 
 // Per camera channel: first where it runs, then what that location needs.
-// device -> read by the shared capture sidecar this bundle generates (a capture
+// device -> read by the shared capture component this bundle generates (a capture
 // source: a v4l2 /dev node or a gstreamer source element); network -> a capture
 // endpoint the operator runs elsewhere (its URL, no credential).
 async function promptCameras(
@@ -238,7 +238,7 @@ async function promptCameras(
     const location = await select<"device" | "network">({
       message: `${ch.label}: where does this camera run?`,
       choices: [
-        { value: "device", name: "on this device (read by the shared capture sidecar)" },
+        { value: "device", name: "on this device (read by the shared capture component)" },
         { value: "network", name: "on another machine on the network (call its endpoint URL)" },
       ],
     });
@@ -327,7 +327,7 @@ async function promptCameras(
     }
 
     const url = await input({
-      message: `${ch.label}: capture endpoint URL (a capture sidecar you run elsewhere)`,
+      message: `${ch.label}: capture endpoint URL (a capture component you run elsewhere)`,
       default: "http://localhost:8100",
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });

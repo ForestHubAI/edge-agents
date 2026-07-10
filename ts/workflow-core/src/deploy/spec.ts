@@ -29,23 +29,23 @@ type EngineConfig = EngineSchemas["EngineConfig"];
 // A cross-repo contract: changing it requires changing the Go constant in lockstep.
 const COMPONENT_WORKSPACE_PATH = "/var/lib/foresthub/workspace";
 
-// In-container path the inference sidecar reads its model repository from (its
+// In-container path the inference component reads its model repository from (its
 // default models dir). The host repository dir is bind-mounted here read-only;
 // mounting at the default means no env var needs wiring. A cross-repo contract
-// with the sidecar image — changing it requires changing the image in lockstep.
+// with the component image — changing it requires changing the image in lockstep.
 const ML_MODELS_PATH = "/var/lib/foresthub/models";
 
-// The inference sidecar's fixed listen port (baked into its image entrypoint).
-const ML_SIDECAR_PORT = 8000;
+// The inference component's fixed listen port (baked into its image entrypoint).
+const ML_COMPONENT_PORT = 8000;
 
-// In-container path the capture sidecar reads its camera config from (its default
+// In-container path the capture component reads its camera config from (its default
 // CAMERA_CONFIG_FILE). The host cameras.json is bind-mounted here read-only;
 // mounting at the default means no env var needs wiring. A cross-repo contract
-// with the sidecar image — changing it requires changing the image in lockstep.
+// with the component image — changing it requires changing the image in lockstep.
 const CAMERAS_CONFIG_PATH = "/etc/foresthub/cameras.json";
 
-// The capture sidecar's fixed listen port (baked into its image entrypoint).
-const CAMERA_SIDECAR_PORT = 8100;
+// The capture component's fixed listen port (baked into its image entrypoint).
+const CAMERA_COMPONENT_PORT = 8100;
 
 // The OSS renderer's state root (docs/device-filesystem.md §2). Bind-mount sources
 // hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them
@@ -67,8 +67,8 @@ export interface DeploymentSpecMeta {
   createdAt?: string;
   engineImage: string;
   llamaServerImage: string;
-  mlSidecarImage: string;
-  cameraSidecarImage: string;
+  mlComponentImage: string;
+  cameraComponentImage: string;
 }
 
 // The engine's secret store: a flat map of secret id -> opaque secret value,
@@ -121,11 +121,11 @@ function urlHost(url: string): string {
   }
 }
 
-// Compose/container service name for an on-device model's llama-server sidecar.
+// Compose/container service name for an on-device model's llama-server component.
 // Single source of truth: the resolver derives the provider URL from it and the
 // renderer emits a service with the same name — they must agree or the URL
 // points at a service that doesn't exist.
-export function llmSidecarServiceName(modelId: string): string {
+export function llmComponentServiceName(modelId: string): string {
   const slug = modelId
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
@@ -133,20 +133,20 @@ export function llmSidecarServiceName(modelId: string): string {
   return `llama-${slug || "model"}`;
 }
 
-// Compose/container service name for the shared inference sidecar. Unlike the
-// llama sidecar (one per model), a single inference sidecar hosts a repository
+// Compose/container service name for the shared inference component. Unlike the
+// llama component (one per model), a single inference component hosts a repository
 // of ML models and selects one by name per request — so this is a fixed name,
 // not derived from any model id. Every on-device ML model's provider URL points
 // at it.
-export function mlSidecarServiceName(): string {
+export function mlComponentServiceName(): string {
   return "fh-onnx";
 }
 
-// Compose/container service name for the shared capture sidecar. Like the
-// inference sidecar (one container owns a set of cameras and selects one by name
+// Compose/container service name for the shared capture component. Like the
+// inference component (one container owns a set of cameras and selects one by name
 // per request), this is a fixed name, not derived from any channel id. Every
 // on-device camera's connection URL points at it.
-export function cameraSidecarServiceName(): string {
+export function cameraComponentServiceName(): string {
   return "fh-camera";
 }
 
@@ -161,12 +161,12 @@ export function ggufNameError(name: string | undefined): string | null {
   return null;
 }
 
-// The name the inference sidecar selects a model on. On device it also names the
-// model's sub-folder in the sidecar's repository, so it must be a plain name.
+// The name the inference component selects a model on. On device it also names the
+// model's sub-folder in the component's repository, so it must be a plain name.
 export function mlModelNameError(name: string | undefined): string | null {
   const t = (name ?? "").trim();
   if (!t) return "a model name is required";
-  if (t.includes("/")) return "just a name, not a path — it names the model's sub-folder in the sidecar repository";
+  if (t.includes("/")) return "just a name, not a path — it names the model's sub-folder in the component repository";
   return null;
 }
 
@@ -384,7 +384,7 @@ export function buildDeploymentSpec(
   }
 
   // Custom models: each declared model maps to a selfhosted provider. A device
-  // model gets its own llama-server sidecar (its own provider, 1:1). A network
+  // model gets its own llama-server component (its own provider, 1:1). A network
   // model points at the operator's endpoint — deduped by url+key, so several
   // models on one endpoint share ONE provider (many models -> one ref, like GPIO
   // lines on one chip). The endpoint serves each under its logical model id (no
@@ -396,7 +396,7 @@ export function buildDeploymentSpec(
 
     if (b.location === "device") {
       const port = b.port ?? 8080;
-      const service = llmSidecarServiceName(m.id);
+      const service = llmComponentServiceName(m.id);
       const ref = refs.alloc(`model:${m.id}`, basename(m.id));
       mapping[m.id] = { ref };
       externalResources[ref] = { type: "selfhostedLlm", url: `http://${service}:${port}` };
@@ -415,7 +415,7 @@ export function buildDeploymentSpec(
           "--ctx-size",
           String(b.ctxSize ?? 4096),
         ],
-        // The model lives in this sidecar's own workspace; read-only, so no chown
+        // The model lives in this component's own workspace; read-only, so no chown
         // is needed (docs §5). The operator drops the GGUF in workspaceDir(service).
         volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
       });
@@ -447,11 +447,11 @@ export function buildDeploymentSpec(
     }
   }
 
-  // ML models: every on-device model is served by ONE shared inference sidecar
+  // ML models: every on-device model is served by ONE shared inference component
   // that loads a repository of model bundles (a sub-folder per model id) and
   // selects the model by name per request — so they all point at the same service
   // URL and only a single component is emitted. A network model points at the
-  // operator's own sidecar. Credential-free — a trusted in-deployment endpoint.
+  // operator's own component. Credential-free — a trusted in-deployment endpoint.
   const mlComponents: DeployComponent[] = [];
   let mlDeviceModels = 0;
   for (const m of req.customMLModels) {
@@ -463,7 +463,7 @@ export function buildDeploymentSpec(
     if (b.location === "device") {
       externalResources[ref] = {
         type: "ml-inference",
-        url: `http://${mlSidecarServiceName()}:${ML_SIDECAR_PORT}`,
+        url: `http://${mlComponentServiceName()}:${ML_COMPONENT_PORT}`,
         model: b.model,
       };
       mlDeviceModels++;
@@ -471,21 +471,21 @@ export function buildDeploymentSpec(
       externalResources[ref] = { type: "ml-inference", url: b.url, model: b.model };
     }
   }
-  // One shared sidecar for all on-device ML models (not one per model). The model
+  // One shared component for all on-device ML models (not one per model). The model
   // repository is a directory the operator fills, one sub-folder per model id;
-  // read-only, so no chown is needed. The sidecar reads its default models dir,
+  // read-only, so no chown is needed. The component reads its default models dir,
   // so no env var is wired.
   if (mlDeviceModels > 0) {
-    const service = mlSidecarServiceName();
+    const service = mlComponentServiceName();
     mlComponents.push({
       name: service,
-      image: meta.mlSidecarImage,
+      image: meta.mlComponentImage,
       pull: "never", // built locally before deploy, in no registry
       volumes: [`${workspaceDir(service)}:${ML_MODELS_PATH}:ro`],
     });
   }
 
-  // Cameras: every on-device camera is read by ONE shared capture sidecar that
+  // Cameras: every on-device camera is read by ONE shared capture component that
   // owns a set of cameras (one cameras.json entry per channel id) and selects one
   // by name per request — so they all point at the same service URL and only a
   // single component is emitted. A network camera points at the operator's own
@@ -501,9 +501,9 @@ export function buildDeploymentSpec(
     mapping[ch.id] = { ref };
 
     if (b.location === "device") {
-      externalResources[ref] = { type: "camera", url: `http://${cameraSidecarServiceName()}:${CAMERA_SIDECAR_PORT}` };
+      externalResources[ref] = { type: "camera", url: `http://${cameraComponentServiceName()}:${CAMERA_COMPONENT_PORT}` };
       cameraDeviceCount++;
-      // v4l2 reads a /dev/video* node, passed through to the sidecar container. A
+      // v4l2 reads a /dev/video* node, passed through to the component container. A
       // gstreamer source (e.g. libcamerasrc) drives the full media graph, which
       // has no single node to grant here — the operator wires those devices in.
       if (b.source === "v4l2") cameraDevices.add(b.device);
@@ -514,18 +514,18 @@ export function buildDeploymentSpec(
       externalResources[ref] = { type: "camera", url: b.url };
     }
   }
-  // One shared sidecar for all on-device cameras (not one per camera). The camera
+  // One shared component for all on-device cameras (not one per camera). The camera
   // set is described by cameras.json (one entry per channel id), bind-mounted
-  // read-only at the sidecar's default config path, so no env var is wired.
+  // read-only at the component's default config path, so no env var is wired.
   if (cameraDeviceCount > 0) {
-    const service = cameraSidecarServiceName();
+    const service = cameraComponentServiceName();
     const volumes = [`${workspaceDir(service)}/cameras.json:${CAMERAS_CONFIG_PATH}:ro`];
     // libcamera (gstreamer sources) discovers cameras through the host's udev
-    // device database; without this mount the sidecar sees no camera at all.
+    // device database; without this mount the component sees no camera at all.
     if (hasGstreamerCamera) volumes.push("/run/udev:/run/udev:ro");
     const camera: DeployComponent = {
       name: service,
-      image: meta.cameraSidecarImage,
+      image: meta.cameraComponentImage,
       pull: "never", // built locally before deploy, in no registry
       volumes,
     };
