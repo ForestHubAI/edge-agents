@@ -64,9 +64,10 @@ type Event struct {
 // Secrets is the engine's secret store: a flat map of secret id -> opaque secret
 // value, keyed by the external-resource id ExternalResources and the
 // ResourceMapping share. Each value is the single credential that resource needs
-// (MQTT password, self-hosted LLM bearer token), merged into its connection at
-// the api->domain boundary — the engine interprets a value by the kind of the
-// resource its id resolves to. Populated from the mounted secret document
+// (MQTT password, self-hosted LLM bearer token, embedding endpoint bearer
+// token), merged into its connection at the api->domain boundary — the engine
+// interprets a value by the kind of the resource its id resolves to. Populated
+// from the mounted secret document
 // (component.SecretsFile) at boot; deliberately NOT part of the deployment spec
 // (not rotation-safe, breach-exposed if stored); empty when no resource needs one.
 type Secrets map[string]string
@@ -123,13 +124,15 @@ type PWMConfig struct {
 // ResourceMapping points at. The engine builds transports from MQTTs, LLM
 // providers from Providers (the connection for each declared custom/self-hosted
 // model), inference clients from MLInference (the sidecar endpoint each declared
-// ML model is served from), and capture clients from Cameras (the sidecar
-// endpoint each declared camera channel is read from).
+// ML model is served from), capture clients from Cameras (the sidecar endpoint
+// each declared camera channel is read from), and retrievers from VectorStores
+// (the on-device artifact each declared vector database is answered from).
 type ExternalResources struct {
-	MQTTs       map[string]MQTTConnection
-	Providers   map[string]LLMProviderConfig
-	MLInference map[string]MLInferenceConfig
-	Cameras     map[string]CameraConfig
+	MQTTs        map[string]MQTTConnection
+	Providers    map[string]LLMProviderConfig
+	MLInference  map[string]MLInferenceConfig
+	Cameras      map[string]CameraConfig
+	VectorStores map[string]VectorStoreConfig
 }
 
 // MLInferenceConfig is the resolved connection to an ML inference sidecar the
@@ -147,6 +150,17 @@ type MLInferenceConfig struct {
 // so many cameras may share one endpoint.
 type CameraConfig struct {
 	URL string
+}
+
+// VectorStoreConfig is the resolved binding of a vector database to a local
+// retrieval artifact. Store names a directory the engine reads the index from;
+// URL is the embedding endpoint whose model built that index, needed to place a
+// query in the same vector space. APIKey is empty for an endpoint that needs no
+// credential.
+type VectorStoreConfig struct {
+	URL    string
+	Store  string
+	APIKey string
 }
 
 // LLMProviderKind selects how the engine reaches one provider instance when

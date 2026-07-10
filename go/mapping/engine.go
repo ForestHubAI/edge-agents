@@ -17,8 +17,8 @@ import (
 // boot config) onto the engine domain type at the api→domain boundary, routing
 // each arm by its discriminator: MQTT connections into MQTTs, LLM provider
 // instances (local / backend / self-hosted) into Providers, ML inference
-// endpoints into MLInference, camera capture endpoints into Cameras. Unknown
-// arms are skipped.
+// endpoints into MLInference, camera capture endpoints into Cameras, local
+// retrieval artifacts into VectorStores. Unknown arms are skipped.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
 // spec). Credentials arrive separately in secrets, keyed by the same resource
@@ -30,10 +30,11 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 		return nil
 	}
 	out := &engine.ExternalResources{
-		MQTTs:       make(map[string]engine.MQTTConnection),
-		Providers:   make(map[string]engine.LLMProviderConfig),
-		MLInference: make(map[string]engine.MLInferenceConfig),
-		Cameras:     make(map[string]engine.CameraConfig),
+		MQTTs:        make(map[string]engine.MQTTConnection),
+		Providers:    make(map[string]engine.LLMProviderConfig),
+		MLInference:  make(map[string]engine.MLInferenceConfig),
+		Cameras:      make(map[string]engine.CameraConfig),
+		VectorStores: make(map[string]engine.VectorStoreConfig),
 	}
 	for id, rc := range *in {
 		disc, err := rc.Discriminator()
@@ -86,6 +87,16 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 				continue
 			}
 			out.Cameras[id] = engine.CameraConfig{URL: c.Url}
+		case string(engineapi.VectorStore):
+			c, err := rc.AsVectorStoreConfig()
+			if err != nil {
+				continue
+			}
+			out.VectorStores[id] = engine.VectorStoreConfig{
+				URL:    c.Url,
+				Store:  c.Store,
+				APIKey: secrets[id],
+			}
 		}
 	}
 	return out

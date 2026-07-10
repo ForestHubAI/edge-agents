@@ -34,7 +34,7 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"] | components["schemas"]["VectorStoreConfig"];
         /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
@@ -68,6 +68,18 @@ export interface components {
             type: "camera";
             /** @description Base URL of the capture sidecar (http:// or https://). */
             url: string;
+        };
+        /** @description Resolved binding to a local RAG artifact the engine reads itself: a read-only SQLite index under the engine's RAG mount, plus the embedding endpoint whose model built it. A vector database whose ref points here is answered locally, without a retrieval service. Optional bearer via secrets.json by ref. */
+        VectorStoreConfig: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "vectorStore";
+            /** @description Base URL of the embedding sidecar (http:// or https://); serves OpenAI-compatible /v1/embeddings for the model named in the store's envelope. */
+            url: string;
+            /** @description Directory name (not a path) under the engine's RAG mount that holds index.db. Engine-local — the sidecar never sees it. */
+            store: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */
         MQTTConnection: {

@@ -77,6 +77,21 @@ func (e MQTTConnectionType) Valid() bool {
 	}
 }
 
+// Defines values for VectorStoreConfigType.
+const (
+	VectorStore VectorStoreConfigType = "vectorStore"
+)
+
+// Valid indicates whether the value is a known member of the VectorStoreConfigType enum.
+func (e VectorStoreConfigType) Valid() bool {
+	switch e {
+	case VectorStore:
+		return true
+	default:
+		return false
+	}
+}
+
 // ADCConfig defines model for ADCConfig.
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
@@ -242,6 +257,19 @@ type SerialConfig struct {
 	Device string `json:"device"`
 }
 
+// VectorStoreConfig Resolved binding to a local RAG artifact the engine reads itself: a read-only SQLite index under the engine's RAG mount, plus the embedding endpoint whose model built it. A vector database whose ref points here is answered locally, without a retrieval service. Optional bearer via secrets.json by ref.
+type VectorStoreConfig struct {
+	// Store Directory name (not a path) under the engine's RAG mount that holds index.db. Engine-local — the sidecar never sees it.
+	Store string                `json:"store"`
+	Type  VectorStoreConfigType `json:"type"`
+
+	// Url Base URL of the embedding sidecar (http:// or https://); serves OpenAI-compatible /v1/embeddings for the model named in the store's envelope.
+	Url string `json:"url"`
+}
+
+// VectorStoreConfigType defines model for VectorStoreConfig.Type.
+type VectorStoreConfigType string
+
 // AsMQTTConnection returns the union data inside the ExternalResourceConfig as a MQTTConnection
 func (t ExternalResourceConfig) AsMQTTConnection() (MQTTConnection, error) {
 	var body MQTTConnection
@@ -346,6 +374,32 @@ func (t *ExternalResourceConfig) MergeCameraConfig(v CameraConfig) error {
 	return err
 }
 
+// AsVectorStoreConfig returns the union data inside the ExternalResourceConfig as a VectorStoreConfig
+func (t ExternalResourceConfig) AsVectorStoreConfig() (VectorStoreConfig, error) {
+	var body VectorStoreConfig
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromVectorStoreConfig overwrites any union data inside the ExternalResourceConfig as the provided VectorStoreConfig
+func (t *ExternalResourceConfig) FromVectorStoreConfig(v VectorStoreConfig) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeVectorStoreConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided VectorStoreConfig
+func (t *ExternalResourceConfig) MergeVectorStoreConfig(v VectorStoreConfig) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ExternalResourceConfig) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -372,6 +426,8 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMQTTConnection()
 	case "selfhostedLlm":
 		return t.AsLLMProviderConfig()
+	case "vectorStore":
+		return t.AsVectorStoreConfig()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

@@ -61,6 +61,7 @@ components:
         - $ref: "#/components/schemas/LLMProviderConfig"
         - $ref: "#/components/schemas/MLInferenceConfig"
         - $ref: "#/components/schemas/CameraConfig"
+        - $ref: "#/components/schemas/VectorStoreConfig"
       discriminator:
         propertyName: type
         mapping:
@@ -70,6 +71,7 @@ components:
           selfhostedLlm: "#/components/schemas/LLMProviderConfig"
           ml-inference: "#/components/schemas/MLInferenceConfig"
           camera: "#/components/schemas/CameraConfig"
+          vectorStore: "#/components/schemas/VectorStoreConfig"
 
     LLMProviderConfig:
       type: object
@@ -112,6 +114,22 @@ components:
         url:
           type: string
           description: Base URL of the capture sidecar (http:// or https://).
+
+    VectorStoreConfig:
+      type: object
+      description: "Resolved binding to a local RAG artifact the engine reads itself: a read-only SQLite index under the engine's RAG mount, plus the embedding endpoint whose model built it. A vector database whose ref points here is answered locally, without a retrieval service. Optional bearer via secrets.json by ref."
+      required: [type, url, store]
+      properties:
+        type:
+          type: string
+          enum: [vectorStore]
+        url:
+          type: string
+          description: Base URL of the embedding sidecar (http:// or https://); serves OpenAI-compatible /v1/embeddings for the model named in the store's envelope.
+        store:
+          type: string
+          minLength: 1
+          description: Directory name (not a path) under the engine's RAG mount that holds index.db. Engine-local — the sidecar never sees it.
 
     MQTTConnection:
       type: object
