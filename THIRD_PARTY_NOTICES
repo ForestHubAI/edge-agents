@@ -69,6 +69,13 @@ B. GO MODULE DEPENDENCIES (github.com/ForestHubAI/edge-agents/go)
   github.com/google/go-cmp                                 v0.6.0
   go.bug.st/serial                                         v1.6.4
   github.com/creack/goselect                               v0.1.2
+  modernc.org/sqlite                                       v1.53.0
+    (cgo-free SQLite; a machine translation of the public-domain SQLite C
+     sources, distributed by the Sqlite Authors under BSD-3-Clause)
+  modernc.org/libc                                         v1.73.4
+  modernc.org/mathutil                                     v1.7.1
+  modernc.org/memory                                       v1.11.0
+  github.com/remyoudompheng/bigfft                         (pinned)
 
 -- Eclipse Distribution License v1.0 (BSD-3-Clause) --
   github.com/eclipse/paho.mqtt.golang                      v1.5.1
@@ -92,6 +99,8 @@ B. GO MODULE DEPENDENCIES (github.com/ForestHubAI/edge-agents/go)
   github.com/jedib0t/go-pretty/v6                          v6.7.8    (build tool)
   github.com/vektra/mockery/v3                             v3.7.0    (build tool)
   gopkg.in/yaml.v3 / go.yaml.in/yaml/v3                     (pinned)
+  github.com/dustin/go-humanize                            v1.0.1
+  github.com/ncruces/go-strftime                           v1.0.0
   ... and other MIT-licensed transitive modules
 
 -- BSD-2-Clause --
