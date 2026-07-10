@@ -29,7 +29,7 @@ seams (LLM, RAG); the sidecar-backed seams are wired by the build layer from
 | Port                | Methods                       | Required?                                         | No backend (standalone)                          | fh-backend adapter               |
 | ------------------- | ----------------------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------- |
 | `LlmClient`         | `Chat`                        | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
-| `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
+| `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | Local artifact via a `vectorStore` resource; else build rejects the node | Forwards to `/rag/query` (fallback) |
 | `MLInferenceClient` | `InferTensors`, `InferBinary` | Required **only if** an ML inference node is deployed | Deploy-resolved sidecar client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
 | `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | Deploy-resolved sidecar client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
 
@@ -62,17 +62,26 @@ Three capabilities deliberately are **not** ports:
 
 ## Retriever — required only when used
 
-`QueryRAG` is the RAG seam. There is **no built-in standalone implementation
-yet**.
+`QueryRAG` is the RAG seam. Unlike the other ports, it is resolved **per vector
+database** rather than once per engine: `engine/build.buildRetriever` walks the
+declared vector databases and routes each to a local artifact or to the port.
+Mixing both in one workflow is supported.
 
-- **Standalone:** `Retriever` is nil. A workflow that declares a Retriever
-  node **fails to deploy** with a clear error, mirroring the WebSearch and
-  Agent build checks. A workflow with no retrieval node deploys and runs
-  fine. (This replaced a silent no-op that returned empty results.)
-- **Backend:** forwards to `/rag/query`.
-- **Planned:** a standalone pgvector-backed adapter (query embedding via
-  `llmproxy` + similarity search + ingestion) will live in its own package
-  (e.g. `engine/rag/pgvector`), not bundled with the trivial seams.
+- **Standalone:** a vector database bound to a `vectorStore` resource is
+  answered by `engine/rag.LocalRetriever`, which reads a read-only `index.db`
+  under the RAG mount (`component.RAGStore`) and embeds queries through the
+  endpoint named in the resource. Nothing else is required — no service, no
+  network beyond that endpoint.
+- **Backend:** vector databases bound to anything else fall back to the
+  configured `Retriever`, which forwards to `/rag/query`.
+- **Missing:** a Retriever node whose vector database has neither **fails the
+  build** with a clear error, mirroring the WebSearch and Agent build checks.
+  A workflow with no retrieval node deploys and runs fine. (This replaced a
+  silent no-op that returned empty results.)
+- **Boot-time gates:** the artifact must exist and its envelope must declare a
+  supported schema version, the cosine metric and a usable dimension. The
+  embedding endpoint is *not* contacted at build time — reachability is a
+  runtime concern.
 
 ## MLInferenceClient — required only when used
 
@@ -132,9 +141,13 @@ authoritative; only content is preserved.
 
 ```
 FH_BACKEND_URL set?
-├─ yes → backend.Client satisfies LlmClient (fallback) and Retriever.
+├─ yes → backend.Client satisfies LlmClient (fallback) and Retriever (fallback).
 └─ no  → LlmClient: local providers only
-          Retriever: nil (retrieval nodes fail the build)
+          Retriever: nil
+
+Retriever is then resolved per vector database, independent of the above:
+  bound to a vectorStore resource → local artifact under component.RAGStore
+  otherwise                       → the Retriever above; nil fails the build
 
 Memory: always device-storage-only, independent of FH_BACKEND_URL.
 ```
@@ -145,8 +158,8 @@ Group by **shared dependency**, not by port:
 
 - An adapter that talks to the fh-backend belongs in `engine/backend` (it
   shares the one HTTP client).
-- A heavy standalone implementation (its own driver, ingestion, etc.) gets
-  its **own package** — e.g. a pgvector `Retriever` under `engine/rag`.
+- A heavy standalone implementation (its own driver, storage format, etc.) gets
+  its **own package** — as the local `Retriever` does under `engine/rag`.
   Don't bundle it with trivial seams.
 - Edit `port.go` only to add or change a seam; never widen a port with a
   method a single adapter needs but the engine core doesn't call.
