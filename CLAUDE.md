@@ -30,6 +30,10 @@ py/              Python service: ml-inference (fh-onnx) — generic ONNX inferen
                  sidecar, FastAPI + onnxruntime, model-repository pattern.
                  Pydantic models codegen from contract/mlinference.yaml.
                  See py/ml-inference/README.md.
+
+components/      Custom-component authoring guide + two worked examples
+                 (grafana: no-build/env-only; llama-server: thin wrapper image).
+                 Extra containers co-deployed beside the engine. See components/README.md.
 ```
 
 ## The one rule that matters: contract is the source of truth

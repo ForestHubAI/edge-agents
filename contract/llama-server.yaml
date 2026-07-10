@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 ForestHub.
+
+openapi: 3.0.3
+info:
+  title: ForestHub Llama-Server Component Contract
+  version: 0.1.0
+  description: "The boot config the llama-server component is handed at startup: the set of GGUF models one llama-swap instance fronts on the device, on a single endpoint the engine addresses by model id."
+
+paths: {}
+components:
+  schemas:
+    LlamaServerConfig:
+      type: object
+      required: [models]
+      description: "The llama-server component's boot input, rendered by the backend to the component ConfigFile. The entrypoint turns it into a llama-swap config at start — one llama-server per model, fronted on one port."
+      properties:
+        models:
+          type: array
+          minItems: 1
+          description: "The GGUF models this component serves; the engine selects one by id at request time."
+          items:
+            $ref: "#/components/schemas/LlamaModel"
+
+    LlamaModel:
+      type: object
+      required: [id, file]
+      description: "One GGUF the component serves."
+      properties:
+        id:
+          type: string
+          description: "The model's address — the model field the engine sends in a request. Unique within the component."
+        file:
+          type: string
+          description: "Bare .gguf filename resolved under the component workspace (the mounted models dir), not a path."
+        args:
+          type: array
+          items:
+            type: string
+          description: "Optional extra llama-server flags (e.g. --ctx-size, -ngl) appended verbatim to the model's launch command. Empty runs llama-server defaults."

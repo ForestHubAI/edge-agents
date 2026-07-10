@@ -75,7 +75,7 @@ left blank for the operator). The component's image pull behaviour comes from it
 The skill stops after writing the bundle; these steps stay manual. Summarize them and point to
 `README.md` rather than running them:
 
-1. **Build the engine image** — from the `edge-agents` checkout: `docker build -t fh-engine:latest go/`
+1. **Build the engine image** — from the `edge-agents` checkout: `docker build -f go/Dockerfile.engine -t fh-engine:latest go`
    (or a `buildx --platform linux/arm64` cross-build for an ARM controller). The image isn't pulled;
    the operator builds and `docker save`s it.
 2. **Fill the secrets** — replace every `REPLACE_ME_*` placeholder in `engine.env` (and any empty

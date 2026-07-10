@@ -109,11 +109,16 @@ npm run validate -- sample.json      # headless semantic validation, non-zero ex
 # or directly: node cli/fh-workflow.mjs <open|check-schema|validate|deploy> <file>
 ```
 
+`open` spawns the Vite dev server in-repo (DEV mode); the published CLI serves the
+prebuilt SPA from a plain HTTP server instead (STATIC mode). Force the installed path
+locally with `FH_BUILDER_MODE=static npm run open -- sample.json` after `npm run build:all`.
 Because the app resolves the libraries to **source**, editing `workflow-core` or
-`workflow-builder` hot-reloads instantly — no rebuild needed. `open` spawns the
-Vite dev server in-repo (DEV mode); the published CLI serves the prebuilt SPA from
-a plain HTTP server instead (STATIC mode). Force the installed path locally with
-`FH_BUILDER_MODE=static npm run open -- sample.json` after `npm run build:all`.
+`workflow-builder` hot-reloads the canvas instantly.
+
+> Prefer running the builder from the **repo root** — `npm run open -- my.workflow.json`
+> after a one-time root `npm install`. It bootstraps `ts/` for you and needs no `cd` into
+> the package. See the root [README](../README.md#build-from-source). The commands here
+> are the package-internal equivalents.
 
 ## Releasing (`workflow-core` + `workflow-builder` + `workflow-cli`)
 

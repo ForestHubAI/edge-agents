@@ -457,5 +457,5 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   for (const f of files) {
     process.stdout.write(`  - ${path.relative(process.cwd(), f)}\n`);
   }
-  process.stdout.write(`\nNext: build the image (\`docker build -t fh-engine:latest go/\`), then follow README.md.\n`);
+  process.stdout.write(`\nNext: build the image (\`docker build -f go/Dockerfile.engine -t fh-engine:latest go\`), then follow README.md.\n`);
 }

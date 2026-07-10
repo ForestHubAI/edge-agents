@@ -4,11 +4,12 @@
   "description": "Root launcher for the fh-workflow CLI. Delegates to ts/workflow-cli; no dependencies of its own.",
   "scripts": {
     "postinstall": "npm --prefix ts install && npm --prefix ts run build",
-    "validate": "node ts/workflow-cli/cli/fh-workflow.mjs validate",
-    "check-schema": "node ts/workflow-cli/cli/fh-workflow.mjs check-schema",
-    "open": "node ts/workflow-cli/cli/fh-workflow.mjs open",
-    "update": "node ts/workflow-cli/cli/fh-workflow.mjs update",
-    "deploy": "node ts/workflow-cli/cli/fh-workflow.mjs deploy",
+    "core:build": "npm --prefix ts/workflow-core run build",
+    "validate": "npm run core:build && node ts/workflow-cli/cli/fh-workflow.mjs validate",
+    "check-schema": "npm run core:build && node ts/workflow-cli/cli/fh-workflow.mjs check-schema",
+    "open": "npm run core:build && node ts/workflow-cli/cli/fh-workflow.mjs open",
+    "update": "npm run core:build && node ts/workflow-cli/cli/fh-workflow.mjs update",
+    "deploy": "npm run core:build && node ts/workflow-cli/cli/fh-workflow.mjs deploy",
     "license-headers": "node scripts/license-headers.mjs",
     "license-headers:fix": "node scripts/license-headers.mjs --fix"
   }

@@ -41,6 +41,8 @@ const (
 const (
 	// Engine is the workflow-runtime component's identity.
 	Engine = "engine"
+	// Llama is the on-device model-server component's identity.
+	Llama = "llama-server"
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to

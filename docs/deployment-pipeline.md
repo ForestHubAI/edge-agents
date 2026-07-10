@@ -127,7 +127,7 @@ components (engine, llama) have such a derivation step, because it needs
 component-aware code the platform cannot have for an unknown image. A future plugin
 hook could let a custom component contribute its own analyzer — the one hard case in
 the table above. Until then, auxiliary services get static or operator-supplied
-config, which needs no derivation. See [`examples/components/`](../examples/components)
+config, which needs no derivation. See [`components/`](../components)
 for a worked custom component.
 
 ## Artifact catalog

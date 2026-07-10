@@ -1,4 +1,4 @@
-name: Release engine image
+name: Release llama-server image
 
 # Manual-only. Triggering workflow_dispatch requires WRITE access to the repo,
 # so only org members granted write can publish — public users / forkers cannot.
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Image version, no prefix (e.g. 1.2.0). Published as ghcr.io/foresthubai/engine:<version>."
+        description: "Image version, no prefix (e.g. 1.2.0). Published as ghcr.io/foresthubai/llama-server:<version>."
         required: true
         type: string
       platforms:
@@ -21,7 +21,7 @@ permissions:
   packages: write # to push the image to GHCR
 
 env:
-  IMAGE: ghcr.io/foresthubai/engine
+  IMAGE: ghcr.io/foresthubai/llama-server
 
 jobs:
   publish:
@@ -55,8 +55,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: go
-          file: go/Dockerfile.engine
+          context: components/llama-server
+          file: components/llama-server/Dockerfile
           platforms: ${{ inputs.platforms }}
           push: true
           provenance: true

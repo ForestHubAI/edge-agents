@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -69,14 +68,9 @@ func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byt
 	cmd := exec.CommandContext(ctx, "gst-launch-1.0", args...)
 	// Run gst in its own process group and kill the whole group on cancel, so a
 	// lingering plugin child can't keep running — WaitDelay then bounds Wait so
-	// one stuck capture can't hold the device mutex forever.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Cancel = func() error {
-		if cmd.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-	}
+	// one stuck capture can't hold the device mutex forever. The process-group
+	// setup is Linux-only.
+	killChildProcessGroup(cmd)
 	cmd.WaitDelay = 5 * time.Second
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

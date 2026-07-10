@@ -5,8 +5,8 @@
 # COPY into the distroless layer is emulated.
 #
 # Build context must be the go/ directory (where go.mod lives):
-#   docker build -t fh-engine:dev .
-#   docker buildx build --platform linux/amd64,linux/arm64 -t fh-engine:dev .
+#   docker build -f Dockerfile.engine -t fh-engine:dev .
+#   docker buildx build -f Dockerfile.engine --platform linux/amd64,linux/arm64 -t fh-engine:dev .
 
 FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 WORKDIR /src

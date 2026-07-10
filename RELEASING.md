@@ -93,7 +93,7 @@ git push origin go/v1.2.3
 
 ## Container image
 
-The engine image is built from [`go/Dockerfile`](go/Dockerfile) (multi-arch
+The engine image is built from [`go/Dockerfile.engine`](go/Dockerfile.engine) (multi-arch
 `linux/amd64` + `linux/arm64`, distroless, nonroot). See the README's
 [Run the engine](README.md#run-the-engine) section for the build / `docker save` /
 `docker load` flow.

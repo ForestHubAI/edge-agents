@@ -60,7 +60,7 @@ it on real hardware? [Run the engine](#run-the-engine) on the device.
 
 ## Run the engine
 
-The engine ships as a small container you build from [`go/Dockerfile`](go/Dockerfile)
+The engine ships as a small container you build from [`go/Dockerfile.engine`](go/Dockerfile.engine)
 (multi-arch, distroless, nonroot). Most edge targets are `arm64` (Pi, Jetson, STM32MP2,
 ctrlX), so the common flow is to cross-build on an `amd64` workstation and ship the
 result to the device:
@@ -69,7 +69,7 @@ result to the device:
 cd go
 
 # Cross-build for an arm64 edge device (use --platform linux/amd64 for x86 targets)
-docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
+docker buildx build -f Dockerfile.engine --platform linux/arm64 -t fh-engine:latest --load .
 
 # Ship to an offline device: save to a tar, copy it across, load it there
 docker save fh-engine:latest -o fh-engine.tar
@@ -85,7 +85,7 @@ docker run --rm \
 ```
 
 Building for the same architecture you're already on? A plain
-`docker build -t fh-engine:latest .` works too — the Dockerfile cross-compiles via
+`docker build -f Dockerfile.engine -t fh-engine:latest .` works too — the Dockerfile cross-compiles via
 `TARGETARCH`, so QEMU only emulates the trivial copy into the final layer.
 
 The `fh-engine:latest` tag is the one a `fh-workflow deploy` bundle expects (its
@@ -335,7 +335,7 @@ See [`go/CLAUDE.md`](go/CLAUDE.md) and [`ts/CLAUDE.md`](ts/CLAUDE.md) for deeper
 
 - **Go runtime** — tagged `go/vX.Y.Z`; consume with `go get github.com/ForestHubAI/edge-agents/go@vX.Y.Z`.
 - **TypeScript packages** — `@foresthubai/workflow-core`, `@foresthubai/workflow-builder`, and `@foresthubai/workflow-cli` ship in lockstep at the same version, published to public npm.
-- **Container image** — built from [`go/Dockerfile`](go/Dockerfile): multi-arch (`linux/amd64`, `linux/arm64`), distroless, nonroot. Build it yourself (see [Run the engine](#run-the-engine)).
+- **Container image** — built from [`go/Dockerfile.engine`](go/Dockerfile.engine): multi-arch (`linux/amd64`, `linux/arm64`), distroless, nonroot. Build it yourself (see [Run the engine](#run-the-engine)).
 
 See [RELEASING.md](RELEASING.md).
 

@@ -73,7 +73,7 @@ describe("parseDeployComponents", () => {
   });
 
   it("validates the bundled grafana example (self-test)", async () => {
-    const raw = await fs.readFile(path.join(repoRoot, "examples/components/grafana/component.json"), "utf-8");
+    const raw = await fs.readFile(path.join(repoRoot, "components/grafana/component.json"), "utf-8");
     expect(ok(JSON.parse(raw))).toHaveLength(1);
   });
 });

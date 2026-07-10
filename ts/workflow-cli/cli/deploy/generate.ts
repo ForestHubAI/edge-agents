@@ -409,11 +409,11 @@ From a clone of the edge-agents repo:
 \`\`\`bash
 cd go
 # Native build (matches the dev machine's arch)
-docker build -t fh-engine:latest .
+docker build -f Dockerfile.engine -t fh-engine:latest .
 
 # Cross-build for ARM controller from x86 dev box (or vice-versa)
-docker buildx build --platform linux/arm64 -t fh-engine:latest --load .
-docker buildx build --platform linux/amd64 -t fh-engine:latest --load .
+docker buildx build -f Dockerfile.engine --platform linux/arm64 -t fh-engine:latest --load .
+docker buildx build -f Dockerfile.engine --platform linux/amd64 -t fh-engine:latest --load .
 \`\`\`${sidecarBuildBlock}
 
 ## 2. Review the generated \`engine.env\`
