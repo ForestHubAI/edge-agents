@@ -16,21 +16,36 @@ single generic render step instead of per-component renderers.
 
 Four roles, used precisely throughout:
 
+- **Image** The built docker image for a component and OSS
+- **Artifacts** Bigger data the ranger should pull on applyig deployment into workspace like ML models
 - **Resolver** (a.k.a. packaging step) — _produces_ the `DeploymentSpec`. Component-**aware**.
-- **Renderer** — _turns_ a `DeploymentSpec` into runtime artifacts. Component-**generic**.
+- **Renderer** — _turns_ a `DeploymentSpec` into runtime images. Component-**generic**.
 - **Image entrypoint** — runtime; the only place a component's _own_ behavior lives.
 - **Operator** — supplies device-local secrets.
 
 In OSS, one binary (the CLI) performs both the Resolve and Render stages — but
 they are **separate stages with different branching rules**. That separation is
-what lets the Render logic stay generic and mirror the paid nucleus.
+what lets the Render logic stay generic and mirror the paid BE path.
 
 ## Ablauf
 
 ```
-INPUTS: workflow graph + device manifest + operator bindings
+INPUTS: workflow graph + device manifest + account resources
         + user-authored custom DeployComponents (component.json)
                          │
+┌─ STAGE 0 · EXTRACT REQUIREMENTS ─────────────────── COMPONENT-AWARE ─┐
+│ actor:  OSS = workflow-core   |   Paid = FE / backend                │
+│ does:   PER first-party component, ANALYZES the graph for            │
+│         the resources it needs BOUND — the binding surface.          │
+│         NOT the declared set: LOG channels + MemoryFile bind         │
+│         nothing (out); referenced catalog models are node            │
+│         references, not declarations (in). Only the engine           │
+│         derives this today; llama/broker are authored.               │
+│ OUT:    ▸ binding requirements — per resource id: the kind           │
+│           (+ model class) the operator must fill                     │
+└──────────────────────────────────────────────────────────────────────┘
+                         │   requirements → operator fills bindings
+                         ▼
 ┌─ STAGE 1 · RESOLVE (packaging) ──────────────────── COMPONENT-AWARE ─┐
 │ actor:  OSS = CLI buildDeploymentSpec   |   Paid = FE / backend      │
 │ does:   KNOWS engine & llama → ANALYZES the workflow's               │
@@ -47,7 +62,7 @@ INPUTS: workflow graph + device manifest + operator bindings
                          │   DeploymentSpec  ◄── the contract artifact
                          ▼
 ┌─ STAGE 2 · RENDER ───────────────────────────────────────── GENERIC ─┐
-│ actor:  OSS = CLI composeYaml   |   Paid = nucleus reconciler        │
+│ actor:  OSS = CLI composeYaml   |   Paid = ranger reconciler        │
 │ does:   for each DeployComponent → one compose service, by the       │
 │         SAME field mapping (image, config→file+mount+hash,           │
 │         secret-doc→mount+hash, volumes, devices, ports,              │
@@ -127,21 +142,21 @@ components (engine, llama) have such a derivation step, because it needs
 component-aware code the platform cannot have for an unknown image. A future plugin
 hook could let a custom component contribute its own analyzer — the one hard case in
 the table above. Until then, auxiliary services get static or operator-supplied
-config, which needs no derivation. See [`components/`](../components)
+config, which needs no derivation. See [`examples/components/`](../examples/components)
 for a worked custom component.
 
 ## Artifact catalog
 
-| Artifact             | Produced by                      | Lives                            | Secret? |           In the spec?            |
-| -------------------- | -------------------------------- | -------------------------------- | :-----: | :-------------------------------: |
-| workflow graph       | author                           | embedded in engine's `config`    |   no    | yes (inside the engine component) |
-| **DeploymentSpec**   | Stage 1 resolver                 | committable file / control plane |   no    |        — it _is_ the spec         |
-| `<name>-config.json` | Stage 2 renderer                 | deploy dir, bind-mounted         |   no    |  content lives in spec `config`   |
-| `docker-compose.yml` | Stage 2 renderer                 | deploy dir                       |   no    |        derived, not stored        |
-| `<name>.env`         | Stage 3 operator                 | device only                      | **yes** |              **no**               |
-| `<name>-secrets.json`| Stage 3 operator (values); Stage 2 mounts it | device only, mounted ro | **yes** |     **no** (out-of-band doc)      |
-| images               | build (local) or pull (registry) | local daemon                     |   n/a   | referenced by the `image` string  |
-| running containers   | Stage 4 runtime                  | device                           |    —    |                 —                 |
+| Artifact              | Produced by                                  | Lives                            | Secret? |           In the spec?            |
+| --------------------- | -------------------------------------------- | -------------------------------- | :-----: | :-------------------------------: |
+| workflow graph        | author                                       | embedded in engine's `config`    |   no    | yes (inside the engine component) |
+| **DeploymentSpec**    | Stage 1 resolver                             | committable file / control plane |   no    |        — it _is_ the spec         |
+| `<name>-config.json`  | Stage 2 renderer                             | deploy dir, bind-mounted         |   no    |  content lives in spec `config`   |
+| `docker-compose.yml`  | Stage 2 renderer                             | deploy dir                       |   no    |        derived, not stored        |
+| `<name>.env`          | Stage 3 operator                             | device only                      | **yes** |              **no**               |
+| `<name>-secrets.json` | Stage 3 operator (values); Stage 2 mounts it | device only, mounted ro          | **yes** |     **no** (out-of-band doc)      |
+| images                | build (local) or pull (registry)             | local daemon                     |   n/a   | referenced by the `image` string  |
+| running containers    | Stage 4 runtime                              | device                           |    —    |                 —                 |
 
 ## Notes
 

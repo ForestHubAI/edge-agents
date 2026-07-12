@@ -10,14 +10,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func newTestHandler() http.Handler {
 	sources := map[string]source{"cam": debugSource{}}
-	return captureapi.HandlerFromMux(newServer(sources), http.NewServeMux())
+	return cameraapi.HandlerFromMux(newServer(sources), http.NewServeMux())
 }
 
 func do(t *testing.T, target string) *httptest.ResponseRecorder {
@@ -52,7 +52,7 @@ func TestMetadata_ListsNames(t *testing.T) {
 	rec := do(t, "/metadata")
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var md captureapi.CaptureMetadata
+	var md cameraapi.CameraMetadata
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &md))
 	require.Len(t, md.Devices, 1)
 	assert.Equal(t, "cam", md.Devices[0].Name)

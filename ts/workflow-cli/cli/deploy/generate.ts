@@ -12,19 +12,11 @@ import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
 import { llmComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "@foresthubai/workflow-core/deploy";
+import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
-
-// The fixed in-container path the config file is mounted at — the path first-party
-// images (the engine) read. Mirrors go/component's ConfigFile.
-const CONFIG_PATH = "/etc/foresthub/config.json";
-
-// Fixed mount path for a component's secret document — mirrors go/component's
-// SecretsFile. Dynamic, id-keyed resource credentials mounted read-only, resolved
-// fresh at deploy and never stored in the spec (delivered here, not via env).
-const SECRETS_PATH = "/etc/foresthub/secrets.json";
 
 // The config-file basename a component's config blob is written to (write.ts) and
 // bind-mounted from. One source of truth so the renderer and writer agree.
@@ -97,8 +89,8 @@ function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
   // secret doc is out-of-band (never in the spec), so it rides here rather than
   // as a spec field — mounted exactly like config, verbatim, never read here.
   const volumes = [
-    ...(c.config !== undefined ? [`./${configFileName(c.name)}:${CONFIG_PATH}:ro`] : []),
-    ...(hasSecretDoc ? [`./${secretsFileName(c.name)}:${SECRETS_PATH}:ro`] : []),
+    ...(c.config !== undefined ? [`./${configFileName(c.name)}:${COMPONENT_CONFIG_PATH}:ro`] : []),
+    ...(hasSecretDoc ? [`./${secretsFileName(c.name)}:${COMPONENT_SECRETS_PATH}:ro`] : []),
     ...(c.volumes ?? []),
   ];
   if (volumes.length > 0) {
@@ -223,10 +215,14 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   // Any on-device component (llama, inference, capture) ships its workspace data out
   // of the main scp line and means the engine reaches it over the network at runtime.
   const hasDeviceComponent = deviceModels.length > 0 || mlDeviceModels.length > 0 || deviceCameras.length > 0;
-  // Self-built component images (fh-onnx, fh-camera) are pull_policy:never: unlike
+  // Self-built component images (ml-inference, camera) are pull_policy:never: unlike
   // llama (pulled from a registry), they must be built and docker-loaded on the
   // controller too, or `docker compose up` fails with "image not found".
   const componentTar = (image: string) => `${image.split(":")[0]}.tar`;
+  // The engine image/tar, read from the spec so the build/save/load instructions
+  // track whatever identity the resolver pinned (never a second hardcoded literal).
+  const engineImage = spec.components.find((c) => c.name === ENGINE_COMPONENT_NAME)?.image ?? `${ENGINE_COMPONENT_NAME}:latest`;
+  const engineTar = componentTar(engineImage);
   const selfBuiltComponents: { image: string; build: string }[] = [];
   if (mlDeviceModels.length > 0) {
     const c = spec.components.find((x) => x.name === mlComponentServiceName());
@@ -368,14 +364,14 @@ scp -r workspaces/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
   // the component over the compose network at runtime, retrying until it is up,
   // so show every container while it settles. Otherwise the engine log alone does.
   const runBlock = hasDeviceComponent
-    ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
+    ? `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i ${engineTar}'
 ${componentLoadBlock}ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 
 # The engine and its component(s) start independently; the engine reaches them once
 # they are up. These show every container, not just the engine:
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose ps'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f'`
-    : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i fh-engine.tar'
+    : `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i ${engineTar}'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose up -d'
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker compose logs -f engine'`;
 
@@ -400,7 +396,7 @@ the workflow from \`engine-config.json\` and runs it autonomously:
 - \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest)
 - \`deployment-spec.json\` — the full resolved deployment spec (deployment record)
 - \`engine.env\` — operator configuration loaded into the engine (already filled in, \`chmod 600\` it)
-${hasSecrets ? "- `engine-secrets.json` — resource credentials, mounted read-only at `/etc/foresthub/secrets.json` (already filled in, `chmod 600` it)\n" : ""}- \`fh-engine.tar\` — image tarball (you build this in step 1 below)
+${hasSecrets ? "- `engine-secrets.json` — resource credentials, mounted read-only at `/etc/foresthub/secrets.json` (already filled in, `chmod 600` it)\n" : ""}- \`${engineTar}\` — image tarball (you build this in step 1 below)
 ${notesBlock}
 ## 1. Build the image (on the dev machine)
 
@@ -409,11 +405,11 @@ From a clone of the edge-agents repo:
 \`\`\`bash
 cd go
 # Native build (matches the dev machine's arch)
-docker build -f Dockerfile.engine -t fh-engine:latest .
+docker build -f Dockerfile.engine -t ${engineImage} .
 
 # Cross-build for ARM controller from x86 dev box (or vice-versa)
-docker buildx build -f Dockerfile.engine --platform linux/arm64 -t fh-engine:latest --load .
-docker buildx build -f Dockerfile.engine --platform linux/amd64 -t fh-engine:latest --load .
+docker buildx build -f Dockerfile.engine --platform linux/arm64 -t ${engineImage} --load .
+docker buildx build -f Dockerfile.engine --platform linux/amd64 -t ${engineImage} --load .
 \`\`\`${componentBuildBlock}
 
 ## 2. Review the generated \`engine.env\`
@@ -432,12 +428,12 @@ export CONTROLLER_USER=<your-user>
 export CONTROLLER_ADDR=<controller-ip-or-hostname>
 
 cd go
-docker save fh-engine:latest -o ../path/to/this/bundle/fh-engine.tar${componentSaveBlock}
+docker save ${engineImage} -o ../path/to/this/bundle/${engineTar}${componentSaveBlock}
 
 ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'mkdir -p ~/fh-engine'
 
 cd path/to/this/bundle
-scp fh-engine.tar ${componentTars ? componentTars + " " : ""}docker-compose.yml engine-config.json deployment-spec.json engine.env ${hasSecrets ? "engine-secrets.json " : ""}\\
+scp ${engineTar} ${componentTars ? componentTars + " " : ""}docker-compose.yml engine-config.json deployment-spec.json engine.env ${hasSecrets ? "engine-secrets.json " : ""}\\
     $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/${modelsTransfer}
 \`\`\`
 

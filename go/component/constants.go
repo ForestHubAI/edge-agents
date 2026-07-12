@@ -43,6 +43,10 @@ const (
 	Engine = "engine"
 	// Llama is the on-device model-server component's identity.
 	Llama = "llama-server"
+	// Camera is the camera-capture component's identity.
+	Camera = "camera"
+	// MLInference is the on-device ML inference component's identity.
+	MLInference = "ml-inference"
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to

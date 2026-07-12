@@ -27,3 +27,5 @@ export {
   cameraComponentServiceName,
 } from "./spec";
 export type { DeploymentSpecMeta, DeploymentSpecResult, EngineSecrets } from "./spec";
+export { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, COMPONENT_WORKSPACE_PATH } from "./constants";
+export { ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME } from "./constants";

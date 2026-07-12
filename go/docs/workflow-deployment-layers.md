@@ -26,7 +26,7 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │     MQTTs       : ref ─► MQTTConnection   {brokerUrl, prefixes, will, ...}   │
 │     Providers   : ref ─► LLMProviderConfig {type, provider|url}             │
 │     MLInference : ref ─► MLInferenceConfig {url, model} (ML component)         │
-│     Cameras     : ref ─► CameraConfig      {url}        (capture component)    │
+│     Cameras     : ref ─► CameraConfig      {url}        (camera component)     │
 │                                                                             │
 │   Manifest and ExternalResources ride in the one EngineConfig, read once at │
 │   boot; the credentials they reference arrive in the secrets document.      │
@@ -40,7 +40,7 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │   transport.Registry: ref ─► MQTTTransport (paho conn, opened at boot)      │
 │   llmproxy.Client    : modelID ─► Provider (local/backend/selfhosted routed) │
 │   build/ml.go        : modelID ─► mlEndpoint      (ML component client)       │
-│   build/capture.go   : channelID ─► captureEndpoint (capture component client)│
+│   build/capture.go   : channelID ─► captureEndpoint (camera component client) │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 

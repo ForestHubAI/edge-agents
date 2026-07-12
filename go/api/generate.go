@@ -10,4 +10,4 @@ package api
 //go:generate go tool oapi-codegen -package debugapi		-old-config-style -generate types,skip-prune							-o debugapi/api.gen.go		-import-mapping workflow.yaml:github.com/ForestHubAI/edge-agents/go/api/workflowapi	../../contract/debug.yaml
 //go:generate go tool oapi-codegen -package deployapi		-old-config-style -generate types,skip-prune							-o deployapi/api.gen.go		-import-mapping workflow.yaml:github.com/ForestHubAI/edge-agents/go/api/workflowapi	../../contract/deployment.yaml
 //go:generate go tool oapi-codegen -package mlinferenceapi	-old-config-style -generate types,skip-prune,client						-o mlinferenceapi/api.gen.go																					../../contract/mlinference.yaml
-//go:generate go tool oapi-codegen -package captureapi		-old-config-style -generate types,skip-prune,client,std-http-server		-o captureapi/api.gen.go																						../../contract/capture.yaml
+//go:generate go tool oapi-codegen -package cameraapi		-old-config-style -generate types,skip-prune,client,std-http-server		-o cameraapi/api.gen.go																							../../contract/camera.yaml

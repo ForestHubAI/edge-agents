@@ -28,7 +28,7 @@ const bareWorkflow = {
 function engineComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "engine",
-    image: "fh-engine:latest",
+    image: "engine:latest",
     pull: "never",
     config: { workflow: bareWorkflow },
     volumes: ["./workspaces/engine:/var/lib/foresthub/workspace"],
@@ -47,24 +47,24 @@ function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployCompone
   };
 }
 
-// The shared inference component (fh-onnx): self-built, pull:never.
+// The shared inference component (ml-inference): self-built, pull:never.
 function onnxComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    name: "fh-onnx",
-    image: "fh-onnx:latest",
+    name: "ml-inference",
+    image: "ml-inference:latest",
     pull: "never",
-    volumes: ["./workspaces/fh-onnx:/var/lib/foresthub/models:ro"],
+    volumes: ["./workspaces/ml-inference:/var/lib/foresthub/workspace:ro"],
     ...overrides,
   };
 }
 
-// The shared capture component (fh-camera): self-built, pull:never.
+// The shared capture component (camera): self-built, pull:never.
 function cameraComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    name: "fh-camera",
-    image: "fh-camera:latest",
+    name: "camera",
+    image: "camera:latest",
     pull: "never",
-    volumes: ["./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro"],
+    volumes: ["./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro"],
     ...overrides,
   };
 }
@@ -144,7 +144,7 @@ describe("composeYaml", () => {
   });
 
   it("pins the engine image from the spec string", () => {
-    expect(composeYaml(specOf([engineComponent({ image: "fh-engine:0.4.2" })]))).toContain("image: fh-engine:0.4.2");
+    expect(composeYaml(specOf([engineComponent({ image: "engine:0.4.2" })]))).toContain("image: engine:0.4.2");
   });
 
   it("emits each component's pull policy: the engine's explicit never, default missing otherwise", () => {
@@ -243,11 +243,11 @@ describe("composeYaml", () => {
 
   it("renders the camera component with device passthrough and a read-only cameras.json file mount", () => {
     const yaml = composeYaml(specOf([engineComponent(), cameraComponent({ devices: ["/dev/video0"] })]));
-    expect(yaml).toContain("fh-camera:");
-    expect(yaml).toContain("image: fh-camera:latest");
+    expect(yaml).toContain("camera:");
+    expect(yaml).toContain("image: camera:latest");
     expect(yaml).toContain("pull_policy: never");
     expect(yaml).toContain('- "/dev/video0:/dev/video0"');
-    expect(yaml).toContain("./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro");
+    expect(yaml).toContain("./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro");
     // A file bind mount needs no top-level named volume; no container_name is set
     // (several bundles may share one host).
     expect(yaml).not.toContain("container_name");
@@ -268,7 +268,7 @@ describe("readme", () => {
   it("hardware adds the note and the scp transfer entries", () => {
     const md = readme(specOf([engineComponent({ devices: ["/dev/gpiochip0"], user: "0:0" })]), cfgOf(), false);
     expect(md).toContain("## Hardware access");
-    expect(md).toContain("scp fh-engine.tar docker-compose.yml engine-config.json deployment-spec.json engine.env");
+    expect(md).toContain("scp engine.tar docker-compose.yml engine-config.json deployment-spec.json engine.env");
   });
 
   it("mqtt adds the external-resources note, with no host-networking advice", () => {
@@ -319,7 +319,7 @@ describe("readme", () => {
   it("a device ml model adds the shared inference component note", () => {
     const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("## On-device ML models");
-    expect(md).toContain("fh-onnx");
+    expect(md).toContain("ml-inference");
   });
 
   it("a network ml model adds only the network note", () => {
@@ -342,10 +342,10 @@ describe("readme", () => {
 
   it("documents building, saving and loading a self-built ML component image", () => {
     const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
-    expect(md).toContain("docker build -t fh-onnx:latest py/ml-inference");
-    expect(md).toContain("docker save fh-onnx:latest");
-    expect(md).toContain("docker load -i fh-onnx.tar");
-    expect(md).toContain("scp fh-engine.tar fh-onnx.tar");
+    expect(md).toContain("docker build -t ml-inference:latest py/ml-inference");
+    expect(md).toContain("docker save ml-inference:latest");
+    expect(md).toContain("docker load -i ml-inference.tar");
+    expect(md).toContain("scp engine.tar ml-inference.tar");
   });
 
   it("documents building and loading a self-built camera component image", () => {
@@ -354,14 +354,14 @@ describe("readme", () => {
       cfgOf({ cameras: { cam: { location: "device", source: "v4l2", device: "/dev/video0" } } }),
       false,
     );
-    expect(md).toContain("docker build -f go/Dockerfile.camera -t fh-camera:latest go");
-    expect(md).toContain("docker load -i fh-camera.tar");
+    expect(md).toContain("docker build -f go/Dockerfile.camera -t camera:latest go");
+    expect(md).toContain("docker load -i camera.tar");
   });
 
   it("adds no component build step when nothing is self-built (network ML model, llama)", () => {
     const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
-    expect(md).not.toContain("docker build -t fh-onnx");
-    expect(md).not.toContain("docker load -i fh-onnx.tar");
+    expect(md).not.toContain("docker build -t ml-inference");
+    expect(md).not.toContain("docker load -i ml-inference.tar");
   });
 });
 

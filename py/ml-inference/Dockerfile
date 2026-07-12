@@ -10,18 +10,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    ML_MODELS_DIR=/var/lib/foresthub/models
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 
-# Run unprivileged; pre-create the mountpoint so a bare run still starts.
+# The models repository mounts at the component's default workspace path
+# (contract/component-constants.json → paths.workspace, == config.py DEFAULT_MODELS_DIR).
+# No ML_MODELS_DIR override — the drift-tested app default is the single source.
+# Run unprivileged; pre-create the mountpoint so a bare run without a volume still starts.
 RUN useradd --system --uid 65532 fh-onnx \
-    && mkdir -p ${ML_MODELS_DIR} \
-    && chown fh-onnx ${ML_MODELS_DIR}
+    && mkdir -p /var/lib/foresthub/workspace \
+    && chown fh-onnx /var/lib/foresthub/workspace
 USER fh-onnx
 
 EXPOSE 8000

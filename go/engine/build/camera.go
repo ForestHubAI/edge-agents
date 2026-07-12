@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
@@ -24,7 +24,7 @@ const captureClientTimeout = 25 * time.Second
 // implements engine.CaptureClient over the generated component client, binding
 // the camera name and capture size so callers pass only the context.
 type captureEndpoint struct {
-	client *captureapi.ClientWithResponses
+	client *cameraapi.ClientWithResponses
 	name   string
 	width  int
 	height int
@@ -35,7 +35,7 @@ var _ engine.CaptureClient = (*captureEndpoint)(nil)
 // Capture asks the component for one frame from the bound camera and returns the
 // encoded bytes. Width and height are sent only when set.
 func (e *captureEndpoint) Capture(ctx context.Context) ([]byte, error) {
-	params := &captureapi.CaptureParams{Name: e.name}
+	params := &cameraapi.CaptureParams{Name: e.name}
 	if e.width > 0 {
 		params.Width = &e.width
 	}
@@ -57,7 +57,7 @@ func (e *captureEndpoint) Capture(ctx context.Context) ([]byte, error) {
 
 // captureErrorMessage extracts the component's error message from a non-2xx
 // response, falling back to the HTTP status text.
-func captureErrorMessage(resp *captureapi.CaptureResponse) string {
+func captureErrorMessage(resp *cameraapi.CaptureResponse) string {
 	switch {
 	case resp.JSON404 != nil:
 		return resp.JSON404.Message
@@ -98,7 +98,7 @@ func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext
 		if !ok {
 			return nil, fmt.Errorf("camera %q: bound to %q but no camera config in deploy externalResources", ch.Id, b.Ref)
 		}
-		client, err := captureapi.NewClientWithResponses(cfg.URL, captureapi.WithHTTPClient(&http.Client{Timeout: captureClientTimeout}))
+		client, err := cameraapi.NewClientWithResponses(cfg.URL, cameraapi.WithHTTPClient(&http.Client{Timeout: captureClientTimeout}))
 		if err != nil {
 			return nil, fmt.Errorf("camera %q: building capture client: %w", ch.Id, err)
 		}

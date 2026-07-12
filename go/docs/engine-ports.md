@@ -91,7 +91,7 @@ model name.
 ## CaptureClient — required only when used
 
 `Capture` is the frame-capture seam: the engine asks a component for one encoded
-frame. The adapter is `build.captureEndpoint`, a generated `captureapi` client
+frame. The adapter is `build.captureEndpoint`, a generated `cameraapi` client
 bound to one camera name (and its optional width/height), so the node calls it
 parameterless.
 

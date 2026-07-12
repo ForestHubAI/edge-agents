@@ -9,7 +9,16 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-DEFAULT_MODELS_DIR = "/var/lib/foresthub/models"
+# The standard component workspace path (see contract/component-constants.json and
+# go/component/constants.go). The model repository is mounted here read-only, so the
+# default needs no env override.
+DEFAULT_MODELS_DIR = "/var/lib/foresthub/workspace"
+
+# Permanent-boot-failure exit code (sysexits EX_CONFIG). A bad or empty model
+# repository fails identically on restart, so the process exits this to tell the
+# orchestrator to stop retrying. Mirrors contract/component-constants.json
+# exitCodes.badConfig and go/component.ExitConfigError.
+EXIT_BAD_CONFIG = 78
 
 
 @dataclass(frozen=True)

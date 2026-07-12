@@ -40,7 +40,7 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	var cam engineapi.ExternalResourceConfig
 	require.NoError(t, cam.FromCameraConfig(engineapi.CameraConfig{
 		Type: engineapi.Camera,
-		Url:  "http://fh-camera:8100",
+		Url:  "http://camera:8100",
 	}))
 
 	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml, "cam-1": cam}
@@ -73,7 +73,7 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
 	assert.Equal(t, "yolov8n", out.MLInference["ml-1"].Model)
 	require.Len(t, out.Cameras, 1)
-	assert.Equal(t, "http://fh-camera:8100", out.Cameras["cam-1"].URL)
+	assert.Equal(t, "http://camera:8100", out.Cameras["cam-1"].URL)
 }
 
 func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {

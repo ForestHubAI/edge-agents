@@ -1,0 +1,14 @@
+{
+  "paths": {
+    "configFile": "/etc/foresthub/config.json",
+    "secretsFile": "/etc/foresthub/secrets.json",
+    "workspace": "/var/lib/foresthub/workspace"
+  },
+  "exitCodes": { "badConfig": 78 },
+  "components": {
+    "engine": "engine",
+    "llama": "llama-server",
+    "camera": "camera",
+    "mlInference": "ml-inference"
+  }
+}

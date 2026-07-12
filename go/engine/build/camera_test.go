@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +46,7 @@ func TestBuildDeployCapture_ResolvesCamera(t *testing.T) {
 	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
 	dm := engine.ResourceMapping{"front": {Ref: "cam-component"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
-		"cam-component": {URL: "http://fh-camera:8100"},
+		"cam-component": {URL: "http://camera:8100"},
 	}}
 
 	eps, err := buildDeployCapture(wf, dm, ext)
@@ -93,7 +93,7 @@ func TestBuildDeployCapture_MultipleShareURL(t *testing.T) {
 	}}
 	dm := engine.ResourceMapping{"front": {Ref: "cam"}, "rear": {Ref: "cam"}}
 	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
-		"cam": {URL: "http://fh-camera:8100"},
+		"cam": {URL: "http://camera:8100"},
 	}}
 
 	eps, err := buildDeployCapture(wf, dm, ext)
@@ -103,7 +103,7 @@ func TestBuildDeployCapture_MultipleShareURL(t *testing.T) {
 
 func captureEndpointAgainst(t *testing.T, srv *httptest.Server, name string, width, height int) *captureEndpoint {
 	t.Helper()
-	client, err := captureapi.NewClientWithResponses(srv.URL)
+	client, err := cameraapi.NewClientWithResponses(srv.URL)
 	require.NoError(t, err)
 	return &captureEndpoint{client: client, name: name, width: width, height: height}
 }

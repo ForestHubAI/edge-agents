@@ -3,9 +3,9 @@
 
 openapi: 3.0.3
 info:
-  title: ForestHub Capture Component Contract
+  title: ForestHub Camera Component Contract
   version: 0.1.0
-  description: "Engine<->component capture wire. One container owns several named capture devices and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the component's generated server."
+  description: "Engine<->camera component wire. One container owns several named cameras and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the component's generated server."
 
 paths:
   /capture:
@@ -36,7 +36,7 @@ paths:
             minimum: 1
       responses:
         "200":
-          description: "Encoded captured frame (opaque binary; the concrete Content-Type is set by the server, e.g. image/jpeg for fh-camera)."
+          description: "Encoded captured frame (opaque binary; the concrete Content-Type is set by the server, e.g. image/jpeg for a camera server)."
           content:
             application/octet-stream:
               schema:
@@ -90,37 +90,37 @@ paths:
   /metadata:
     get:
       operationId: metadata
-      summary: List the configured capture devices.
-      description: Names every configured device — the valid /capture name selectors.
+      summary: List the configured cameras.
+      description: Names every configured camera — the valid /capture name selectors.
       responses:
         "200":
-          description: The component's configured devices.
+          description: The component's configured cameras.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CaptureMetadata"
+                $ref: "#/components/schemas/CameraMetadata"
 
 components:
   schemas:
-    CaptureMetadata:
+    CameraMetadata:
       type: object
-      description: The set of configured capture devices.
+      description: The set of configured cameras.
       required: [devices]
       properties:
         devices:
           type: array
-          description: Every configured capture device.
+          description: Every configured camera.
           items:
             $ref: "#/components/schemas/DeviceMetadata"
 
     DeviceMetadata:
       type: object
-      description: Descriptive metadata for one configured capture device.
+      description: Descriptive metadata for one configured camera.
       required: [name]
       properties:
         name:
           type: string
-          description: Name (id) of the device — the /capture name selector.
+          description: Name (id) of the camera — the /capture name selector.
         description:
           x-go-type-skip-optional-pointer: true
           type: string

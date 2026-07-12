@@ -32,7 +32,7 @@ export async function writeOutput(
         process.stderr.write(`output dir not empty: ${dir} (use --force to overwrite)\n`);
         process.exit(1);
       }
-      // force=true: wipe + recreate so stale files (old fh-engine.tar, stray
+      // force=true: wipe + recreate so stale files (an old engine.tar, a stray
       // .env from a prior run, ...) don't end up in the new bundle.
       await fs.rm(dir, { recursive: true, force: true });
       await fs.mkdir(dir, { recursive: true });

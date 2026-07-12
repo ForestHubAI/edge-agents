@@ -27,7 +27,7 @@ const bareWorkflow = {
 function engineComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "engine",
-    image: "fh-engine:latest",
+    image: "engine:latest",
     pull: "never",
     config: { workflow: bareWorkflow },
     volumes: ["./workspaces/engine:/var/lib/foresthub/workspace"],
@@ -149,7 +149,7 @@ describe("writeOutput", () => {
     const out = path.join(base, "bundle");
     const cfg = cfgOf(out, { mlModels: { yolo: { location: "device", model: "yolov8n" } } });
     await writeOutput(specOf(), {}, cfg, reqOf());
-    expect((await fs.stat(path.join(out, "workspaces", "fh-onnx", "yolov8n"))).isDirectory()).toBe(true);
+    expect((await fs.stat(path.join(out, "workspaces", "ml-inference", "yolov8n"))).isDirectory()).toBe(true);
     await fs.rm(base, { recursive: true, force: true });
   });
 
@@ -166,13 +166,13 @@ describe("writeOutput", () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     const camera: DeployComponent = {
-      name: "fh-camera",
-      image: "fh-camera:latest",
-      volumes: ["./workspaces/fh-camera/cameras.json:/etc/foresthub/cameras.json:ro"],
+      name: "camera",
+      image: "camera:latest",
+      volumes: ["./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro"],
     };
     const cfg = cfgOf(out, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } });
     await writeOutput(specOf([engineComponent(), camera]), {}, cfg, reqOf());
-    const camerasFile = path.join(out, "workspaces", "fh-camera", "cameras.json");
+    const camerasFile = path.join(out, "workspaces", "camera", "cameras.json");
     // The file-mount source is written as a file — not created as a directory.
     expect((await fs.stat(camerasFile)).isFile()).toBe(true);
     expect(JSON.parse(await fs.readFile(camerasFile, "utf-8"))).toEqual({ cameras: { front: { source: "v4l2", device: "/dev/video0" } } });

@@ -86,10 +86,10 @@ const fullInputs: DeploymentInputs = {
 
 const meta = {
   id: "dep-1",
-  engineImage: "fh-engine:0.4.2",
+  engineImage: "engine:0.4.2",
   llamaServerImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-  mlComponentImage: "fh-onnx:latest",
-  cameraComponentImage: "fh-camera:latest",
+  mlComponentImage: "ml-inference:latest",
+  cameraComponentImage: "camera:latest",
 };
 
 describe("buildDeploymentSpec", () => {
@@ -100,7 +100,7 @@ describe("buildDeploymentSpec", () => {
     expect(spec.id).toBe("dep-1");
 
     const engine = engineOf(spec);
-    expect(engine.image).toBe("fh-engine:0.4.2");
+    expect(engine.image).toBe("engine:0.4.2");
     expect(engine.pull).toBe("never"); // built locally, in no registry
     expect(engineConfigOf(spec).workflow.schemaVersion).toBeGreaterThanOrEqual(1);
   });
@@ -369,9 +369,9 @@ describe("buildDeploymentSpec ML inference component", () => {
     const components = spec.components.filter((c) => c.name === mlComponentServiceName());
     expect(components).toHaveLength(1);
     expect(components[0]).toMatchObject({
-      image: "fh-onnx:latest",
+      image: "ml-inference:latest",
       pull: "never",
-      volumes: [`./workspaces/${mlComponentServiceName()}:/var/lib/foresthub/models:ro`],
+      volumes: [`./workspaces/${mlComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
     });
 
     // Every on-device model resolves to the same component url; each is mapped by id.
@@ -430,9 +430,9 @@ describe("buildDeploymentSpec capture component", () => {
     const components = spec.components.filter((c) => c.name === cameraComponentServiceName());
     expect(components).toHaveLength(1);
     expect(components[0]).toMatchObject({
-      image: "fh-camera:latest",
+      image: "camera:latest",
       pull: "never",
-      volumes: [`./workspaces/${cameraComponentServiceName()}/cameras.json:/etc/foresthub/cameras.json:ro`],
+      volumes: [`./workspaces/${cameraComponentServiceName()}/cameras.json:/etc/foresthub/config.json:ro`],
     });
     // Both v4l2 nodes are passed through to the component.
     expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);

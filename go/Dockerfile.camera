@@ -5,7 +5,7 @@
 # target.
 #
 # Build context must be the go/ directory (where go.mod lives):
-#   docker build -f Dockerfile.camera -t fh-camera:dev .
+#   docker build -f Dockerfile.camera -t camera:dev .
 
 FROM golang:1.26 AS builder
 WORKDIR /src

@@ -11,11 +11,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
-// server implements the generated captureapi.ServerInterface over the configured
+// server implements the generated cameraapi.ServerInterface over the configured
 // capture sources.
 type server struct {
 	sources map[string]source
@@ -26,7 +26,7 @@ func newServer(sources map[string]source) *server {
 }
 
 // Capture reads one frame from the named device and returns its JPEG bytes.
-func (s *server) Capture(w http.ResponseWriter, r *http.Request, params captureapi.CaptureParams) {
+func (s *server) Capture(w http.ResponseWriter, r *http.Request, params cameraapi.CaptureParams) {
 	src, ok := s.sources[params.Name]
 	if !ok {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("unknown device %q", params.Name))
@@ -63,13 +63,13 @@ func (s *server) Capture(w http.ResponseWriter, r *http.Request, params capturea
 
 // Healthz is liveness — always ok while the process runs.
 func (s *server) Healthz(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, captureapi.Health{Status: "ok"})
+	writeJSON(w, http.StatusOK, cameraapi.Health{Status: "ok"})
 }
 
 // Readyz is readiness — the config is loaded eagerly before the server starts,
 // so once serving it is always ready.
 func (s *server) Readyz(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, captureapi.Health{Status: "ok"})
+	writeJSON(w, http.StatusOK, cameraapi.Health{Status: "ok"})
 }
 
 // Metadata lists the configured device names.
@@ -80,11 +80,11 @@ func (s *server) Metadata(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(names)
 
-	devices := make([]captureapi.DeviceMetadata, 0, len(names))
+	devices := make([]cameraapi.DeviceMetadata, 0, len(names))
 	for _, name := range names {
-		devices = append(devices, captureapi.DeviceMetadata{Name: name})
+		devices = append(devices, cameraapi.DeviceMetadata{Name: name})
 	}
-	writeJSON(w, http.StatusOK, captureapi.CaptureMetadata{Devices: devices})
+	writeJSON(w, http.StatusOK, cameraapi.CameraMetadata{Devices: devices})
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
@@ -94,5 +94,5 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, captureapi.Error{Message: msg})
+	writeJSON(w, status, cameraapi.Error{Message: msg})
 }

@@ -74,10 +74,10 @@ returns `{ "detections": [ { "label", "score", "box": { x, y, w, h } } ] }`.
 The image is **built locally** — this repo publishes no images:
 
 ```bash
-docker build -t fh-onnx:latest py/ml-inference
+docker build -t ml-inference:latest py/ml-inference
 docker run --rm -p 8000:8000 \
-  -v "$PWD/models:/var/lib/foresthub/models:ro" \
-  fh-onnx:latest
+  -v "$PWD/models:/var/lib/foresthub/workspace:ro" \
+  ml-inference:latest
 ```
 
 In a compose deployment the engine reaches the component over the Docker network;
@@ -85,9 +85,9 @@ because the image is self-built, pin `pull_policy: never`:
 
 ```yaml
 services:
-  fh-onnx:
-    image: fh-onnx:latest
+  ml-inference:
+    image: ml-inference:latest
     pull_policy: never
     volumes:
-      - ./models:/var/lib/foresthub/models:ro
+      - ./models:/var/lib/foresthub/workspace:ro
 ```

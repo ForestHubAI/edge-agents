@@ -13,7 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/captureapi"
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
+	"github.com/ForestHubAI/edge-agents/go/component"
+	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
@@ -22,22 +24,26 @@ func main() {
 
 	cfg, err := LoadConfig()
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Msg("loading configuration")
+		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
 
-	file, err := readConfig(cfg.ConfigFile)
+	// TODO: type config file and document in yaml
+	file, err := readConfig(component.ConfigFile)
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Str("config-file", cfg.ConfigFile).Msg("loading cameras")
+		// A missing, unparseable, or empty config file fails identically on restart.
+		boot.Fail(err, "loading cameras from "+component.ConfigFile)
 	}
 	sources, err := buildSources(file)
 	if err != nil {
-		logging.Logger.Fatal().Err(err).Str("config-file", cfg.ConfigFile).Msg("loading cameras")
+		// Invalid camera config (unknown source, missing device) is permanent.
+		boot.Fail(err, "loading cameras from "+component.ConfigFile)
 	}
 
 	// Real capture shells out to gst-launch-1.0; fail at boot, not on first request.
+	// A missing binary is an image-level defect, so a restart fails identically.
 	if hasNonDebugSource(sources) {
 		if _, err := exec.LookPath("gst-launch-1.0"); err != nil {
-			logging.Logger.Fatal().Err(err).Msg("gst-launch-1.0 not found in PATH")
+			boot.Fail(err, "gst-launch-1.0 not found in PATH")
 		}
 	}
 
@@ -47,10 +53,12 @@ func main() {
 	// Configure statically set-up capture pipelines before serving. A failure is
 	// fatal so the restart policy retries until the devices are ready.
 	if err := runSetup(ctx, file); err != nil {
-		logging.Logger.Fatal().Err(err).Msg("camera setup failed — check the setup commands in cameras.json (see the bundle README)")
+		// Transient: the devices may not be ready yet, so exit nonzero and let the
+		// restart policy retry (not a permanent config error).
+		boot.Retry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
 	}
 
-	handler := captureapi.HandlerFromMux(newServer(sources), http.NewServeMux())
+	handler := cameraapi.HandlerFromMux(newServer(sources), http.NewServeMux())
 	srv := &http.Server{
 		Addr:    cfg.Addr,
 		Handler: handler,

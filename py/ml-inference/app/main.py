@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -24,9 +25,9 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api.models import Error, Health, InferResult, ModelMetadata, RepositoryMetadata
-from .config import load_config
+from .config import EXIT_BAD_CONFIG, load_config
 from .middleware import MaxBodySizeMiddleware
-from .repository import LoadedModel, load_repository
+from .repository import LoadedModel, RepositoryError, load_repository
 
 # Logs ride uvicorn's configured handler so they surface in the container logs.
 logger = logging.getLogger("uvicorn.error")
@@ -40,7 +41,15 @@ MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 async def lifespan(app: FastAPI):
     """Load every model bundle before the server accepts traffic."""
     config = load_config()
-    app.state.models = load_repository(config.models_dir)
+    try:
+        app.state.models = load_repository(config.models_dir)
+    except RepositoryError as exc:
+        # A bad or empty repository fails identically on restart — a permanent config
+        # error. Exit 78 (EX_CONFIG) so the orchestrator stops retrying, matching the
+        # engine/llama components. os._exit bypasses uvicorn's own exit handling, which
+        # would otherwise mask the code. Logged first (StreamHandler flushes on emit).
+        logger.error("repository load failed, exiting: %s", exc)
+        os._exit(EXIT_BAD_CONFIG)
     logger.info("loaded %d model(s) from %s", len(app.state.models), config.models_dir)
     yield
 

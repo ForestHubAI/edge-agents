@@ -8,8 +8,8 @@ set -euo pipefail
 
 SERVICE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODELS_DIR="$SERVICE_DIR/examples/models"
-IMAGE="fh-onnx:smoke"
-CONTAINER="fh-onnx-smoke"
+IMAGE="ml-inference:smoke"
+CONTAINER="ml-inference-smoke"
 PORT="8000"
 BASE="http://localhost:$PORT"
 TEST_IMAGE="$SERVICE_DIR/examples/bus.jpg"
@@ -27,7 +27,7 @@ docker build -t "$IMAGE" "$SERVICE_DIR"
 echo "==> starting container"
 cleanup
 docker run -d --name "$CONTAINER" -p "$PORT:8000" \
-  -v "$MODELS_DIR:/var/lib/foresthub/models:ro" "$IMAGE" >/dev/null
+  -v "$MODELS_DIR:/var/lib/foresthub/workspace:ro" "$IMAGE" >/dev/null
 
 echo "==> waiting for readiness"
 for _ in $(seq 1 60); do

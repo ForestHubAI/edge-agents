@@ -16,6 +16,7 @@ import type { ModelInfo } from "../model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
+import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME } from "./constants";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -23,26 +24,8 @@ type DeployComponent = DeploymentSchemas["DeployComponent"];
 // the spec carries it as an opaque blob in DeployComponent.config.
 type EngineConfig = EngineSchemas["EngineConfig"];
 
-// In-container mount path for a component's durable workspace. MUST equal the Go
-// component.Workspace contract constant (go/component/paths.go) — the component
-// reads/writes there, so we mount the host workspace dir there and wire no env var.
-// A cross-repo contract: changing it requires changing the Go constant in lockstep.
-const COMPONENT_WORKSPACE_PATH = "/var/lib/foresthub/workspace";
-
-// In-container path the inference component reads its model repository from (its
-// default models dir). The host repository dir is bind-mounted here read-only;
-// mounting at the default means no env var needs wiring. A cross-repo contract
-// with the component image — changing it requires changing the image in lockstep.
-const ML_MODELS_PATH = "/var/lib/foresthub/models";
-
 // The inference component's fixed listen port (baked into its image entrypoint).
 const ML_COMPONENT_PORT = 8000;
-
-// In-container path the capture component reads its camera config from (its default
-// CAMERA_CONFIG_FILE). The host cameras.json is bind-mounted here read-only;
-// mounting at the default means no env var needs wiring. A cross-repo contract
-// with the component image — changing it requires changing the image in lockstep.
-const CAMERAS_CONFIG_PATH = "/etc/foresthub/cameras.json";
 
 // The capture component's fixed listen port (baked into its image entrypoint).
 const CAMERA_COMPONENT_PORT = 8100;
@@ -135,19 +118,19 @@ export function llmComponentServiceName(modelId: string): string {
 
 // Compose/container service name for the shared inference component. Unlike the
 // llama component (one per model), a single inference component hosts a repository
-// of ML models and selects one by name per request — so this is a fixed name,
-// not derived from any model id. Every on-device ML model's provider URL points
-// at it.
+// of ML models and selects one by name per request — so this is a fixed name, its
+// canonical identity, not derived from any model id. Every on-device ML model's
+// provider URL points at it.
 export function mlComponentServiceName(): string {
-  return "fh-onnx";
+  return ML_COMPONENT_NAME;
 }
 
 // Compose/container service name for the shared capture component. Like the
 // inference component (one container owns a set of cameras and selects one by name
-// per request), this is a fixed name, not derived from any channel id. Every
-// on-device camera's connection URL points at it.
+// per request), this is a fixed name, its canonical identity, not derived from any
+// channel id. Every on-device camera's connection URL points at it.
 export function cameraComponentServiceName(): string {
-  return "fh-camera";
+  return CAMERA_COMPONENT_NAME;
 }
 
 // Why an on-device model filename is unacceptable, or null when fine. A name
@@ -472,16 +455,15 @@ export function buildDeploymentSpec(
     }
   }
   // One shared component for all on-device ML models (not one per model). The model
-  // repository is a directory the operator fills, one sub-folder per model id;
-  // read-only, so no chown is needed. The component reads its default models dir,
-  // so no env var is wired.
+  // repository is a directory the operator fills, one sub-folder per model id, mounted
+  // read-only at the standard workspace path (so no chown, no env var is wired).
   if (mlDeviceModels > 0) {
     const service = mlComponentServiceName();
     mlComponents.push({
       name: service,
       image: meta.mlComponentImage,
       pull: "never", // built locally before deploy, in no registry
-      volumes: [`${workspaceDir(service)}:${ML_MODELS_PATH}:ro`],
+      volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
     });
   }
 
@@ -516,10 +498,11 @@ export function buildDeploymentSpec(
   }
   // One shared component for all on-device cameras (not one per camera). The camera
   // set is described by cameras.json (one entry per channel id), bind-mounted
-  // read-only at the component's default config path, so no env var is wired.
+  // read-only at the standard component config path — the same config.json every
+  // component boots from, so no env var is wired.
   if (cameraDeviceCount > 0) {
     const service = cameraComponentServiceName();
-    const volumes = [`${workspaceDir(service)}/cameras.json:${CAMERAS_CONFIG_PATH}:ro`];
+    const volumes = [`${workspaceDir(service)}/cameras.json:${COMPONENT_CONFIG_PATH}:ro`];
     // libcamera (gstreamer sources) discovers cameras through the host's udev
     // device database; without this mount the component sees no camera at all.
     if (hasGstreamerCamera) volumes.push("/run/udev:/run/udev:ro");
@@ -551,13 +534,13 @@ export function buildDeploymentSpec(
   // The engine component. The config blob is mounted at the fixed convention path
   // (component.ConfigFile) the engine image reads.
   const engine: DeployComponent = {
-    name: "engine",
+    name: ENGINE_COMPONENT_NAME,
     image: meta.engineImage,
     pull: "never", // built locally before deploy, in no registry
     config,
     // Durable memory: a host bind mount under the state root, read-write, at the
     // in-container workspace path (docs/device-filesystem.md §10).
-    volumes: [`${workspaceDir("engine")}:${COMPONENT_WORKSPACE_PATH}`],
+    volumes: [`${workspaceDir(ENGINE_COMPONENT_NAME)}:${COMPONENT_WORKSPACE_PATH}`],
     // Run as root: writes the rw workspace bind mount without a host chown step
     // (the OSS default, §5), and also opens root-owned device nodes when hardware
     // (cdev passthrough / sysfs-privileged) is mapped in below.

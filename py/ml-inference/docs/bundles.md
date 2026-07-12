@@ -115,11 +115,11 @@ yolo export model=yolov8n.pt format=onnx imgsz=640    # nms defaults to False â€
 
 ```yaml
 services:
-  fh-onnx:
-    image: fh-onnx:latest
+  ml-inference:
+    image: ml-inference:latest
     pull_policy: never                 # built locally; never published
     volumes:
-      - ./models:/var/lib/foresthub/models:ro
+      - ./models:/var/lib/foresthub/workspace:ro
 ```
 
 The image ships no models â€” the repository is always mounted. See
