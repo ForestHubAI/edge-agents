@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 )
 
 // CaptureTimeout bounds a single capture so a stuck pipeline is killed. It is
@@ -38,7 +40,7 @@ type gstreamerSource struct {
 // libcamerasrc) split on whitespace — operator-trusted by design. frames is the
 // total run through the pipeline; only the last is kept, so the warmup frames
 // ahead of it give auto-exposure time to settle.
-func newGStreamerSource(cc cameraConfig) *gstreamerSource {
+func newGStreamerSource(cc cameraapi.CameraSource) *gstreamerSource {
 	var args []string
 	if cc.Source == sourceV4L2 {
 		args = []string{"v4l2src", "device=" + cc.Device}

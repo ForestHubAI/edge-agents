@@ -4,7 +4,7 @@
 
 // Package build holds the engine's workflow-graph builder, which assembles a Runner from a workflow spec,
 // resource mapping, and external resources. It resolves the workflow's requirements against the injected,
-// drivers / transports / clients to reach ExternalResources.
+// drivers / transports / clients to reach external and device resources.
 package build
 
 import (

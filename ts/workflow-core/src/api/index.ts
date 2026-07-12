@@ -21,6 +21,14 @@ export type DeploymentSchemas = deploymentComponents["schemas"];
 import type { components as engineComponents } from "./engine";
 export type EngineSchemas = engineComponents["schemas"];
 
+// Camera component wire + boot-config api layer, generated from
+// contract/camera.yaml. The deploy renderer PRODUCES the camera component's
+// cameras.json (CameraComponentConfig); the Go camera component consumes it — one
+// generated shape across that seam. Kept distinct so it never collides with the
+// workflow Schemas above.
+import type { components as cameraComponents } from "./camera";
+export type CameraSchemas = cameraComponents["schemas"];
+
 // Api-layer type aliases used across the domain. They live here (not in any
 // single domain module) so modules don't cross-import them; consumers pull
 // them from the package root (`@foresthubai/workflow-core`).

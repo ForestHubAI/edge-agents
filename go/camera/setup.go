@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
@@ -23,14 +24,14 @@ const setupTimeout = 60 * time.Second
 // variables carry across lines — device numbering (e.g. /dev/mediaN) is not
 // boot-stable, so an early line can discover the device for later lines.
 // -e stops at the first failing line, -x traces each line into the output.
-func RunSetup(ctx context.Context, file File) error {
-	names := make([]string, 0, len(file.Cameras))
-	for name := range file.Cameras {
+func RunSetup(ctx context.Context, cfg cameraapi.CameraConfig) error {
+	names := make([]string, 0, len(cfg.Cameras))
+	for name := range cfg.Cameras {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		lines := file.Cameras[name].Setup
+		lines := cfg.Cameras[name].Setup
 		if len(lines) == 0 {
 			continue
 		}

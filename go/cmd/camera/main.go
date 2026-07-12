@@ -6,8 +6,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
@@ -28,13 +30,18 @@ func main() {
 		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
 
-	// TODO: type config file and document in yaml
-	file, err := camera.ReadConfig(component.ConfigFile)
+	cams, err := readCameraConfig(component.ConfigFile)
 	if err != nil {
-		// A missing, unparseable, or empty config file fails identically on restart.
+		// A missing or unparseable config file fails identically on restart.
 		boot.Fail(err, "loading cameras from "+component.ConfigFile)
 	}
-	sources, err := camera.BuildSources(file)
+	// A config with no cameras builds a component that can serve nothing — every
+	// /capture 404s. Fail at boot (like the engine on an empty workflow) so the
+	// deployment is marked failed here, not mysteriously at the engine's first capture.
+	if len(cams.Cameras) == 0 {
+		boot.Fail(errors.New("no cameras configured"), "validating "+component.ConfigFile)
+	}
+	sources, err := camera.BuildSources(cams)
 	if err != nil {
 		// Invalid camera config (unknown source, missing device) is permanent.
 		boot.Fail(err, "loading cameras from "+component.ConfigFile)
@@ -53,7 +60,7 @@ func main() {
 
 	// Configure statically set-up capture pipelines before serving. A failure is
 	// fatal so the restart policy retries until the devices are ready.
-	if err := camera.RunSetup(ctx, file); err != nil {
+	if err := camera.RunSetup(ctx, cams); err != nil {
 		// Transient: the devices may not be ready yet, so exit nonzero and let the
 		// restart policy retry (not a permanent config error).
 		boot.Retry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
@@ -88,4 +95,18 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logging.Logger.Error().Err(err).Msg("graceful shutdown failed")
 	}
+}
+
+// readCameraConfig reads and parses cameras.json into the contract seam type.
+// A missing or malformed file is a permanent boot error.
+func readCameraConfig(path string) (cameraapi.CameraConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return cameraapi.CameraConfig{}, err
+	}
+	var cfg cameraapi.CameraConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return cameraapi.CameraConfig{}, err
+	}
+	return cfg, nil
 }

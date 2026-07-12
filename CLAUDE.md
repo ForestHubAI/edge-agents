@@ -55,6 +55,27 @@ single `contract/` with codegen on every side.
 - Generated files are committed to git on purpose. A diff after regeneration means
   the contract and the checked-in bindings are out of sync.
 
+## Domain-first: reach for the contract only at a seam
+
+The rule above says *how* to cross a seam; this one says *when*. Components and
+libraries work in **self-contained, internal domain types** (`engine/`, `llmproxy/`,
+`workflow-core`'s domain layer). You add a `contract/` api-type — with codegen and,
+in Go, a `mapping/` bridge — **only where a shape crosses a seam**: a boundary where
+another implementation, same-language or cross-language, must independently produce
+or consume that exact shape. No seam → no api type; keep it a plain domain type.
+
+- **What a seam is:** a wire between two components (engine↔component HTTP), or a
+  file one side writes and another reads (the renderer writes `cameras.json`, the
+  Go camera component reads it — a cross-language seam, so its shape is contracted).
+- **What is not:** a type only one implementation ever touches. A component's config
+  authored by humans and read by one language (ml-inference's `manifest.yaml`, owned
+  by its Python `Manifest`) stays a domain type — documented in that language, not
+  the contract.
+- **The pattern at a seam:** the generated api type is the wire shape; the domain
+  keeps its own type and maps at the boundary (Go: `mapping/`, or a domain-local
+  builder like `camera.BuildSources`). Never let a generated type leak into domain
+  logic — map it first.
+
 ## Working across the tree
 
 - `go/`, `ts/` and `py/` are independently buildable and releasable. A contributor

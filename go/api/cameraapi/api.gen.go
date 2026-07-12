@@ -18,10 +18,31 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// CameraConfig The camera component's boot config (cameras.json): the set of cameras one shared camera component owns. The renderer writes it into the component's config file; the component reads it at boot — a cross-language seam. Each /capture request selects a camera by its key here. Not on the HTTP wire; the component's boot input, carried here so the renderer (producer) and component (consumer) share one generated shape.
+type CameraConfig struct {
+	// Cameras Configured cameras keyed by name — the /capture `name` selector.
+	Cameras map[string]CameraSource `json:"cameras"`
+}
+
 // CameraMetadata The set of configured cameras.
 type CameraMetadata struct {
 	// Devices Every configured camera.
 	Devices []DeviceMetadata `json:"devices"`
+}
+
+// CameraSource One camera's capture source in cameras.json.
+type CameraSource struct {
+	// Device The capture source: a /dev/video* path (v4l2) or a GStreamer source fragment (gstreamer).
+	Device string `json:"device"`
+
+	// Setup Shell commands (media-ctl/v4l2-ctl) the component replays on every container start, for statically configured CSI/ISP pipelines.
+	Setup []string `json:"setup,omitempty"`
+
+	// Source Capture backend: `v4l2` (a /dev/video* device) or `gstreamer` (a source element, e.g. libcamerasrc). Determines how `device` is interpreted.
+	Source string `json:"source"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames int `json:"warmupFrames,omitempty"`
 }
 
 // DeviceMetadata Descriptive metadata for one configured camera.

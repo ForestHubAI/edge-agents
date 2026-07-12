@@ -126,6 +126,40 @@ components:
           type: string
           description: Optional human-readable device description.
 
+    CameraConfig:
+      type: object
+      description: "The camera component's boot config (cameras.json): the set of cameras one shared camera component owns. The renderer writes it into the component's config file; the component reads it at boot — a cross-language seam. Each /capture request selects a camera by its key here. Not on the HTTP wire; the component's boot input, carried here so the renderer (producer) and component (consumer) share one generated shape."
+      required: [cameras]
+      properties:
+        cameras:
+          type: object
+          description: "Configured cameras keyed by name — the /capture `name` selector."
+          additionalProperties:
+            $ref: "#/components/schemas/CameraSource"
+
+    CameraSource:
+      type: object
+      description: "One camera's capture source in cameras.json."
+      required: [source, device]
+      properties:
+        source:
+          type: string
+          description: "Capture backend: `v4l2` (a /dev/video* device) or `gstreamer` (a source element, e.g. libcamerasrc). Determines how `device` is interpreted."
+        device:
+          type: string
+          description: "The capture source: a /dev/video* path (v4l2) or a GStreamer source fragment (gstreamer)."
+        warmupFrames:
+          type: integer
+          minimum: 0
+          x-go-type-skip-optional-pointer: true
+          description: "Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0."
+        setup:
+          type: array
+          x-go-type-skip-optional-pointer: true
+          description: "Shell commands (media-ctl/v4l2-ctl) the component replays on every container start, for statically configured CSI/ISP pipelines."
+          items:
+            type: string
+
     Health:
       type: object
       description: A simple health-probe response.

@@ -10,7 +10,7 @@
 
 import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
-import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, CameraSchemas } from "@foresthubai/workflow-core/api";
 import { llmComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "@foresthubai/workflow-core/deploy";
 import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
@@ -167,7 +167,10 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 // keyed by the channel id the engine requests it by. Null when no camera is
 // on-device (a network camera needs no local config) — then no file is written.
 export function camerasJson(cfg: DeployConfig): string | null {
-  type Entry = { source: "v4l2" | "gstreamer"; device: string; warmupFrames?: number; setup?: string[] };
+  // The cameras.json shape is the contract seam type (camera.yaml → CameraSource):
+  // this renderer writes it, the Go camera component reads it. One generated shape,
+  // no hand-mirrored struct to drift.
+  type Entry = CameraSchemas["CameraSource"];
   const cameras: Record<string, Entry> = {};
   for (const [id, b] of Object.entries(cfg.cameras)) {
     if (b.location === "device") {
