@@ -42,9 +42,10 @@ Three capabilities deliberately are **not** ports:
 - **Memory** — device-storage-only, owned unconditionally by
   `engine/memory.Manager`. The device always has a durable local copy; see
   [Memory](#memory--device-storage-only) below.
-- **Logging** — stderr is unconditional and the engine already depends on the
-  `logging` package. Optional log shipping to the backend is a `logging`
-  `HTTPWriter` wired by `main`, not a port.
+- **Logging** — the engine writes structured JSON to **stdout** unconditionally
+  via the `logging` package; there is no shipping seam. The container runtime
+  captures the stream and a reader (Ranger, `docker logs`, or a collector) routes
+  it, so log delivery is external, not an engine port.
 
 ## LlmClient — required for agent nodes
 

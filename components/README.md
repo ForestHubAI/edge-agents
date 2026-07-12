@@ -62,7 +62,9 @@ To wrap **any** non-Go component whose config format ForestHub doesn't emit nati
 1. `FROM` a stock image that already contains your binaries — don't rebuild them.
 2. Add a small `entrypoint.sh` that reads `/etc/foresthub/config.json` and translates
    it into whatever your app wants (a file, flags, an env dump), then `exec`s the app.
-3. Log to **stdout** — never add a log shipper; Ranger captures it.
+3. Log to **stdout** — never add a log shipper. The container runtime captures the
+   stream; a reader (Ranger in the hosted path, `docker logs`/a collector in OSS)
+   routes it.
 4. Exit **78** (`sysexits(3)` `EX_CONFIG`, the component's `ExitConfigError`) on a
    permanent config error so the orchestrator stops retrying unchanged.
 5. Publish an immutable tag and pin it.

@@ -97,8 +97,9 @@ single boot config (workflow + bindings + device manifest) once from `ENGINE_CON
 runs that one workflow, and exits when the workflow does; a boot failure exits the process.
 It runs **standalone by default** — no control plane, no account, no inbound port, no
 outbound calls beyond LLM provider APIs. Setting `FH_BACKEND_URL` (with `ENGINE_SECRET`)
-opts into outbound log shipping and memory sync only; liveness is observed externally from
-the container's exit, not self-reported. Configure via `ENGINE_*` env vars; see
+opts into memory sync only; logs always go to **stdout** (the container runtime captures
+them — `docker logs` or your collector), and liveness is observed externally from the
+container's exit, not self-reported. Configure via `ENGINE_*` env vars; see
 [`go/cmd/engine/config.go`](go/cmd/engine/config.go).
 
 **Hardware access:** the image runs as a nonroot distroless user, so reaching real GPIO,

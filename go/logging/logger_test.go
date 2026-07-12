@@ -6,155 +6,69 @@ package logging
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestWire(t *testing.T) {
-	t.Run("each sink filters at its own level", func(t *testing.T) {
-		var debugBuf, infoBuf bytes.Buffer
-		wire(
-			sink{level: zerolog.DebugLevel, writer: &debugBuf},
-			sink{level: zerolog.InfoLevel, writer: &infoBuf},
-		)
+func TestConfigure_WritesStructuredJSONAtLevel(t *testing.T) {
+	var buf bytes.Buffer
+	configure(&buf, zerolog.InfoLevel)
 
-		Logger.Debug().Msg("d")
-		Logger.Info().Msg("i")
-		Logger.Error().Msg("e")
+	Logger.Debug().Msg("d")
+	Logger.Info().Msg("i")
+	Logger.Error().Msg("e")
 
-		// The debug sink's floor lets everything through.
-		assert.Contains(t, debugBuf.String(), `"msg":"d"`)
-		assert.Contains(t, debugBuf.String(), `"msg":"i"`)
-		assert.Contains(t, debugBuf.String(), `"msg":"e"`)
-
-		// The info sink drops the debug line but keeps info+ above it.
-		assert.NotContains(t, infoBuf.String(), `"msg":"d"`)
-		assert.Contains(t, infoBuf.String(), `"msg":"i"`)
-		assert.Contains(t, infoBuf.String(), `"msg":"e"`)
-	})
-
-	t.Run("logger floor is the most permissive sink", func(t *testing.T) {
-		// With one debug and one error sink, a debug line must still reach the
-		// debug sink — the logger's own level cannot sit above the lowest floor.
-		var debugBuf, errorBuf bytes.Buffer
-		wire(
-			sink{level: zerolog.ErrorLevel, writer: &errorBuf},
-			sink{level: zerolog.DebugLevel, writer: &debugBuf},
-		)
-
-		Logger.Debug().Msg("d")
-
-		assert.Contains(t, debugBuf.String(), `"msg":"d"`)
-		assert.NotContains(t, errorBuf.String(), `"msg":"d"`)
-	})
-
-	t.Run("empty sink list discards", func(t *testing.T) {
-		closer := wire()
-		require.NotNil(t, closer)
-		assert.NoError(t, closer.Close())
-		// No panic and nothing to write to is the whole contract.
-		Logger.Info().Msg("dropped")
-	})
-
-	t.Run("closer aggregates only closable writers", func(t *testing.T) {
-		var buf bytes.Buffer // plain writer, no Close
-		closer := wire(sink{level: zerolog.InfoLevel, writer: &buf})
-		require.NotNil(t, closer)
-		assert.NoError(t, closer.Close())
-	})
+	out := buf.String()
+	assert.NotContains(t, out, `"msg":"d"`) // below the floor, dropped
+	assert.Contains(t, out, `"msg":"i"`)
+	assert.Contains(t, out, `"msg":"e"`)
+	assert.Contains(t, out, `"level":"info"`) // structured, not plain text
 }
 
-func TestResolveLevel(t *testing.T) {
-	t.Run("empty falls back to the default", func(t *testing.T) {
-		lvl, err := resolveLevel("", zerolog.DebugLevel)
-		assert.NoError(t, err)
-		assert.Equal(t, zerolog.DebugLevel, lvl)
-	})
-
+func TestParseLevel(t *testing.T) {
 	t.Run("valid name is parsed case-insensitively", func(t *testing.T) {
-		lvl, err := resolveLevel("WARN", zerolog.InfoLevel)
+		lvl, err := ParseLevel("WARN")
 		assert.NoError(t, err)
 		assert.Equal(t, zerolog.WarnLevel, lvl)
 	})
 
-	t.Run("unknown name errors but returns the default", func(t *testing.T) {
-		lvl, err := resolveLevel("bogus", zerolog.InfoLevel)
+	t.Run("empty errors (strict primitive)", func(t *testing.T) {
+		_, err := ParseLevel("")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "bogus")
-		assert.Equal(t, zerolog.InfoLevel, lvl)
-	})
-}
-
-func TestLevelWriter(t *testing.T) {
-	t.Run("plain writer is adapted", func(t *testing.T) {
-		var buf bytes.Buffer
-		lw := levelWriter(&buf)
-		_, ok := lw.(zerolog.LevelWriterAdapter)
-		assert.True(t, ok)
 	})
 
-	t.Run("level-aware writer passes through unchanged", func(t *testing.T) {
-		// HTTPWriter implements LevelWriter; wrapping must not bury its WriteLevel
-		// (the synchronous Fatal path) behind an adapter.
-		hw := NewHTTPWriter("http://example.invalid", "", "")
-		assert.Same(t, hw, levelWriter(hw))
+	t.Run("unknown name errors", func(t *testing.T) {
+		_, err := ParseLevel("bogus")
+		assert.Error(t, err)
 	})
 }
 
 func TestConfigure(t *testing.T) {
-	t.Run("file sink defaults to info and drops debug", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "app.log")
-		closer := Configure(Config{File: FileSink{Path: path}})
-
-		Logger.Debug().Msg("d")
-		Logger.Info().Msg("i")
-		require.NoError(t, closer.Close())
-
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.NotContains(t, string(data), `"msg":"d"`)
-		assert.Contains(t, string(data), `"msg":"i"`)
+	t.Run("valid level is applied", func(t *testing.T) {
+		Configure(Config{Level: "warn"})
+		assert.Equal(t, zerolog.WarnLevel, Logger.GetLevel())
 	})
 
-	t.Run("file sink level overrides the default", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "app.log")
-		closer := Configure(Config{File: FileSink{Path: path, Level: "debug"}})
+	t.Run("unset level defaults to debug without warning", func(t *testing.T) {
+		// Point the current logger at a buffer so any pre-reconfigure warn lands there.
+		var buf bytes.Buffer
+		configure(&buf, zerolog.InfoLevel)
 
-		Logger.Debug().Msg("d")
-		require.NoError(t, closer.Close())
+		Configure(Config{}) // LOG_LEVEL unset — normal, must not warn
 
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.Contains(t, string(data), `"msg":"d"`)
+		assert.NotContains(t, buf.String(), "invalid log level")
+		assert.Equal(t, defaultConsoleLevel, Logger.GetLevel())
 	})
 
-	t.Run("component is stamped on every line", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "app.log")
-		closer := Configure(Config{Component: "ranger", File: FileSink{Path: path}})
+	t.Run("invalid level warns and falls back to debug", func(t *testing.T) {
+		var buf bytes.Buffer
+		configure(&buf, zerolog.DebugLevel)
 
-		Logger.Info().Msg("i")
-		require.NoError(t, closer.Close())
+		Configure(Config{Level: "bogus"})
 
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.Contains(t, string(data), `"component":"ranger"`)
-	})
-
-	t.Run("unknown sink level falls back without failing boot", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "app.log")
-		// Bogus level must not panic or discard; it degrades to the info default.
-		closer := Configure(Config{File: FileSink{Path: path, Level: "bogus"}})
-
-		Logger.Info().Msg("i")
-		require.NoError(t, closer.Close())
-
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.Contains(t, string(data), `"msg":"i"`)
+		assert.Contains(t, buf.String(), "invalid log level")
+		assert.Equal(t, defaultConsoleLevel, Logger.GetLevel())
 	})
 }

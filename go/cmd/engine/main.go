@@ -29,23 +29,12 @@ import (
 )
 
 func main() {
-	// Bootstrap logger (stdout @ info) before LoadConfig so config-load failures
-	// are visible. Re-configured below once cfg is available.
-	logging.Configure(logging.Config{})
-
 	cfg, err := LoadConfig()
 	if err != nil {
+		// Before logging.Configure, the stdout logger is at debug level, so error passes through
 		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
-
-	// Wire the real sinks from cfg.Log (stdout always; opt-in file + HTTP). The
-	// component name is a code constant, not env; the deployment dimension is never
-	// a logger field — it is structural, carried by the on-device log path Ranger
-	// assigns (device-filesystem.md §5). The closer drains in-flight HTTP sends so
-	// Fatal events land before exit.
-	cfg.Log.Component = component.Engine
-	closer := logging.Configure(cfg.Log)
-	defer closer.Close()
+	logging.Configure(cfg.Log)
 
 	// Create backend client only when configured
 	var backendClient *backend.Client

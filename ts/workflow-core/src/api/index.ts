@@ -23,7 +23,7 @@ export type EngineSchemas = engineComponents["schemas"];
 
 // Camera component wire + boot-config api layer, generated from
 // contract/camera.yaml. The deploy renderer PRODUCES the camera component's
-// cameras.json (CameraComponentConfig); the Go camera component consumes it — one
+// cameras.json (CameraConfig); the Go camera component consumes it — one
 // generated shape across that seam. Kept distinct so it never collides with the
 // workflow Schemas above.
 import type { components as cameraComponents } from "./camera";

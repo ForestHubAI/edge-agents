@@ -23,12 +23,12 @@ import (
 )
 
 func main() {
-	logging.Configure(logging.Config{})
-
 	cfg, err := LoadConfig()
 	if err != nil {
+		// Before logging.Configure, the stdout logger is at debug level, so error passes through
 		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
+	logging.Configure(cfg.Log)
 
 	cams, err := readCameraConfig(component.ConfigFile)
 	if err != nil {

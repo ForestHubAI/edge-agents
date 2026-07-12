@@ -17,7 +17,8 @@ engine/       core runtime. Sub-pkgs: runner (state machine), node, expr, build,
               backend, driver, channel, memory, transport, websearch.
 camera/       fh-camera domain: cameras.json model, gst-launch capture pipelines,
               setup-script runner, and the cameraapi HTTP server.
-logging/      generic zerolog wrapper + pluggable HTTPWriter for log shipping.
+logging/      generic zerolog wrapper: structured JSON to stdout. No shipping or
+              rotation — the container runtime captures the stream (see below).
 llmproxy/     unified LLM provider abstraction (anthropic/openai/gemini/mistral/
               selfhosted), provider dispatch by model id, agent loop.
 mapping/      generic slice helpers (Slice, SliceErr) + api<->domain mappers.
@@ -36,7 +37,9 @@ execute node → transition. Triggers run as parallel goroutines.
 
 The engine serves no inbound HTTP. It is a headless process that boots from a
 single `EngineConfig` file (workflow + bindings + device manifest, read once at
-boot) and reports OUT (log shipping only); status and liveness are
+boot) and writes logs to stdout as structured JSON — nothing is shipped; the
+container runtime captures the stream and a reader (Ranger in the hosted path,
+`docker logs`/a collector in OSS) routes it. Status and liveness are likewise
 observed externally by Ranger (the ranger), not self-reported — a boot failure
 exits the process and Ranger sees a failed container. `engine.yaml` is a
 types-only contract for that outbound wire. Node instantiation is a
@@ -82,8 +85,8 @@ No Makefile. Run from inside `go/`.
 - **Provider is resolved implicitly from the model id** in `llmproxy.Client.Chat`.
   Unknown model → error; no Client-level default. Backend fallback is wired at
   registry-build time, not at call time.
-- **Backend client is optional** (nil → locals-only LLM, no log shipping or memory
-  mirror); the engine still boots. The workflow, bindings, and device manifest
+- **Backend client is optional** (nil → locals-only LLM, no memory mirror); the
+  engine still boots. Logs go to stdout regardless of the backend. The workflow, bindings, and device manifest
   arrive as one `EngineConfig` file read once at boot.
 - **Nodes are instantiated once at build**, reused across executions — node state
   persists unless `Execute` clears it.

@@ -18,12 +18,10 @@ type Config struct {
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
 	Secret string `env:"ENGINE_SECRET"`
 	// BackendURL is the URL of the backend the engine syncs memory with and routes
-	// LLM/RAG ports through. NOT the log destination — log shipping is a separate,
-	// backend-agnostic sink (see Log / FH_LOG_HTTP_URL).
+	// LLM/RAG ports through. Not a log destination — the engine logs to stdout only;
+	// the container runtime captures and routes it.
 	BackendURL string `env:"FH_BACKEND_URL"`
-	// Log configures the shared logger's sinks (stdout always; opt-in rotating
-	// file + HTTP shipper) via FH_LOG_* env vars. env.Parse recurses in; main sets
-	// Log.Component to "engine" in code before wiring.
+	// Log configures the shared logger's stdout level via LOG_LEVEL.
 	Log logging.Config
 	// WebSearch configures the optional WebSearchTool node. Leaving APIKey empty
 	// disables the tool; workflows that include a WebSearchTool will fail to deploy.
