@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+package camera
 
 import (
 	"context"
@@ -19,11 +19,11 @@ import (
 // calls are near-instant, so a hang means a broken device node.
 const setupTimeout = 60 * time.Second
 
-// runSetup executes each camera's setup commands as one shell script, so
+// RunSetup executes each camera's setup commands as one shell script, so
 // variables carry across lines — device numbering (e.g. /dev/mediaN) is not
 // boot-stable, so an early line can discover the device for later lines.
 // -e stops at the first failing line, -x traces each line into the output.
-func runSetup(ctx context.Context, file camerasFile) error {
+func RunSetup(ctx context.Context, file File) error {
 	names := make([]string, 0, len(file.Cameras))
 	for name := range file.Cameras {
 		names = append(names, name)

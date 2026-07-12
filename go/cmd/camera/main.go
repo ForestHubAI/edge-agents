@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
+	"github.com/ForestHubAI/edge-agents/go/camera"
 	"github.com/ForestHubAI/edge-agents/go/component"
 	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/logging"
@@ -28,12 +29,12 @@ func main() {
 	}
 
 	// TODO: type config file and document in yaml
-	file, err := readConfig(component.ConfigFile)
+	file, err := camera.ReadConfig(component.ConfigFile)
 	if err != nil {
 		// A missing, unparseable, or empty config file fails identically on restart.
 		boot.Fail(err, "loading cameras from "+component.ConfigFile)
 	}
-	sources, err := buildSources(file)
+	sources, err := camera.BuildSources(file)
 	if err != nil {
 		// Invalid camera config (unknown source, missing device) is permanent.
 		boot.Fail(err, "loading cameras from "+component.ConfigFile)
@@ -41,7 +42,7 @@ func main() {
 
 	// Real capture shells out to gst-launch-1.0; fail at boot, not on first request.
 	// A missing binary is an image-level defect, so a restart fails identically.
-	if hasNonDebugSource(sources) {
+	if sources.RequiresGStreamer() {
 		if _, err := exec.LookPath("gst-launch-1.0"); err != nil {
 			boot.Fail(err, "gst-launch-1.0 not found in PATH")
 		}
@@ -52,18 +53,18 @@ func main() {
 
 	// Configure statically set-up capture pipelines before serving. A failure is
 	// fatal so the restart policy retries until the devices are ready.
-	if err := runSetup(ctx, file); err != nil {
+	if err := camera.RunSetup(ctx, file); err != nil {
 		// Transient: the devices may not be ready yet, so exit nonzero and let the
 		// restart policy retry (not a permanent config error).
 		boot.Retry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
 	}
 
-	handler := cameraapi.HandlerFromMux(newServer(sources), http.NewServeMux())
+	handler := cameraapi.HandlerFromMux(camera.NewServer(sources), http.NewServeMux())
 	srv := &http.Server{
 		Addr:    cfg.Addr,
 		Handler: handler,
 		// Guard against slow/stuck clients holding connections open. No
-		// WriteTimeout: a capture can take up to captureTimeout plus the response
+		// WriteTimeout: a capture can take up to CaptureTimeout plus the response
 		// write, and a blanket write deadline would cut long captures off.
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
@@ -81,8 +82,8 @@ func main() {
 	<-ctx.Done()
 	logging.Logger.Info().Msg("shutting down")
 
-	// Give an in-flight capture (up to captureTimeout) room to finish cleanly.
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), captureTimeout+5*time.Second)
+	// Give an in-flight capture (up to CaptureTimeout) room to finish cleanly.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), camera.CaptureTimeout+5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logging.Logger.Error().Err(err).Msg("graceful shutdown failed")

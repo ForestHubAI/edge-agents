@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+package camera
 
 import (
 	"encoding/json"
@@ -16,8 +16,8 @@ import (
 )
 
 func newTestHandler() http.Handler {
-	sources := map[string]source{"cam": debugSource{}}
-	return cameraapi.HandlerFromMux(newServer(sources), http.NewServeMux())
+	sources := Sources{"cam": debugSource{}}
+	return cameraapi.HandlerFromMux(NewServer(sources), http.NewServeMux())
 }
 
 func do(t *testing.T, target string) *httptest.ResponseRecorder {

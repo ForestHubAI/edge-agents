@@ -11,9 +11,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/gemini"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/mistral"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/openai"
-
-	"github.com/caarlos0/env/v9"
-	"github.com/rs/zerolog/log"
 )
 
 // ProviderConfig holds the env-delivered API keys for the catalog LLM
@@ -45,15 +42,3 @@ type EmbeddingConfig struct {
 // 	RequestTimeout time.Duration `json:"RESILIENCE_REQUEST_TIMEOUT" default:"30s"`
 // 	ConnectTimeout time.Duration `json:"RESILIENCE_CONNECT_TIMEOUT" default:"10s"`
 // }
-
-// NewConfig creates a new configuration instance of the specified type
-// T is a generic type that allows creating configurations for different structs
-func NewConfig[T any]() *T {
-	var cfg T
-	err := env.Parse(&cfg)
-	if err != nil {
-		log.Fatal().Msgf("configuration failed, %v", err)
-		return nil
-	}
-	return &cfg
-}

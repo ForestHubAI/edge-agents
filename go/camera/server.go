@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+package camera
 
 import (
 	"encoding/json"
@@ -15,18 +15,19 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
-// server implements the generated cameraapi.ServerInterface over the configured
+// Server implements the generated cameraapi.ServerInterface over the configured
 // capture sources.
-type server struct {
-	sources map[string]source
+type Server struct {
+	sources Sources
 }
 
-func newServer(sources map[string]source) *server {
-	return &server{sources: sources}
+// NewServer builds a Server serving the given capture sources.
+func NewServer(sources Sources) *Server {
+	return &Server{sources: sources}
 }
 
 // Capture reads one frame from the named device and returns its JPEG bytes.
-func (s *server) Capture(w http.ResponseWriter, r *http.Request, params cameraapi.CaptureParams) {
+func (s *Server) Capture(w http.ResponseWriter, r *http.Request, params cameraapi.CaptureParams) {
 	src, ok := s.sources[params.Name]
 	if !ok {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("unknown device %q", params.Name))
@@ -62,18 +63,18 @@ func (s *server) Capture(w http.ResponseWriter, r *http.Request, params cameraap
 }
 
 // Healthz is liveness — always ok while the process runs.
-func (s *server) Healthz(w http.ResponseWriter, r *http.Request) {
+func (s *Server) Healthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cameraapi.Health{Status: "ok"})
 }
 
 // Readyz is readiness — the config is loaded eagerly before the server starts,
 // so once serving it is always ready.
-func (s *server) Readyz(w http.ResponseWriter, r *http.Request) {
+func (s *Server) Readyz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cameraapi.Health{Status: "ok"})
 }
 
 // Metadata lists the configured device names.
-func (s *server) Metadata(w http.ResponseWriter, r *http.Request) {
+func (s *Server) Metadata(w http.ResponseWriter, r *http.Request) {
 	names := make([]string, 0, len(s.sources))
 	for name := range s.sources {
 		names = append(names, name)

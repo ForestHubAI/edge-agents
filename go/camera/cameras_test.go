@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+package camera
 
 import (
 	"os"
@@ -20,13 +20,13 @@ func writeConfig(t *testing.T, body string) string {
 	return path
 }
 
-func loadCameras(t *testing.T, path string) (map[string]source, error) {
+func loadCameras(t *testing.T, path string) (Sources, error) {
 	t.Helper()
-	file, err := readConfig(path)
+	file, err := ReadConfig(path)
 	if err != nil {
 		return nil, err
 	}
-	return buildSources(file)
+	return BuildSources(file)
 }
 
 func TestLoadCameras_HappyPath(t *testing.T) {

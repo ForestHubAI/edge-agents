@@ -6,14 +6,17 @@ the `contract/` being the source of truth applies here — see the root `CLAUDE.
 ## Packages
 
 ```
-cmd/engine/   main binary: loads config, wires deps, runs the HTTP server.
-cmd/camera/   camera-capture component (fh-camera binary): serves camera.yaml,
-              captures via a gst-launch-1.0 subprocess.
+cmd/engine/   engine binary: lean main — loads config, wires deps, runs a
+              runner built in engine/. Only config.go + main.go.
+cmd/camera/   fh-camera binary: lean main — loads config, wires deps, runs the
+              HTTP server built from camera/. Only config.go + main.go.
 api/          oapi-codegen output from ../contract/*.yaml (engineapi, workflow,
               llmapi, debugapi, mlinferenceapi, cameraapi). GENERATED — never
               hand-edit; regen instead.
 engine/       core runtime. Sub-pkgs: runner (state machine), node, expr, build,
               backend, driver, channel, memory, transport, websearch.
+camera/       fh-camera domain: cameras.json model, gst-launch capture pipelines,
+              setup-script runner, and the cameraapi HTTP server.
 logging/      generic zerolog wrapper + pluggable HTTPWriter for log shipping.
 llmproxy/     unified LLM provider abstraction (anthropic/openai/gemini/mistral/
               selfhosted), provider dispatch by model id, agent loop.

@@ -2,6 +2,9 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
+// Package build holds the engine's workflow-graph builder, which assembles a Runner from a workflow spec,
+// resource mapping, and external resources. It resolves the workflow's requirements against the injected,
+// drivers / transports / clients to reach ExternalResources.
 package build
 
 import (

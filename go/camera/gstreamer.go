@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+package camera
 
 import (
 	"bytes"
@@ -16,8 +16,10 @@ import (
 	"time"
 )
 
-// captureTimeout bounds a single capture so a stuck pipeline is killed.
-const captureTimeout = 15 * time.Second
+// CaptureTimeout bounds a single capture so a stuck pipeline is killed. It is
+// exported so cmd/camera can size the graceful-shutdown window around an
+// in-flight capture.
+const CaptureTimeout = 15 * time.Second
 
 // gstreamerSource captures one still per request via a one-shot gst-launch-1.0
 // pipeline. Every frame spawns and tears down its own pipeline; a mutex
@@ -52,7 +54,7 @@ func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byt
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ctx, cancel := context.WithTimeout(ctx, captureTimeout)
+	ctx, cancel := context.WithTimeout(ctx, CaptureTimeout)
 	defer cancel()
 
 	// Frames land as one file each in a private temp dir so the last (warmed-up)

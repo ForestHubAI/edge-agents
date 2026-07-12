@@ -2,7 +2,12 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package main
+// Package camera is the fh-camera component's domain: the cameras.json config
+// model, per-source capture pipelines, setup-script runner, and the HTTP server
+// implementing the generated cameraapi.ServerInterface. cmd/camera wires it to
+// the process (env config, signals, http.Server); everything with behavior
+// lives here so it can be tested without a running binary.
+package camera
 
 import (
 	"bytes"
@@ -33,8 +38,10 @@ type cameraConfig struct {
 	Setup        []string `json:"setup,omitempty"`
 }
 
-// camerasFile is the on-disk cameras.json shape: named devices keyed by name.
-type camerasFile struct {
+// File is the on-disk cameras.json shape: named devices keyed by name. It is
+// constructed only by ReadConfig; cmd/camera threads it from there into
+// BuildSources and RunSetup.
+type File struct {
 	Cameras map[string]cameraConfig `json:"cameras"`
 }
 
@@ -43,28 +50,33 @@ type source interface {
 	capture(ctx context.Context, width, height int) ([]byte, error)
 }
 
-// readConfig reads and parses cameras.json. It fails fast on an empty or
+// Sources is the set of runnable capture sources keyed by device name. The
+// element type is unexported, so callers hold and pass the set without being
+// able to fabricate a source of their own.
+type Sources map[string]source
+
+// ReadConfig reads and parses cameras.json. It fails fast on an empty or
 // unparseable config.
-func readConfig(path string) (camerasFile, error) {
+func ReadConfig(path string) (File, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return camerasFile{}, fmt.Errorf("reading config file: %w", err)
+		return File{}, fmt.Errorf("reading config file: %w", err)
 	}
-	var file camerasFile
+	var file File
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&file); err != nil {
-		return camerasFile{}, fmt.Errorf("parsing config file: %w", err)
+		return File{}, fmt.Errorf("parsing config file: %w", err)
 	}
 	if len(file.Cameras) == 0 {
-		return camerasFile{}, fmt.Errorf("no cameras configured")
+		return File{}, fmt.Errorf("no cameras configured")
 	}
 	return file, nil
 }
 
-// buildSources validates the config and returns a runnable source per camera.
-func buildSources(file camerasFile) (map[string]source, error) {
-	sources := make(map[string]source, len(file.Cameras))
+// BuildSources validates the config and returns a runnable source per camera.
+func BuildSources(file File) (Sources, error) {
+	sources := make(Sources, len(file.Cameras))
 	for name, cc := range file.Cameras {
 		src, err := newSource(cc)
 		if err != nil {
@@ -96,11 +108,11 @@ func newSource(cc cameraConfig) (source, error) {
 	}
 }
 
-// hasNonDebugSource reports whether any configured camera needs gst-launch-1.0,
-// so main can fail fast at boot when the toolchain is missing.
-func hasNonDebugSource(sources map[string]source) bool {
-	for _, s := range sources {
-		if _, ok := s.(*gstreamerSource); ok {
+// RequiresGStreamer reports whether any configured camera needs gst-launch-1.0,
+// so cmd/camera can fail fast at boot when the toolchain is missing.
+func (s Sources) RequiresGStreamer() bool {
+	for _, src := range s {
+		if _, ok := src.(*gstreamerSource); ok {
 			return true
 		}
 	}

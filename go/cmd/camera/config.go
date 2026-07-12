@@ -4,11 +4,7 @@
 
 package main
 
-import (
-	"fmt"
-
-	"github.com/caarlos0/env/v9"
-)
+import "github.com/ForestHubAI/edge-agents/go/util/envconfig"
 
 // Config holds the component's boot configuration. All values come from env vars.
 type Config struct {
@@ -18,9 +14,5 @@ type Config struct {
 
 // LoadConfig parses Config from the process environment.
 func LoadConfig() (Config, error) {
-	cfg := Config{}
-	if err := env.Parse(&cfg); err != nil {
-		return Config{}, fmt.Errorf("parsing environment: %w", err)
-	}
-	return cfg, nil
+	return envconfig.Load[Config]()
 }
