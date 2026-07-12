@@ -51,7 +51,7 @@ func TestConfigure(t *testing.T) {
 		assert.Equal(t, zerolog.WarnLevel, Logger.GetLevel())
 	})
 
-	t.Run("unset level defaults to debug without warning", func(t *testing.T) {
+	t.Run("unset level defaults to info without warning", func(t *testing.T) {
 		// Point the current logger at a buffer so any pre-reconfigure warn lands there.
 		var buf bytes.Buffer
 		configure(&buf, zerolog.InfoLevel)
@@ -59,16 +59,16 @@ func TestConfigure(t *testing.T) {
 		Configure(Config{}) // LOG_LEVEL unset — normal, must not warn
 
 		assert.NotContains(t, buf.String(), "invalid log level")
-		assert.Equal(t, defaultConsoleLevel, Logger.GetLevel())
+		assert.Equal(t, defaultLevel, Logger.GetLevel())
 	})
 
-	t.Run("invalid level warns and falls back to debug", func(t *testing.T) {
+	t.Run("invalid level warns and falls back to the default", func(t *testing.T) {
 		var buf bytes.Buffer
 		configure(&buf, zerolog.DebugLevel)
 
 		Configure(Config{Level: "bogus"})
 
 		assert.Contains(t, buf.String(), "invalid log level")
-		assert.Equal(t, defaultConsoleLevel, Logger.GetLevel())
+		assert.Equal(t, defaultLevel, Logger.GetLevel())
 	})
 }

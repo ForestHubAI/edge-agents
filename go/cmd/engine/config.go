@@ -5,8 +5,10 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/ForestHubAI/edge-agents/go/logging"
-	"github.com/ForestHubAI/edge-agents/go/util/envconfig"
+	"github.com/caarlos0/env/v9"
 )
 
 // Config holds engine boot configuration. All values come from env vars. The
@@ -38,5 +40,9 @@ type WebSearchConfig struct {
 
 // LoadConfig parses Config from the process environment.
 func LoadConfig() (Config, error) {
-	return envconfig.Load[Config]()
+	var cfg Config
+	if err := env.Parse(&cfg); err != nil {
+		return cfg, fmt.Errorf("parsing environment: %w", err)
+	}
+	return cfg, nil
 }

@@ -21,13 +21,13 @@ import (
 )
 
 // Logger is the package-level logger the process shares. It logs to stdout at
-// debug from package init, so a line written before Configure runs (e.g. an
-// early boot failure) is still visible; Configure only adjusts the level.
+// the default level from package init, so a line written before Configure runs
+// (e.g. an early boot failure) is still visible; Configure only adjusts the level.
 var Logger = zerolog.Nop()
 
-// init points Logger at stdout@debug before any main runs, so nothing needs a
-// bootstrap Configure call to make early failures visible.
-func init() { configure(os.Stdout, defaultConsoleLevel) }
+// init points Logger at stdout before any main runs, so nothing needs a bootstrap
+// Configure call to make early failures visible.
+func init() { configure(os.Stdout, defaultLevel) }
 
 // FatalExit logs err at the Fatal level and then exits the process with code.
 // Unlike Logger.Fatal() — which hardcodes os.Exit(1) — this lets a component pick
