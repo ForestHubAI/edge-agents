@@ -2,19 +2,22 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-// The OSS CLI's rich requirement analysis: sort a workflow's declared resources
-// into the typed pools the deploy artifacts need (hardware families, MQTT, camera,
-// custom LLM/ML models) and resolve referenced catalog models to their providers.
-// This is Stage-1 input prep, NOT a cross-language seam: the backend has no twin —
-// it works off the coarse id->kind binding surface (workflowBindingRequirements,
-// in @foresthubai/workflow-core/deploy) and derives its own packaging. The one
-// piece the backend DOES independently reproduce — the catalog-model walk — stays
-// in core as getReferencedCatalogModelIds; everything below builds on it and is
-// CLI-owned OSS packaging.
+// The OSS CLI's enrichment of the Stage-0 binding surface. workflowBindingRequirements
+// (in @foresthubai/workflow-core/deploy) is the single, cross-language authority for
+// WHAT a workflow needs bound — an id->kind surface the backend produces identically.
+// This layer does NOT re-decide that set: it iterates the surface and enriches each
+// entry into the typed pools the OSS deploy artifacts and prompts need — hardware
+// family/addressability, the LLM-vs-ML split, catalog-model→provider resolution.
+// That is exactly the pattern the FE follows off the same surface (there, enriching
+// each binding against DB state to build a form). Same root, per-consumer HOW.
+//
+// NOT a cross-language seam itself — the backend builds its own enrichment off the
+// surface. CLI-owned OSS packaging (Stage-1 input prep).
 
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
-import type { ModelInfo } from "@foresthubai/workflow-core/model";
-import { getReferencedCatalogModelIds } from "@foresthubai/workflow-core/deploy";
+import type { Channel } from "@foresthubai/workflow-core/channel";
+import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
+import { workflowBindingRequirements, type BindingKind } from "@foresthubai/workflow-core/deploy";
 
 // The five hardware-channel families the engine has a driver for. UART is the
 // odd one out: it carries no per-channel sub-address (see `addressable`).
@@ -106,58 +109,109 @@ export interface DeployRequirements {
 
 // Drift sentinel: a new ChannelType widens the switch input and breaks
 // compilation here until the new type is classified above.
-function assertNeverChannel(t: never): never {
-  throw new Error(`unhandled channel type: ${String(t)}`);
-}
-
-// Drift sentinel: a new ModelType breaks compilation here until it is sorted
-// into the LLM / ML pool below.
 function assertNeverModel(t: never): never {
   throw new Error(`unhandled model type: ${String(t)}`);
 }
 
-// deriveRequirements reads what a workflow demands of its environment. Pure —
-// no I/O, no operator input. Sorts every declared channel into the hardware /
-// MQTT pools the deploy artifacts need and walks nodes (main + function bodies)
-// for the catalog-model / retriever / web-search signals. `catalog` is the
-// static model catalog: supply it to resolve referenced catalog model ids to
-// their providers (needed to emit ExternalResources entries); omit it (headless)
-// to leave that resolution to a caller that holds the catalog.
+// Drift sentinel: a new BindingKind breaks compilation here until it is enriched
+// into a pool below. Keeps this enrichment layer honest with the Stage-0 surface.
+function assertNeverKind(k: never): never {
+  throw new Error(`unhandled binding kind: ${String(k)}`);
+}
+
+// The surface classifies an id as "hardware"; the family (which driver, and
+// whether it carries a sub-address) is the enrichment detail, read back off the
+// channel here. Unreachable default: the surface only tags the six families below.
+function hardwareChannelOf(ch: Channel): HardwareChannel {
+  switch (ch.type) {
+    case "GPIOIN":
+    case "GPIOOUT":
+      return { id: ch.id, label: ch.label, family: "gpio", addressable: true };
+    case "ADC":
+      return { id: ch.id, label: ch.label, family: "adc", addressable: true };
+    case "DAC":
+      return { id: ch.id, label: ch.label, family: "dac", addressable: true };
+    case "PWM":
+      return { id: ch.id, label: ch.label, family: "pwm", addressable: true };
+    case "UART":
+      return { id: ch.id, label: ch.label, family: "serial", addressable: false };
+    default:
+      throw new Error(`binding surface tagged "${ch.id}" (${ch.type}) as hardware, but it is not a hardware family`);
+  }
+}
+
+// The surface keys hardware/mqtt/camera ids from workflow.channels and declared-
+// model ids from workflow.models, so these lookups always hit; the throws document
+// that invariant for the type checker (and catch a surface that ever drifts).
+function requireChannel(workflow: Workflow, id: string): Channel {
+  const ch = workflow.channels[id];
+  if (!ch) throw new Error(`binding surface referenced unknown channel "${id}"`);
+  return ch;
+}
+function requireModel(workflow: Workflow, id: string): Model {
+  const m = workflow.models[id];
+  if (!m) throw new Error(`binding surface referenced unknown model "${id}"`);
+  return m;
+}
+
+// deriveRequirements enriches the Stage-0 binding surface
+// (workflowBindingRequirements) into the typed pools the OSS deploy artifacts and
+// prompts need. Pure — no I/O, no operator input. The surface is the single
+// authority for WHAT needs binding, cross-language with the backend; this layer
+// only adds the OSS-specific HOW (hardware family/addressability, LLM-vs-ML split,
+// catalog-model→provider resolution). `catalog` is the static model catalog:
+// supply it to resolve catalog model ids to their providers (needed to emit
+// ExternalResources entries); omit it (headless) to defer that to a holder of the
+// catalog. hasRetriever/hasWebSearch are NOT bindings (no id-keyed resource) — they
+// are engine-env / refusal signals, so they are read from the nodes directly, not
+// from the surface.
 export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []): DeployRequirements {
+  const surface = workflowBindingRequirements(workflow);
+
   const hardwareChannels: HardwareChannel[] = [];
   const mqttChannels: MqttChannel[] = [];
   const cameraChannels: CameraChannel[] = [];
+  const customLLMModels: CustomLLMModel[] = [];
+  const customMLModels: CustomMLModel[] = [];
+  const catalogModelIds: string[] = [];
 
-  for (const channel of Object.values(workflow.channels)) {
-    switch (channel.type) {
-      case "GPIOIN":
-      case "GPIOOUT":
-        hardwareChannels.push({ id: channel.id, label: channel.label, family: "gpio", addressable: true });
+  for (const [id, kind] of Object.entries(surface) as [string, BindingKind][]) {
+    switch (kind) {
+      case "hardware":
+        hardwareChannels.push(hardwareChannelOf(requireChannel(workflow, id)));
         break;
-      case "ADC":
-        hardwareChannels.push({ id: channel.id, label: channel.label, family: "adc", addressable: true });
+      case "mqtt": {
+        const ch = requireChannel(workflow, id);
+        mqttChannels.push({ id: ch.id, label: ch.label });
         break;
-      case "DAC":
-        hardwareChannels.push({ id: channel.id, label: channel.label, family: "dac", addressable: true });
+      }
+      case "camera": {
+        const ch = requireChannel(workflow, id);
+        cameraChannels.push({ id: ch.id, label: ch.label });
         break;
-      case "PWM":
-        hardwareChannels.push({ id: channel.id, label: channel.label, family: "pwm", addressable: true });
+      }
+      case "declaredModel": {
+        // The surface does not split the family — that is this layer's concern.
+        // LLM models drive the provider/llama-server path, ML models the inference
+        // component; mixing them would send an ML model down the LLM build.
+        const m = requireModel(workflow, id);
+        switch (m.type) {
+          case "LLMModel":
+            customLLMModels.push({ id: m.id, label: m.label });
+            break;
+          case "MLModel":
+            customMLModels.push({ id: m.id, label: m.label });
+            break;
+          default:
+            return assertNeverModel(m.type);
+        }
         break;
-      case "UART":
-        hardwareChannels.push({ id: channel.id, label: channel.label, family: "serial", addressable: false });
-        break;
-      case "MQTT":
-        mqttChannels.push({ id: channel.id, label: channel.label });
-        break;
-      case "CAMERA":
-        cameraChannels.push({ id: channel.id, label: channel.label });
-        break;
-      case "LOG":
-        // Resolves to the ambient engine logger — no platform resource to bind, so
-        // it demands nothing of the deploy environment.
+      }
+      case "catalogModel":
+        catalogModelIds.push(id);
         break;
       default:
-        return assertNeverChannel(channel.type);
+        return assertNeverKind(kind);
     }
   }
 
@@ -170,35 +224,16 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
     }
   }
 
-  // wf.models holds both model families; split them by type. LLM models drive
-  // the provider/llama-server path, ML models the inference component — mixing
-  // them would send an ML model down the LLM provider build.
-  const customLLMModels: CustomLLMModel[] = [];
-  const customMLModels: CustomMLModel[] = [];
-  for (const m of Object.values(workflow.models)) {
-    switch (m.type) {
-      case "LLMModel":
-        customLLMModels.push({ id: m.id, label: m.label });
-        break;
-      case "MLModel":
-        customMLModels.push({ id: m.id, label: m.label });
-        break;
-      default:
-        return assertNeverModel(m.type);
-    }
-  }
-
-  // Resolve referenced catalog ids to their distinct providers via the catalog.
-  // With no catalog the map is unknown: leave provider requirements empty
-  // (hasProviderModel still flags that credentials are needed), record nothing
-  // as unresolved. We keep only the provider set — catalog models are routed by
-  // llmproxy, not mapped, so per-model provider ids aren't needed downstream.
-  const referenced = getReferencedCatalogModelIds(workflow);
+  // Resolve catalog model ids to their distinct providers via the catalog. With no
+  // catalog the map is unknown: leave provider requirements empty (hasProviderModel
+  // still flags that credentials are needed), record nothing as unresolved. We keep
+  // only the provider set — catalog models are routed by llmproxy, not mapped, so
+  // per-model provider ids aren't needed downstream.
   const byId = new Map(catalog.map((m) => [m.id, m]));
   const unresolvedCatalogModels: string[] = [];
   const providerIds = new Set<string>();
   if (catalog.length > 0) {
-    for (const id of referenced) {
+    for (const id of catalogModelIds) {
       const info = byId.get(id);
       if (!info) unresolvedCatalogModels.push(id);
       else providerIds.add(info.provider);
@@ -206,7 +241,7 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
   }
 
   return {
-    hasProviderModel: referenced.length > 0,
+    hasProviderModel: catalogModelIds.length > 0,
     catalogProviders: [...providerIds].map((id) => ({ id })),
     unresolvedCatalogModels,
     hasRetriever,
