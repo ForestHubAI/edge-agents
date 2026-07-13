@@ -94,9 +94,9 @@ describe("workflowBindingRequirements", () => {
     expect(workflowBindingRequirements(workflow({ channels: chs }))).toEqual({ led: "hardware" });
   });
 
-  it("maps every declared model to 'declaredModel', LLM and ML alike", () => {
+  it("splits declared models: LLMModel -> 'declaredModel', MLModel -> 'mlInference'", () => {
     const models = modelsById([llm("local-llm"), ml("yolo")]);
-    expect(workflowBindingRequirements(workflow({ models }))).toEqual({ "local-llm": "declaredModel", yolo: "declaredModel" });
+    expect(workflowBindingRequirements(workflow({ models }))).toEqual({ "local-llm": "declaredModel", yolo: "mlInference" });
   });
 
   it("maps a referenced-but-undeclared catalog model to 'catalogModel', keyed by model id", () => {
@@ -119,7 +119,7 @@ describe("workflowBindingRequirements", () => {
   it("produces the full surface for a mixed workflow", () => {
     const wf = workflow({
       channels: byId([channel("led", "GPIOOUT"), channel("telemetry", "MQTT"), channel("cam0", "CAMERA"), channel("log", "LOG")]),
-      models: modelsById([llm("local-llm")]),
+      models: modelsById([llm("local-llm"), ml("yolo")]),
       nodes: [agent("a1", "claude-sonnet")],
     });
     const expected: Record<string, BindingKind> = {
@@ -127,6 +127,7 @@ describe("workflowBindingRequirements", () => {
       telemetry: "mqtt",
       cam0: "camera",
       "local-llm": "declaredModel",
+      yolo: "mlInference",
       "claude-sonnet": "catalogModel",
     };
     expect(workflowBindingRequirements(wf)).toEqual(expected);

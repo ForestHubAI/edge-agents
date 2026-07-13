@@ -14,21 +14,27 @@ import type { Workflow } from "../workflow";
 // CROSS-LANGUAGE SEAM: these string values MUST match the backend's
 // deploy.BindingRequirement constants (fh-backend deploy.WorkflowBindingRequirements),
 // which are themselves the ResourceBindingRequest discriminators
-// ("hardware"/"mqtt"/"declaredModel"/"catalogModel"/"rag"). A value that drifts
-// here silently disagrees with the backend about what a workflow needs bound.
+// ("hardware"/"mqtt"/"camera"/"declaredModel"/"mlInference"/"catalogModel"/"rag").
+// A value that drifts here silently disagrees with the backend about what a
+// workflow needs bound.
 //
-// Two deliberate asymmetries with the backend today, each a known catch-up:
-//  - "camera" is OSS-ahead: the backend's extractor predates the CAMERA channel
-//    and has no camera binding kind yet. OSS emits it; the backend will add it.
-//  - "rag" is absent: OSS is behind on retrieval — it does not yet extract a
-//    VectorDatabase memory resource as a requirement (the backend emits "rag").
-//    Add it when the OSS engine gains a retrieval backing.
-export type BindingKind = "hardware" | "mqtt" | "camera" | "declaredModel" | "catalogModel";
+// One deliberate asymmetry with the backend today: "rag" is absent. OSS is behind
+// on retrieval — it does not yet extract a VectorDatabase memory resource as a
+// requirement (the backend emits "rag"). A standalone engine has no retriever, so
+// such a workflow is refused at deploy; add "rag" here when the OSS engine gains a
+// retrieval backing.
+export type BindingKind = "hardware" | "mqtt" | "camera" | "declaredModel" | "mlInference" | "catalogModel";
 
 // Drift sentinel: a new ChannelType breaks compilation here until it is
-// classified in workflowBindingRequirements' switch.
+// classified in workflowBindingRequirements' channel switch.
 function assertNeverChannel(t: never): never {
   throw new Error(`unhandled channel type: ${String(t)}`);
+}
+
+// Drift sentinel: a new ModelType breaks compilation here until it is classified
+// in workflowBindingRequirements' model switch.
+function assertNeverModel(t: never): never {
+  throw new Error(`unhandled model type: ${String(t)}`);
 }
 
 // workflowBindingRequirements returns the resources a deploy must bind, keyed by
@@ -70,10 +76,22 @@ export function workflowBindingRequirements(workflow: Workflow): Record<string, 
     }
   }
 
-  // Every declared model needs a source binding, LLM and ML alike. The surface
-  // does not distinguish the family — that split is a Stage-1 resolver concern.
-  // Mirrors the backend keying every declared model as "declaredModel".
-  for (const model of Object.values(workflow.models)) reqs[model.id] = "declaredModel";
+  // Every declared model needs a source binding, but of a different kind by family:
+  // an LLMModel binds a model source ("declaredModel"); an MLModel is served by an
+  // ml-inference component ("mlInference"). Mirrors the backend's workflowModelIDs
+  // split — both sides must agree on which kind each declared model gets.
+  for (const model of Object.values(workflow.models)) {
+    switch (model.type) {
+      case "LLMModel":
+        reqs[model.id] = "declaredModel";
+        break;
+      case "MLModel":
+        reqs[model.id] = "mlInference";
+        break;
+      default:
+        return assertNeverModel(model.type);
+    }
+  }
 
   // Catalog models: referenced by an Agent node but not declared. Keyed by model
   // id (canonical, matching the backend surface) — not collapsed to providers

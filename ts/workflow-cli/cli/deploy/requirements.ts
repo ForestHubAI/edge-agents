@@ -107,12 +107,6 @@ export interface DeployRequirements {
   customMLModels: CustomMLModel[];
 }
 
-// Drift sentinel: a new ChannelType widens the switch input and breaks
-// compilation here until the new type is classified above.
-function assertNeverModel(t: never): never {
-  throw new Error(`unhandled model type: ${String(t)}`);
-}
-
 // Drift sentinel: a new BindingKind breaks compilation here until it is enriched
 // into a pool below. Keeps this enrichment layer honest with the Stage-0 surface.
 function assertNeverKind(k: never): never {
@@ -158,8 +152,9 @@ function requireModel(workflow: Workflow, id: string): Model {
 // (workflowBindingRequirements) into the typed pools the OSS deploy artifacts and
 // prompts need. Pure — no I/O, no operator input. The surface is the single
 // authority for WHAT needs binding, cross-language with the backend; this layer
-// only adds the OSS-specific HOW (hardware family/addressability, LLM-vs-ML split,
-// catalog-model→provider resolution). `catalog` is the static model catalog:
+// only adds the OSS-specific HOW (hardware family/addressability, catalog-model→
+// provider resolution) and maps each kind to its pool — the LLM/ML split is the
+// surface's concern now (declaredModel vs mlInference). `catalog` is the static model catalog:
 // supply it to resolve catalog model ids to their providers (needed to emit
 // ExternalResources entries); omit it (headless) to defer that to a holder of the
 // catalog. hasRetriever/hasWebSearch are NOT bindings (no id-keyed resource) — they
@@ -191,20 +186,17 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
         break;
       }
       case "declaredModel": {
-        // The surface does not split the family — that is this layer's concern.
-        // LLM models drive the provider/llama-server path, ML models the inference
-        // component; mixing them would send an ML model down the LLM build.
+        // The surface already split the family: "declaredModel" is an LLMModel (an
+        // MLModel arrives as "mlInference" below). LLM models drive the provider/
+        // llama-server path.
         const m = requireModel(workflow, id);
-        switch (m.type) {
-          case "LLMModel":
-            customLLMModels.push({ id: m.id, label: m.label });
-            break;
-          case "MLModel":
-            customMLModels.push({ id: m.id, label: m.label });
-            break;
-          default:
-            return assertNeverModel(m.type);
-        }
+        customLLMModels.push({ id: m.id, label: m.label });
+        break;
+      }
+      case "mlInference": {
+        // MLModels are served by the ml-inference component, not an LLM provider.
+        const m = requireModel(workflow, id);
+        customMLModels.push({ id: m.id, label: m.label });
         break;
       }
       case "catalogModel":
