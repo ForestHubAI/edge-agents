@@ -393,7 +393,7 @@ describe("buildDeploymentSpec ML inference component", () => {
     const mlUrls = Object.values(ext)
       .filter((r) => r.type === "ml-inference")
       .map((r) => (r as { url: string }).url);
-    expect(mlUrls).toEqual([`http://${mlComponentServiceName()}:8000`, `http://${mlComponentServiceName()}:8000`]);
+    expect(mlUrls).toEqual([`http://${mlComponentServiceName()}:8082`, `http://${mlComponentServiceName()}:8082`]);
     expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["classifier", "detector"]);
   });
 
@@ -452,7 +452,7 @@ describe("buildDeploymentSpec capture component", () => {
     expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
 
     // Every on-device camera resolves to the same component url; each is mapped by id.
-    expect(camUrls(spec)).toEqual([`http://${cameraComponentServiceName()}:8100`, `http://${cameraComponentServiceName()}:8100`]);
+    expect(camUrls(spec)).toEqual([`http://${cameraComponentServiceName()}:8081`, `http://${cameraComponentServiceName()}:8081`]);
     expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["front", "rear"]);
   });
 
@@ -482,7 +482,7 @@ describe("buildDeploymentSpec capture component", () => {
     };
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "remote"]), inputs, meta);
     expect(spec.components.filter((c) => c.name === cameraComponentServiceName())).toHaveLength(1);
-    expect(camUrls(spec).sort()).toEqual(["http://cam.remote:8100", `http://${cameraComponentServiceName()}:8100`]);
+    expect(camUrls(spec).sort()).toEqual(["http://cam.remote:8100", `http://${cameraComponentServiceName()}:8081`]);
   });
 
   it("passes through v4l2 nodes deduped; a gstreamer source grants no device", () => {

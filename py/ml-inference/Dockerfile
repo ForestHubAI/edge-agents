@@ -26,5 +26,7 @@ RUN useradd --system --uid 65532 fh-onnx \
     && chown fh-onnx /var/lib/foresthub/workspace
 USER fh-onnx
 
-EXPOSE 8000
-ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Port must equal component-constants.json components.mlInference.port (drift-guarded
+# by tests/test_constants.py) — the on-device resolver builds http://ml-inference:<port>.
+EXPOSE 8082
+ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8082"]

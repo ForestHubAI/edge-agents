@@ -14,6 +14,9 @@ import {
   CAMERA_COMPONENT_NAME,
   ML_COMPONENT_NAME,
   LLAMA_COMPONENT_NAME,
+  LLAMA_COMPONENT_PORT,
+  CAMERA_COMPONENT_PORT,
+  ML_COMPONENT_PORT,
 } from "@foresthubai/workflow-core/deploy";
 
 // Drift guard: the workflow-core path + identity constants must equal
@@ -23,7 +26,12 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const contract = JSON.parse(readFileSync(join(here, "..", "..", "..", "..", "contract", "component-constants.json"), "utf8")) as {
   paths: { configFile: string; secretsFile: string; workspace: string };
-  components: { engine: string; camera: string; mlInference: string; llama: string };
+  components: {
+    engine: { name: string };
+    camera: { name: string; port: number };
+    mlInference: { name: string; port: number };
+    llama: { name: string; port: number };
+  };
 };
 
 describe("component-constants contract", () => {
@@ -37,15 +45,24 @@ describe("component-constants contract", () => {
     expect(COMPONENT_WORKSPACE_PATH).toBe(contract.paths.workspace);
   });
   it("engine identity matches the contract", () => {
-    expect(ENGINE_COMPONENT_NAME).toBe(contract.components.engine);
+    expect(ENGINE_COMPONENT_NAME).toBe(contract.components.engine.name);
   });
   it("camera identity matches the contract", () => {
-    expect(CAMERA_COMPONENT_NAME).toBe(contract.components.camera);
+    expect(CAMERA_COMPONENT_NAME).toBe(contract.components.camera.name);
   });
   it("ml-inference identity matches the contract", () => {
-    expect(ML_COMPONENT_NAME).toBe(contract.components.mlInference);
+    expect(ML_COMPONENT_NAME).toBe(contract.components.mlInference.name);
   });
   it("llama-server identity matches the contract", () => {
-    expect(LLAMA_COMPONENT_NAME).toBe(contract.components.llama);
+    expect(LLAMA_COMPONENT_NAME).toBe(contract.components.llama.name);
+  });
+  it("llama-server port matches the contract", () => {
+    expect(LLAMA_COMPONENT_PORT).toBe(contract.components.llama.port);
+  });
+  it("camera port matches the contract", () => {
+    expect(CAMERA_COMPONENT_PORT).toBe(contract.components.camera.port);
+  });
+  it("ml-inference port matches the contract", () => {
+    expect(ML_COMPONENT_PORT).toBe(contract.components.mlInference.port);
   });
 });

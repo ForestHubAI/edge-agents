@@ -26,3 +26,13 @@ def test_models_dir_matches_workspace() -> None:
 def test_bad_config_exit_matches() -> None:
     # Permanent boot-failure exit code, shared with the Go/JSON contract.
     assert EXIT_BAD_CONFIG == _CONTRACT["exitCodes"]["badConfig"]
+
+
+def test_listen_port_matches_contract() -> None:
+    # The image binds the contracted component port; the on-device resolver dials
+    # http://ml-inference:<port>. The port lives only in the Dockerfile ENTRYPOINT
+    # (uvicorn --port), so assert that literal against the contract.
+    port = _CONTRACT["components"]["mlInference"]["port"]
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
+    assert f'"--port", "{port}"' in dockerfile
+    assert f"EXPOSE {port}" in dockerfile

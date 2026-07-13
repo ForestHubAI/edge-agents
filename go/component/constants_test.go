@@ -25,10 +25,21 @@ type contractConstants struct {
 		BadConfig int `json:"badConfig"`
 	} `json:"exitCodes"`
 	Components struct {
-		Engine      string `json:"engine"`
-		Llama       string `json:"llama"`
-		Camera      string `json:"camera"`
-		MLInference string `json:"mlInference"`
+		Engine struct {
+			Name string `json:"name"`
+		} `json:"engine"`
+		Llama struct {
+			Name string `json:"name"`
+			Port int    `json:"port"`
+		} `json:"llama"`
+		Camera struct {
+			Name string `json:"name"`
+			Port int    `json:"port"`
+		} `json:"camera"`
+		MLInference struct {
+			Name string `json:"name"`
+			Port int    `json:"port"`
+		} `json:"mlInference"`
 	} `json:"components"`
 }
 
@@ -53,10 +64,13 @@ func TestConstantsMatchContract(t *testing.T) {
 		{"SecretsFile", SecretsFile, c.Paths.SecretsFile},
 		{"Workspace", Workspace, c.Paths.Workspace},
 		{"ExitConfigError", ExitConfigError, c.ExitCodes.BadConfig},
-		{"Engine", Engine, c.Components.Engine},
-		{"Llama", Llama, c.Components.Llama},
-		{"Camera", Camera, c.Components.Camera},
-		{"MLInference", MLInference, c.Components.MLInference},
+		{"Engine", Engine, c.Components.Engine.Name},
+		{"Llama", Llama, c.Components.Llama.Name},
+		{"Camera", Camera, c.Components.Camera.Name},
+		{"MLInference", MLInference, c.Components.MLInference.Name},
+		{"LlamaPort", LlamaPort, c.Components.Llama.Port},
+		{"CameraPort", CameraPort, c.Components.Camera.Port},
+		{"MLInferencePort", MLInferencePort, c.Components.MLInference.Port},
 	}
 	for _, tc := range cases {
 		if tc.got != tc.want {

@@ -26,7 +26,7 @@ docker build -t "$IMAGE" "$SERVICE_DIR"
 
 echo "==> starting container"
 cleanup
-docker run -d --name "$CONTAINER" -p "$PORT:8000" \
+docker run -d --name "$CONTAINER" -p "$PORT:8082" \
   -v "$MODELS_DIR:/var/lib/foresthub/workspace:ro" "$IMAGE" >/dev/null
 
 echo "==> waiting for readiness"

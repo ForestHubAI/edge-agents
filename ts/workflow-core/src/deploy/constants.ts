@@ -28,3 +28,13 @@ export const ENGINE_COMPONENT_NAME = "engine";
 export const LLAMA_COMPONENT_NAME = "llama-server";
 export const CAMERA_COMPONENT_NAME = "camera";
 export const ML_COMPONENT_NAME = "ml-inference";
+
+// The fixed internal port each serving component's image listens on, baked into its
+// entrypoint. NOT a host publishing: a same-network peer (the engine, on-device)
+// dials http://<name>:<port> directly over the compose bridge; off-device the operator
+// supplies the whole URL and publishes their own host port, so this is only the
+// container-side of that mapping. The block is contiguous from llama-swap's 8080
+// default. Engine has none — it serves no inbound HTTP.
+export const LLAMA_COMPONENT_PORT = 8080;
+export const CAMERA_COMPONENT_PORT = 8081;
+export const ML_COMPONENT_PORT = 8082;

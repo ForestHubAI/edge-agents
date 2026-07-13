@@ -75,7 +75,7 @@ The image is **built locally** — this repo publishes no images:
 
 ```bash
 docker build -t ml-inference:latest py/ml-inference
-docker run --rm -p 8000:8000 \
+docker run --rm -p 8000:8082 \
   -v "$PWD/models:/var/lib/foresthub/workspace:ro" \
   ml-inference:latest
 ```

@@ -18,7 +18,7 @@ import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
-import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
+import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -35,16 +35,6 @@ interface LlamaModel {
   file: string;
   args?: string[];
 }
-
-// The inference component's fixed listen port (baked into its image entrypoint).
-const ML_COMPONENT_PORT = 8000;
-
-// The capture component's fixed listen port (baked into its image entrypoint).
-const CAMERA_COMPONENT_PORT = 8100;
-
-// The llama-server component's fixed listen port (llama-swap's endpoint, baked into
-// its image entrypoint).
-const LLAMA_COMPONENT_PORT = 8080;
 
 // The OSS renderer's state root (see docs/deployment-pipeline.md). Bind-mount sources
 // hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them

@@ -50,6 +50,19 @@ const (
 	MLInference = "ml-inference"
 )
 
+// The fixed internal port each serving component's image listens on, baked into its
+// entrypoint. A same-network peer dials http://<name>:<port> directly over the container
+// network; off-device the operator supplies the whole URL and publishes their own host
+// port, so this is only the container-side of that mapping.
+const (
+	// LlamaPort is the llama-server component's listen port (llama-swap's endpoint).
+	LlamaPort = 8080
+	// CameraPort is the camera-capture component's listen port.
+	CameraPort = 8081
+	// MLInferencePort is the ML inference component's listen port.
+	MLInferencePort = 8082
+)
+
 // Process exit codes a first-party component uses to tell the orchestrator how to
 // react to a failure. Only a permanent failure gets a dedicated code; any other
 // nonzero exit is treated as transient — the orchestrator may restart the
