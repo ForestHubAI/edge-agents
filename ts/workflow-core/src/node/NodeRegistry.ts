@@ -2,8 +2,7 @@
 // Copyright (c) 2026 ForestHub.
 
 import { ReadPinNodeDefinition, SerialReadNodeDefinition, RetrieverNodeDefinition, WebFetchNodeDefinition, CameraCaptureNodeDefinition } from "./InputNode";
-import { AgentNodeDefinition } from "./AgentNode";
-import { MLInferenceNodeDefinition } from "./MLInferenceNode";
+import { AgentNodeDefinition, MLInferenceNodeDefinition } from "./AINode";
 import {
   DelayNodeDefinition,
   TickerNodeDefinition,

@@ -12,8 +12,7 @@
 import type { DataType } from "../api";
 import { InputNode, InputNodeType } from "./InputNode";
 import { OutputNode, OutputNodeType } from "./OutputNode";
-import { AgentNode, AgentNodeType } from "./AgentNode";
-import { MLInferenceNode, MLInferenceNodeType } from "./MLInferenceNode";
+import { AINode, AINodeType } from "./AINode";
 import { LogicNode, LogicNodeType } from "./LogicNode";
 import { DataNode, DataNodeType } from "./DataNode";
 import { TriggerNode, TriggerNodeType } from "./TriggerNode";
@@ -25,8 +24,7 @@ export type NodeOutput = { name: string; dataType: DataType };
 export type NodeType =
   | InputNodeType
   | OutputNodeType
-  | AgentNodeType
-  | MLInferenceNodeType
+  | AINodeType
   | LogicNodeType
   | DataNodeType
   | TriggerNodeType
@@ -39,7 +37,7 @@ export type NodeType =
  * It is a union type of all specific node types, each with their own typed parameters.
  * Use this type when you need strong typing for a specific node.
  */
-export type NodeData = InputNode | OutputNode | AgentNode | MLInferenceNode | LogicNode | DataNode | TriggerNode | ToolNode | FunctionCallNode | MqttNode;
+export type NodeData = InputNode | OutputNode | AINode | LogicNode | DataNode | TriggerNode | ToolNode | FunctionCallNode | MqttNode;
 
 /**
  * Full domain node entity held on a {@link Canvas}: the {@link NodeData}

@@ -8,7 +8,7 @@ import type { FunctionDeclaration } from "../function";
 import { NodeCategory } from "../node";
 import { SetVariableNodeDefinition } from "../node/DataNode";
 import { RetrieverNodeDefinition } from "../node/InputNode";
-import { AgentNodeDefinition } from "../node/AgentNode";
+import { AgentNodeDefinition } from "../node/AINode";
 import { OnThresholdNodeDefinition } from "../node/TriggerNode";
 import { WebSearchToolNodeDefinition } from "../node/ToolNode";
 import {
