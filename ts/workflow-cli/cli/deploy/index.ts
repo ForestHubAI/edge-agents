@@ -16,7 +16,7 @@
 import { migrate } from "@foresthubai/workflow-core";
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 import { deserialize } from "@foresthubai/workflow-core/workflow";
-import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import { deriveRequirements } from "./requirements";
 import { buildDeploymentSpec } from "./spec";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";

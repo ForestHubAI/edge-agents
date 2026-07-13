@@ -10,7 +10,7 @@ import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { camerasJson, composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
-import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas } from "./api";
 import { cameraComponentServiceName, mlComponentServiceName } from "./spec";
 import type { EngineSecrets } from "./spec";
 

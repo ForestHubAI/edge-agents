@@ -15,7 +15,7 @@ import Ajv, { type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 
 import { loadContractDocument, openApiToJsonSchema } from "../contract";
-import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas } from "./api";
 
 export type DeployComponent = DeploymentSchemas["DeployComponent"];
 

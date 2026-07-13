@@ -1,6 +1,6 @@
 {
   "name": "@foresthubai/workflow-cli",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "fh-workflow CLI — author, validate, and visually edit Edge Agents workflow JSON. Bundles the visual builder; no other install required.",
   "license": "AGPL-3.0-only",
@@ -23,6 +23,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "generate": "openapi-typescript ../../contract/deployment.yaml -o cli/deploy/api/deployment.ts && openapi-typescript ../../contract/engine.yaml -o cli/deploy/api/engine.ts && openapi-typescript ../../contract/camera.yaml -o cli/deploy/api/camera.ts",
     "build": "vite build",
     "build:cli": "node ./scripts/build-cli.mjs",
     "build:all": "npm run build && npm run build:cli",

@@ -13,7 +13,8 @@
 
 import { z } from "zod";
 
-// The Stage-0 requirement vocabulary, re-exported from core.
+// The rich requirement vocabulary — CLI-owned OSS packaging (./requirements),
+// re-exported so deploy modules pull the whole vocabulary from one place.
 export type {
   DeployRequirements,
   HardwareChannel,
@@ -22,7 +23,7 @@ export type {
   CustomLLMModel,
   CustomMLModel,
   HardwareFamily,
-} from "@foresthubai/workflow-core/deploy";
+} from "./requirements";
 // Operator-input binding shapes + the spec resolver's validators are CLI-owned,
 // re-exported so deploy modules pull the whole vocabulary from one place.
 export type {
@@ -44,7 +45,7 @@ export {
   llamaComponentServiceName,
 } from "./spec";
 
-import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";
+import type { DeployRequirements } from "./requirements";
 
 // The providers the wizard can take a key for come from the model catalog (the
 // snapshot of the engine's llmproxy). Provider ids are the llmproxy ProviderID

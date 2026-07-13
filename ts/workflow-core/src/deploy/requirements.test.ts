@@ -2,20 +2,22 @@
 // Copyright (c) 2026 ForestHub.
 
 import { describe, it, expect } from "vitest";
-import { getReferencedCatalogModelIds, deriveRequirements } from "./requirements";
+import { workflowBindingRequirements, getReferencedCatalogModelIds, type BindingKind } from "./requirements";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow";
-import type { Channel } from "../channel";
+import type { Channel, ChannelType } from "../channel";
+import type { Model } from "../model";
 import type { Node } from "../node";
-import type { Model, ModelInfo } from "../model";
 
-function channel(id: string, type: Channel["type"]): Channel {
+function channel(id: string, type: ChannelType): Channel {
   return { id, label: id, type, arguments: {} };
 }
 
-const mlModel = (id: string): Model => ({ id, label: id, type: "MLModel", arguments: {} });
+const llm = (id: string): Model => ({ id, label: id, type: "LLMModel", arguments: {} });
+const ml = (id: string): Model => ({ id, label: id, type: "MLModel", arguments: {} });
 
-// Minimal Agent node referencing `model`. Cast through the union — only id/type/
-// arguments.model matter to the walk.
+// Minimal Agent node referencing a catalog model by id — only the model ref
+// matters to the requirement walk. Cast through the union: the other Agent args
+// are irrelevant here.
 function agent(id: string, model: string): Node {
   return {
     id,
@@ -32,114 +34,131 @@ function agent(id: string, model: string): Node {
   } as unknown as Node;
 }
 
-function canvas(nodes: Node[]): Canvas {
-  return { nodes, edges: [], variables: {} };
+const canvas = (nodes: Node[]): Canvas => ({ nodes, edges: [], variables: {} });
+
+// Build a workflow from parts. `nodes` fills the main canvas; pass `canvases`
+// instead to model multiple bodies (main + function). Any other field
+// (channels, models) overrides the empty default.
+function workflow(parts: Partial<Workflow> & { nodes?: Node[] }): Workflow {
+  const { nodes = [], ...rest } = parts;
+  return {
+    canvases: { [MAIN_CANVAS_ID]: canvas(nodes) },
+    functions: {},
+    channels: {},
+    memory: {},
+    models: {},
+    ...rest,
+  };
 }
 
-const customModel: Model = { id: "custom-llm", label: "Custom", type: "LLMModel", arguments: {} };
+const byId = (chs: Channel[]): Record<string, Channel> => Object.fromEntries(chs.map((c) => [c.id, c]));
+const modelsById = (ms: Model[]): Record<string, Model> => Object.fromEntries(ms.map((m) => [m.id, m]));
 
-function workflow(canvases: Workflow["canvases"], models: Record<string, Model> = {}): Workflow {
-  return { canvases, functions: {}, channels: {}, memory: {}, models };
-}
+// CROSS-LANGUAGE CONFORMANCE. Each case below is a golden fixture: a workflow in,
+// an exact id->kind surface out. The backend's deploy.WorkflowBindingRequirements
+// must produce the identical map for the same workflow — mirror these fixtures on
+// the Go side so the two extractors stay pinned. Divergence here is deploy drift:
+// OSS and the backend disagreeing about what a workflow needs bound.
+describe("workflowBindingRequirements", () => {
+  it("returns an empty surface for an empty workflow", () => {
+    expect(workflowBindingRequirements(workflow({}))).toEqual({});
+  });
+
+  it("maps every hardware channel family to 'hardware'", () => {
+    const chs = byId([
+      channel("in", "GPIOIN"),
+      channel("out", "GPIOOUT"),
+      channel("adc", "ADC"),
+      channel("dac", "DAC"),
+      channel("pwm", "PWM"),
+      channel("uart", "UART"),
+    ]);
+    const expected: Record<string, BindingKind> = {
+      in: "hardware",
+      out: "hardware",
+      adc: "hardware",
+      dac: "hardware",
+      pwm: "hardware",
+      uart: "hardware",
+    };
+    expect(workflowBindingRequirements(workflow({ channels: chs }))).toEqual(expected);
+  });
+
+  it("maps MQTT to 'mqtt' and CAMERA to 'camera' (OSS-ahead kind)", () => {
+    const chs = byId([channel("telemetry", "MQTT"), channel("cam0", "CAMERA")]);
+    expect(workflowBindingRequirements(workflow({ channels: chs }))).toEqual({ telemetry: "mqtt", cam0: "camera" });
+  });
+
+  it("binds nothing for a LOG channel", () => {
+    const chs = byId([channel("log", "LOG"), channel("led", "GPIOOUT")]);
+    expect(workflowBindingRequirements(workflow({ channels: chs }))).toEqual({ led: "hardware" });
+  });
+
+  it("maps every declared model to 'declaredModel', LLM and ML alike", () => {
+    const models = modelsById([llm("local-llm"), ml("yolo")]);
+    expect(workflowBindingRequirements(workflow({ models }))).toEqual({ "local-llm": "declaredModel", yolo: "declaredModel" });
+  });
+
+  it("maps a referenced-but-undeclared catalog model to 'catalogModel', keyed by model id", () => {
+    const wf = workflow({ nodes: [agent("a1", "gpt-4o")] });
+    expect(workflowBindingRequirements(wf)).toEqual({ "gpt-4o": "catalogModel" });
+  });
+
+  it("prefers 'declaredModel' when an id is both declared and referenced (no overwrite)", () => {
+    const wf = workflow({ models: modelsById([llm("shared")]), nodes: [agent("a1", "shared")] });
+    expect(workflowBindingRequirements(wf)).toEqual({ shared: "declaredModel" });
+  });
+
+  it("does not extract MemoryFile / VectorDatabase memory (RAG not yet in the OSS surface)", () => {
+    const wf = workflow({
+      memory: { notes: { id: "notes", label: "Notes", type: "MemoryFile", arguments: {} } as Workflow["memory"][string] },
+    });
+    expect(workflowBindingRequirements(wf)).toEqual({});
+  });
+
+  it("produces the full surface for a mixed workflow", () => {
+    const wf = workflow({
+      channels: byId([channel("led", "GPIOOUT"), channel("telemetry", "MQTT"), channel("cam0", "CAMERA"), channel("log", "LOG")]),
+      models: modelsById([llm("local-llm")]),
+      nodes: [agent("a1", "claude-sonnet")],
+    });
+    const expected: Record<string, BindingKind> = {
+      led: "hardware",
+      telemetry: "mqtt",
+      cam0: "camera",
+      "local-llm": "declaredModel",
+      "claude-sonnet": "catalogModel",
+    };
+    expect(workflowBindingRequirements(wf)).toEqual(expected);
+  });
+});
 
 describe("getReferencedCatalogModelIds", () => {
   it("returns catalog ids (referenced but not declared), excluding declared customs", () => {
-    const wf = workflow(
-      { [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7"), agent("n2", "custom-llm")]) },
-      { "custom-llm": customModel },
-    );
+    const wf = workflow({
+      canvases: { [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7"), agent("n2", "custom-llm")]) },
+      models: modelsById([llm("custom-llm")]),
+    });
     expect(getReferencedCatalogModelIds(wf)).toEqual(["claude-opus-4-7"]);
   });
 
   it("ignores unset model references", () => {
-    const wf = workflow({ [MAIN_CANVAS_ID]: canvas([agent("n1", "")]) });
+    const wf = workflow({ nodes: [agent("n1", "")] });
     expect(getReferencedCatalogModelIds(wf)).toEqual([]);
   });
 
   it("dedupes across nodes and walks every canvas (main + function bodies)", () => {
     const wf = workflow({
-      [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7"), agent("n2", "claude-opus-4-7")]),
-      fnBody: canvas([agent("n3", "gemini-2")]),
+      canvases: {
+        [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7"), agent("n2", "claude-opus-4-7")]),
+        fnBody: canvas([agent("n3", "gemini-2")]),
+      },
     });
     expect(getReferencedCatalogModelIds(wf).sort()).toEqual(["claude-opus-4-7", "gemini-2"]);
   });
 
   it("returns nothing when every referenced model is declared", () => {
-    const wf = workflow({ [MAIN_CANVAS_ID]: canvas([agent("n1", "custom-llm")]) }, { "custom-llm": customModel });
+    const wf = workflow({ nodes: [agent("n1", "custom-llm")], models: modelsById([llm("custom-llm")]) });
     expect(getReferencedCatalogModelIds(wf)).toEqual([]);
-  });
-});
-
-const catalog: ModelInfo[] = [
-  { id: "claude-opus-4-7", label: "Opus", capabilities: ["chat"], provider: "anthropic" },
-  { id: "claude-haiku-4-7", label: "Haiku", capabilities: ["chat"], provider: "anthropic" },
-  { id: "gemini-2", label: "Gemini", capabilities: ["chat"], provider: "google" },
-];
-
-describe("deriveRequirements catalog providers", () => {
-  it("resolves referenced catalog models to their distinct providers (deduped)", () => {
-    const wf = workflow({
-      [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7"), agent("n2", "gemini-2"), agent("n3", "claude-haiku-4-7")]),
-    });
-    const req = deriveRequirements(wf, catalog);
-    // Two anthropic models collapse to one provider; no per-model map is kept.
-    expect(req.catalogProviders.map((p) => p.id).sort()).toEqual(["anthropic", "google"]);
-    expect(req.unresolvedCatalogModels).toEqual([]);
-  });
-
-  it("flags a referenced model absent from the catalog", () => {
-    const wf = workflow({ [MAIN_CANVAS_ID]: canvas([agent("n1", "gpt-5-mystery")]) });
-    const req = deriveRequirements(wf, catalog);
-    expect(req.catalogProviders).toEqual([]);
-    expect(req.unresolvedCatalogModels).toEqual(["gpt-5-mystery"]);
-  });
-
-  it("defers provider resolution when no catalog is supplied (hasProviderModel still set)", () => {
-    const wf = workflow({ [MAIN_CANVAS_ID]: canvas([agent("n1", "claude-opus-4-7")]) });
-    const req = deriveRequirements(wf);
-    expect(req.hasProviderModel).toBe(true);
-    expect(req.catalogProviders).toEqual([]);
-    expect(req.unresolvedCatalogModels).toEqual([]);
-  });
-});
-
-describe("deriveRequirements resource classification", () => {
-  it("classifies channels into hardware families and mqtt", () => {
-    const wf: Workflow = {
-      canvases: { [MAIN_CANVAS_ID]: canvas([]) },
-      functions: {},
-      channels: {
-        led: channel("led", "GPIOOUT"),
-        serial0: channel("serial0", "UART"),
-        sensor: channel("sensor", "ADC"),
-        telemetry: channel("telemetry", "MQTT"),
-      },
-      memory: {},
-      models: { "custom-llm": customModel },
-    };
-    const req = deriveRequirements(wf);
-    expect(req.hardwareChannels.map((c) => c.family).sort()).toEqual(["adc", "gpio", "serial"]);
-    expect(req.mqttChannels.map((c) => c.id)).toEqual(["telemetry"]);
-    expect(req.customLLMModels.map((c) => c.id)).toEqual(["custom-llm"]);
-    expect(req.hardwareChannels.find((c) => c.family === "serial")?.addressable).toBe(false);
-  });
-
-  it("classifies declared models into the LLM and ML pools", () => {
-    const wf = workflow({ [MAIN_CANVAS_ID]: canvas([]) }, { "custom-llm": customModel, detector: mlModel("detector") });
-    const req = deriveRequirements(wf);
-    expect(req.customLLMModels.map((m) => m.id)).toEqual(["custom-llm"]);
-    expect(req.customMLModels.map((m) => m.id)).toEqual(["detector"]);
-  });
-
-  it("classifies camera channels into the camera pool", () => {
-    const wf: Workflow = {
-      canvases: { [MAIN_CANVAS_ID]: canvas([]) },
-      functions: {},
-      channels: { front: channel("front", "CAMERA"), rear: channel("rear", "CAMERA") },
-      memory: {},
-      models: {},
-    };
-    const req = deriveRequirements(wf);
-    expect(req.cameraChannels.map((c) => c.id).sort()).toEqual(["front", "rear"]);
   });
 });

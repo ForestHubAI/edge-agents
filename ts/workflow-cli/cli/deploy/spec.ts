@@ -11,13 +11,13 @@
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
-import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, EngineSchemas } from "./api";
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import { serialize } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
-import type { DeployRequirements, HardwareChannel, HardwareFamily } from "@foresthubai/workflow-core/deploy";
-import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
+import { deriveRequirements } from "./requirements";
 import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];

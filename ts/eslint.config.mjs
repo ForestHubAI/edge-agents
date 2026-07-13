@@ -10,7 +10,19 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   // Build output + generated contract types.
-  { ignores: ["**/dist/**", "**/dist-cli/**", "workflow-core/src/api/workflow.ts", "workflow-core/src/api/deployment.ts", "workflow-cli/src/api/engine.ts"] },
+  {
+    ignores: [
+      "**/dist/**",
+      "**/dist-cli/**",
+      // Generated contract bindings. Core owns the workflow wire; the CLI owns the
+      // deploy-artifact wire (deployment/engine/camera) — its api/index.ts is
+      // hand-written and stays linted.
+      "workflow-core/src/api/workflow.ts",
+      "workflow-cli/cli/deploy/api/deployment.ts",
+      "workflow-cli/cli/deploy/api/engine.ts",
+      "workflow-cli/cli/deploy/api/camera.ts",
+    ],
+  },
 
   // Base: JS + TS recommended for all TS across the workspace.
   {

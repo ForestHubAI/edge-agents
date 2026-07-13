@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { writeOutput } from "./write";
 import type { DeployConfig, DeployRequirements } from "./types";
-import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, EngineSchemas } from "./api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];

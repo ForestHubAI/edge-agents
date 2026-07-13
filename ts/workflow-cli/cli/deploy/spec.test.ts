@@ -5,12 +5,12 @@
 import { describe, it, expect } from "vitest";
 import { buildDeploymentSpec, assertDeployable, llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
 import type { DeploymentInputs } from "./inputs";
-import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import { deriveRequirements } from "./requirements";
 import { MAIN_CANVAS_ID, type Workflow } from "@foresthubai/workflow-core/workflow";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
 import type { Node } from "@foresthubai/workflow-core/node";
-import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, EngineSchemas } from "./api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
 

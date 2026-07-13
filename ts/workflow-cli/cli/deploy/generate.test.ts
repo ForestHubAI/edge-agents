@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { camerasJson, composeYaml, envFile, readme, slugify } from "./generate";
 import type { DeployConfig } from "./types";
-import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, EngineSchemas } from "./api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];

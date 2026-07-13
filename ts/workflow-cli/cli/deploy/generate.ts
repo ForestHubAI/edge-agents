@@ -10,7 +10,7 @@
 
 import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
-import type { DeploymentSchemas, CameraSchemas } from "@foresthubai/workflow-core/api";
+import type { DeploymentSchemas, CameraSchemas } from "./api";
 import { llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
 import type { EngineSecrets } from "./spec";
 import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
