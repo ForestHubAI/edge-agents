@@ -53,7 +53,7 @@ INPUTS: workflow graph + device manifest + account resources
 │         config blob + every field IMPLIED by it — devices /          │
 │         privileged / user (from hardware), externalResources +       │
 │         mapping (from mqtt/models), and the SECRET SET the graph     │
-│         needs. llama: one per on-device model, command=--model…      │
+│         needs. llama: ONE shared component, config.json models       │
 │         MERGES user-authored custom DeployComponents verbatim        │
 │ OUT:    ▸ DeploymentSpec  — frozen, committable, SECRET-FREE         │
 │         ▸ secret VALUES   — out-of-band (NOT in spec): fixed-name    │
@@ -86,7 +86,7 @@ INPUTS: workflow graph + device manifest + account resources
 │ actor:  docker compose / runtime + each image's own entrypoint       │
 │ does:   start containers; each image interprets ITS config +         │
 │         secrets — engine reads config.json + secrets.json; llama     │
-│         consumes `command` args; a wrapped image converts; etc.      │
+│         reads config.json models; a wrapped image converts; etc.     │
 │ OUT:    ▸ running containers                                         │
 └──────────────────────────────────────────────────────────────────────┘
 ```

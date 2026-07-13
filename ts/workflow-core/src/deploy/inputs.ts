@@ -28,12 +28,13 @@ export interface MqttBinding {
   password?: string;
 }
 
-// One custom LLM model's runtime location. `device` = a llama-server component on
-// this controller (the engine reaches it over the container network by service
-// name); `network` = an inference endpoint the operator runs elsewhere. The
-// endpoint serves the model under its workflow id — no upstream-name aliasing yet.
+// One custom LLM model's runtime location. `device` = served by the shared
+// llama-server component on this controller (llama-swap fronts every on-device model,
+// the engine selecting one by id per request); `network` = an inference endpoint the
+// operator runs elsewhere. The endpoint serves the model under its workflow id — no
+// upstream-name aliasing yet.
 export type LLMModelBinding =
-  | { location: "device"; modelFile: string; port?: number; ctxSize?: number }
+  | { location: "device"; modelFile: string; ctxSize?: number }
   | { location: "network"; url: string; apiKey?: string };
 
 // One custom ML model's runtime location. `device` = served by the shared

@@ -22,8 +22,9 @@ export const COMPONENT_WORKSPACE_PATH = "/var/lib/foresthub/workspace";
 // Canonical identities of the singleton first-party components. For a singleton the
 // identity is ALSO its compose service/container name — so the renderer names the
 // container this, other components reach it at this hostname, and it stamps its logs
-// with it. Only singletons appear here: llama-server is deployed one-per-model with a
-// derived `llama-<model>` container name, so its identity is a type, not a fixed name.
+// with it. llama-server is a singleton too: one container fronts every on-device model
+// with llama-swap, selected by id per request — so its name is fixed, not per-model.
 export const ENGINE_COMPONENT_NAME = "engine";
 export const CAMERA_COMPONENT_NAME = "camera";
 export const ML_COMPONENT_NAME = "ml-inference";
+export const LLAMA_COMPONENT_NAME = "llama-server";

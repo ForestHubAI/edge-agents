@@ -148,23 +148,21 @@ async function promptLLMModels(
     const location = await select<"device" | "network">({
       message: `${m.label}: where does this model run?`,
       choices: [
-        { value: "device", name: "on this device (generate a llama-server container)" },
+        { value: "device", name: "on this device (served by the shared llama-server)" },
         { value: "network", name: "on another machine on the network (call its endpoint URL)" },
       ],
     });
 
     if (location === "device") {
       const modelFile = await input({
-        message: `${m.label}: model filename, dropped in its workspace dir (e.g. model.gguf)`,
+        message: `${m.label}: model filename, dropped in the llama-server workspace dir (e.g. model.gguf)`,
         validate: (v) => ggufNameError(v) ?? true,
       });
       const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });
-      const port = await input({ message: `${m.label}: component port`, default: "8080", validate: isUint });
       result[m.id] = {
         location: "device",
         modelFile: modelFile.trim(),
         ctxSize: Number(ctxSize.trim()),
-        port: Number(port.trim()),
       };
       continue;
     }

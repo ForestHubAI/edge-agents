@@ -25,7 +25,7 @@ import (
 func main() {
 	cfg, err := LoadConfig()
 	if err != nil {
-		// Before logging.Configure, the stdout logger is at debug level, so error passes through
+		// Before logging.Configure, the stdout logger is at info level, so error passes through
 		boot.Fail(err, "loading configuration") // malformed env config is permanent
 	}
 	logging.Configure(cfg.Log)

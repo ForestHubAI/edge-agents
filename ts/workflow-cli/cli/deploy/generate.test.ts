@@ -36,13 +36,14 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
   };
 }
 
-// An on-device model's llama-server component: image + frozen CLI flags, no config.
+// The shared on-device llama-server component: image + the models list as a config
+// blob (config.json), weights in the workspace mount.
 function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    name: "llama-gemma-3",
+    name: "llama-server",
     image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-    command: ["--model", "/var/lib/foresthub/workspace/gemma.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
-    volumes: ["./workspaces/llama-gemma-3:/var/lib/foresthub/workspace:ro"],
+    config: { models: [{ id: "gemma-3", file: "gemma.gguf", args: ["--ctx-size", "4096"] }] },
+    volumes: ["./workspaces/llama-server:/var/lib/foresthub/workspace:ro"],
     ...overrides,
   };
 }
@@ -179,11 +180,12 @@ describe("composeYaml", () => {
     expect(yaml).not.toContain("ENGINE_WEB_SEARCH_API_KEY");
   });
 
-  it("an on-device model adds a llama component with no start-ordering and a frozen command", () => {
+  it("an on-device model adds the shared llama component with no start-ordering", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
-    expect(yaml).toContain("llama-gemma-3:");
+    expect(yaml).toContain("llama-server:");
     expect(yaml).toContain("image: ghcr.io/ggml-org/llama.cpp:server-b8589");
-    expect(yaml).toContain("/var/lib/foresthub/workspace/gemma.gguf");
+    // The models list rides in the mounted config.json, not a compose command.
+    expect(yaml).toContain("./llama-server-config.json:/etc/foresthub/config.json:ro");
     // Dropped: the engine connects at runtime with retry, so no health gate.
     expect(yaml).not.toContain("depends_on:");
     expect(yaml).not.toContain("healthcheck:");
@@ -191,12 +193,11 @@ describe("composeYaml", () => {
     expect(yaml).not.toContain("network_mode: host");
   });
 
-  it("renders the component's port and context size frozen in the command", () => {
-    const llama = llamaComponent({ command: ["--model", "/var/lib/foresthub/workspace/gemma.gguf", "--host", "0.0.0.0", "--port", "9090", "--ctx-size", "8192"] });
-    const yaml = composeYaml(specOf([engineComponent(), llama]));
-    expect(yaml).toContain('- "9090"');
-    expect(yaml).toContain('- "8192"');
-    expect(yaml).not.toContain('- "8080"');
+  it("mounts the llama models list as a config file, not a compose command", () => {
+    const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
+    expect(yaml).toContain("./llama-server-config.json:/etc/foresthub/config.json:ro");
+    expect(yaml).toContain("com.foresthub.config-hash:");
+    expect(yaml).not.toContain("command:");
   });
 
   it("sets no fixed container_name (so multiple bundles can share a host)", () => {
@@ -281,7 +282,7 @@ describe("readme", () => {
   it("an on-device model adds the on-device note with the model file", () => {
     const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
     expect(md).toContain("## On-device models");
-    expect(md).toContain("- `./workspaces/llama-gemma-3/gemma.gguf`");
+    expect(md).toContain("- `./workspaces/llama-server/gemma.gguf`");
     expect(md).not.toContain("## Network models");
   });
 

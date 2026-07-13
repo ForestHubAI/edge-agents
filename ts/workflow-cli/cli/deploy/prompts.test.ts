@@ -162,18 +162,17 @@ describe("promptMissing", () => {
     expect(cfg.webSearch).toEqual({ provider: "brave", apiKey: "ws" });
   });
 
-  it("device model: asks where it runs, filename, context size, and port", async () => {
+  it("device model: asks where it runs, filename, and context size", async () => {
     script({
       select: [[/where does this model run/, "device"]],
       input: [
         [/model filename/, "gemma.gguf"],
         [/context window/, "8192"],
-        [/component port/, "9090"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ customLLMModels: [{ id: "llm", label: "llm" }] }));
-    expect(cfg.llmModels.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192, port: 9090 });
+    expect(cfg.llmModels.llm).toEqual({ location: "device", modelFile: "gemma.gguf", ctxSize: 8192 });
   });
 
   it("network model: asks where it runs, then url + key", async () => {

@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas, CameraSchemas } from "@foresthubai/workflow-core/api";
-import { llmComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "@foresthubai/workflow-core/deploy";
+import { llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "@foresthubai/workflow-core/deploy";
 import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
 
@@ -72,7 +72,7 @@ function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
   // root-owned device nodes / sysfs files passed through below).
   if (c.user) lines.push(`    user: "${c.user}"`);
 
-  // Exec-form command override, frozen in the spec (e.g. llama's CLI flags).
+  // Exec-form command override, frozen in the spec (e.g. a custom component's CLI flags).
   if (c.command && c.command.length > 0) {
     lines.push("    command:");
     for (const arg of c.command) lines.push(`      - "${arg}"`);
@@ -194,10 +194,12 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
 
   const engine = spec.components.find((c) => c.name === "engine");
   const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
-  // Each on-device model's GGUF lives in its component's own workspace dir
-  // (./workspaces/<service>/) — the host bind mount the llama container reads.
-  const deviceModels = Object.entries(cfg.llmModels).flatMap(([id, b]) =>
-    b.location === "device" ? [{ dir: `./workspaces/${llmComponentServiceName(id)}`, file: b.modelFile }] : [],
+  // All on-device models share ONE llama-server; their GGUFs live together in that
+  // component's workspace dir (./workspaces/llama-server/) — the host bind mount the
+  // llama container reads.
+  const llamaDir = `./workspaces/${llamaComponentServiceName()}`;
+  const deviceModels = Object.values(cfg.llmModels).flatMap((b) =>
+    b.location === "device" ? [{ dir: llamaDir, file: b.modelFile }] : [],
   );
   const hasNetworkModel = Object.values(cfg.llmModels).some((b) => b.location === "network");
   // On-device ML models all share ONE inference component; each model's bundle
@@ -270,10 +272,11 @@ and is reachable from the controller.`);
   if (deviceModels.length > 0) {
     notes.push(`## On-device models
 
-This bundle runs a llama-server container per on-device model; the engine reaches it
-over the compose network by service name. Each GGUF must sit in that model's workspace
-dir below (read-only mounted into its container). They are too large for the main
-\`scp\` line, so step 3 transfers them separately:
+This bundle runs one shared llama-server container (\`${llamaComponentServiceName()}\`, llama-swap)
+fronting all your on-device models; the engine reaches it over the compose network by service name
+and selects a model by id per request. Each GGUF must sit in the shared workspace dir below
+(read-only mounted into the container). They are too large for the main \`scp\` line, so step 3
+transfers them separately:
 ${deviceModels.map((m) => `- \`${m.dir}/${m.file}\``).join("\n")}`);
   }
   if (mlDeviceModels.length > 0) {
@@ -452,7 +455,7 @@ Each container's durable data is a plain host directory in this bundle,
 \`./workspaces/<container>/\` (mounted read-write at \`/var/lib/foresthub/workspace\`):
 
 - \`./workspaces/engine/\` — the engine's memory files.
-- \`./workspaces/<model>/\` — an on-device model's GGUF weights (see above).
+- \`./workspaces/llama-server/\` — your on-device models' GGUF weights (see above).
 
 These are ordinary files: back them up by copying the folder, inspect them directly.
 They persist across restarts and redeploys **as long as you keep this bundle directory

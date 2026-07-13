@@ -33,7 +33,7 @@ export {
   familyMismatches,
   hardwareAddressKey,
   hardwareAddressLabel,
-  llmComponentServiceName,
+  llamaComponentServiceName,
 } from "@foresthubai/workflow-core/deploy";
 
 import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";
@@ -65,7 +65,6 @@ const llmModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({
     location: z.literal("device"),
     modelFile: z.string(),
-    port: z.number().int().positive().optional(),
     ctxSize: z.number().int().positive().optional(),
   }),
   z.strictObject({ location: z.literal("network"), url: z.string(), apiKey: z.string().optional() }),

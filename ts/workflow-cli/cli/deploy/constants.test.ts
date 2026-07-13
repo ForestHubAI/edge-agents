@@ -13,6 +13,7 @@ import {
   ENGINE_COMPONENT_NAME,
   CAMERA_COMPONENT_NAME,
   ML_COMPONENT_NAME,
+  LLAMA_COMPONENT_NAME,
 } from "@foresthubai/workflow-core/deploy";
 
 // Drift guard: the workflow-core path + identity constants must equal
@@ -22,7 +23,7 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const contract = JSON.parse(readFileSync(join(here, "..", "..", "..", "..", "contract", "component-constants.json"), "utf8")) as {
   paths: { configFile: string; secretsFile: string; workspace: string };
-  components: { engine: string; camera: string; mlInference: string };
+  components: { engine: string; camera: string; mlInference: string; llama: string };
 };
 
 describe("component-constants contract", () => {
@@ -35,8 +36,6 @@ describe("component-constants contract", () => {
   it("workspace path matches the contract", () => {
     expect(COMPONENT_WORKSPACE_PATH).toBe(contract.paths.workspace);
   });
-  // Singleton identities only — llama-server has no fixed container name (one per
-  // model, `llama-<model>`), so it isn't asserted here.
   it("engine identity matches the contract", () => {
     expect(ENGINE_COMPONENT_NAME).toBe(contract.components.engine);
   });
@@ -45,5 +44,8 @@ describe("component-constants contract", () => {
   });
   it("ml-inference identity matches the contract", () => {
     expect(ML_COMPONENT_NAME).toBe(contract.components.mlInference);
+  });
+  it("llama-server identity matches the contract", () => {
+    expect(LLAMA_COMPONENT_NAME).toBe(contract.components.llama);
   });
 });

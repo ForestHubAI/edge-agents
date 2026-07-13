@@ -16,7 +16,7 @@ import type { ModelInfo } from "../model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
-import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME } from "./constants";
+import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "./constants";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -24,13 +24,27 @@ type DeployComponent = DeploymentSchemas["DeployComponent"];
 // the spec carries it as an opaque blob in DeployComponent.config.
 type EngineConfig = EngineSchemas["EngineConfig"];
 
+// One model in the llama-server config.json (its models list). Produced here and read
+// by the image entrypoint (components/llama-server/entrypoint.sh) — deliberately NOT a
+// contract type: its only consumer is that bash entrypoint, which owns the shape and
+// hand-parses it. Keep in sync with the entrypoint.
+interface LlamaModel {
+  id: string;
+  file: string;
+  args?: string[];
+}
+
 // The inference component's fixed listen port (baked into its image entrypoint).
 const ML_COMPONENT_PORT = 8000;
 
 // The capture component's fixed listen port (baked into its image entrypoint).
 const CAMERA_COMPONENT_PORT = 8100;
 
-// The OSS renderer's state root (docs/device-filesystem.md §2). Bind-mount sources
+// The llama-server component's fixed listen port (llama-swap's endpoint, baked into
+// its image entrypoint).
+const LLAMA_COMPONENT_PORT = 8080;
+
+// The OSS renderer's state root (see docs/deployment-pipeline.md). Bind-mount sources
 // hang off it as `<root>/workspaces/<container>/`. "." makes Docker resolve them
 // relative to the compose file, so the bundle stays drop-anywhere; Ranger is a
 // separate renderer that sets root to the absolute `/var/lib/foresthub`.
@@ -104,16 +118,12 @@ function urlHost(url: string): string {
   }
 }
 
-// Compose/container service name for an on-device model's llama-server component.
-// Single source of truth: the resolver derives the provider URL from it and the
-// renderer emits a service with the same name — they must agree or the URL
-// points at a service that doesn't exist.
-export function llmComponentServiceName(modelId: string): string {
-  const slug = modelId
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `llama-${slug || "model"}`;
+// Compose/container service name for the shared llama-server component. Like the
+// inference component, one container fronts a set of on-device models (llama-swap) and
+// selects one by id per request — so this is a fixed name, its canonical identity, not
+// derived from any model id. Every on-device model's provider URL points at it.
+export function llamaComponentServiceName(): string {
+  return LLAMA_COMPONENT_NAME;
 }
 
 // Compose/container service name for the shared inference component. Unlike the
@@ -140,7 +150,7 @@ export function ggufNameError(name: string | undefined): string | null {
   const t = (name ?? "").trim();
   if (!t) return "a model filename is required";
   if (!t.toLowerCase().endsWith(".gguf")) return "must be a .gguf file (llama-server only loads GGUF)";
-  if (t.includes("/")) return "just the filename, not a path — the file goes in the model's workspace dir (./workspaces/llama-…/)";
+  if (t.includes("/")) return "just the filename, not a path — the file goes in the llama-server workspace dir (./workspaces/llama-server/)";
   return null;
 }
 
@@ -366,42 +376,26 @@ export function buildDeploymentSpec(
     if (b.password) resourceSecrets[ref] = b.password;
   }
 
-  // Custom models: each declared model maps to a selfhosted provider. A device
-  // model gets its own llama-server component (its own provider, 1:1). A network
-  // model points at the operator's endpoint — deduped by url+key, so several
-  // models on one endpoint share ONE provider (many models -> one ref, like GPIO
-  // lines on one chip). The endpoint serves each under its logical model id (no
-  // upstream-name aliasing yet), so no per-model field is emitted.
+  // Custom LLM models: each maps to a selfhosted provider. Every on-device model is
+  // served by ONE shared llama-server that fronts them with llama-swap and selects one
+  // by id per request — so they all point at the same service URL and only a single
+  // component is emitted (mirrors the inference component). A network model points at
+  // the operator's endpoint — deduped by url+key, so several models on one endpoint
+  // share ONE provider (many models -> one ref, like GPIO lines on one chip). The engine
+  // sends the model's workflow id, which llama-swap routes on (the config.json `id`).
   const llamaComponents: DeployComponent[] = [];
+  const llamaModels: LlamaModel[] = [];
   for (const m of req.customLLMModels) {
     const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
 
     if (b.location === "device") {
-      const port = b.port ?? 8080;
-      const service = llmComponentServiceName(m.id);
       const ref = refs.alloc(`model:${m.id}`, basename(m.id));
       mapping[m.id] = { ref };
-      externalResources[ref] = { type: "selfhostedLlm", url: `http://${service}:${port}` };
-      // The whole config is CLI flags, so it rides in `command` (no config blob).
-      // ctx-size is frozen here — retuning it is a re-deploy, not an env edit.
-      llamaComponents.push({
-        name: service,
-        image: meta.llamaServerImage,
-        command: [
-          "--model",
-          `${COMPONENT_WORKSPACE_PATH}/${b.modelFile}`,
-          "--host",
-          "0.0.0.0",
-          "--port",
-          String(port),
-          "--ctx-size",
-          String(b.ctxSize ?? 4096),
-        ],
-        // The model lives in this component's own workspace; read-only, so no chown
-        // is needed (docs §5). The operator drops the GGUF in workspaceDir(service).
-        volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
-      });
+      externalResources[ref] = { type: "selfhostedLlm", url: `http://${llamaComponentServiceName()}:${LLAMA_COMPONENT_PORT}` };
+      // ctx-size is frozen here — retuning it is a re-deploy, not an env edit. The GGUF
+      // is a bare filename the entrypoint resolves under the shared component workspace.
+      llamaModels.push({ id: m.id, file: b.modelFile, args: ["--ctx-size", String(b.ctxSize ?? 4096)] });
     } else {
       const ref = refs.alloc(`selfhosted:${b.url}:${b.apiKey ?? ""}`, `provider-${urlHost(b.url)}`);
       mapping[m.id] = { ref };
@@ -409,6 +403,20 @@ export function buildDeploymentSpec(
       // The endpoint bearer is a secret — out of the spec, returned separately.
       if (b.apiKey) resourceSecrets[ref] = b.apiKey;
     }
+  }
+  // One shared llama-server for all on-device models (not one per model). Its config.json
+  // (the models list) rides as the component config blob, mounted read-only at the
+  // standard config path the entrypoint reads; the GGUF weights sit in the component
+  // workspace the operator fills, mounted read-only. No pull override: llama-server is a
+  // published image, pulled from its registry (unlike the locally-built engine/ml/camera).
+  if (llamaModels.length > 0) {
+    const service = llamaComponentServiceName();
+    llamaComponents.push({
+      name: service,
+      image: meta.llamaServerImage,
+      config: { models: llamaModels },
+      volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
+    });
   }
 
   // Catalog providers: one provider instance per referenced provider — NO mapping.
@@ -539,10 +547,10 @@ export function buildDeploymentSpec(
     pull: "never", // built locally before deploy, in no registry
     config,
     // Durable memory: a host bind mount under the state root, read-write, at the
-    // in-container workspace path (docs/device-filesystem.md §10).
+    // in-container workspace path (COMPONENT_WORKSPACE_PATH; docs/component-contract.md).
     volumes: [`${workspaceDir(ENGINE_COMPONENT_NAME)}:${COMPONENT_WORKSPACE_PATH}`],
     // Run as root: writes the rw workspace bind mount without a host chown step
-    // (the OSS default, §5), and also opens root-owned device nodes when hardware
+    // (the OSS default), and also opens root-owned device nodes when hardware
     // (cdev passthrough / sysfs-privileged) is mapped in below.
     user: "0:0",
   };

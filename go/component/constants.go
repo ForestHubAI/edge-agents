@@ -2,12 +2,13 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-// Package component holds the cross-component device-filesystem contract: the
-// fixed in-container paths every ForestHub component (engine, broker, …) reads
-// and writes. See docs/device-filesystem.md.
+// Package component holds the cross-component runtime contract: the fixed
+// in-container paths every ForestHub component (engine, broker, …) reads and
+// writes, the exit-code policy, and the canonical component names. See
+// docs/component-contract.md.
 package component
 
-// The standard in-container mountpoints from the device-filesystem contract.
+// The standard in-container mountpoints from the component contract.
 //
 // At container start a renderer mounts each per-container host directory onto one
 // of these paths.

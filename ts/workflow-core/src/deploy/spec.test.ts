@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub.
 
 import { describe, it, expect } from "vitest";
-import { buildDeploymentSpec, assertDeployable, llmComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
+import { buildDeploymentSpec, assertDeployable, llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
 import { deriveRequirements } from "./requirements";
 import type { DeploymentInputs } from "./inputs";
 import { MAIN_CANVAS_ID, type Workflow } from "../workflow";
@@ -23,7 +23,7 @@ function engineOf(spec: Spec): DeploymentSchemas["DeployComponent"] {
 function engineConfigOf(spec: Spec): EngineSchemas["EngineConfig"] {
   return engineOf(spec).config as EngineSchemas["EngineConfig"];
 }
-const llamaOf = (spec: Spec, modelId: string) => spec.components.find((c) => c.name === llmComponentServiceName(modelId));
+const llamaOf = (spec: Spec) => spec.components.find((c) => c.name === llamaComponentServiceName());
 
 function channel(id: string, type: Channel["type"], args: Record<string, unknown> = {}): Channel {
   return { id, label: id, type, arguments: args };
@@ -126,18 +126,59 @@ describe("buildDeploymentSpec", () => {
     expect(engine.user).toBe("0:0");
   });
 
-  it("emits a llama-server component and points the engine's provider at the component", () => {
+  it("emits a shared llama-server component and points the engine's provider at it", () => {
     const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
-    expect(llamaOf(spec, "local-llm")).toMatchObject({
-      name: llmComponentServiceName("local-llm"),
+    const llama = llamaOf(spec)!;
+    expect(llama).toMatchObject({
+      name: llamaComponentServiceName(),
       image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-      command: ["--model", "/var/lib/foresthub/workspace/model.gguf", "--host", "0.0.0.0", "--port", "8080", "--ctx-size", "4096"],
-      volumes: ["./workspaces/llama-local-llm:/var/lib/foresthub/workspace:ro"],
+      // The models list rides as the config blob (config.json); no per-model command.
+      config: { models: [{ id: "local-llm", file: "model.gguf", args: ["--ctx-size", "4096"] }] },
+      volumes: [`./workspaces/${llamaComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
     });
-    // The external-resource provider URL must point at the component service name.
+    expect(llama.command).toBeUndefined();
+    // The external-resource provider URL must point at the shared component service.
     const ext = engineConfigOf(spec).externalResources!;
     const provider = Object.values(ext).find((r) => r.type === "selfhostedLlm");
-    expect(provider).toMatchObject({ url: `http://${llmComponentServiceName("local-llm")}:8080` });
+    expect(provider).toMatchObject({ url: `http://${llamaComponentServiceName()}:8080` });
+  });
+
+  it("emits ONE shared llama component for multiple device models and points each at it", () => {
+    const wf: Workflow = {
+      canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
+      functions: {},
+      channels: {},
+      memory: {},
+      models: { a: { id: "a", label: "A", type: "LLMModel", arguments: {} }, b: { id: "b", label: "B", type: "LLMModel", arguments: {} } },
+    };
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {
+        a: { location: "device", modelFile: "a.gguf" },
+        b: { location: "device", modelFile: "b.gguf", ctxSize: 8192 },
+      },
+      mlModels: {},
+      cameras: {},
+    };
+    const { spec } = buildDeploymentSpec(wf, inputs, meta);
+
+    // Exactly one component for both models — not one per model.
+    const llamas = spec.components.filter((c) => c.name === llamaComponentServiceName());
+    expect(llamas).toHaveLength(1);
+    expect(llamas[0]!.config).toEqual({
+      models: [
+        { id: "a", file: "a.gguf", args: ["--ctx-size", "4096"] },
+        { id: "b", file: "b.gguf", args: ["--ctx-size", "8192"] },
+      ],
+    });
+    // Every device model points at the same shared component url; each mapped by id.
+    const ext = engineConfigOf(spec).externalResources!;
+    const urls = Object.values(ext)
+      .filter((r) => r.type === "selfhostedLlm")
+      .map((r) => (r as { url: string }).url);
+    expect(urls).toEqual([`http://${llamaComponentServiceName()}:8080`, `http://${llamaComponentServiceName()}:8080`]);
+    expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["a", "b"]);
   });
 
   it("omits privileged and the llama component when neither applies", () => {
@@ -294,7 +335,7 @@ describe("buildDeploymentSpec custom components", () => {
   });
 
   it("rejects a custom name colliding with a generated llama component", () => {
-    const dup = { name: llmComponentServiceName("local-llm"), image: "x" };
+    const dup = { name: llamaComponentServiceName(), image: "x" };
     expect(() => buildDeploymentSpec(fullWorkflow(), fullInputs, meta, [dup])).toThrow(/duplicate component name/);
   });
 

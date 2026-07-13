@@ -1,7 +1,7 @@
 # Custom components
 
-`fh-workflow deploy` runs the engine (and a llama-server per on-device model) for
-you. A **custom component** is any extra container you co-deploy alongside them —
+`fh-workflow deploy` runs the engine (and a llama-server hosting your on-device
+models) for you. A **custom component** is any extra container you co-deploy alongside them —
 a dashboard, an MQTT broker, a metrics exporter — that the workflow graph does not
 summon. You author it; the wizard merges it in and renders it exactly like the
 first-party components.
@@ -16,6 +16,11 @@ interactive prompt. It reads at most **two files** from that folder:
 
 Nothing else in the folder is read. Building the image is **your** job, offline —
 the wizard never builds anything (just as the engine image is built by hand).
+
+Whatever the image does, it runs under the same runtime contract as the first-party
+components — the container name, the fixed config/secrets/workspace paths, the exit
+codes, and stdout logging. That contract is [`docs/component-contract.md`](../docs/component-contract.md);
+this guide is the authoring side of it.
 
 This folder holds two worked examples at opposite ends of the effort spectrum:
 [`grafana/`](./grafana) (no image build) and [`llama-server/`](./llama-server)
@@ -62,12 +67,10 @@ To wrap **any** non-Go component whose config format ForestHub doesn't emit nati
 1. `FROM` a stock image that already contains your binaries — don't rebuild them.
 2. Add a small `entrypoint.sh` that reads `/etc/foresthub/config.json` and translates
    it into whatever your app wants (a file, flags, an env dump), then `exec`s the app.
-3. Log to **stdout** — never add a log shipper. The container runtime captures the
-   stream; a reader (Ranger in the hosted path, `docker logs`/a collector in OSS)
-   routes it.
-4. Exit **78** (`sysexits(3)` `EX_CONFIG`, the component's `ExitConfigError`) on a
-   permanent config error so the orchestrator stops retrying unchanged.
-5. Publish an immutable tag and pin it.
+3. Obey the runtime contract like any component — log to **stdout** (add no shipper)
+   and exit **78** on a permanent config error so the orchestrator stops retrying. The
+   full rules live in [`docs/component-contract.md`](../docs/component-contract.md).
+4. Publish an immutable tag and pin it.
 
 A bundled MQTT broker (mosquitto) is a typical custom component: stock image, a
 published port, a config file or env for its listener/auth — co-deployed so a
@@ -117,16 +120,15 @@ Two files carry it:
 | `Dockerfile` | `FROM` the stock llama-swap image (bundles both binaries) + `jq` + the entrypoint. No compile. |
 | `entrypoint.sh` | The config bridge: `/etc/foresthub/config.json` (JSON) → llama-swap YAML → `exec llama-swap`. |
 
-The bridge: the backend renders the model set to the `ConfigFile` as a
-[`LlamaServerConfig`](../contract/llama-server.yaml); the operator stages the
-`.gguf` files under the component `Workspace` (`/var/lib/foresthub/workspace`);
-[`entrypoint.sh`](./llama-server/entrypoint.sh) reads that JSON with `jq`, emits a
-llama-swap YAML (one `cmd:` per model on llama-swap's assigned `${PORT}`), validates
-each model file exists, then `exec`s llama-swap. A malformed config or missing model
-file exits **78** — permanent, not retried. Logs need no wrapper: llama-swap and each
-`llama-server` write to stdout, and Ranger captures it.
+The bridge: the backend renders the model set to the component's `config.json` (a
+models list); the operator stages the `.gguf` files under the component `Workspace`
+(`/var/lib/foresthub/workspace`); [`entrypoint.sh`](./llama-server/entrypoint.sh) reads
+that JSON with `jq`, emits a llama-swap YAML (one `cmd:` per model on llama-swap's
+assigned `${PORT}`), validates each model file exists, then `exec`s llama-swap. A
+malformed config or missing model file exits **78** — permanent, not retried; llama-swap
+and each `llama-server` log to stdout.
 
-The `ConfigFile` shape (`contract/llama-server.yaml`):
+The `config.json` shape the entrypoint reads:
 
 ```json
 {

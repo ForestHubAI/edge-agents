@@ -2,7 +2,7 @@
 # ForestHub llama-server component — thin config-bridge entrypoint.
 #
 # llama-swap needs a YAML config mapping each model id to a launch command; the
-# ForestHub boot config arrives as JSON at a fixed path (the device-filesystem
+# ForestHub boot config arrives as JSON at a fixed path (the component-contract
 # ConfigFile). This script IS the whole wrapper: translate that JSON into a llama-swap
 # config, then exec llama-swap. It ships no logs itself — the component writes to
 # stdout and Ranger captures it. The base image already bundles llama-swap +
@@ -15,7 +15,7 @@
 # args = optional extra llama-server flags.
 set -euo pipefail
 
-# Fixed device-filesystem contract paths (edge-agents go/component). Overridable for
+# Fixed component-contract paths (edge-agents go/component). Overridable for
 # local testing, but the renderer mounts at these defaults.
 CONFIG="${FH_CONFIG_FILE:-/etc/foresthub/config.json}"
 WORKSPACE="${FH_WORKSPACE:-/var/lib/foresthub/workspace}"
