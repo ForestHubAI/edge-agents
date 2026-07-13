@@ -2,16 +2,18 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-// Shared vocabulary for the `deploy` command. The resolution logic — requirement
-// derivation, the binding shapes, the spec resolver and its validators — lives in
-// @foresthubai/workflow-core/deploy (shared with the FE). This module re-exports
-// that vocabulary so CLI modules import it from one place, and adds the bits that
-// are CLI-only: the operator-answer config (DeployConfig), the --values schema,
-// and the provider list the CLI takes keys for.
+// Shared vocabulary for the `deploy` command. The workflow requirement analysis
+// (Stage 0) lives in @foresthubai/workflow-core/deploy — the language-neutral piece
+// the backend path must agree with. The operator-input binding shapes, the spec
+// resolver (buildDeploymentSpec) and its validators are CLI-owned (./inputs, ./spec):
+// the OSS packaging step, NOT shared with the FE. This module re-exports the whole
+// vocabulary so CLI modules import it from one place, and adds the bits that are
+// CLI-only: the operator-answer config (DeployConfig), the --values schema, and the
+// provider list the CLI takes keys for.
 
 import { z } from "zod";
 
-// The shared deploy vocabulary, re-exported from core.
+// The Stage-0 requirement vocabulary, re-exported from core.
 export type {
   DeployRequirements,
   HardwareChannel,
@@ -20,12 +22,18 @@ export type {
   CustomLLMModel,
   CustomMLModel,
   HardwareFamily,
+} from "@foresthubai/workflow-core/deploy";
+// Operator-input binding shapes + the spec resolver's validators are CLI-owned,
+// re-exported so deploy modules pull the whole vocabulary from one place.
+export type {
+  DeploymentInputs,
   HardwareBinding,
   MqttBinding,
   LLMModelBinding,
   MLModelBinding,
   CameraBinding,
-} from "@foresthubai/workflow-core/deploy";
+  ProviderBinding,
+} from "./inputs";
 export {
   ggufNameError,
   mlModelNameError,
@@ -34,7 +42,7 @@ export {
   hardwareAddressKey,
   hardwareAddressLabel,
   llamaComponentServiceName,
-} from "@foresthubai/workflow-core/deploy";
+} from "./spec";
 
 import type { DeployRequirements } from "@foresthubai/workflow-core/deploy";
 

@@ -1,10 +1,17 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 ForestHub.
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
 
-// Operator-supplied bindings: the per-deploy values that bind a workflow's
-// logical resource ids to a concrete environment. Shared by every spec
-// producer (the CLI prompts/--values, the FE deploy forms) — how the values are
-// collected differs per renderer, but the shape they resolve to is one thing.
+// Operator-supplied bindings: the per-deploy VALUES that bind a workflow's logical
+// resource ids to a concrete environment, for the OSS CLI deploy path. The operator
+// types concrete values here (device paths, broker URLs, model files); the resolver
+// (buildDeploymentSpec) maps them into a DeploymentSpec.
+//
+// CLI-only — NOT shared with the backend/FE path. That path collects resource
+// REFERENCES (driverId/networkId) chosen from queried device/account state and folds
+// them into a ResourceBindingRequest the backend resolves against its DB. Values vs
+// references: two different shapes, one per renderer. The only thing both paths share
+// is the Stage-0 binding SURFACE (workflow-core's workflowBindingRequirements).
 //
 // Secrets policy: the web-search key is NOT here — it is device/operator-scoped
 // engine env, injected at render time, never frozen into a versioned spec.

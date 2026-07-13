@@ -1,22 +1,24 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 ForestHub.
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
 
-// The spec resolver: (workflow + bindings) -> DeploymentSpec. The shared
-// "packaging library" the migration doc calls for — component-set derivation
-// and device-grant resolution computed once here, frozen into the contract spec,
-// so neither renderer (OSS one-shot CLI, paid ranger) re-derives them.
+// The spec resolver: (workflow + bindings) -> DeploymentSpec. The OSS CLI's
+// packaging step — component-set derivation and device-grant resolution computed
+// here, frozen into the contract spec, so the renderer (composeYaml) never
+// re-derives them. The paid backend has its own resolver; the two share only the
+// DeploymentSpec contract and the Stage-0 binding surface, not this code.
 //
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
-import type { DeploymentSchemas, EngineSchemas } from "../api";
-import type { Workflow } from "../workflow";
-import { serialize } from "../workflow";
-import type { ModelInfo } from "../model";
+import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
+import type { Workflow } from "@foresthubai/workflow-core/workflow";
+import { serialize } from "@foresthubai/workflow-core/workflow";
+import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { DeploymentInputs, HardwareBinding } from "./inputs";
-import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
-import { deriveRequirements } from "./requirements";
-import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "./constants";
+import type { DeployRequirements, HardwareChannel, HardwareFamily } from "@foresthubai/workflow-core/deploy";
+import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];

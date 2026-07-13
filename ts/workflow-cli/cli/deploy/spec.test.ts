@@ -1,15 +1,16 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright (c) 2026 ForestHub.
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 ForestHub. All rights reserved.
+// For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
 import { buildDeploymentSpec, assertDeployable, llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
-import { deriveRequirements } from "./requirements";
 import type { DeploymentInputs } from "./inputs";
-import { MAIN_CANVAS_ID, type Workflow } from "../workflow";
-import type { Channel } from "../channel";
-import type { Model } from "../model";
-import type { Node } from "../node";
-import type { DeploymentSchemas, EngineSchemas } from "../api";
+import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import { MAIN_CANVAS_ID, type Workflow } from "@foresthubai/workflow-core/workflow";
+import type { Channel } from "@foresthubai/workflow-core/channel";
+import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
+import type { Node } from "@foresthubai/workflow-core/node";
+import type { DeploymentSchemas, EngineSchemas } from "@foresthubai/workflow-core/api";
 
 type Spec = DeploymentSchemas["DeploymentSpec"];
 
@@ -37,7 +38,7 @@ function agent(id: string, model: string): Node {
     type: "Agent",
     position: { x: 0, y: 0 },
     arguments: { name: id, model, instructions: "", outputDeclarations: [], memoryRefs: [], answer: { active: true, mode: "emit", name: "answer" } },
-  } as Node;
+  } as unknown as Node;
 }
 
 const customModel: Model = { id: "local-llm", label: "Local", type: "LLMModel", arguments: {} };
@@ -262,9 +263,9 @@ describe("buildDeploymentSpec", () => {
 });
 
 describe("buildDeploymentSpec catalog providers", () => {
-  const catalog = [
-    { id: "claude-opus-4-7", label: "Opus", capabilities: ["chat"] as const, provider: "anthropic" },
-    { id: "claude-haiku-4-7", label: "Haiku", capabilities: ["chat"] as const, provider: "anthropic" },
+  const catalog: ModelInfo[] = [
+    { id: "claude-opus-4-7", label: "Opus", capabilities: ["chat"], provider: "anthropic" },
+    { id: "claude-haiku-4-7", label: "Haiku", capabilities: ["chat"], provider: "anthropic" },
   ];
   // Two Agents on one provider + one on another; catalog resolves both.
   const wf: Workflow = {
@@ -363,34 +364,6 @@ describe("assertDeployable", () => {
     const req = deriveRequirements(fullWorkflow());
     const inputs = { ...fullInputs, llmModels: { "local-llm": { location: "device" as const, modelFile: "model.bin" } } };
     expect(() => assertDeployable(req, inputs)).toThrow(/\.gguf/);
-  });
-});
-
-describe("deriveRequirements", () => {
-  it("classifies channels into hardware families and mqtt", () => {
-    const req = deriveRequirements(fullWorkflow());
-    expect(req.hardwareChannels.map((c) => c.family).sort()).toEqual(["adc", "gpio", "serial"]);
-    expect(req.mqttChannels.map((c) => c.id)).toEqual(["telemetry"]);
-    expect(req.customLLMModels.map((c) => c.id)).toEqual(["local-llm"]);
-    expect(req.hardwareChannels.find((c) => c.family === "serial")?.addressable).toBe(false);
-  });
-
-  it("classifies declared models into the LLM and ML pools", () => {
-    const req = deriveRequirements(mlWorkflow({ "local-llm": customModel, detector: mlModel("detector") }));
-    expect(req.customLLMModels.map((m) => m.id)).toEqual(["local-llm"]);
-    expect(req.customMLModels.map((m) => m.id)).toEqual(["detector"]);
-  });
-
-  it("classifies camera channels into the camera pool", () => {
-    const wf: Workflow = {
-      canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
-      functions: {},
-      channels: { front: channel("front", "CAMERA"), rear: channel("rear", "CAMERA") },
-      memory: {},
-      models: {},
-    };
-    const req = deriveRequirements(wf);
-    expect(req.cameraChannels.map((c) => c.id).sort()).toEqual(["front", "rear"]);
   });
 });
 

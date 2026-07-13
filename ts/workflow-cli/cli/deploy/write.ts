@@ -11,8 +11,8 @@ import path from "node:path";
 import { camerasJson, composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "@foresthubai/workflow-core/api";
-import { cameraComponentServiceName, mlComponentServiceName } from "@foresthubai/workflow-core/deploy";
-import type { EngineSecrets } from "@foresthubai/workflow-core/deploy";
+import { cameraComponentServiceName, mlComponentServiceName } from "./spec";
+import type { EngineSecrets } from "./spec";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 

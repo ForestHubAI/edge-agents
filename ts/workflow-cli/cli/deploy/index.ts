@@ -16,7 +16,8 @@
 import { migrate } from "@foresthubai/workflow-core";
 import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 import { deserialize } from "@foresthubai/workflow-core/workflow";
-import { deriveRequirements, buildDeploymentSpec } from "@foresthubai/workflow-core/deploy";
+import { deriveRequirements } from "@foresthubai/workflow-core/deploy";
+import { buildDeploymentSpec } from "./spec";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -38,7 +39,7 @@ import {
 } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, RawFlags } from "./types";
 import { MODEL_CATALOG } from "../../src/catalog";
-import type { DeploymentInputs } from "@foresthubai/workflow-core/deploy";
+import type { DeploymentInputs } from "./inputs";
 import { ENGINE_COMPONENT_NAME, ML_COMPONENT_NAME, CAMERA_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 
 // Resolved component images the spec pins. The self-built ones are built locally

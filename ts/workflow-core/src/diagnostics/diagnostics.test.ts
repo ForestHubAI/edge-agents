@@ -101,7 +101,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
   const exprDef = makeNodeDef({
     category: NodeCategory.Input,
     parameters: [
-      { id: "val", label: "Value", description: "", type: "expression", expressionType: "int" },
+      { id: "val", label: "Value", description: "", type: "expression", expressionType: "int", default: makeExpression("0", "int") },
     ],
   });
 
@@ -114,8 +114,8 @@ describe("computeNodeDiagnostics — expression validation", () => {
     });
     const exprDiags = diagsOfCategory(diags, "invalid-expression");
     expect(exprDiags).toHaveLength(1);
-    expect(exprDiags[0].paramId).toBe("val");
-    expect(exprDiags[0].message).toContain("Invalid expression");
+    expect(exprDiags[0]?.paramId).toBe("val");
+    expect(exprDiags[0]?.message).toContain("Invalid expression");
   });
 
   it("accepts a well-formed expression matching declared type", () => {
@@ -138,7 +138,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     });
     const exprDiags = diagsOfCategory(diags, "invalid-expression");
     expect(exprDiags).toHaveLength(1);
-    expect(exprDiags[0].message).toMatch(/Type mismatch|expected/i);
+    expect(exprDiags[0]?.message).toMatch(/Type mismatch|expected/i);
   });
 
   it("reactivity: changing a referenced variable's type invalidates a previously-valid expression", () => {
@@ -171,7 +171,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     expect(diagsOfCategory(before, "invalid-expression")).toHaveLength(0);
     const afterExprDiags = diagsOfCategory(after, "invalid-expression");
     expect(afterExprDiags).toHaveLength(1);
-    expect(afterExprDiags[0].paramId).toBe("val");
+    expect(afterExprDiags[0]?.paramId).toBe("val");
   });
 
   it("flags an image variable used in a string expression", () => {
@@ -179,7 +179,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
     // string form; it must be rejected, not silently emptied at runtime.
     const stringDef = makeNodeDef({
       category: NodeCategory.Input,
-      parameters: [{ id: "val", label: "Value", description: "", type: "expression", expressionType: "string" }],
+      parameters: [{ id: "val", label: "Value", description: "", type: "expression", expressionType: "string", default: makeExpression("0", "string") }],
     });
     const diags = computeNodeDiagnostics({
       ...baseOpts({
@@ -202,6 +202,7 @@ describe("computeNodeDiagnostics — expression validation", () => {
           description: "",
           type: "expression",
           expressionType: "int",
+          default: makeExpression("0", "int"),
           activationRules: [{ type: "parameterIn", parameterId: "mode", values: ["on"] }],
         },
       ],
@@ -236,13 +237,13 @@ describe("computeNodeDiagnostics — missing required parameters", () => {
     });
     const missing = diagsOfCategory(diags, "missing-required-param");
     expect(missing).toHaveLength(1);
-    expect(missing[0].paramId).toBe("name");
+    expect(missing[0]?.paramId).toBe("name");
   });
 
   it("flags required expression param that is empty", () => {
     const def = makeNodeDef({
       category: NodeCategory.Input,
-      parameters: [{ id: "expr", label: "Expr", description: "", type: "expression", expressionType: "int" }],
+      parameters: [{ id: "expr", label: "Expr", description: "", type: "expression", expressionType: "int", default: makeExpression("0", "int") }],
     });
     const diags = computeNodeDiagnostics({
       ...baseOpts({
@@ -336,8 +337,8 @@ describe("computeNodeDiagnostics — variableSelect validation", () => {
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/deleted variable/);
-    expect(refDiags[0].paramId).toBe("ref");
+    expect(refDiags[0]?.message).toMatch(/deleted variable/);
+    expect(refDiags[0]?.paramId).toBe("ref");
   });
 
   it("accepts a valid variable reference", () => {
@@ -386,7 +387,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/deleted channel/);
+    expect(refDiags[0]?.message).toMatch(/deleted channel/);
   });
 
   it("flags reference to a channel with incompatible type", () => {
@@ -399,7 +400,7 @@ describe("computeNodeDiagnostics — channelSelect validation", () => {
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/not a compatible channel type/);
+    expect(refDiags[0]?.message).toMatch(/not a compatible channel type/);
   });
 
   it("accepts reference to a channel with compatible type", () => {
@@ -449,7 +450,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/deleted memory/);
+    expect(refDiags[0]?.message).toMatch(/deleted memory/);
   });
 
   it("accepts a memory id present in the store with a compatible type", () => {
@@ -473,7 +474,7 @@ describe("computeNodeDiagnostics — memorySelect validation", () => {
     });
     const refDiags = diagsOfCategory(diags, "invalid-reference");
     expect(refDiags).toHaveLength(1);
-    expect(refDiags[0].message).toMatch(/not a compatible memory type/);
+    expect(refDiags[0]?.message).toMatch(/not a compatible memory type/);
   });
 
   it("does not flag when the memory map is undefined (not provided)", () => {
@@ -517,14 +518,14 @@ describe("computeNodeDiagnostics — scalar output binding validation", () => {
     const diags = computeNodeDiagnostics(retrieverBase({ active: true, mode: "assign", target: { srcId: "", varId: "v1" } }));
     const assignDiags = diagsOfCategory(diags, "assign-type-mismatch");
     expect(assignDiags).toHaveLength(1);
-    expect(assignDiags[0].message).toMatch(/no variable selected/);
+    expect(assignDiags[0]?.message).toMatch(/no variable selected/);
   });
 
   it("flags assign-mode binding targeting a deleted variable", () => {
     const diags = computeNodeDiagnostics(retrieverBase({ active: true, mode: "assign", target: makeDeclaredRef("ghost") }));
     const assignDiags = diagsOfCategory(diags, "assign-type-mismatch");
     expect(assignDiags).toHaveLength(1);
-    expect(assignDiags[0].message).toMatch(/deleted variable/);
+    expect(assignDiags[0]?.message).toMatch(/deleted variable/);
   });
 
   it("flags assign-mode binding with type mismatch", () => {
@@ -536,7 +537,7 @@ describe("computeNodeDiagnostics — scalar output binding validation", () => {
     );
     const assignDiags = diagsOfCategory(diags, "assign-type-mismatch");
     expect(assignDiags).toHaveLength(1);
-    expect(assignDiags[0].message).toMatch(/cannot assign/);
+    expect(assignDiags[0]?.message).toMatch(/cannot assign/);
   });
 
   it("accepts assign-mode binding with matching types", () => {
@@ -596,8 +597,8 @@ describe("computeNodeDiagnostics — list-output entry validation", () => {
     );
     const entry = diagsOfCategory(diags, "assign-type-mismatch");
     expect(entry).toHaveLength(1);
-    expect(entry[0].outputId).toBe("outputDeclarations[0]");
-    expect(entry[0].message).toMatch(/entry #1 has no variable selected/);
+    expect(entry[0]?.outputId).toBe("outputDeclarations[0]");
+    expect(entry[0]?.message).toMatch(/entry #1 has no variable selected/);
   });
 
   it("flags list entry targeting a deleted variable", () => {
@@ -606,7 +607,7 @@ describe("computeNodeDiagnostics — list-output entry validation", () => {
     );
     const entry = diagsOfCategory(diags, "assign-type-mismatch");
     expect(entry).toHaveLength(1);
-    expect(entry[0].message).toMatch(/deleted variable/);
+    expect(entry[0]?.message).toMatch(/deleted variable/);
   });
 
   it("flags list entry with type mismatch", () => {
@@ -618,7 +619,7 @@ describe("computeNodeDiagnostics — list-output entry validation", () => {
     );
     const entry = diagsOfCategory(diags, "assign-type-mismatch");
     expect(entry).toHaveLength(1);
-    expect(entry[0].message).toMatch(/cannot assign/);
+    expect(entry[0]?.message).toMatch(/cannot assign/);
   });
 
   it("accepts a valid list entry", () => {
@@ -645,7 +646,7 @@ describe("computeNodeDiagnostics — list-output entry validation", () => {
     );
     const entry = diagsOfCategory(diags, "assign-type-mismatch");
     expect(entry).toHaveLength(1);
-    expect(entry[0].outputId).toBe("outputDeclarations[1]");
+    expect(entry[0]?.outputId).toBe("outputDeclarations[1]");
   });
 
   it("flags duplicate names across the list (both modes)", () => {
@@ -671,7 +672,7 @@ describe("computeNodeDiagnostics — list-output entry validation", () => {
     );
     const missing = diagsOfCategory(diags, "missing-required-param").filter((d) => d.outputId);
     expect(missing).toHaveLength(1);
-    expect(missing[0].message).toMatch(/has no name/);
+    expect(missing[0]?.message).toMatch(/has no name/);
   });
 });
 
