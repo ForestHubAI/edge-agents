@@ -16,15 +16,22 @@ Always written:
 | `engine.env`           | operator config — provider keys, web-search key, log level            | **600 (secret)** |
 | `deployment-spec.json` | the full resolved deployment record (secret-free)                     | 644 |
 | `README.md`            | the operator's build/transfer/run guide                               | 644 |
+| `workspaces/engine/`   | the engine's durable memory dir — bind-mounted **read-write** at `/var/lib/foresthub/workspace`, persisted across deploys | dir |
 
 Written only when the workflow / setup needs them:
 
-| File                  | When                                                | Mode |
+| File / dir            | When                                                | Mode |
 | --------------------- | --------------------------------------------------- | ---- |
 | `engine-secrets.json` | any MQTT password or network-model API key resolves — the resource-credential doc, mounted read-only at `/etc/foresthub/secrets.json` | **600 (secret)** |
-| `models/` (directory) | any **device** model                                | dir — operator drops the `.gguf` here |
-| `<name>-config.json`  | a custom component whose `component.json` carries a `config` blob | 644 |
+| `<name>-config.json`  | a component carries a `config` blob — `llama-server` (any device LLM) or a custom component whose `component.json` declares one; bind-mounted read-only at `/etc/foresthub/config.json` | 644 |
+| `workspaces/llama-server/` | any **device** LLM model — the shared GGUF dir, mounted read-only at `/var/lib/foresthub/workspace`  | dir — operator drops the `.gguf`s here |
+| `workspaces/ml-inference/<model>/` | any **device** ML model — one sub-folder per model in the shared repository, mounted read-only | dir — operator drops `model.onnx` + `manifest.yaml` |
+| `workspaces/camera/cameras.json` | any **device** camera — the generated name→source map, mounted read-only at `/etc/foresthub/config.json` | 644 (generated, not operator-dropped) |
 | `<name>.env`          | a custom component that ships a `<name>.env.example`| **600 (secret-bearing)** |
+
+Every on-device component's host state lives under `workspaces/<container>/`, mounted onto
+the fixed in-container path — see [`docs/deployment-pipeline.md`](../../../docs/deployment-pipeline.md)
+(_Bundle layout_) for the full tree and the config/workspace split.
 
 The two component files are **outputs**, not the operator's input: a component's own `component.json`
 (the file in the `--component` folder) is read at deploy time and **never** copied into the bundle —
@@ -40,14 +47,29 @@ files** — inspect them by `ls -l` only. They hold the sentinel placeholders th
 
 ## On-device models — the llama-server component
 
-A custom model with `location: "device"` makes the bundle self-host it: the compose file gains a
-`llama-<slug>` service (image `ghcr.io/ggml-org/llama.cpp:server-b8589`) that mounts `./models:/models:ro`
-and serves on port 8080; the engine reaches it at `http://llama-<slug>:8080`. There is deliberately
-**no `depends_on` and no healthcheck** — the engine connects at runtime and retries until the component
-is up, so there is no start-ordering between them. The context window is frozen into the component's
-compose `command` (`--ctx-size`, default 4096) at deploy time — retuning it is a re-deploy, not an env
-edit. The `.gguf` weights are **not** in the bundle — the operator copies them into `models/`
-separately (the README has the `scp` line).
+Any custom model with `location: "device"` makes the bundle self-host it. **All** on-device LLMs
+share **one** `llama-server` service (image `ghcr.io/foresthubai/llama-server:<version>`, a
+llama-swap wrapper — pulled from the registry, `pull_policy` unset, unlike the locally-built
+engine/ml/camera images). llama-swap fronts every model behind one endpoint and the engine selects
+one by id per request, so there is **one container, not one per model**. The engine reaches it over
+the compose network at `http://llama-server:8080`. There is deliberately **no `depends_on` and no
+healthcheck** — the engine connects at runtime and retries until the component is up, so there is no
+start-ordering between them.
+
+The component has two halves in the bundle:
+
+- **The models list** rides as the component's `config` blob, written to `llama-server-config.json`
+  and bind-mounted read-only at `/etc/foresthub/config.json`. Each entry is `{ id, file, args }`;
+  the context window is frozen into `args` (`--ctx-size`, default 4096) at deploy time — retuning it
+  is a re-deploy, not an env edit. The entrypoint translates this JSON into a llama-swap config at boot.
+- **The GGUF weights** are **not** in the bundle — they are large, so the operator drops each `.gguf`
+  into `./workspaces/llama-server/` (bind-mounted read-only at `/var/lib/foresthub/workspace`) and
+  `scp`s the `workspaces/` tree separately (the README has the line). The `file` in each config entry
+  is a bare filename the entrypoint resolves under that dir; a missing weight is a **permanent** boot
+  failure (exit 78).
+
+On-device **ML** models and **cameras** follow the same shape — one shared component
+(`ml-inference` / `camera`), host state under `workspaces/<container>/` — see the file table above.
 
 A `location: "network"` model is the opposite: it points at an endpoint the operator **already runs**
 elsewhere; the bundle starts nothing for it and just records the URL (+ optional key).
@@ -81,7 +103,8 @@ The skill stops after writing the bundle; these steps stay manual. Summarize the
 2. **Fill the secrets** — replace every `REPLACE_ME_*` placeholder in `engine.env` (and any empty
    values in a custom component's `<name>.env`); keep the `chmod 600` files locked down.
 3. **Transfer** — `docker save fh-engine:latest -o fh-engine.tar`, then `scp` the tar + the bundle
-   files to the controller. Device-model `.gguf`s go separately (`scp -r models/`) — they're large.
+   files to the controller. On-device component data (`.gguf`s, ONNX bundles, `cameras.json`) goes
+   separately as the whole `workspaces/` tree (`scp -r workspaces/`) — the weights are large.
 4. **Run** — on the controller: `docker load -i fh-engine.tar`, then `docker compose up -d`. The
    engine and any component start independently — the engine retries until the component is up — so
    `docker compose ps` / `logs` (no service filter) show every container while things settle, not just

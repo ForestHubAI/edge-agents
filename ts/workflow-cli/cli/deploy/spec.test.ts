@@ -241,12 +241,13 @@ describe("buildDeploymentSpec", () => {
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     const config = engineConfigOf(spec);
-    // One endpoint → one provider entry, both models mapped at the same ref.
+    // One endpoint → one provider entry, both models mapped at the same ref,
+    // each carrying its served model name (the workflow id, no alias input yet).
     const entries = Object.entries(config.externalResources!).filter(([, r]) => r.type === "selfhostedLlm");
     expect(entries).toHaveLength(1);
     const ref = entries[0]![0];
-    expect(config.mapping!.a).toEqual({ ref });
-    expect(config.mapping!.b).toEqual({ ref });
+    expect(config.mapping!.a).toEqual({ ref, model: "a" });
+    expect(config.mapping!.b).toEqual({ ref, model: "b" });
   });
 
   it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
@@ -394,7 +395,10 @@ describe("buildDeploymentSpec ML inference component", () => {
       .filter((r) => r.type === "ml-inference")
       .map((r) => (r as { url: string }).url);
     expect(mlUrls).toEqual([`http://${mlComponentServiceName()}:8082`, `http://${mlComponentServiceName()}:8082`]);
-    expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["classifier", "detector"]);
+    // Each model is mapped by id, carrying its component model name as the sub-address.
+    const mapping = engineConfigOf(spec).mapping!;
+    expect(mapping.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
+    expect(mapping.classifier).toEqual({ ref: expect.any(String), model: "resnet50" });
   });
 
   it("uses a network ML model's own endpoint and runs no component", () => {
@@ -408,9 +412,11 @@ describe("buildDeploymentSpec ML inference component", () => {
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
-    const ext = engineConfigOf(spec).externalResources!;
-    const mlRes = Object.values(ext).find((r) => r.type === "ml-inference");
-    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000", model: "yolov8n" });
+    const cfg = engineConfigOf(spec);
+    const mlRes = Object.values(cfg.externalResources!).find((r) => r.type === "ml-inference");
+    // The endpoint config carries no model — the selector rides on the binding.
+    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000" });
+    expect(cfg.mapping!.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
   });
 });
 

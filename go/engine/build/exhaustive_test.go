@@ -65,7 +65,7 @@ func nodeTypesFromContract(t *testing.T) []string {
 // and assert it does NOT fall through to the default arm. A bare node usually
 // trips a MissingFieldError or a missing-dependency/channel error first — that is
 // fine: reaching ANY arm proves the case exists. Only the default-arm sentinel
-// (or a stale-bindings discriminator failure) is a real failure.
+// (or a stale-mappings discriminator failure) is a real failure.
 func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 	for _, typ := range nodeTypesFromContract(t) {
 		t.Run(typ, func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestBuildSwitchHandlesEveryContractNode(t *testing.T) {
 			require.NotContains(t, msg, "unsupported node type",
 				"node type %q is declared in the contract but has no case arm in (*graph).build() — add one (see /sync-go-engine)", typ)
 			require.NotContains(t, msg, "reading node discriminator",
-				"node type %q fails discriminator resolution — the generated api bindings are stale, run `go generate ./...`", typ)
+				"node type %q fails discriminator resolution — the generated api mappings are stale, run `go generate ./...`", typ)
 		})
 	}
 }
@@ -140,7 +140,7 @@ func channelTypesFromContract(t *testing.T) []string {
 // default — this moves that failure left to `go test`.
 //
 // Mechanism: feed a bare {"type": T} channel through buildChannels with empty
-// deps. Most types trip a missing-binding error first — that is fine: reaching
+// deps. Most types trip a missing-mapping error first — that is fine: reaching
 // ANY arm proves the case exists. Only the default-arm sentinel is a real
 // failure.
 func TestBuildChannelsHandlesEveryContractChannel(t *testing.T) {

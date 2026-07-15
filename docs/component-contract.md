@@ -10,16 +10,16 @@ This doc is prose over the machine source of truth. The literal values live in
 [`contract/component-constants.json`](../contract/component-constants.json), with
 enforced twins in every language:
 
-| Language | File | Guard |
-| --- | --- | --- |
-| Go | [`go/component/constants.go`](../go/component/constants.go) | `constants_test.go` |
-| TS | [`ts/workflow-core/src/deploy/constants.ts`](../ts/workflow-core/src/deploy/constants.ts) | `constants.test.ts` |
-| Python | [`py/ml-inference/app/config.py`](../py/ml-inference/app/config.py) | `tests/test_constants.py` |
+| Language | File                                                                                      | Guard                     |
+| -------- | ----------------------------------------------------------------------------------------- | ------------------------- |
+| Go       | [`go/component/constants.go`](../go/component/constants.go)                               | `constants_test.go`       |
+| TS       | [`ts/workflow-core/src/deploy/constants.ts`](../ts/workflow-core/src/deploy/constants.ts) | `constants.test.ts`       |
+| Python   | [`py/ml-inference/app/config.py`](../py/ml-inference/app/config.py)                       | `tests/test_constants.py` |
 
 Changing a value means editing the JSON **and** all three twins in lockstep; the
 per-language tests fail if they drift.
 
-> This is the **in-container** contract only. How the renderer lays out the *host*
+> This is the **in-container** contract only. How the renderer lays out the _host_
 > filesystem, provisions bind mounts, and pulls artifacts is a separate concern —
 > see [`deployment-pipeline.md`](./deployment-pipeline.md). The component never sees
 > the host layout; it only ever reads the fixed in-container paths below.
@@ -30,17 +30,8 @@ A component's identity is its **container name** — the compose service name th
 renderer assigns. That single string is how the control plane addresses it, how other
 components reach it over the network, and the tag its logs are correlated by. There is
 no separate identity record.
-
-The first-party components each have a fixed, canonical name:
-
-| Component | Container name |
-| --- | --- |
-| Engine | `engine` |
-| Camera | `camera` |
-| ML inference | `ml-inference` |
-| llama-server | `llama-server` |
-
-Each is a **singleton** — one container. llama-server hosts *many* on-device models in
+The first-party components each have a fixed, canonical name.
+Each is a **singleton** — one container. llama-server hosts _many_ on-device models in
 that one container: llama-swap fronts them behind a single endpoint and the engine
 selects a model by id per request. So its name is fixed like the rest, not one container
 per model. Custom components pick their own unique name (see
@@ -50,19 +41,79 @@ per model. Custom components pick their own unique name (see
 > (below): a name that churns between deploys orphans the old workspace and starts the
 > component on an empty one.
 
+## Reachability: internal port vs published port
+
+A serving component listens on a fixed **internal (container) port** — the port its
+image binds, baked into its entrypoint. This value lives in
+[`component-constants.json`](../contract/component-constants.json) alongside the name
+(the two halves of one address), drift-guarded per language like the constants above —
+Go and TS carry it as a constant, and on the Python side the ml-inference image's
+Dockerfile is checked against the JSON:
+
+| Component    | Name           |           Internal port           |
+| ------------ | -------------- | :-------------------------------: |
+| Engine       | `engine`       | _(none — serves no inbound HTTP)_ |
+| llama-server | `llama-server` |              `8080`               |
+| camera       | `camera`       |              `8081`               |
+| ML inference | `ml-inference` |              `8082`               |
+
+How that port is reached depends on **where the caller sits**, and the two cases are
+not the same port:
+
+- **Same device (the common case).** All containers in a deployment share one Docker
+  bridge network, where every container port is already mutually reachable and Docker
+  resolves the container name as a hostname. A sibling — the engine reaching an
+  on-device component — dials **`http://<name>:<internal-port>`** directly, e.g.
+  `http://ml-inference:8082`. **No `ports:` publishing is involved**; the internal port
+  is reachable as-is over the private network.
+
+- **Across devices.** Container names and the internal network do not exist off the
+  box. To be reachable from another device the container port must be **published** to
+  the device's real network interface, declared in
+  [`DeployComponent.ports`](../contract/deployment.yaml) in compose short form
+  **`"a:b"`** — host port `a` : container port `b`. The caller then dials
+  **`http://<device-address>:a`**. Docker forwards `a` on the host to `b` in the
+  container; the process, which only ever bound `b`, answers.
+
+```
+same device:     engine ──▶ http://ml-inference:8082        (b, over the bridge network)
+across devices:  engine ──▶ http://10.0.0.5:19000  ──NAT──▶ :8082   (a ▶ b, via DeployComponent.ports "19000:8082")
+```
+
+The two ports live in different namespaces, which is why they can differ:
+
+- **Container port `b`** is private to the container's network namespace. It never
+  collides with anything on any device, and it is the value in the contract.
+- **Host port `a`** is a slot in the device's _shared_ port space — the same space
+  every other process on that machine competes for. On a dedicated appliance `a = b` is
+  a safe, derivable default; on a device running foreign services, `a` may have to
+  differ from `b` to dodge a collision, and is then not derivable from the contract.
+
+`ports` is a **list**: it mirrors compose's `ports`, and a single container may publish
+several (an MQTT broker's `1883` + websocket `9001`, or an app port + a metrics port). A
+component reached only over the internal network publishes none — the empty case, and
+the common one for a same-deployment component.
+
+> Publishing changes the **trust boundary**. On the internal network a component's
+> caller is a sibling container the deployment placed there; the `camera`/`ml-inference`
+> configs are contracted as credential-free "trusted in-deployment endpoints" on that
+> basis. Once a port is published to the LAN, any host on the network can reach it —
+> cross-device exposure needs its own authentication, which those configs do not carry
+> today.
+
 ## The three in-container paths
 
 The renderer bind-mounts a per-container host directory onto each of these fixed paths.
 The component opens exactly these paths — never a host path, never an env-tunable
 location:
 
-| Path | Mode | Consumed via | Holds |
-| --- | :--: | --- | --- |
-| `/etc/foresthub/config.json` | ro | `component.ConfigFile` | the boot config (component-specific shape) |
-| `/etc/foresthub/secrets.json` | ro | `component.SecretsFile` | resolved id-keyed credentials, refreshed every deploy |
-| `/var/lib/foresthub/workspace` | rw | `component.Workspace` | durable working data, persisted across deploys |
+| Path                           | Mode | Consumed via            | Holds                                                 |
+| ------------------------------ | :--: | ----------------------- | ----------------------------------------------------- |
+| `/etc/foresthub/config.json`   |  ro  | `component.ConfigFile`  | the boot config (component-specific shape)            |
+| `/etc/foresthub/secrets.json`  |  ro  | `component.SecretsFile` | resolved id-keyed credentials, refreshed every deploy |
+| `/var/lib/foresthub/workspace` |  rw  | `component.Workspace`   | durable working data, persisted across deploys        |
 
-These are **constants, not configuration**: their values *are* the renderers' mount
+These are **constants, not configuration**: their values _are_ the renderers' mount
 targets. A component that reads a different path reads an unmounted, empty location.
 
 Not every component uses all three — a component reads only the paths it needs, and
@@ -77,12 +128,12 @@ must independently produce gets a schema in the component's own `contract/*.yaml
 is code-generated on both sides; a config only one implementation ever touches stays a
 plain domain type documented in that language.
 
-| Component | `config.json` shape | Seam |
-| --- | --- | --- |
-| Engine | `EngineConfig` — [`contract/engine.yaml`](../contract/engine.yaml) | contracted (backend produces it) |
-| Camera | `CameraConfig` — [`contract/camera.yaml`](../contract/camera.yaml) | contracted (the renderer writes it, Go reads it) |
-| llama-server | a models list in `config.json`, fronted by llama-swap | image-owned — the entrypoint defines and reads the shape (a bash consumer, no codegen), like ml-inference's manifest |
-| ML inference | **none** — reads no `config.json`; configured by env (`ML_MODELS_DIR`) + the mounted model repository | domain-only |
+| Component    | `config.json` shape                                                                                   | Seam                                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Engine       | `EngineConfig` — [`contract/engine.yaml`](../contract/engine.yaml)                                    | contracted (backend produces it)                                                                                     |
+| Camera       | `CameraConfig` — [`contract/camera.yaml`](../contract/camera.yaml)                                    | contracted (the renderer writes it, Go reads it)                                                                     |
+| llama-server | a models list in `config.json`, fronted by llama-swap                                                 | image-owned — the entrypoint defines and reads the shape (a bash consumer, no codegen), like ml-inference's manifest |
+| ML inference | **none** — reads no `config.json`; configured by env (`ML_MODELS_DIR`) + the mounted model repository | domain-only                                                                                                          |
 
 A missing or malformed `config.json` on a component that requires it is a **permanent**
 boot failure — exit `ExitConfigError` (below), not a retry.
@@ -107,14 +158,14 @@ the line between the two.
 ## Exit codes: how a component reports a fatal boot
 
 A component tells the orchestrator how to react to a fatal failure through its **process
-exit code**. Only a *permanent* failure gets a dedicated code; everything else is
+exit code**. Only a _permanent_ failure gets a dedicated code; everything else is
 transient.
 
-| Exit | Meaning | Orchestrator reaction |
-| :--: | --- | --- |
-| `0` | clean shutdown | done |
-| `78` | **permanent config error** (`ExitConfigError`, sysexits `EX_CONFIG`) — a restart fails identically | mark the deployment failed; **stop retrying** |
-| any other nonzero | transient failure — may clear on a later start | may restart the container |
+|       Exit        | Meaning                                                                                            | Orchestrator reaction                         |
+| :---------------: | -------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+|        `0`        | clean shutdown                                                                                     | done                                          |
+|       `78`        | **permanent config error** (`ExitConfigError`, sysexits `EX_CONFIG`) — a restart fails identically | mark the deployment failed; **stop retrying** |
+| any other nonzero | transient failure — may clear on a later start                                                     | may restart the container                     |
 
 In Go, components go through [`go/component/boot`](../go/component/boot/boot.go) rather
 than exiting by hand:
@@ -134,7 +185,7 @@ sink, no log shipper, no rotation. The container runtime captures the stream, an
 reader routes it: **Ranger** in the hosted path, `docker logs` or a collector in OSS.
 
 A component **stamps no producer identity** on its lines. A log line is identified by
-the *stream it is read from* (the container it came out of), not a field it carries — so
+the _stream it is read from_ (the container it came out of), not a field it carries — so
 the component never needs to know its own container name or deployment id. In Go this is
 the [`go/logging`](../go/logging) package: `logging.Configure(cfg)` sets the stdout
 level once at boot (default `info`), and the shared `logging.Logger` is used everywhere

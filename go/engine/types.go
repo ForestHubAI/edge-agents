@@ -74,17 +74,16 @@ type Secrets map[string]string
 // ResourceMapping binds a binding-free workflow's logical resource ids to
 // concrete platform resources, keyed by workflow resource id. Mirrors the
 // engineapi wire shape.
-type ResourceMapping map[string]ResourceBinding
+type ResourceMapping map[string]ResourceAddress
 
-// ResourceBinding is how one workflow resource binds to the environment. Ref is
-// the shared platform resource it points at (driver instance id in the boot
-// DeviceManifest, or external resource id in ExternalResources); the engine
-// picks the pool by the workflow resource's type. Index is the optional
-// per-channel physical sub-address within that resource (GPIO line, or ADC/PWM/
-// DAC channel number); nil for UART/MQTT/memory/model.
-type ResourceBinding struct {
-	Ref   string `json:"ref"`
-	Index *int   `json:"index,omitempty"`
+// ResourceAddress is how one workflow resource binds to the environment. Ref is
+// the shared platform resource it points at (driver instance id in DeviceManifest,
+// or external resource id in ExternalResources). The optional sub-address fields
+// selects one served unit within that resource and is kind-specific.
+type ResourceAddress struct {
+	Ref   string  `json:"ref"`
+	Index *int    `json:"index,omitempty"`
+	Model *string `json:"model,omitempty"`
 }
 
 // DeviceManifest is the hardware the engine opens drivers for, keyed by
@@ -126,19 +125,19 @@ type PWMConfig struct {
 // ML model is served from), and capture clients from Cameras (the component
 // endpoint each declared camera channel is read from).
 type ExternalResources struct {
-	MQTTs       map[string]MQTTConnection
+	MQTTs       map[string]MQTTConfig
 	Providers   map[string]LLMProviderConfig
 	MLInference map[string]MLInferenceConfig
 	Cameras     map[string]CameraConfig
 }
 
 // MLInferenceConfig is the resolved connection to an ML inference component the
-// engine doesn't ship. The declared workflow model supplies the id; this
-// supplies how to reach the component and the name it selects on. Model is sent
-// per request, so many models may share one endpoint.
+// engine doesn't ship. The declared workflow model supplies the id; this supplies
+// how to reach the component. The name the component selects on is the binding's
+// Model sub-address (ResourceAddress.Model), sent per request, so many models may
+// share one endpoint.
 type MLInferenceConfig struct {
-	URL   string
-	Model string
+	URL string
 }
 
 // CameraConfig is the resolved connection to a camera capture component the
@@ -174,7 +173,7 @@ type LLMProviderConfig struct {
 	APIKey   string
 }
 
-type MQTTConnection struct {
+type MQTTConfig struct {
 	BrokerURL       string    `json:"brokerUrl"`
 	ClientID        string    `json:"clientId,omitempty"`
 	Username        string    `json:"username,omitempty"`

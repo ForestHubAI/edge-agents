@@ -124,11 +124,17 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ex
 		if slices.Contains(caps, llmproxy.CapabilityEmbedding) {
 			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted providers yet (no dimension in the workflow declaration)", m.Id)
 		}
+		// The engine routes on the workflow model id; the server serves it under
+		// the address's model sub-address, which the mapping must supply (the
+		// endpoint fronts several models and selects one by this name).
+		if b.Model == nil || *b.Model == "" {
+			return nil, fmt.Errorf("model %q: mapped to %q but the address carries no model name for the self-hosted endpoint to select on", m.Id, b.Ref)
+		}
 		endpoints = append(endpoints, selfhosted.ModelEndpoint{
+			ID:           llmproxy.ModelID(b.Model),
+			Label:        m.Label,
 			URL:          cfg.URL,
 			APIKey:       cfg.APIKey,
-			ID:           llmproxy.ModelID(m.Id),
-			Label:        m.Label,
 			Capabilities: caps,
 		})
 	}

@@ -58,7 +58,7 @@ components:
           description: "Structured config for the component, frozen at packaging time. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets."
         volumes:
           type: array
-          description: 'Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files.'
+          description: 'Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace". Empty when the component is stateless and mounts nothing beyond its config files.'
           items:
             type: string
         devices:

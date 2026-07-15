@@ -20,21 +20,23 @@ export interface components {
         };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id. */
         ResourceMapping: {
-            [key: string]: components["schemas"]["ResourceBinding"];
+            [key: string]: components["schemas"]["ResourceAddress"];
         };
-        /** @description How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`. */
-        ResourceBinding: {
+        /** @description Where one workflow resource resolves to: the shared platform resource `ref` it maps to, plus an optional sub-address selecting one served unit within it. */
+        ResourceAddress: {
             /** @description Shared platform resource id this binds to. */
             ref: string;
-            /** @description Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address. */
+            /** @description Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only. */
             index?: number;
+            /** @description Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings. */
+            model?: string;
         };
         /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id. */
         ExternalResources: {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConnection"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
         /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
@@ -47,7 +49,7 @@ export interface components {
             /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
             url?: string;
         };
-        /** @description Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential. */
+        /** @description Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
         MLInferenceConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -56,8 +58,6 @@ export interface components {
             type: "ml-inference";
             /** @description Base URL of the inference component (http:// or https://). */
             url: string;
-            /** @description Model name the component selects on. */
-            model: string;
         };
         /** @description Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
         CameraConfig: {
@@ -70,7 +70,7 @@ export interface components {
             url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */
-        MQTTConnection: {
+        MQTTConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}

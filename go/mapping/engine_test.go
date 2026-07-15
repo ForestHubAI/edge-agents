@@ -16,7 +16,7 @@ import (
 
 func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	var mqtt engineapi.ExternalResourceConfig
-	require.NoError(t, mqtt.FromMQTTConnection(engineapi.MQTTConnection{
+	require.NoError(t, mqtt.FromMQTTConfig(engineapi.MQTTConfig{
 		Type:      engineapi.Mqtt,
 		BrokerURL: "tcp://broker:1883",
 		ClientID:  pointer.Ptr("client-1"),
@@ -33,9 +33,8 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	}))
 	var ml engineapi.ExternalResourceConfig
 	require.NoError(t, ml.FromMLInferenceConfig(engineapi.MLInferenceConfig{
-		Type:  engineapi.MlInference,
-		Url:   "http://onnx:8000",
-		Model: "yolov8n",
+		Type: engineapi.MlInference,
+		Url:  "http://onnx:8000",
 	}))
 	var cam engineapi.ExternalResourceConfig
 	require.NoError(t, cam.FromCameraConfig(engineapi.CameraConfig{
@@ -71,14 +70,13 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	// Credential-free component arms route by discriminator too.
 	require.Len(t, out.MLInference, 1)
 	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
-	assert.Equal(t, "yolov8n", out.MLInference["ml-1"].Model)
 	require.Len(t, out.Cameras, 1)
 	assert.Equal(t, "http://camera:8100", out.Cameras["cam-1"].URL)
 }
 
 func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
 	var mqtt engineapi.ExternalResourceConfig
-	require.NoError(t, mqtt.FromMQTTConnection(engineapi.MQTTConnection{
+	require.NoError(t, mqtt.FromMQTTConfig(engineapi.MQTTConfig{
 		Type:      engineapi.Mqtt,
 		BrokerURL: "tcp://broker:1883",
 	}))

@@ -171,7 +171,12 @@ func buildDeployML(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *eng
 		if err != nil {
 			return nil, fmt.Errorf("model %q: building inference client: %w", m.Id, err)
 		}
-		endpoints[m.Id] = &mlEndpoint{client: client, modelName: cfg.Model}
+		// The component selects on the address's model sub-address, which the
+		// mapping must supply (one component fronts a repository of models).
+		if b.Model == nil || *b.Model == "" {
+			return nil, fmt.Errorf("model %q: mapped to %q but the address carries no model name for the component to select on", m.Id, b.Ref)
+		}
+		endpoints[m.Id] = &mlEndpoint{client: client, modelName: *b.Model}
 	}
 	return endpoints, nil
 }

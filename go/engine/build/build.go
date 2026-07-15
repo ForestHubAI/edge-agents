@@ -91,7 +91,7 @@ func declaredMemoryFiles(wf *workflowapi.Workflow) ([]workflowapi.MemoryFile, er
 
 // buildCollections resolves each declared VectorDatabase to its collection id
 // through the resource mapping, skipping other memory kinds. Hard-fails on a
-// missing binding, exactly as buildChannels does for hardware/MQTT channels.
+// missing mapping entry, exactly as buildChannels does for hardware/MQTT channels.
 func buildCollections(wf *workflowapi.Workflow, dm engine.ResourceMapping) (map[string]string, error) {
 	out := make(map[string]string)
 	for i, m := range wf.Memory {
@@ -106,7 +106,7 @@ func buildCollections(wf *workflowapi.Workflow, dm engine.ResourceMapping) (map[
 		if err != nil {
 			return nil, fmt.Errorf("memory[%d]: %w", i, err)
 		}
-		b, err := bindingFor(dm, vd.Id)
+		b, err := addressFor(dm, vd.Id)
 		if err != nil {
 			return nil, err
 		}

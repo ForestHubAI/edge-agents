@@ -14,6 +14,7 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/api/mlinferenceapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,10 +31,11 @@ func mlModel(t *testing.T, id string) workflowapi.Model {
 }
 
 func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
+	name := "yolov8n"
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
-	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1"}}
+	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1", Model: &name}}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
-		"onnx-1": {URL: "http://onnx:9000", Model: "yolov8n"},
+		"onnx-1": {URL: "http://onnx:9000"},
 	}}
 
 	eps, err := buildDeployML(wf, dm, ext)
@@ -41,9 +43,23 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	require.Len(t, eps, 1)
 	ep := eps["yolo"]
 	require.NotNil(t, ep)
-	// The component selector comes from the config's model name, not the workflow id.
+	// The component selector comes from the address's model sub-address, not the workflow id.
 	assert.Equal(t, "yolov8n", ep.modelName)
 	assert.NotNil(t, ep.client)
+}
+
+func TestBuildDeployML_UnsetModelFails(t *testing.T) {
+	// A model-bearing address must carry the name the component selects on; a
+	// missing one is a malformed mapping, not a silent default.
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
+	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1"}}
+	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
+		"onnx-1": {URL: "http://onnx:9000"},
+	}}
+
+	_, err := buildDeployML(wf, dm, ext)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no model name")
 }
 
 func TestBuildDeployML_SkipsLLMModel(t *testing.T) {
@@ -79,7 +95,10 @@ func TestBuildDeployML_MultipleModelsShareURL(t *testing.T) {
 		mlModel(t, "yolo"),
 		mlModel(t, "resnet"),
 	}}
-	dm := engine.ResourceMapping{"yolo": {Ref: "onnx"}, "resnet": {Ref: "onnx"}}
+	dm := engine.ResourceMapping{
+		"yolo":   {Ref: "onnx", Model: pointer.Ptr("yolov8n")},
+		"resnet": {Ref: "onnx", Model: pointer.Ptr("resnet50")},
+	}
 	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
 		"onnx": {URL: "http://onnx:9000"},
 	}}

@@ -48,7 +48,7 @@ func TestBuildCollections_ResolvesVectorDatabase(t *testing.T) {
 	assert.Equal(t, map[string]string{"kb-1": "collection-abc"}, got)
 }
 
-func TestBuildCollections_MissingBindingFails(t *testing.T) {
+func TestBuildCollections_MissingAddressFails(t *testing.T) {
 	wf := &workflowapi.Workflow{Memory: []workflowapi.Memory{vectorDB(t, "kb-1")}}
 
 	_, err := buildCollections(wf, nil)
@@ -63,7 +63,7 @@ func TestBuildCollections_SkipsMemoryFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]string{"kb-1": "collection-abc"}, got)
 	_, hasFile := got["f-1"]
-	assert.False(t, hasFile, "MemoryFile must not require a collection binding")
+	assert.False(t, hasFile, "MemoryFile must not require a collection mapping entry")
 }
 
 func TestDeclaredMemoryFiles_ExtractsOnlyMemoryFiles(t *testing.T) {

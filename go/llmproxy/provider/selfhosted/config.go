@@ -17,10 +17,10 @@ type Config struct {
 
 // ModelEndpoint describes a single inference server URL and the model it serves.
 type ModelEndpoint struct {
-	URL           string
-	APIKey        string
 	ID            llmproxy.ModelID
 	Label         string
+	URL           string
+	APIKey        string
 	Capabilities  []llmproxy.ModelCapability
 	Dimension     *int // Only needed for embedding models
 	TokenModifier float64

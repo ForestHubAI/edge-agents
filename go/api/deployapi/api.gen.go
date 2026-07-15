@@ -60,7 +60,7 @@ type DeployComponent struct {
 	// User Container user as "UID[:GID]", e.g. "0:0" for root. Set when a nonroot image must reach root-owned resources. Omit to use the image's default user.
 	User *string `json:"user,omitempty"`
 
-	// Volumes Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files.
+	// Volumes Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace". Empty when the component is stateless and mounts nothing beyond its config files.
 	Volumes *[]string `json:"volumes,omitempty"`
 }
 

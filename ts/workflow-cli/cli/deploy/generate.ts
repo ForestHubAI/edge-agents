@@ -452,10 +452,10 @@ ${runBlock}
 ## Agent memory & durable data
 
 Each container's durable data is a plain host directory in this bundle,
-\`./workspaces/<container>/\` (mounted read-write at \`/var/lib/foresthub/workspace\`):
+\`./workspaces/<container>/\`, mounted at \`/var/lib/foresthub/workspace\`:
 
-- \`./workspaces/engine/\` — the engine's memory files.
-- \`./workspaces/llama-server/\` — your on-device models' GGUF weights (see above).
+- \`./workspaces/engine/\` — the engine's memory files, mounted **read-write** (the engine writes here).
+- \`./workspaces/llama-server/\` — your on-device models' GGUF weights, mounted **read-only** (see above).
 
 These are ordinary files: back them up by copying the folder, inspect them directly.
 They persist across restarts and redeploys **as long as you keep this bundle directory

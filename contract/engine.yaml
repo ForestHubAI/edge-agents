@@ -34,11 +34,11 @@ components:
       type: object
       description: "Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id."
       additionalProperties:
-        $ref: "#/components/schemas/ResourceBinding"
+        $ref: "#/components/schemas/ResourceAddress"
 
-    ResourceBinding:
+    ResourceAddress:
       type: object
-      description: "How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`."
+      description: "Where one workflow resource resolves to: the shared platform resource `ref` it maps to, plus an optional sub-address selecting one served unit within it."
       required: [ref]
       properties:
         ref:
@@ -46,7 +46,10 @@ components:
           description: Shared platform resource id this binds to.
         index:
           type: integer
-          description: Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
+          description: Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
+        model:
+          type: string
+          description: Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings.
 
     ExternalResources:
       type: object
@@ -57,14 +60,14 @@ components:
     ExternalResourceConfig:
       description: "Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf."
       oneOf:
-        - $ref: "#/components/schemas/MQTTConnection"
+        - $ref: "#/components/schemas/MQTTConfig"
         - $ref: "#/components/schemas/LLMProviderConfig"
         - $ref: "#/components/schemas/MLInferenceConfig"
         - $ref: "#/components/schemas/CameraConfig"
       discriminator:
         propertyName: type
         mapping:
-          mqtt: "#/components/schemas/MQTTConnection"
+          mqtt: "#/components/schemas/MQTTConfig"
           localLlm: "#/components/schemas/LLMProviderConfig"
           backendLlm: "#/components/schemas/LLMProviderConfig"
           selfhostedLlm: "#/components/schemas/LLMProviderConfig"
@@ -88,8 +91,8 @@ components:
 
     MLInferenceConfig:
       type: object
-      description: "Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential."
-      required: [type, url, model]
+      description: "Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential."
+      required: [type, url]
       properties:
         type:
           type: string
@@ -97,9 +100,6 @@ components:
         url:
           type: string
           description: Base URL of the inference component (http:// or https://).
-        model:
-          type: string
-          description: Model name the component selects on.
 
     CameraConfig:
       type: object
@@ -113,7 +113,7 @@ components:
           type: string
           description: Base URL of the capture component (http:// or https://).
 
-    MQTTConnection:
+    MQTTConfig:
       type: object
       description: "Resolved connection metadata for an MQTT broker."
       required: [type, brokerUrl]

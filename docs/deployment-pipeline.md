@@ -158,6 +158,41 @@ for a worked custom component.
 | images                | build (local) or pull (registry)             | local daemon                     |   n/a   | referenced by the `image` string  |
 | running containers    | Stage 4 runtime                              | device                           |    —    |                 —                 |
 
+## Bundle layout: what the OSS CLI writes
+
+The catalog above says _what_ each artifact is; this says _where_ it lands. The OSS CLI
+writes everything under one **bundle dir**; mount sources are relative to it and the
+in-container targets are the fixed component-contract constants
+([`component-contract.md`](./component-contract.md)). Each mount is `source :
+in-container-path : mode`:
+
+```
+<bundle-dir>/
+├─ docker-compose.yml         mounts everything below
+├─ <name>-config.json         per component with a config blob → ro at /etc/foresthub/config.json
+│                               (engine; llama-server when a device LLM; a custom component that declares one)
+├─ engine-secrets.json        resource credentials, when any → ro at /etc/foresthub/secrets.json   (0600)
+├─ engine.env  <name>.env     operator env scalars, compose env_file (not mounted)                  (0600)
+├─ deployment-spec.json       the resolved record; not mounted
+├─ README.md                  operator guide
+└─ workspaces/<container>/    per-container durable state
+   ├─ engine/                 engine memory              → rw at /var/lib/foresthub/workspace
+   ├─ llama-server/ <*.gguf>  operator-staged GGUF weights → ro at /var/lib/foresthub/workspace
+   ├─ ml-inference/<model>/   operator-staged ONNX bundle, one sub-folder per model → ro at same
+   └─ camera/cameras.json     generated (not operator-staged) → ro at /etc/foresthub/config.json
+```
+
+The split follows config-vs-workspace ([`component-contract.md`](./component-contract.md)):
+`<name>-config.json` is the spec-derived config blob, written and mounted read-only;
+`workspaces/<container>/` is durable state the renderer only pre-creates empty, filled by
+the operator (weights, ONNX repos) or the component (engine memory). camera is the one
+exception — its config is not a spec `config` blob; the renderer writes `cameras.json`
+_into_ `workspaces/camera/` and mounts that file at the config path.
+
+Two entries have no render role and just co-locate in the bundle: `deployment-spec.json`
+is the Stage-1 resolver's artifact (see the catalog), and `README.md` is an OSS-only
+operator guide.
+
 ## Notes
 
 - **The OSS/Paid split is only about _who_ runs Stages 1 and 2.** The artifact

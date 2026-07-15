@@ -13,7 +13,7 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │   "I need a GPIO input `door_sensor`, an MQTT channel `alarm`, model `mistral-7b`" │
 └───────────────────────────────────────────────────────────────────────────┘
             │
-            │  ResourceMapping : logical id ─► ResourceBinding{ ref, index? }
+            │  ResourceMapping : logical id ─► ResourceAddress{ ref, index? | model? }
             │  (one entry per channel id and per declared model id)
             ▼
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -23,9 +23,9 @@ engine's boot plumbing. It happens in three layers, joined by two mappings:
 │     gpios/adcs/dacs/serials/pwms : ref ─► {chip|device|port}                │
 │                                                                             │
 │   ExternalResources      ◄── environment-supplied facts (brokers, endpoints)│
-│     MQTTs       : ref ─► MQTTConnection   {brokerUrl, prefixes, will, ...}   │
+│     MQTTs       : ref ─► MQTTConfig   {brokerUrl, prefixes, will, ...}   │
 │     Providers   : ref ─► LLMProviderConfig {type, provider|url}             │
-│     MLInference : ref ─► MLInferenceConfig {url, model} (ML component)         │
+│     MLInference : ref ─► MLInferenceConfig {url}       (ML component)         │
 │     Cameras     : ref ─► CameraConfig      {url}        (camera component)     │
 │                                                                             │
 │   Manifest and ExternalResources ride in the one EngineConfig, read once at │
@@ -106,18 +106,23 @@ the inference endpoint are *environment facts* and are supplied separately.
 
 ---
 
-## The join — ResourceMapping & ResourceBinding
+## The join — ResourceMapping & ResourceAddress
 
 `contract/engine.yaml` → `go/engine/types.go`:
 
 ```go
-type ResourceMapping map[string]ResourceBinding   // keyed by workflow logical id
+type ResourceMapping map[string]ResourceAddress   // keyed by workflow logical id
 
-type ResourceBinding struct {
-    Ref   string `json:"ref"`             // shared platform resource id
-    Index *int   `json:"index,omitempty"` // physical sub-address; nil for UART/MQTT/CAMERA/memory/model
+type ResourceAddress struct {
+    Ref   string  `json:"ref"`             // shared platform resource id
+    Index *int    `json:"index,omitempty"` // driver sub-address (GPIO line / ADC-PWM-DAC channel)
+    Model *string `json:"model,omitempty"` // endpoint sub-address (served model name); nil → the logical id
 }
 ```
+
+The sub-address is kind-specific and mutually exclusive: `Index` for a driver's
+physical line/channel, `Model` for an inference endpoint's served model. Both are
+nil for UART/MQTT/CAMERA/memory.
 
 One entry per declared channel id **and** per declared model id (and per declared
 `VectorDatabase`, see the RAG note). The pool a `ref` resolves against is **not**
@@ -185,14 +190,14 @@ engine doesn't ship. Also carried in the boot `EngineConfig`:
 
 ```go
 type ExternalResources struct {
-    MQTTs       map[string]MQTTConnection    // ref ─► broker connection
+    MQTTs       map[string]MQTTConfig    // ref ─► broker connection
     Providers   map[string]LLMProviderConfig // ref ─► one LLM provider instance
     MLInference map[string]MLInferenceConfig // ref ─► ML inference component
     Cameras     map[string]CameraConfig      // ref ─► camera capture component
 }
 ```
 
-`MQTTConnection` carries `brokerUrl`, optional `clientId`, the `publishPrefix` /
+`MQTTConfig` carries `brokerUrl`, optional `clientId`, the `publishPrefix` /
 `subscribePrefix` the engine prepends to workflow topics, and an optional last-will.
 `LLMProviderConfig` is **one provider instance** the engine registers into its single
 llmproxy, discriminated by `Kind`:
@@ -214,10 +219,11 @@ api→domain boundary. A catalog provider's served model ids are its built-in
 `AvailableModels`, so they are **not** listed here (and, per the join above, carry no
 mapping entry).
 
-`MLInferenceConfig` carries a `url` + the `model` the component selects on;
-`CameraConfig` carries just a `url` — the component owns a set of cameras and the one to
-read is named per request. Both are trusted in-deployment endpoints with no
-credential.
+`MLInferenceConfig` and `CameraConfig` each carry just a `url` — the component owns a
+set of served units (models / cameras) and the one to use is named per request. For
+ML the served model name is the binding's `Model` sub-address (so many models share
+one endpoint); a camera is named by the capture node. Both are trusted in-deployment
+endpoints with no credential.
 
 `ExternalResourceConfig` is a tagged union discriminated by `type`
 (`mqtt` | `localLlm` | `backendLlm` | `selfhostedLlm` | `ml-inference` | `camera`);
@@ -265,7 +271,9 @@ builds **one** provider per `ext.Providers` entry and composes them into the
 `llmproxy.Client` the runner uses:
 
 - `selfhostedLlm` → the declared models bound to that ref (via the mapping) become
-  `ModelEndpoint`s on the shared `selfhosted.Provider`.
+  `ModelEndpoint`s on the shared `selfhosted.Provider`. Each endpoint routes on the
+  workflow model id (`RouteID`) but sends the binding's `model` upstream (`UpstreamID`,
+  defaulting to the id) — so the workflow id can differ from the server's model name.
 - `localLlm` → the named catalog adapter, constructed by the llmproxy registry from
   the API key (`llmcfg.Build`).
 - `backendLlm` → a stand-in that forwards to the backend client, claiming that
@@ -319,14 +327,14 @@ Tracing boot through `cmd/engine/main.go` and `go/engine/build/`:
 
    ```
    GPIOIN "door_sensor"
-     ├─ bindingFor(dm, "door_sensor")   → ResourceBinding{ref:"gpiochip0", index:17}
+     ├─ bindingFor(dm, "door_sensor")   → ResourceAddress{ref:"gpiochip0", index:17}
      ├─ indexFor(b, "door_sensor")      → 17                     (nil index = error)
      ├─ drivers.GPIO("gpiochip0")       → GPIODriver             (not registered = error)
      └─ &channel.GPIOInput{Driver, Line:17, Bias, DebounceMs}
 
    MQTT "alarm"
-     ├─ bindingFor(dm, "alarm")         → ResourceBinding{ref:"site-broker"}
-     ├─ ext.MQTTs["site-broker"]        → MQTTConnection          (missing = error)
+     ├─ bindingFor(dm, "alarm")         → ResourceAddress{ref:"site-broker"}
+     ├─ ext.MQTTs["site-broker"]        → MQTTConfig          (missing = error)
      ├─ transports.MQTT("site-broker")  → MQTTTransport
      └─ &channel.MQTT{Transport, Topic, PublishPrefix, SubscribePrefix}
    ```

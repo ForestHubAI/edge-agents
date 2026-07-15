@@ -30,7 +30,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 		return nil
 	}
 	out := &engine.ExternalResources{
-		MQTTs:       make(map[string]engine.MQTTConnection),
+		MQTTs:       make(map[string]engine.MQTTConfig),
 		Providers:   make(map[string]engine.LLMProviderConfig),
 		MLInference: make(map[string]engine.MLInferenceConfig),
 		Cameras:     make(map[string]engine.CameraConfig),
@@ -42,11 +42,11 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 		}
 		switch disc {
 		case string(engineapi.Mqtt):
-			c, err := rc.AsMQTTConnection()
+			c, err := rc.AsMQTTConfig()
 			if err != nil {
 				continue
 			}
-			mc := engine.MQTTConnection{
+			mc := engine.MQTTConfig{
 				BrokerURL:       c.BrokerURL,
 				ClientID:        pointer.Val(c.ClientID),
 				Username:        pointer.Val(c.Username),
@@ -79,7 +79,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets engine.S
 			if err != nil {
 				continue
 			}
-			out.MLInference[id] = engine.MLInferenceConfig{URL: c.Url, Model: c.Model}
+			out.MLInference[id] = engine.MLInferenceConfig{URL: c.Url}
 		case string(engineapi.Camera):
 			c, err := rc.AsCameraConfig()
 			if err != nil {
@@ -107,7 +107,7 @@ func ResourceMappingToDomain(in *engineapi.ResourceMapping) engine.ResourceMappi
 	}
 	out := make(engine.ResourceMapping, len(*in))
 	for k, v := range *in {
-		out[k] = engine.ResourceBinding{Ref: v.Ref, Index: v.Index}
+		out[k] = engine.ResourceAddress{Ref: v.Ref, Index: v.Index, Model: v.Model}
 	}
 	return out
 }

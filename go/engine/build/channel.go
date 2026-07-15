@@ -34,12 +34,12 @@ type channels struct {
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
-// The workflow itself is binding-free; every channel's binding comes from the
+// The workflow itself is mapping-free; every channel's address comes from the
 // flat resource mapping dm (channel id → platform resource id). Hardware channels
 // resolve that id through drvs (driver instance in the boot device manifest);
 // MQTT channels resolve it through ext + transports (external resource id →
-// MQTT config + open transport). Hard-fails when a channel has no binding in the
-// mapping, or an MQTT channel references a config externalResources doesn't carry —
+// MQTT config + open transport). Hard-fails when a channel has no mapping entry,
+// or an MQTT channel references a config externalResources doesn't carry —
 // silent degradation hides config bugs.
 func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
 	ch := &channels{
@@ -59,7 +59,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 		}
 		switch x := val.(type) {
 		case workflowapi.GPIOINChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -78,7 +78,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				DebounceMs: x.DebounceMs,
 			}
 		case workflowapi.GPIOOUTChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -95,7 +95,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				Line:   line,
 			}
 		case workflowapi.ADCChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -112,7 +112,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				Channel: channelNum,
 			}
 		case workflowapi.DACChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -129,7 +129,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				Channel: channelNum,
 			}
 		case workflowapi.PWMChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -147,7 +147,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				Frequency: x.Frequency,
 			}
 		case workflowapi.UARTChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -157,7 +157,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
 		case workflowapi.MQTTChannel:
-			b, err := bindingFor(dm, x.Id)
+			b, err := addressFor(dm, x.Id)
 			if err != nil {
 				return nil, err
 			}
@@ -182,7 +182,7 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 				SubscribePrefix: cfg.SubscribePrefix,
 			}
 		case workflowapi.LOGChannel:
-			// No bindingFor: a log channel resolves to the ambient engine logger,
+			// No addressFor: a log channel resolves to the ambient engine logger,
 			// not a device driver or external resource, so the mapping carries no
 			// entry for it. Level is contract-constrained to a known enum; parse
 			// defensively and hard-fail rather than silently logging at the wrong
@@ -204,28 +204,27 @@ func buildChannels(apiChannels []workflowapi.Channel, dm engine.ResourceMapping,
 	return ch, nil
 }
 
-// bindingFor resolves a channel's binding from the resource mapping. The workflow
-// no longer carries the binding, so a missing entry is a config
-// misconfiguration, not silent degradation. The ref resolves against the device
-// driver registry (hardware) or external resources (MQTT) at the call site, by
-// channel type.
-func bindingFor(dm engine.ResourceMapping, channelID string) (engine.ResourceBinding, error) {
+// addressFor resolves a channel's address from the resource mapping. The workflow
+// no longer carries it, so a missing entry is a config misconfiguration, not
+// silent degradation. The ref resolves against the device driver registry
+// (hardware) or external resources (MQTT) at the call site, by channel type.
+func addressFor(dm engine.ResourceMapping, channelID string) (engine.ResourceAddress, error) {
 	if dm == nil {
-		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no resource mapping provided", channelID)
+		return engine.ResourceAddress{}, fmt.Errorf("channel %s: no resource mapping provided", channelID)
 	}
 	b, ok := dm[channelID]
 	if !ok || b.Ref == "" {
-		return engine.ResourceBinding{}, fmt.Errorf("channel %s: no binding in resource mapping", channelID)
+		return engine.ResourceAddress{}, fmt.Errorf("channel %s: no mapping entry", channelID)
 	}
 	return b, nil
 }
 
-// indexFor returns the binding's physical sub-address (GPIO line / ADC-PWM-DAC
+// indexFor returns the address's physical sub-address (GPIO line / ADC-PWM-DAC
 // channel). Addressable channels require it; a nil index is a config
 // misconfiguration.
-func indexFor(b engine.ResourceBinding, channelID string) (int, error) {
+func indexFor(b engine.ResourceAddress, channelID string) (int, error) {
 	if b.Index == nil {
-		return 0, fmt.Errorf("channel %s: binding has no index (line/channel)", channelID)
+		return 0, fmt.Errorf("channel %s: address has no index (line/channel)", channelID)
 	}
 	return *b.Index, nil
 }

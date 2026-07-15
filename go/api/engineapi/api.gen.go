@@ -62,13 +62,13 @@ func (e MLInferenceConfigType) Valid() bool {
 	}
 }
 
-// Defines values for MQTTConnectionType.
+// Defines values for MQTTConfigType.
 const (
-	Mqtt MQTTConnectionType = "mqtt"
+	Mqtt MQTTConfigType = "mqtt"
 )
 
-// Valid indicates whether the value is a known member of the MQTTConnectionType enum.
-func (e MQTTConnectionType) Valid() bool {
+// Valid indicates whether the value is a known member of the MQTTConfigType enum.
+func (e MQTTConfigType) Valid() bool {
 	switch e {
 	case Mqtt:
 		return true
@@ -154,11 +154,9 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// MLInferenceConfig Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is set by `model` below. A trusted in-deployment endpoint — no credential.
+// MLInferenceConfig Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
 type MLInferenceConfig struct {
-	// Model Model name the component selects on.
-	Model string                `json:"model"`
-	Type  MLInferenceConfigType `json:"type"`
+	Type MLInferenceConfigType `json:"type"`
 
 	// Url Base URL of the inference component (http:// or https://).
 	Url string `json:"url"`
@@ -167,8 +165,8 @@ type MLInferenceConfig struct {
 // MLInferenceConfigType defines model for MLInferenceConfig.Type.
 type MLInferenceConfigType string
 
-// MQTTConnection Resolved connection metadata for an MQTT broker.
-type MQTTConnection struct {
+// MQTTConfig Resolved connection metadata for an MQTT broker.
+type MQTTConfig struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
 
@@ -176,14 +174,14 @@ type MQTTConnection struct {
 	PublishPrefix *string `json:"publishPrefix,omitempty"`
 
 	// SubscribePrefix Topic prefix for workflow-level subscribe filters ({networkId}/+/).
-	SubscribePrefix *string            `json:"subscribePrefix,omitempty"`
-	Type            MQTTConnectionType `json:"type"`
-	Username        *string            `json:"username,omitempty"`
-	Will            *MQTTWill          `json:"will,omitempty"`
+	SubscribePrefix *string        `json:"subscribePrefix,omitempty"`
+	Type            MQTTConfigType `json:"type"`
+	Username        *string        `json:"username,omitempty"`
+	Will            *MQTTWill      `json:"will,omitempty"`
 }
 
-// MQTTConnectionType defines model for MQTTConnection.Type.
-type MQTTConnectionType string
+// MQTTConfigType defines model for MQTTConfig.Type.
+type MQTTConfigType string
 
 // MQTTWill defines model for MQTTWill.
 type MQTTWill struct {
@@ -221,17 +219,20 @@ type RagQueryResult struct {
 	Score      float64 `json:"score"`
 }
 
-// ResourceBinding How one workflow resource binds to the environment: a shared platform resource `ref` with an optional per-channel physical sub-address `index`.
-type ResourceBinding struct {
-	// Index Per-channel physical sub-address within the driver (GPIO line / ADC-PWM-DAC channel). Omitted when the resource has no sub-address.
+// ResourceAddress Where one workflow resource resolves to: the shared platform resource `ref` it maps to, plus an optional sub-address selecting one served unit within it.
+type ResourceAddress struct {
+	// Index Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
 	Index *int `json:"index,omitempty"`
+
+	// Model Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings.
+	Model *string `json:"model,omitempty"`
 
 	// Ref Shared platform resource id this binds to.
 	Ref string `json:"ref"`
 }
 
 // ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
-type ResourceMapping map[string]ResourceBinding
+type ResourceMapping map[string]ResourceAddress
 
 // SerialConfig defines model for SerialConfig.
 type SerialConfig struct {
@@ -242,22 +243,22 @@ type SerialConfig struct {
 	Device string `json:"device"`
 }
 
-// AsMQTTConnection returns the union data inside the ExternalResourceConfig as a MQTTConnection
-func (t ExternalResourceConfig) AsMQTTConnection() (MQTTConnection, error) {
-	var body MQTTConnection
+// AsMQTTConfig returns the union data inside the ExternalResourceConfig as a MQTTConfig
+func (t ExternalResourceConfig) AsMQTTConfig() (MQTTConfig, error) {
+	var body MQTTConfig
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromMQTTConnection overwrites any union data inside the ExternalResourceConfig as the provided MQTTConnection
-func (t *ExternalResourceConfig) FromMQTTConnection(v MQTTConnection) error {
+// FromMQTTConfig overwrites any union data inside the ExternalResourceConfig as the provided MQTTConfig
+func (t *ExternalResourceConfig) FromMQTTConfig(v MQTTConfig) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeMQTTConnection performs a merge with any union data inside the ExternalResourceConfig, using the provided MQTTConnection
-func (t *ExternalResourceConfig) MergeMQTTConnection(v MQTTConnection) error {
+// MergeMQTTConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MQTTConfig
+func (t *ExternalResourceConfig) MergeMQTTConfig(v MQTTConfig) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -369,7 +370,7 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 	case "ml-inference":
 		return t.AsMLInferenceConfig()
 	case "mqtt":
-		return t.AsMQTTConnection()
+		return t.AsMQTTConfig()
 	case "selfhostedLlm":
 		return t.AsLLMProviderConfig()
 	default:

@@ -38,7 +38,7 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
-            /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace" or "./data:/data:ro". Empty when the component is stateless and mounts nothing beyond its config files. */
+            /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace". Empty when the component is stateless and mounts nothing beyond its config files. */
             volumes?: string[];
             /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". Empty when the component binds no cdev hardware. */
             devices?: string[];

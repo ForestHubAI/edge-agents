@@ -357,7 +357,7 @@ export function buildDeploymentSpec(
   for (const ch of req.mqttChannels) {
     const b = inputs.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
-    const conn: EngineSchemas["MQTTConnection"] = { type: "mqtt", brokerUrl: b.brokerUrl };
+    const conn: EngineSchemas["MQTTConfig"] = { type: "mqtt", brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
     // The password is a secret — kept out of conn (and thus the spec). It still
     // participates in the dedup key, so two channels differing only by password
@@ -381,16 +381,19 @@ export function buildDeploymentSpec(
     const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
 
+    // The endpoint fronts the model under the workflow id (llama-swap's config.json
+    // id on device; the operator's endpoint over the network — no alias input yet),
+    // so the binding's model sub-address is the workflow id.
     if (b.location === "device") {
       const ref = refs.alloc(`model:${m.id}`, basename(m.id));
-      mapping[m.id] = { ref };
+      mapping[m.id] = { ref, model: m.id };
       externalResources[ref] = { type: "selfhostedLlm", url: `http://${llamaComponentServiceName()}:${LLAMA_COMPONENT_PORT}` };
       // ctx-size is frozen here — retuning it is a re-deploy, not an env edit. The GGUF
       // is a bare filename the entrypoint resolves under the shared component workspace.
       llamaModels.push({ id: m.id, file: b.modelFile, args: ["--ctx-size", String(b.ctxSize ?? 4096)] });
     } else {
       const ref = refs.alloc(`selfhosted:${b.url}:${b.apiKey ?? ""}`, `provider-${urlHost(b.url)}`);
-      mapping[m.id] = { ref };
+      mapping[m.id] = { ref, model: m.id };
       externalResources[ref] = { type: "selfhostedLlm", url: b.url };
       // The endpoint bearer is a secret — out of the spec, returned separately.
       if (b.apiKey) resourceSecrets[ref] = b.apiKey;
@@ -441,17 +444,19 @@ export function buildDeploymentSpec(
     const b = inputs.mlModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
     const ref = refs.alloc(`ml-model:${m.id}`, basename(m.id));
-    mapping[m.id] = { ref };
+    // The model name the component selects on is the binding's sub-address, not
+    // the endpoint config — one endpoint serves many models (like GPIO lines on
+    // one chip carry their line in the binding's index).
+    mapping[m.id] = { ref, model: b.model };
 
     if (b.location === "device") {
       externalResources[ref] = {
         type: "ml-inference",
         url: `http://${mlComponentServiceName()}:${ML_COMPONENT_PORT}`,
-        model: b.model,
       };
       mlDeviceModels++;
     } else {
-      externalResources[ref] = { type: "ml-inference", url: b.url, model: b.model };
+      externalResources[ref] = { type: "ml-inference", url: b.url };
     }
   }
   // One shared component for all on-device ML models (not one per model). The model

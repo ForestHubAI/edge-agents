@@ -49,7 +49,7 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 	for _, id := range modelIDs {
 		eps = append(eps, selfhosted.ModelEndpoint{
 			URL:          "http://x:8000",
-			ID:           llmproxy.ModelID(id),
+			RouteID:      llmproxy.ModelID(id),
 			Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
 		})
 	}
@@ -62,7 +62,7 @@ func selfHosted(url string) engine.LLMProviderConfig {
 
 func TestBuildProviders_ResolvesChatModel(t *testing.T) {
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "my-llama", llmapi.Chat)}}
-	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1"}}
+	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1", Model: pointer.Ptr("my-llama")}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"prov-1": {Kind: engine.LLMSelfHosted, URL: "http://llm:8000", APIKey: "k"},
 	}}
@@ -130,7 +130,7 @@ func TestBuildProviders_MultipleModelsOneProvider(t *testing.T) {
 		llmModel(t, "a", llmapi.Chat),
 		llmModel(t, "b", llmapi.Chat),
 	}}
-	dm := engine.ResourceMapping{"a": {Ref: "p1"}, "b": {Ref: "p2"}}
+	dm := engine.ResourceMapping{"a": {Ref: "p1", Model: pointer.Ptr("a")}, "b": {Ref: "p2", Model: pointer.Ptr("b")}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"p1": selfHosted("http://a:8000"),
 		"p2": selfHosted("http://b:8000"),
