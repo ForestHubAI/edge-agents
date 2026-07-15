@@ -49,7 +49,7 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 	for _, id := range modelIDs {
 		eps = append(eps, selfhosted.ModelEndpoint{
 			URL:          "http://x:8000",
-			RouteID:      llmproxy.ModelID(id),
+			ID:           llmproxy.ModelID(id),
 			Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
 		})
 	}
@@ -62,7 +62,9 @@ func selfHosted(url string) engine.LLMProviderConfig {
 
 func TestBuildProviders_ResolvesChatModel(t *testing.T) {
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "my-llama", llmapi.Chat)}}
-	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1", Model: pointer.Ptr("my-llama")}}
+	// The address's model differs from the workflow id: the provider registers under
+	// the server id, not the workflow id.
+	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1", Model: pointer.Ptr("server-llama")}}
 	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
 		"prov-1": {Kind: engine.LLMSelfHosted, URL: "http://llm:8000", APIKey: "k"},
 	}}
@@ -74,8 +76,29 @@ func TestBuildProviders_ResolvesChatModel(t *testing.T) {
 
 	models := provs[0].AvailableModels()
 	require.Len(t, models, 1)
-	assert.Equal(t, llmproxy.ModelID("my-llama"), models[0].ID)
+	assert.Equal(t, llmproxy.ModelID("server-llama"), models[0].ID, "registered under the server model id")
 	assert.Equal(t, providerID, models[0].Provider, "model must route to its provider")
+}
+
+func TestBuildProviders_DuplicateServerModelFails(t *testing.T) {
+	// Two workflow models resolving to the same server model id on different
+	// endpoints would collide in the provider's routing map — reject at build.
+	wf := &workflowapi.Workflow{Models: []workflowapi.Model{
+		llmModel(t, "a", llmapi.Chat),
+		llmModel(t, "b", llmapi.Chat),
+	}}
+	dm := engine.ResourceMapping{
+		"a": {Ref: "p1", Model: pointer.Ptr("llama-3")},
+		"b": {Ref: "p2", Model: pointer.Ptr("llama-3")},
+	}
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+		"p1": selfHosted("http://a:8000"),
+		"p2": selfHosted("http://b:8000"),
+	}}
+
+	_, err := buildProviders(wf, dm, ext, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "server model")
 }
 
 func TestBuildProviders_UnboundModelFails(t *testing.T) {
@@ -177,16 +200,26 @@ func TestBuildProviders_BackendWithoutClientFails(t *testing.T) {
 
 func TestValidateModelsResolvable_AllResolvable(t *testing.T) {
 	wf := &workflowapi.Workflow{Nodes: []workflowapi.Node{agentNode(t, "a", "known")}}
-	assert.NoError(t, validateModelsResolvable(wf, chatClient("known")))
+	assert.NoError(t, validateModelsResolvable(wf, nil, chatClient("known")))
 }
 
 func TestValidateModelsResolvable_UnresolvableFails(t *testing.T) {
 	wf := &workflowapi.Workflow{Nodes: []workflowapi.Node{agentNode(t, "a", "ghost")}}
-	err := validateModelsResolvable(wf, chatClient("known"))
+	err := validateModelsResolvable(wf, nil, chatClient("known"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ghost")
 }
 
 func TestValidateModelsResolvable_NoAgentsPasses(t *testing.T) {
-	assert.NoError(t, validateModelsResolvable(&workflowapi.Workflow{}, chatClient()))
+	assert.NoError(t, validateModelsResolvable(&workflowapi.Workflow{}, nil, chatClient()))
+}
+
+func TestValidateModelsResolvable_TranslatesViaMapping(t *testing.T) {
+	// The agent references the workflow id; the provider serves the server id. The
+	// check must resolve through the mapping, else it falsely reports unresolvable.
+	wf := &workflowapi.Workflow{Nodes: []workflowapi.Node{agentNode(t, "a", "logical")}}
+	dm := engine.ResourceMapping{"logical": {Ref: "p", Model: pointer.Ptr("server-model")}}
+	assert.NoError(t, validateModelsResolvable(wf, dm, chatClient("server-model")))
+	// Without the mapping the workflow id doesn't match the served id.
+	assert.Error(t, validateModelsResolvable(wf, nil, chatClient("server-model")))
 }

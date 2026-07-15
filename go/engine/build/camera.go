@@ -13,6 +13,7 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
 
 // captureClientTimeout bounds a single capture call. It sits above the component's
@@ -73,7 +74,7 @@ func captureErrorMessage(resp *cameraapi.CaptureResponse) string {
 // missing config is a deploy error. Many cameras may resolve to the same component
 // url — expected, since one component owns a set of cameras and the camera name is
 // sent per request. No network call is made here.
-func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*captureEndpoint, error) {
+func buildDeployCapture(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*captureEndpoint, error) {
 	endpoints := make(map[string]*captureEndpoint)
 	for _, cu := range wf.Channels {
 		disc, err := cu.Discriminator()
@@ -87,7 +88,7 @@ func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext
 		if err != nil {
 			return nil, fmt.Errorf("declared channel: %w", err)
 		}
-		b, ok := dm[ch.Id]
+		b, ok := rm[ch.Id]
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("camera %q: declared but not bound by the deployment mapping", ch.Id)
 		}
@@ -105,17 +106,9 @@ func buildDeployCapture(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext
 		endpoints[ch.Id] = &captureEndpoint{
 			client: client,
 			name:   ch.Id,
-			width:  derefInt(ch.Width),
-			height: derefInt(ch.Height),
+			width:  pointer.Val(ch.Width),
+			height: pointer.Val(ch.Height),
 		}
 	}
 	return endpoints, nil
-}
-
-// derefInt returns the pointed-to int, or zero when the pointer is nil.
-func derefInt(p *int) int {
-	if p == nil {
-		return 0
-	}
-	return *p
 }

@@ -33,14 +33,14 @@ import (
 //
 // backendClient may be nil (no backend configured); a backendLlm instance then
 // is a config error. An unbound or unconfigured declared model is a config error.
-func buildProviders(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
+func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
 	if ext == nil {
 		ext = &engine.ExternalResources{}
 	}
 	var providers []llmproxy.Provider
 
 	// Self-hosted: declared models grouped onto their bound endpoints.
-	endpoints, err := selfHostedEndpoints(wf, dm, ext)
+	endpoints, err := selfHostedEndpoints(wf, rm, ext)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,9 @@ func buildProviders(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *en
 // also holds ML models (served by an inference component, resolved separately in
 // buildDeployML); those are skipped here by discriminator. A declared model bound
 // to a non-self-hosted provider is a config error.
-func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
+func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
+	claimed := make(map[string]string) // server model id → workflow model id that registered it
 	for _, mu := range wf.Models {
 		disc, err := mu.Discriminator()
 		if err != nil {
@@ -109,7 +110,7 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ex
 		if err != nil {
 			return nil, fmt.Errorf("declared model: %w", err)
 		}
-		b, ok := dm[m.Id]
+		b, ok := rm[m.Id]
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("model %q: declared but not bound by the resource mapping", m.Id)
 		}
@@ -124,14 +125,20 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ex
 		if slices.Contains(caps, llmproxy.CapabilityEmbedding) {
 			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted providers yet (no dimension in the workflow declaration)", m.Id)
 		}
-		// The engine routes on the workflow model id; the server serves it under
-		// the address's model sub-address, which the mapping must supply (the
-		// endpoint fronts several models and selects one by this name).
+		// The provider is registered under the server's own model id (the address's
+		// model sub-address, which the mapping must supply); the Agent's reference
+		// is translated to it via resolveModelID, so the llmproxy never sees the
+		// workflow id. The endpoint fronts several models, selected by this name.
 		if b.Model == nil || *b.Model == "" {
 			return nil, fmt.Errorf("model %q: mapped to %q but the address carries no model name for the self-hosted endpoint to select on", m.Id, b.Ref)
 		}
+		serverID := *b.Model
+		if prev, dup := claimed[serverID]; dup {
+			return nil, fmt.Errorf("models %q and %q both resolve to server model %q; self-hosted server model names must be unique", prev, m.Id, serverID)
+		}
+		claimed[serverID] = m.Id
 		endpoints = append(endpoints, selfhosted.ModelEndpoint{
-			ID:           llmproxy.ModelID(b.Model),
+			ID:           llmproxy.ModelID(serverID),
 			Label:        m.Label,
 			URL:          cfg.URL,
 			APIKey:       cfg.APIKey,
@@ -141,11 +148,22 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, dm engine.ResourceMapping, ex
 	return endpoints, nil
 }
 
+// resolveModelID translates a workflow model id to the id its provider actually
+// serves it under. A declared self-hosted model is served under its address's
+// model sub-address (its mapping entry); a catalog model has no mapping entry and
+// is served under its own id.
+func resolveModelID(rm engine.ResourceMapping, id string) string {
+	if addr, ok := rm[id]; ok && addr.Model != nil && *addr.Model != "" {
+		return *addr.Model
+	}
+	return id
+}
+
 // validateModelsResolvable fails the build when an Agent node references a model
 // that no provider in the composed client can serve. Without this the failure
 // surfaces lazily at the first Chat ("no suitable provider"); here it's a clear
 // boot-time error naming the model.
-func validateModelsResolvable(wf *workflowapi.Workflow, client *llmproxy.Client) error {
+func validateModelsResolvable(wf *workflowapi.Workflow, rm engine.ResourceMapping, client *llmproxy.Client) error {
 	ids, err := workflowapi.ReferencedModelIDs(wf)
 	if err != nil {
 		return fmt.Errorf("scanning referenced models: %w", err)
@@ -155,7 +173,10 @@ func validateModelsResolvable(wf *workflowapi.Workflow, client *llmproxy.Client)
 		available[string(m.ID)] = struct{}{}
 	}
 	for _, id := range ids {
-		if _, ok := available[id]; !ok {
+		// The provider serves declared models under their server id, so compare
+		// against the resolved id (catalog ids resolve to themselves).
+		resolved := resolveModelID(rm, id)
+		if _, ok := available[resolved]; !ok {
 			return fmt.Errorf("model %q is referenced by an agent node but no configured provider serves it (no local API key, backend route, or declared custom model)", id)
 		}
 	}

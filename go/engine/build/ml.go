@@ -142,7 +142,7 @@ func inferErrorMessage(resp *mlinferenceapi.InferResponse) string {
 // unconfigured ML model is a deploy error. Many models may resolve to the same
 // component url — expected, since one component serves a repository of models and the
 // model name is sent per request. No network call is made here.
-func buildDeployML(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*mlEndpoint, error) {
+func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]*mlEndpoint, error) {
 	endpoints := make(map[string]*mlEndpoint)
 	for _, mu := range wf.Models {
 		disc, err := mu.Discriminator()
@@ -156,7 +156,7 @@ func buildDeployML(wf *workflowapi.Workflow, dm engine.ResourceMapping, ext *eng
 		if err != nil {
 			return nil, fmt.Errorf("declared model: %w", err)
 		}
-		b, ok := dm[m.Id]
+		b, ok := rm[m.Id]
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("model %q: declared but not bound by the deployment mapping", m.Id)
 		}

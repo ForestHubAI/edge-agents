@@ -49,7 +49,7 @@ func main() {
 	if abs, err := filepath.Abs(configFile); err == nil {
 		configFile = abs
 	}
-	ec, err := loadEngineConfig(configFile)
+	eCfg, err := loadEngineConfig(configFile)
 	if err != nil {
 		boot.Fail(err, "loading engine config")
 	}
@@ -57,7 +57,7 @@ func main() {
 	// an empty workflow builds into a runner with no triggers that blocks forever
 	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
 	// requires schemaVersion >= 1).
-	if ec.Workflow.SchemaVersion == 0 {
+	if eCfg.Workflow.SchemaVersion == 0 {
 		boot.Fail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
@@ -65,7 +65,7 @@ func main() {
 	// the device manifest, MQTT transports from the external resources. Both are
 	// injected into the builder, borrowed by the workflow's channels, and closed
 	// by main at shutdown.
-	manifest := mapping.DeviceManifestToDomain(ec.Manifest)
+	manifest := mapping.DeviceManifestToDomain(eCfg.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
 		boot.Fail(err, "initialising driver registry")
@@ -77,7 +77,7 @@ func main() {
 	if err != nil {
 		boot.Fail(err, "loading engine secrets")
 	}
-	ext := mapping.ExternalResourcesToDomain(ec.ExternalResources, secrets)
+	ext := mapping.ExternalResourcesToDomain(eCfg.ExternalResources, secrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		// A broker unreachable at boot may come back; let the orchestrator retry.
@@ -142,8 +142,8 @@ func main() {
 	}()
 
 	// Build the runner.
-	dm := mapping.ResourceMappingToDomain(ec.Mapping)
-	runner, err := builder.Build(ctx, &ec.Workflow, dm, ext)
+	rm := mapping.ResourceMappingToDomain(eCfg.Mapping)
+	runner, err := builder.Build(ctx, &eCfg.Workflow, rm, ext)
 	if err != nil {
 		boot.Fail(err, "building workflow runner")
 	}
