@@ -21,7 +21,7 @@ const (
 
 // ===== Node Contracts =====
 
-// Wirable is the basic wiring contract every workflow object (action or trigger)
+// Wirable is the basic wiring contract every workflow object (executable or trigger)
 // satisfies: it has an ID and can accept outgoing edges.
 type Wirable interface {
 	ID() string
@@ -43,7 +43,7 @@ type Trigger interface {
 	Close() error
 }
 
-// Executable is implemented by action nodes that run on the state-runner goroutine.
+// Executable is implemented by nodes that run on the state-runner goroutine.
 type Executable interface {
 	Wirable
 	Execute(ctx context.Context, scope *Scope) (nextState string, err error)

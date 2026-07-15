@@ -190,7 +190,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 		// Set built data on the Function object
 		target := functions[f.FunctionInfo.Id]
 		target.EntryTransition = b.entryTr
-		target.Actions = b.actions
+		target.Executables = b.executables
 		target.DeclaredVars = f.DeclaredVariables
 		target.OutputAssignments = f.OutputAssignments
 		functionGraphs = append(functionGraphs, b)
@@ -223,7 +223,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 	// output slots so downstream expressions can resolve references before
 	// the producing node has fired. Tools are intentionally excluded.
 	// Function graphs will do the same once Function sets up its own scope at runtime.
-	for _, a := range mainGraph.actions {
+	for _, a := range mainGraph.executables {
 		if em, ok := a.(engine.Emitter); ok {
 			engine.RegisterNodeOutputs(ms, em)
 		}
@@ -236,7 +236,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 
 	r := &engine.Runner{
 		Scope:           ms,
-		Nodes:           mainGraph.actions,
+		Nodes:           mainGraph.executables,
 		Triggers:        mainGraph.triggers,
 		EntryTransition: mainGraph.entryTr,
 	}

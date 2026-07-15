@@ -17,7 +17,7 @@ type Function struct {
 	Info              workflowapi.FunctionInfo
 	DeclaredVars      []workflowapi.Variable            // function-local declared variables to seed into the function scope at call time
 	EntryTransition   Transition                        // OnFunctionCall edge's transition: TargetID is the entry node, its side effect (e.g. an AgentTask prompt) is applied against the fresh call scope before that node runs
-	Actions           map[string]Executable             // action nodes, keyed by node id
+	Executables       map[string]Executable             // executable nodes, keyed by node id
 	OutputAssignments map[string]workflowapi.Expression // return uid → expression evaluated in callee scope at end
 }
 
@@ -29,7 +29,7 @@ func (f *Function) Call(ctx context.Context, args map[string]expr.Value) (map[st
 		return nil, fmt.Errorf("function %s: %w", f.Info.Name, err)
 	}
 	// Seed function scope with node outputs
-	for _, a := range f.Actions {
+	for _, a := range f.Executables {
 		if em, ok := a.(Emitter); ok {
 			RegisterNodeOutputs(fs, em)
 		}
@@ -52,7 +52,7 @@ func (f *Function) Call(ctx context.Context, args map[string]expr.Value) (map[st
 			return nil, fmt.Errorf("function %s: %w", f.Info.Name, ctx.Err())
 		default:
 		}
-		node, ok := f.Actions[state]
+		node, ok := f.Executables[state]
 		if !ok {
 			return nil, fmt.Errorf("function %s: node %q not found", f.Info.Name, state)
 		}

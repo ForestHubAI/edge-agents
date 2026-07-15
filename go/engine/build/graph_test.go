@@ -55,8 +55,8 @@ func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {
 
 	err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.NoError(t, err)
-	_, ok := g.actions["r1"]
-	assert.True(t, ok, "retriever node must be registered as an action")
+	_, ok := g.executables["r1"]
+	assert.True(t, ok, "retriever node must be registered as an executable node")
 }
 
 func TestBuildRetriever_UndeclaredCollectionFails(t *testing.T) {
@@ -65,4 +65,95 @@ func TestBuildRetriever_UndeclaredCollectionFails(t *testing.T) {
 	err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "r1")
+}
+
+// plainGraph is a minimal graph builder for nodes that need no channels or
+// backends (Delay, Ticker, OnStartup).
+func plainGraph(t *testing.T) *graph {
+	t.Helper()
+	ms, err := engine.NewMainScope(nil)
+	require.NoError(t, err)
+	return newGraph(&buildContext{
+		ctx:       context.Background(),
+		channels:  &channels{},
+		functions: map[string]*engine.Function{},
+		mainScope: ms,
+	})
+}
+
+func tickerNode(t *testing.T, id string) workflowapi.Node {
+	t.Helper()
+	var tk workflowapi.TickerNode
+	tk.Id = id
+	tk.Arguments.IntervalValue = pointer.Ptr(1)
+	tk.Arguments.IntervalUnit = workflowapi.Seconds
+	var n workflowapi.Node
+	require.NoError(t, n.FromTickerNode(tk))
+	return n
+}
+
+func delayNode(t *testing.T, id string) workflowapi.Node {
+	t.Helper()
+	var d workflowapi.DelayNode
+	d.Id = id
+	d.Arguments.DelayMs = pointer.Ptr(5)
+	var n workflowapi.Node
+	require.NoError(t, n.FromDelayNode(d))
+	return n
+}
+
+func onStartupNode(t *testing.T, id string) workflowapi.Node {
+	t.Helper()
+	var s workflowapi.OnStartupNode
+	s.Id = id
+	var n workflowapi.Node
+	require.NoError(t, n.FromOnStartupNode(s))
+	return n
+}
+
+func controlEdge(from, to string) workflowapi.Edge {
+	return workflowapi.Edge{
+		Id:   from + "->" + to,
+		Type: workflowapi.Control,
+		From: workflowapi.Vertex{NodeId: from, Port: engine.PortCtrl},
+		To:   workflowapi.Vertex{NodeId: to, Port: engine.PortCtrl},
+	}
+}
+
+func TestBuild_ControlEdgeIntoTriggerRejected(t *testing.T) {
+	// A Delay (which is an executable node too) wiring control into a Ticker (a pure
+	// source) must fail at build, not crash the runner with "no executable".
+	g := plainGraph(t)
+	err := g.build(
+		[]workflowapi.Node{delayNode(t, "d1"), tickerNode(t, "t1")},
+		[]workflowapi.Edge{controlEdge("d1", "t1")},
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "t1")
+	assert.Contains(t, err.Error(), "not an executable node")
+}
+
+func TestBuild_StartupEdgeIntoTriggerRejected(t *testing.T) {
+	g := plainGraph(t)
+	err := g.build(
+		[]workflowapi.Node{onStartupNode(t, "s1"), tickerNode(t, "t1")},
+		[]workflowapi.Edge{controlEdge("s1", "t1")},
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not an executable node")
+}
+
+func TestBuild_ControlEdgeIntoDelayAllowed(t *testing.T) {
+	// The reclassification: Delay is an executable node, so routing control into it (here
+	// as the OnStartup entry target) is valid.
+	g := plainGraph(t)
+	err := g.build(
+		[]workflowapi.Node{onStartupNode(t, "s1"), delayNode(t, "d1")},
+		[]workflowapi.Edge{controlEdge("s1", "d1")},
+	)
+	require.NoError(t, err)
+	_, isExecutable := g.executables["d1"]
+	assert.True(t, isExecutable, "Delay must be registered as an executable node")
+	_, isTrigger := g.triggers["d1"]
+	assert.True(t, isTrigger, "Delay must also be registered as a trigger")
 }

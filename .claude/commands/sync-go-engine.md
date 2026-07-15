@@ -101,20 +101,20 @@ Diff the api `Node` union against the existing `case` arms:
 
 | Node kind                          | interface                     | collections                                     |
 | ---------------------------------- | ----------------------------- | ----------------------------------------------- |
-| Action (runs on state-runner)      | `engine.Executable`           | `b.actions[id]` + `allNodes`                    |
+| Executable (runs on state-runner)  | `engine.Executable`           | `b.executable[id]` + `allNodes`                 |
 | Trigger (own goroutine)            | `engine.Trigger`              | `b.triggers[id]` + `allNodes`                   |
 | Tool-only (never in state machine) | neither — `ToolProvider` only | `allNodes` **only** (see `WebSearchToolNode`)   |
 | `OnStartup` / `OnFunctionCall`     | —                             | none; sets `onStartUpID`, defines initial state |
 
 Tool-only nodes are partitioned into `b.tools` later by `wireEdges` when a `tool`
-edge targets them — do **not** add them to `b.actions`.
+edge targets them — do **not** add them to `b.executables`.
 
 ### 2b. The node implementation — `go/engine/node/Xxx.go` (triggers: `go/engine/node/trigger/Xxx.go`)
 
 Each node type has a hand-written file. For a new node, create it following the
 existing pattern (e.g. `node/pinread.go`, `node/trigger/ticker.go`):
 
-- **Embed** the right base: `engine.LinearNode` (one target/port, most actions),
+- **Embed** the right base: `engine.LinearNode` (one target/port, most executable nodes),
   `engine.BranchingNode` (multi-transition, e.g. agent), `engine.ToolNode`
   (tool-only), or `engine.TriggerNode` (triggers).
 - **Implementation guards** up top: `var _ engine.Executable = (*Xxx)(nil)` and one
@@ -183,7 +183,7 @@ failure mode the contract exists to prevent.
 ## Go Engine Sync Results
 
 ### Nodes
-- Added `FooNode` — impl (node/foo.go), build arm (Executable → actions), test
+- Added `FooNode` — impl (node/foo.go), build arm (Executable → executables), test
 - Modified `AgentNode.maxTurns`: value → pointer (now optional) — build arm deref
 - Removed `BarNode` — impl, build arm, test; grepped `workflow.BarNode` clean
 

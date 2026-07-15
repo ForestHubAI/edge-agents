@@ -20,8 +20,8 @@ import (
 )
 
 // passthroughFn returns a Function with one Int arg "a" and one Int return "ret"
-// where ret = a (passthrough). InitialState is idle so Function.Call evaluates
-// only the OutputAssignments — no actions required.
+// where ret = a (passthrough). The entry transition targets StateIdle so
+// Function.Call evaluates only the OutputAssignments — no executable nodes required.
 func passthroughFn() *engine.Function {
 	return &engine.Function{
 		Info: workflowapi.FunctionInfo{
@@ -35,7 +35,7 @@ func passthroughFn() *engine.Function {
 			},
 		},
 		EntryTransition: engine.Transition{TargetID: engine.StateIdle},
-		Actions:         map[string]engine.Executable{},
+		Executables:     map[string]engine.Executable{},
 		OutputAssignments: map[string]workflowapi.Expression{
 			"ret": {
 				Expression: "${}",

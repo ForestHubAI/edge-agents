@@ -92,7 +92,7 @@ func TestFunction_CallCancelStopsCycle(t *testing.T) {
 	fn := &Function{
 		Info:            workflowapi.FunctionInfo{Name: "loop", Id: "fn1"},
 		EntryTransition: Transition{TargetID: "a"},
-		Actions: map[string]Executable{
+		Executables: map[string]Executable{
 			"a": &fakeAction{id: "a", next: "b"},
 			"b": &fakeAction{id: "b", next: "a"},
 		},

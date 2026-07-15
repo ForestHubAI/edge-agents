@@ -21,10 +21,10 @@ import (
 // graph holds the per-build state for a single graph (main workflow or function).
 type graph struct {
 	*buildContext
-	actions  map[string]engine.Executable
-	triggers map[string]engine.Trigger
-	tools    map[string]engine.Wirable
-	allNodes map[string]engine.Wirable // Union of the above three, keyed by node ID. Used for wiring and setup.
+	executables map[string]engine.Executable
+	triggers    map[string]engine.Trigger
+	tools       map[string]engine.Wirable
+	allNodes    map[string]engine.Wirable // Union of the above three, keyed by node ID. Used for wiring and setup.
 	// entryTr is the OnStartup/OnFunctionCall edge's transition, set by wireEdges.
 	// Its TargetID is the entry node; its side effect is applied once at runtime
 	// before that node runs (Runner.Run / Function.Call). The zero value is a
@@ -37,14 +37,14 @@ type graph struct {
 func newGraph(bc *buildContext) *graph {
 	return &graph{
 		buildContext: bc,
-		actions:      make(map[string]engine.Executable),
+		executables:  make(map[string]engine.Executable),
 		triggers:     make(map[string]engine.Trigger),
 		tools:        make(map[string]engine.Wirable),
 		allNodes:     make(map[string]engine.Wirable),
 	}
 }
 
-// build instantiates every node and wires edges. Populates actions,
+// build instantiates every node and wires edges. Populates executables,
 // triggers, tools, and allNodes as a side effect.
 // Registers hardware resources in channels as nodes are constructed.
 // The entry node and any startup-edge side effect are captured on g.entryTr
@@ -90,8 +90,12 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.DelayMs == nil {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "delayMs"}
 			}
+			// Delay is dual-natured: control flow arms it (Executable, so it must
+			// be in executables/r.Nodes) and its one-shot timer emits the resume event
+			// (Trigger). See node/trigger/delay.go.
 			t := trigger.NewDelay(nd.Id, time.Duration(*nd.Arguments.DelayMs)*time.Millisecond)
 			g.allNodes[nd.Id] = t
+			g.executables[nd.Id] = t
 			g.triggers[nd.Id] = t
 
 		case workflowapi.OnSerialReceiveNode:
@@ -144,12 +148,12 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewSetVariable(nd.Id, *nd.Arguments.Variable, nd.Arguments.Value)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.IfNode:
 			n := node.NewIf(nd.Id, nd.Arguments.Condition)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.ReadPinNode:
 			n, err := g.buildReadPin(nd)
@@ -157,7 +161,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.WritePinNode:
 			n, err := g.buildWritePin(nd)
@@ -165,7 +169,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.SerialReadNode:
 			uart, err := g.channels.uart(pointer.Val(nd.Arguments.PortReference))
@@ -178,7 +182,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewSerialRead(nd.Id, nd.Arguments.Output, prompt, uart)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.SerialWriteNode:
 			dst, err := g.channels.textWriter(pointer.Val(nd.Arguments.PortReference))
@@ -187,7 +191,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewSerialWrite(nd.Id, nd.Arguments.Value, dst)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.MqttPublishNode:
 			if nd.Arguments.ChannelReference == nil {
@@ -199,7 +203,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewMqttPublish(nd.Id, mq, mq.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.OnMqttMessageNode:
 			if nd.Arguments.ChannelReference == nil {
@@ -232,7 +236,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.RetrieverNode:
 			if g.retriever == nil {
@@ -250,7 +254,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewRetriever(nd.Id, collID, *nd.Arguments.TopK, nd.Arguments.Query, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription), g.retriever)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.WebFetchNode:
 			maxChars := 0
@@ -259,7 +263,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewWebFetch(nd.Id, nd.Arguments.Url, maxChars, nd.Arguments.Output)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.MLInferenceNode:
 			if nd.Arguments.Model == "" {
@@ -274,7 +278,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewMLInference(nd.Id, nd.Arguments.Input, nd.Arguments.Output, ep)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.CameraCaptureNode:
 			if nd.Arguments.CameraReference == "" {
@@ -286,7 +290,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			}
 			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ep)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		case workflowapi.WebSearchToolNode:
 			if g.webSearch == nil {
@@ -320,7 +324,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 				g.memory,
 			)
 			g.allNodes[nd.Id] = n
-			g.actions[nd.Id] = n
+			g.executables[nd.Id] = n
 
 		default:
 			return fmt.Errorf("unsupported node type %T", val)
@@ -392,11 +396,11 @@ func (g *graph) buildWritePin(nd workflowapi.WritePinNode) (*node.WritePin, erro
 }
 
 // wireEdges connects nodes based on the workflow's connections and partitions
-// tool-wired receivers out of actions into tools. The OnStartup/OnFunctionCall
+// tool-wired receivers out of executables into tools. The OnStartup/OnFunctionCall
 // edge is captured on g.entryTr (zero value when absent) rather than wired as a
 // runtime transition.
 func (g *graph) wireEdges(edges []workflowapi.Edge, onStartupID string) error {
-	// First identify tool-wired receivers and extract them from actions.
+	// First identify tool-wired receivers and extract them from executables.
 	// Done before the wiring pass so control-flow edges can reject a target
 	// that's already tool-wired, regardless of edge ordering in the input.
 	for _, e := range edges {
@@ -408,7 +412,7 @@ func (g *graph) wireEdges(edges []workflowapi.Edge, onStartupID string) error {
 			return fmt.Errorf("tool edge to unknown node %s", e.To.NodeId)
 		}
 		g.tools[e.To.NodeId] = n
-		delete(g.actions, e.To.NodeId)
+		delete(g.executables, e.To.NodeId)
 	}
 
 	for _, e := range edges {
@@ -418,6 +422,10 @@ func (g *graph) wireEdges(edges []workflowapi.Edge, onStartupID string) error {
 		// node runs — see Runner.Run / Function.Call — never at build time, since
 		// the prompt must evaluate against the live scope (trigger outputs, args).
 		if onStartupID == e.From.NodeId {
+			// The target must be an executable node, otherwise runner will error at lookup time
+			if _, executable := g.executables[e.To.NodeId]; !executable {
+				return fmt.Errorf("startup edge from %s targets %s, which is not an executable node", e.From.NodeId, e.To.NodeId)
+			}
 			g.entryTr = engine.Transition{
 				TargetID:    e.To.NodeId,
 				EdgeType:    e.Type,
@@ -451,6 +459,10 @@ func (g *graph) wireEdges(edges []workflowapi.Edge, onStartupID string) error {
 		// Control-flow edge
 		if _, isTool := g.tools[e.To.NodeId]; isTool {
 			return fmt.Errorf("node %s is wired as a tool but also targeted by a control-flow edge from %s", e.To.NodeId, e.From.NodeId)
+		}
+		// The target must be an executable node, otherwise runner will error at lookup time
+		if _, executable := g.executables[e.To.NodeId]; !executable {
+			return fmt.Errorf("edge from %s targets %s, which is not an executable node", e.From.NodeId, e.To.NodeId)
 		}
 		tr := engine.Transition{
 			TargetID:    e.To.NodeId,

@@ -88,7 +88,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		// Execute the node for the current state.
 		node, ok := r.Nodes[state]
 		if !ok {
-			return fmt.Errorf("runner: node %q has no executable", state)
+			return fmt.Errorf("runner: node %q not found in registered executables", state)
 		}
 		// Execute node
 		next, err := node.Execute(ctx, r.Scope)

@@ -73,7 +73,7 @@ func TestFunction_Call(t *testing.T) {
 				{Uid: "result", DataType: workflowapi.Int},
 			},
 			EntryTransition: Transition{TargetID: "double"},
-			Actions:         map[string]Executable{"double": action},
+			Executables:     map[string]Executable{"double": action},
 			OutputAssignments: map[string]workflowapi.Expression{
 				"ret": {
 					Expression: "${}",
@@ -95,7 +95,7 @@ func TestFunction_Call(t *testing.T) {
 				Returns: []workflowapi.Variable{{Uid: "ret", Name: "value", DataType: workflowapi.Int}},
 			},
 			EntryTransition:   Transition{TargetID: StateIdle},
-			Actions:           map[string]Executable{},
+			Executables:       map[string]Executable{},
 			OutputAssignments: map[string]workflowapi.Expression{}, // missing
 		}
 
@@ -108,7 +108,7 @@ func TestFunction_Call(t *testing.T) {
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
 			EntryTransition:   Transition{TargetID: "ghost"},
-			Actions:           map[string]Executable{}, // no node "ghost"
+			Executables:       map[string]Executable{}, // no node "ghost"
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
@@ -127,7 +127,7 @@ func TestFunction_Call(t *testing.T) {
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
 			EntryTransition:   Transition{TargetID: "boom"},
-			Actions:           map[string]Executable{"boom": action},
+			Executables:       map[string]Executable{"boom": action},
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
@@ -158,7 +158,7 @@ func TestFunction_Call(t *testing.T) {
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
 			EntryTransition:   Transition{TargetID: "emit"},
-			Actions:           map[string]Executable{"emit": action},
+			Executables:       map[string]Executable{"emit": action},
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
 		_, err := fn.Call(context.Background(), nil)
@@ -205,7 +205,7 @@ func TestFunction_Call(t *testing.T) {
 					References: []workflowapi.Reference{{SrcId: SrcFnArg, VarId: "a"}},
 				}),
 			},
-			Actions:           map[string]Executable{"agent": entry},
+			Executables:       map[string]Executable{"agent": entry},
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
 
