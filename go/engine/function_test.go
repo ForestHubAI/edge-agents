@@ -13,6 +13,10 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,9 +31,9 @@ type fakeAction struct {
 	outputs map[string]workflowapi.DataType
 }
 
-func (a *fakeAction) ID() string                             { return a.id }
-func (a *fakeAction) AddTransition(string, Transition) error { return nil }
-func (a *fakeAction) Outputs() map[string]workflowapi.DataType  { return a.outputs }
+func (a *fakeAction) ID() string                               { return a.id }
+func (a *fakeAction) AddTransition(string, Transition) error   { return nil }
+func (a *fakeAction) Outputs() map[string]workflowapi.DataType { return a.outputs }
 func (a *fakeAction) Execute(_ context.Context, s *Scope) (string, error) {
 	if a.run != nil {
 		if err := a.run(s); err != nil {
@@ -68,8 +72,8 @@ func TestFunction_Call(t *testing.T) {
 			DeclaredVars: []workflowapi.Variable{
 				{Uid: "result", DataType: workflowapi.Int},
 			},
-			InitialState: "double",
-			Actions:      map[string]Executable{"double": action},
+			EntryTransition: Transition{TargetID: "double"},
+			Actions:         map[string]Executable{"double": action},
 			OutputAssignments: map[string]workflowapi.Expression{
 				"ret": {
 					Expression: "${}",
@@ -90,7 +94,7 @@ func TestFunction_Call(t *testing.T) {
 				Name:    "f",
 				Returns: []workflowapi.Variable{{Uid: "ret", Name: "value", DataType: workflowapi.Int}},
 			},
-			InitialState:      StateIdle,
+			EntryTransition:   Transition{TargetID: StateIdle},
 			Actions:           map[string]Executable{},
 			OutputAssignments: map[string]workflowapi.Expression{}, // missing
 		}
@@ -103,7 +107,7 @@ func TestFunction_Call(t *testing.T) {
 	t.Run("missing node id during execution errors", func(t *testing.T) {
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
-			InitialState:      "ghost",
+			EntryTransition:   Transition{TargetID: "ghost"},
 			Actions:           map[string]Executable{}, // no node "ghost"
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
@@ -122,7 +126,7 @@ func TestFunction_Call(t *testing.T) {
 		}
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
-			InitialState:      "boom",
+			EntryTransition:   Transition{TargetID: "boom"},
 			Actions:           map[string]Executable{"boom": action},
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
@@ -153,7 +157,7 @@ func TestFunction_Call(t *testing.T) {
 		}
 		fn := &Function{
 			Info:              workflowapi.FunctionInfo{Name: "f"},
-			InitialState:      "emit",
+			EntryTransition:   Transition{TargetID: "emit"},
 			Actions:           map[string]Executable{"emit": action},
 			OutputAssignments: map[string]workflowapi.Expression{},
 		}
@@ -167,10 +171,47 @@ func TestFunction_Call(t *testing.T) {
 			DeclaredVars: []workflowapi.Variable{
 				{Uid: "x", DataType: workflowapi.Int, InitialValue: "not int"},
 			},
-			InitialState: StateIdle,
+			EntryTransition: Transition{TargetID: StateIdle},
 		}
 		_, err := fn.Call(context.Background(), nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "function bad")
+	})
+
+	// An OnFunctionCall edge feeding an
+	// agent must seed the conversation before the entry node runs. The prompt
+	// evaluates against the fresh call scope, so it can reference the call args.
+	t.Run("entry transition seeds conversation before entry node", func(t *testing.T) {
+		var seen llmproxy.InputItems
+		entry := &fakeAction{
+			id:   "agent",
+			next: StateIdle,
+			run: func(sc *Scope) error {
+				seen = sc.GetConversation()
+				return nil
+			},
+		}
+		fn := &Function{
+			Info: workflowapi.FunctionInfo{
+				Name:      "f",
+				Arguments: []workflowapi.Variable{{Uid: "a", Name: "a", DataType: workflowapi.String}},
+			},
+			EntryTransition: Transition{
+				TargetID: "agent",
+				EdgeType: workflowapi.AgentTask,
+				Prompt: pointer.Ptr(workflowapi.Expression{
+					Expression: "summarize ${}",
+					DataType:   workflowapi.String,
+					References: []workflowapi.Reference{{SrcId: SrcFnArg, VarId: "a"}},
+				}),
+			},
+			Actions:           map[string]Executable{"agent": entry},
+			OutputAssignments: map[string]workflowapi.Expression{},
+		}
+
+		_, err := fn.Call(context.Background(), map[string]expr.Value{"a": expr.StringVal("the report")})
+		require.NoError(t, err)
+		require.Len(t, seen, 1, "entry node ran without a seeded conversation")
+		assert.Equal(t, "summarize the report", seen[0].String())
 	})
 }

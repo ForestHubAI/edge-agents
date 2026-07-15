@@ -53,7 +53,7 @@ func retrieverGraph(t *testing.T, collections map[string]string) *graph {
 func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {
 	g := retrieverGraph(t, map[string]string{"kb-1": "collection-abc"})
 
-	_, err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
+	err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.NoError(t, err)
 	_, ok := g.actions["r1"]
 	assert.True(t, ok, "retriever node must be registered as an action")
@@ -62,7 +62,7 @@ func TestBuildRetriever_DeclaredCollectionBuilds(t *testing.T) {
 func TestBuildRetriever_UndeclaredCollectionFails(t *testing.T) {
 	g := retrieverGraph(t, map[string]string{})
 
-	_, err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
+	err := g.build([]workflowapi.Node{retrieverNode(t, "r1", "kb-1")}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "r1")
 }

@@ -172,6 +172,6 @@ func safeBuild(bc *buildContext, n workflowapi.Node) (err error) {
 			err = nil
 		}
 	}()
-	_, err = newGraph(bc).build([]workflowapi.Node{n}, nil)
+	err = newGraph(bc).build([]workflowapi.Node{n}, nil)
 	return err
 }

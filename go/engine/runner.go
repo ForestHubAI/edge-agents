@@ -25,10 +25,10 @@ const defaultEventBufSize = 64
 // registries (owned and closed by main); on exit it releases only what it
 // spawns — the trigger goroutines, via their individual Close.
 type Runner struct {
-	Scope        *Scope
-	Nodes        map[string]Executable
-	Triggers     map[string]Trigger
-	InitialState string
+	Scope           *Scope
+	Nodes           map[string]Executable
+	Triggers        map[string]Trigger
+	EntryTransition Transition // EntryTransition is the OnStartup edge's transition.
 }
 
 // Run starts all trigger goroutines and the state-runner loop. One iteration
@@ -44,7 +44,15 @@ func (r *Runner) Run(ctx context.Context) error {
 	defer wait()
 
 	// State-runner loop: wait for events, execute nodes, transition state.
-	state := r.InitialState
+	// The entry transition's TargetID is the initial state; its side effects
+	// (e.g. an AgentTask prompt) apply once before that node runs. A failed
+	// Apply drops straight to idle, mirroring node execution errors. The zero
+	// value is a no-op targeting StateIdle — the "no startup edge" case.
+	state := r.EntryTransition.TargetID
+	if err := r.EntryTransition.Apply(r.Scope); err != nil {
+		logging.Logger.Error().Err(err).Str("node", state).Msg("applying entry transition")
+		state = StateIdle
+	}
 	for {
 		// Nothing to do, waiting for an event. Select on two things — an event arrives, or ctx cancels
 		if state == StateIdle {

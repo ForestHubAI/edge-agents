@@ -16,8 +16,8 @@ import (
 type Function struct {
 	Info              workflowapi.FunctionInfo
 	DeclaredVars      []workflowapi.Variable            // function-local declared variables to seed into the function scope at call time
-	InitialState      string                         // entry node id (from OnFunctionCall's outgoing edge)
-	Actions           map[string]Executable          // action nodes, keyed by node id
+	EntryTransition   Transition                        // OnFunctionCall edge's transition: TargetID is the entry node, its side effect (e.g. an AgentTask prompt) is applied against the fresh call scope before that node runs
+	Actions           map[string]Executable             // action nodes, keyed by node id
 	OutputAssignments map[string]workflowapi.Expression // return uid → expression evaluated in callee scope at end
 }
 
@@ -35,10 +35,17 @@ func (f *Function) Call(ctx context.Context, args map[string]expr.Value) (map[st
 		}
 	}
 
+	// Seed the call scope with the entry edge's side effects (e.g. an AgentTask
+	// prompt) before the entry node runs, evaluated against the freshly-seeded
+	// args. A zero transition is a no-op.
+	if err := f.EntryTransition.Apply(fs); err != nil {
+		return nil, fmt.Errorf("function %s: entry transition: %w", f.Info.Name, err)
+	}
+
 	// Run the function scoped state machine until it returns to idle (must be
 	// acyclic — a cycle here would otherwise hang this Call, and with it the
 	// state-runner, forever; the ctx check keeps such a loop cancellable).
-	state := f.InitialState
+	state := f.EntryTransition.TargetID
 	for state != StateIdle {
 		select {
 		case <-ctx.Done():

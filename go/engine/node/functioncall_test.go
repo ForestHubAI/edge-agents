@@ -34,8 +34,8 @@ func passthroughFn() *engine.Function {
 				{Uid: "ret", Name: "value", DataType: workflowapi.Int},
 			},
 		},
-		InitialState: engine.StateIdle,
-		Actions:      map[string]engine.Executable{},
+		EntryTransition: engine.Transition{TargetID: engine.StateIdle},
+		Actions:         map[string]engine.Executable{},
 		OutputAssignments: map[string]workflowapi.Expression{
 			"ret": {
 				Expression: "${}",

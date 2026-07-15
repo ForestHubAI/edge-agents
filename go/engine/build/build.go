@@ -178,29 +178,28 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 	for i := range wf.Functions {
 		f := wf.Functions[i]
 		b := newGraph(bc)
-		initialState, err := b.build(f.Nodes, f.Edges)
-		if err != nil {
+		if err := b.build(f.Nodes, f.Edges); err != nil {
 			return nil, fmt.Errorf("function %s: %w", f.FunctionInfo.Name, err)
 		}
 		if len(b.triggers) > 0 {
 			return nil, fmt.Errorf("function %s: runtime triggers not allowed in function body", f.FunctionInfo.Name)
 		}
-		if initialState == engine.StateIdle {
+		if b.entryTr.TargetID == engine.StateIdle {
 			return nil, fmt.Errorf("function %s: missing OnFunctionCall trigger (no entry edge)", f.FunctionInfo.Name)
 		}
 		// Set built data on the Function object
 		target := functions[f.FunctionInfo.Id]
-		target.InitialState = initialState
+		target.EntryTransition = b.entryTr
 		target.Actions = b.actions
 		target.DeclaredVars = f.DeclaredVariables
 		target.OutputAssignments = f.OutputAssignments
 		functionGraphs = append(functionGraphs, b)
 	}
 
-	// Build the main graph
+	// Build the main graph. The entry node and any startup-edge side effect are
+	// captured on mainGraph.entryTr.
 	mainGraph := newGraph(bc)
-	initialState, err := mainGraph.build(wf.Nodes, wf.Edges)
-	if err != nil {
+	if err := mainGraph.build(wf.Nodes, wf.Edges); err != nil {
 		return nil, err
 	}
 
@@ -236,10 +235,10 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 	}
 
 	r := &engine.Runner{
-		Scope:        ms,
-		Nodes:        mainGraph.actions,
-		Triggers:     mainGraph.triggers,
-		InitialState: initialState,
+		Scope:           ms,
+		Nodes:           mainGraph.actions,
+		Triggers:        mainGraph.triggers,
+		EntryTransition: mainGraph.entryTr,
 	}
 	return r, nil
 }
