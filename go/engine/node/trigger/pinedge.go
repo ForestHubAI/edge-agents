@@ -49,7 +49,7 @@ func (p *OnPinEdge) Wait(ctx context.Context) (engine.Event, error) {
 			if !p.matches(ev) {
 				continue
 			}
-			return engine.Event{TargetState: p.Target()}, nil
+			return p.Emit(nil), nil
 		}
 	}
 }

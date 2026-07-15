@@ -60,10 +60,15 @@ func (r *Runner) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			case ev := <-events:
-				// Apply trigger outputs to scope before transitioning.
-				// This allows triggers to carry data into the state machine through their emitted event.
+				// Apply the trigger's outputs and its outgoing edge's side effects
+				// (e.g. an AgentTask prompt) to the scope before transitioning. On
+				// error, log and stay idle rather than jump to a node with a
+				// half-seeded scope — mirroring node execution-error handling.
 				if ev.Apply != nil {
-					ev.Apply(r.Scope)
+					if err := ev.Apply(r.Scope); err != nil {
+						logging.Logger.Error().Err(err).Str("node", ev.TargetState).Msg("applying trigger event")
+						continue
+					}
 				}
 				state = ev.TargetState
 			}

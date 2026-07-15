@@ -68,7 +68,7 @@ func (a *Alarm) Wait(ctx context.Context) (engine.Event, error) {
 		return engine.Event{}, ctx.Err()
 	case <-a.timer.C:
 		a.timer.Reset(a.nextDelay(a.now()))
-		return engine.Event{TargetState: a.Target()}, nil
+		return a.Emit(nil), nil
 	}
 }
 

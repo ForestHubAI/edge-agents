@@ -9,6 +9,8 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
+	"github.com/ForestHubAI/edge-agents/go/engine/expr"
+
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
@@ -136,6 +138,79 @@ func TestTriggerNode(t *testing.T) {
 	t.Run("Target is empty before any transition is wired", func(t *testing.T) {
 		tn := NewTriggerNode("trig")
 		assert.Empty(t, tn.Target())
+	})
+
+	t.Run("Emit applies the outgoing transition's side effects", func(t *testing.T) {
+		// A trigger feeding an agent must seed the conversation from
+		// its AgentTask prompt, not drop it.
+		tn := NewTriggerNode("trig")
+		require.NoError(t, tn.AddTransition("", Transition{
+			TargetID: "agent",
+			EdgeType: workflowapi.AgentTask,
+			Prompt:   pointer.Ptr(literalString("go")),
+		}))
+		s, err := NewMainScope(nil)
+		require.NoError(t, err)
+
+		ev := tn.Emit(nil)
+		assert.Equal(t, "agent", ev.TargetState)
+		require.NoError(t, ev.Apply(s))
+		conv := s.GetConversation()
+		require.Len(t, conv, 1)
+		assert.Equal(t, "go", conv[0].String())
+	})
+
+	t.Run("Emit applies outputs before the transition", func(t *testing.T) {
+		// applyOutputs runs first so an AgentTask prompt can reference the
+		// trigger's own emitted output.
+		tn := NewTriggerNode("trig")
+		require.NoError(t, tn.AddTransition("", Transition{
+			TargetID: "agent",
+			EdgeType: workflowapi.AgentTask,
+			Prompt: pointer.Ptr(workflowapi.Expression{
+				Expression: "echo ${}",
+				DataType:   workflowapi.String,
+				References: []workflowapi.Reference{{SrcId: "trig", VarId: "out"}},
+			}),
+		}))
+		s, err := NewMainScope(nil)
+		require.NoError(t, err)
+
+		ev := tn.Emit(func(sc *Scope) error {
+			sc.Set("trig", "out", expr.StringVal("the value"))
+			return nil
+		})
+		require.NoError(t, ev.Apply(s))
+		conv := s.GetConversation()
+		require.Len(t, conv, 1)
+		assert.Equal(t, "echo the value", conv[0].String())
+	})
+
+	t.Run("Emit propagates applyOutputs error and skips the transition", func(t *testing.T) {
+		tn := NewTriggerNode("trig")
+		require.NoError(t, tn.AddTransition("", Transition{
+			TargetID: "agent",
+			EdgeType: workflowapi.AgentChoice, // would clear the conversation if reached
+		}))
+		s, err := NewMainScope(nil)
+		require.NoError(t, err)
+		s.SetConversation(llmproxy.InputString("keep me"))
+
+		ev := tn.Emit(func(*Scope) error { return assert.AnError })
+		err = ev.Apply(s)
+		require.ErrorIs(t, err, assert.AnError)
+		// Transition never ran, so the conversation is untouched.
+		assert.Len(t, s.GetConversation(), 1)
+	})
+
+	t.Run("Emit on an unwired trigger targets StateIdle and is a no-op", func(t *testing.T) {
+		tn := NewTriggerNode("trig")
+		s, err := NewMainScope(nil)
+		require.NoError(t, err)
+
+		ev := tn.Emit(nil)
+		assert.Equal(t, StateIdle, ev.TargetState)
+		require.NoError(t, ev.Apply(s))
 	})
 }
 

@@ -153,21 +153,54 @@ func (b *ToolNode) AddTransition(port string, _ Transition) error {
 	return fmt.Errorf("node %s: tool nodes cannot accept state transitions (port %q)", b.id, port)
 }
 
-// TriggerNode is the common embed for every trigger
+// TriggerNode is the common embed for every trigger. A trigger has exactly one
+// outgoing transition; it carries the full Transition (like LinearNode/BranchingNode)
+// so the transition's side effects — e.g. an AgentTask prompt seeding the
+// conversation — are applied when the trigger fires, not discarded.
 type TriggerNode struct {
-	id     string
-	target string
+	id         string
+	transition *Transition // nil until wired; a trigger has at most one outgoing transition
 }
 
 // NewTriggerNode creates a new TriggerNode
 func NewTriggerNode(id string) TriggerNode { return TriggerNode{id: id} }
 
-func (b *TriggerNode) ID() string     { return b.id }
-func (b *TriggerNode) Target() string { return b.target }
-func (b *TriggerNode) AddTransition(_ string, tr Transition) error {
-	if b.target != "" {
-		return fmt.Errorf("trigger %s: already has target %q", b.id, b.target)
+func (b *TriggerNode) ID() string { return b.id }
+func (b *TriggerNode) Target() string {
+	if b.transition == nil {
+		return StateIdle
 	}
-	b.target = tr.TargetID
+	return b.transition.TargetID
+}
+func (b *TriggerNode) AddTransition(_ string, tr Transition) error {
+	if b.transition != nil {
+		return fmt.Errorf("trigger %s: already has target %q", b.id, b.transition.TargetID)
+	}
+	b.transition = &tr
 	return nil
+}
+
+// Emit builds the Event this trigger produces when it fires. The optional
+// applyOutputs writes the trigger's own emitted outputs into the scope; the
+// outgoing transition's side effects are applied after. Both run on the runner
+// goroutine when the event is consumed — the trigger goroutine never touches the
+// shared scope. An applyOutputs or transition error aborts the transition (the
+// runner logs it and stays idle). An unwired trigger emits into StateIdle as a
+// no-op.
+func (b *TriggerNode) Emit(applyOutputs func(*Scope) error) Event {
+	tr := b.transition
+	return Event{
+		TargetState: b.Target(),
+		Apply: func(s *Scope) error {
+			if applyOutputs != nil {
+				if err := applyOutputs(s); err != nil {
+					return err
+				}
+			}
+			if tr == nil {
+				return nil
+			}
+			return tr.Apply(s)
+		},
+	}
 }

@@ -57,8 +57,8 @@ func (tr Transition) Apply(scope *Scope) error {
 
 // Event is produced by a Trigger and consumed by the runner's state loop.
 type Event struct {
-	TargetState string       // Node ID to transition to
-	Apply       func(*Scope) // Optional function to apply event data into the runner's scope
+	TargetState string             // Node ID to transition to
+	Apply       func(*Scope) error // Optional: seeds the trigger's outputs and applies the outgoing edge's side effects into the scope. Runs on the runner goroutine; a non-nil error aborts the transition and keeps the runner idle.
 }
 
 // Secrets is the engine's secret store: a flat map of secret id -> opaque secret

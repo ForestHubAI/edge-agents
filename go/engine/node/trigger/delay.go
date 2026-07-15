@@ -43,7 +43,7 @@ func (d *Delay) Wait(ctx context.Context) (engine.Event, error) {
 		return engine.Event{}, ctx.Err()
 	case <-d.timer.C:
 		d.fired = true
-		return engine.Event{TargetState: d.Target()}, nil
+		return d.Emit(nil), nil
 	}
 }
 

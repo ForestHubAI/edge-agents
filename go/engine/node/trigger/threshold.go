@@ -83,16 +83,16 @@ func (t *OnThreshold) Wait(ctx context.Context) (engine.Event, error) {
 			if !fired {
 				continue
 			}
-			// Create the event and return it
-			ev := engine.Event{TargetState: t.Target()}
+			// Emit, applying the crossing value only when an output is bound.
+			var applyOutputs func(*engine.Scope) error
 			if t.binding != nil {
 				binding := *t.binding
 				id := t.ID()
-				ev.Apply = func(s *engine.Scope) {
-					_ = engine.ApplyOutput(s, id, crossingOutID, binding, v)
+				applyOutputs = func(s *engine.Scope) error {
+					return engine.ApplyOutput(s, id, crossingOutID, binding, v)
 				}
 			}
-			return ev, nil
+			return t.Emit(applyOutputs), nil
 		}
 	}
 }

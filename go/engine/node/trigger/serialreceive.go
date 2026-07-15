@@ -50,12 +50,9 @@ func (t *OnSerialReceive) Wait(ctx context.Context) (engine.Event, error) {
 			return engine.Event{}, fmt.Errorf("onSerialReceive %s: stream closed", t.ID())
 		}
 		binding := t.binding
-		return engine.Event{
-			TargetState: t.Target(),
-			Apply: func(s *engine.Scope) {
-				_ = engine.ApplyOutput(s, t.ID(), serialReceiveOutID, binding, expr.StringVal(line))
-			},
-		}, nil
+		return t.Emit(func(s *engine.Scope) error {
+			return engine.ApplyOutput(s, t.ID(), serialReceiveOutID, binding, expr.StringVal(line))
+		}), nil
 	}
 }
 

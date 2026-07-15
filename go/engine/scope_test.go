@@ -272,9 +272,9 @@ type fakeEmitter struct {
 	outputs map[string]workflowapi.DataType
 }
 
-func (f *fakeEmitter) ID() string                             { return f.id }
-func (f *fakeEmitter) AddTransition(string, Transition) error { return nil }
-func (f *fakeEmitter) Outputs() map[string]workflowapi.DataType  { return f.outputs }
+func (f *fakeEmitter) ID() string                               { return f.id }
+func (f *fakeEmitter) AddTransition(string, Transition) error   { return nil }
+func (f *fakeEmitter) Outputs() map[string]workflowapi.DataType { return f.outputs }
 
 func TestRegisterNodeOutputs(t *testing.T) {
 	s, err := NewMainScope(nil)

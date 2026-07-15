@@ -40,7 +40,7 @@ func (t *Ticker) Wait(ctx context.Context) (engine.Event, error) {
 	case <-ctx.Done():
 		return engine.Event{}, ctx.Err()
 	case <-t.tk.C:
-		return engine.Event{TargetState: t.Target()}, nil
+		return t.Emit(nil), nil
 	}
 }
 

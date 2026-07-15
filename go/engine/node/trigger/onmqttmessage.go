@@ -71,12 +71,9 @@ func (t *OnMqttMessage) Wait(ctx context.Context) (engine.Event, error) {
 				continue
 			}
 			binding := t.binding
-			return engine.Event{
-				TargetState: t.Target(),
-				Apply: func(s *engine.Scope) {
-					_ = engine.ApplyOutput(s, t.ID(), onMqttMessageOutID, binding, val)
-				},
-			}, nil
+			return t.Emit(func(s *engine.Scope) error {
+				return engine.ApplyOutput(s, t.ID(), onMqttMessageOutID, binding, val)
+			}), nil
 		}
 	}
 }
