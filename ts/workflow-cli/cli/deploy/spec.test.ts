@@ -366,6 +366,16 @@ describe("assertDeployable", () => {
     const inputs = { ...fullInputs, llmModels: { "local-llm": { location: "device" as const, modelFile: "model.bin" } } };
     expect(() => assertDeployable(req, inputs)).toThrow(/\.gguf/);
   });
+
+  // A rag requirement is unsatisfiable, not unbound: no input can clear it. It
+  // still rides the aggregated error rather than short-circuiting the collection,
+  // so the operator sees it alongside every other gap.
+  it("refuses a declared VectorDatabase — no input can bind it standalone", () => {
+    const wf = fullWorkflow();
+    wf.memory = { vdb1: { id: "vdb1", label: "Docs", type: "VectorDatabase", arguments: {} } };
+    const req = deriveRequirements(wf);
+    expect(() => assertDeployable(req, fullInputs)).toThrow(/memory "vdb1": retrieval \(RAG\) is not supported/);
+  });
 });
 
 describe("buildDeploymentSpec ML inference component", () => {

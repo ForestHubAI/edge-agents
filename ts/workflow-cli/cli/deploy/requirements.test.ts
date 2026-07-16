@@ -115,4 +115,19 @@ describe("deriveRequirements resource classification", () => {
     const req = deriveRequirements(wf);
     expect(req.cameraChannels.map((c) => c.id).sort()).toEqual(["front", "rear"]);
   });
+
+  it("pools declared VectorDatabases as rag memories, ignoring MemoryFile", () => {
+    const wf: Workflow = {
+      canvases: { [MAIN_CANVAS_ID]: canvas([]) },
+      functions: {},
+      channels: {},
+      memory: {
+        vdb1: { id: "vdb1", label: "Docs", type: "VectorDatabase", arguments: {} },
+        notes: { id: "notes", label: "Notes", type: "MemoryFile", arguments: {} },
+      },
+      models: {},
+    };
+    const req = deriveRequirements(wf);
+    expect(req.ragMemories).toEqual([{ id: "vdb1", label: "Docs" }]);
+  });
 });

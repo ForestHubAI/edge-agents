@@ -113,7 +113,7 @@ const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
   hasProviderModel: false,
   catalogProviders: [],
   unresolvedCatalogModels: [],
-  hasRetriever: false,
+  ragMemories: [],
   hardwareChannels: [],
   mqttChannels: [],
   cameraChannels: [],

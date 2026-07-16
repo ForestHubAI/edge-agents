@@ -13,17 +13,10 @@ import type { Workflow } from "../workflow";
 //
 // CROSS-LANGUAGE SEAM: these string values MUST match the backend's
 // deploy.BindingRequirement constants (fh-backend deploy.WorkflowBindingRequirements),
-// which are themselves the ResourceBindingRequest discriminators
-// ("hardware"/"mqtt"/"camera"/"declaredModel"/"mlInference"/"catalogModel"/"rag").
+// which are themselves the ResourceBinding discriminators.
 // A value that drifts here silently disagrees with the backend about what a
 // workflow needs bound.
-//
-// One deliberate asymmetry with the backend today: "rag" is absent. OSS is behind
-// on retrieval — it does not yet extract a VectorDatabase memory resource as a
-// requirement (the backend emits "rag"). A standalone engine has no retriever, so
-// such a workflow is refused at deploy; add "rag" here when the OSS engine gains a
-// retrieval backing.
-export type BindingKind = "hardware" | "mqtt" | "camera" | "declaredModel" | "mlInference" | "catalogModel";
+export type BindingKind = "hardware" | "mqtt" | "camera" | "declaredLlm" | "catalogLlm" | "ml" | "rag";
 
 // Drift sentinel: a new ChannelType breaks compilation here until it is
 // classified in workflowBindingRequirements' channel switch.
@@ -35,6 +28,12 @@ function assertNeverChannel(t: never): never {
 // in workflowBindingRequirements' model switch.
 function assertNeverModel(t: never): never {
   throw new Error(`unhandled model type: ${String(t)}`);
+}
+
+// Drift sentinel: a new MemoryType breaks compilation here until it is classified
+// in workflowBindingRequirements' memory switch.
+function assertNeverMemory(t: never): never {
+  throw new Error(`unhandled memory type: ${String(t)}`);
 }
 
 // workflowBindingRequirements returns the resources a deploy must bind, keyed by
@@ -77,27 +76,43 @@ export function workflowBindingRequirements(workflow: Workflow): Record<string, 
   }
 
   // Every declared model needs a source binding, but of a different kind by family:
-  // an LLMModel binds a model source ("declaredModel"); an MLModel is served by an
-  // ml-inference component ("mlInference"). Mirrors the backend's workflowModelIDs
+  // an LLMModel binds a model source ("declaredLlm"); an MLModel is served by an
+  // ml-inference component ("ml"). Mirrors the backend's workflowModelIDs
   // split — both sides must agree on which kind each declared model gets.
   for (const model of Object.values(workflow.models)) {
     switch (model.type) {
       case "LLMModel":
-        reqs[model.id] = "declaredModel";
+        reqs[model.id] = "declaredLlm";
         break;
       case "MLModel":
-        reqs[model.id] = "mlInference";
+        reqs[model.id] = "ml";
         break;
       default:
         return assertNeverModel(model.type);
     }
   }
 
+  // A declared VectorDatabase binds the retrieval collection its id resolves to
+  // ("rag"). Keyed by memory id: that is the id the engine resolves through the
+  // mapping (buildCollections), so an unbound one fatals at build.
+  for (const memory of Object.values(workflow.memory)) {
+    switch (memory.type) {
+      case "VectorDatabase":
+        reqs[memory.id] = "rag";
+        break;
+      case "MemoryFile":
+        // Lives in the engine's own workspace volume — no platform resource to bind.
+        break;
+      default:
+        return assertNeverMemory(memory.type);
+    }
+  }
+
   // Catalog models: referenced by an Agent node but not declared. Keyed by model
   // id (canonical, matching the backend surface) — not collapsed to providers
   // here. getReferencedCatalogModelIds already excludes declared ids, so this
-  // never overwrites a declaredModel entry.
-  for (const id of getReferencedCatalogModelIds(workflow)) reqs[id] = "catalogModel";
+  // never overwrites a declaredLlm entry.
+  for (const id of getReferencedCatalogModelIds(workflow)) reqs[id] = "catalogLlm";
 
   return reqs;
 }

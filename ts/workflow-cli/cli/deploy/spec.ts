@@ -262,6 +262,10 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   // A referenced catalog model absent from the catalog can't be routed — the
   // engine would have no provider for it. Refuse rather than emit a dead spec.
   for (const id of req.unresolvedCatalogModels) missing.push(`model "${id}": not in the model catalog`);
+  // A standalone engine has no retriever to bind a collection to, and resolves
+  // every declared VectorDatabase through the mapping at build (buildCollections)
+  // — so an emitted spec would be dead. Unsatisfiable, not merely unbound.
+  for (const m of req.ragMemories) missing.push(`memory "${m.id}": retrieval (RAG) is not supported by a standalone engine`);
   missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
   missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
   if (missing.length > 0) {

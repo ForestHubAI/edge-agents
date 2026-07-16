@@ -17,6 +17,7 @@
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
+import type { Memory } from "@foresthubai/workflow-core/memory";
 import { workflowBindingRequirements, type BindingKind } from "@foresthubai/workflow-core/deploy";
 
 // The five hardware-channel families the engine has a driver for. UART is the
@@ -59,6 +60,14 @@ export interface CustomMLModel {
   label: string;
 }
 
+// One declared VectorDatabase — needs a retrieval collection bound. A standalone
+// engine has no retriever backing, so OSS can bind none of these; the pool exists
+// to refuse the deploy (see assertDeployable), not to enrich.
+export interface RagMemory {
+  id: string;
+  label: string;
+}
+
 // One catalog provider a workflow's Agent nodes pull models from (resolved
 // against the static catalog, not workflow.models). Each becomes one
 // ExternalResources entry whose routing — local key vs backend — is a deploy input.
@@ -86,9 +95,10 @@ export interface DeployRequirements {
   // Referenced catalog model ids absent from the supplied catalog — a dangling
   // ref the resolver refuses to deploy. Always empty when no catalog is passed.
   unresolvedCatalogModels: string[];
-  // The workflow has a Retriever node. A standalone engine has no retriever, so
-  // the node cannot resolve — a producer may refuse to deploy.
-  hasRetriever: boolean;
+  // Every declared VectorDatabase. A standalone engine has no retriever, so none
+  // can be bound and the engine fatals resolving them — a producer refuses to
+  // deploy on a non-empty pool.
+  ragMemories: RagMemory[];
   // The workflow has a WebSearchTool node — needs a web-search key as engine env.
   hasWebSearch: boolean;
   // Every hardware channel, in declaration order; drives the device manifest +
@@ -147,6 +157,11 @@ function requireModel(workflow: Workflow, id: string): Model {
   if (!m) throw new Error(`binding surface referenced unknown model "${id}"`);
   return m;
 }
+function requireMemory(workflow: Workflow, id: string): Memory {
+  const m = workflow.memory[id];
+  if (!m) throw new Error(`binding surface referenced unknown memory "${id}"`);
+  return m;
+}
 
 // deriveRequirements enriches the Stage-0 binding surface
 // (workflowBindingRequirements) into the typed pools the OSS deploy artifacts and
@@ -154,12 +169,11 @@ function requireModel(workflow: Workflow, id: string): Model {
 // authority for WHAT needs binding, cross-language with the backend; this layer
 // only adds the OSS-specific HOW (hardware family/addressability, catalog-model→
 // provider resolution) and maps each kind to its pool — the LLM/ML split is the
-// surface's concern now (declaredModel vs mlInference). `catalog` is the static model catalog:
+// surface's concern now (declaredLlm vs ml). `catalog` is the static model catalog:
 // supply it to resolve catalog model ids to their providers (needed to emit
 // ExternalResources entries); omit it (headless) to defer that to a holder of the
-// catalog. hasRetriever/hasWebSearch are NOT bindings (no id-keyed resource) — they
-// are engine-env / refusal signals, so they are read from the nodes directly, not
-// from the surface.
+// catalog. hasWebSearch is NOT a binding (no id-keyed resource) — it is an
+// engine-env signal, so it is read from the nodes directly, not from the surface.
 export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []): DeployRequirements {
   const surface = workflowBindingRequirements(workflow);
 
@@ -168,6 +182,7 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
   const cameraChannels: CameraChannel[] = [];
   const customLLMModels: CustomLLMModel[] = [];
   const customMLModels: CustomMLModel[] = [];
+  const ragMemories: RagMemory[] = [];
   const catalogModelIds: string[] = [];
 
   for (const [id, kind] of Object.entries(surface) as [string, BindingKind][]) {
@@ -185,21 +200,28 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
         cameraChannels.push({ id: ch.id, label: ch.label });
         break;
       }
-      case "declaredModel": {
-        // The surface already split the family: "declaredModel" is an LLMModel (an
-        // MLModel arrives as "mlInference" below). LLM models drive the provider/
+      case "declaredLlm": {
+        // The surface already split the family: "declaredLlm" is an LLMModel (an
+        // MLModel arrives as "ml" below). LLM models drive the provider/
         // llama-server path.
         const m = requireModel(workflow, id);
         customLLMModels.push({ id: m.id, label: m.label });
         break;
       }
-      case "mlInference": {
+      case "ml": {
         // MLModels are served by the ml-inference component, not an LLM provider.
         const m = requireModel(workflow, id);
         customMLModels.push({ id: m.id, label: m.label });
         break;
       }
-      case "catalogModel":
+      case "rag": {
+        // Nothing to enrich: OSS binds no retrieval collection. Pooled so
+        // assertDeployable can refuse with the ids the operator must remove.
+        const m = requireMemory(workflow, id);
+        ragMemories.push({ id: m.id, label: m.label });
+        break;
+      }
+      case "catalogLlm":
         catalogModelIds.push(id);
         break;
       default:
@@ -207,12 +229,10 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
     }
   }
 
-  let hasRetriever = false;
   let hasWebSearch = false;
   for (const canvas of Object.values(workflow.canvases)) {
     for (const node of canvas.nodes) {
-      if (node.type === "Retriever") hasRetriever = true;
-      else if (node.type === "WebSearchTool") hasWebSearch = true;
+      if (node.type === "WebSearchTool") hasWebSearch = true;
     }
   }
 
@@ -236,12 +256,12 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
     hasProviderModel: catalogModelIds.length > 0,
     catalogProviders: [...providerIds].map((id) => ({ id })),
     unresolvedCatalogModels,
-    hasRetriever,
     hasWebSearch,
     hardwareChannels,
     mqttChannels,
     cameraChannels,
     customLLMModels,
     customMLModels,
+    ragMemories,
   };
 }

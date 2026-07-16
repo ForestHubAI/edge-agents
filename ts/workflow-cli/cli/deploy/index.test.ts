@@ -17,7 +17,7 @@ function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
     hasProviderModel: false,
     catalogProviders: [],
     unresolvedCatalogModels: [],
-    hasRetriever: false,
+    ragMemories: [],
     hasWebSearch: false,
     hardwareChannels: [],
     mqttChannels: [],

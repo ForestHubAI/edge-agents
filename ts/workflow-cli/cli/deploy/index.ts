@@ -355,13 +355,16 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // endpoint the operator runs) and explained accurately in the generated README —
   // no blanket pre-prompt note here, which could only guess at that choice.
 
-  // A standalone engine has no retriever, so a Retriever node can never resolve
-  // and the engine fails at build. Refuse rather than emit a dead bundle.
-  if (req.hasRetriever) {
+  // A standalone engine has no retriever, so a declared VectorDatabase can never
+  // be bound and the engine fails at build. assertDeployable refuses this too, but
+  // only after input collection — refuse up front rather than prompt for bindings
+  // the operator can never make deployable.
+  if (req.ragMemories.length > 0) {
+    const ids = req.ragMemories.map((m) => `"${m.id}"`).join(", ");
     process.stderr.write(
-      "error: workflow references a Retriever node (RAG).\n" +
-        "       A standalone engine has no retriever, so the node cannot resolve and the\n" +
-        "       engine fails at build. Remove the Retriever node to deploy standalone.\n",
+      `error: workflow declares a vector database (RAG): ${ids}.\n` +
+        "       A standalone engine has no retriever, so the collection cannot be bound and\n" +
+        "       the engine fails at build. Remove the vector database to deploy standalone.\n",
     );
     process.exit(1);
   }

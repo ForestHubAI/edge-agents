@@ -6,6 +6,7 @@ import { workflowBindingRequirements, getReferencedCatalogModelIds, type Binding
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "../workflow";
 import type { Channel, ChannelType } from "../channel";
 import type { Model } from "../model";
+import type { Memory, MemoryType } from "../memory";
 import type { Node } from "../node";
 
 function channel(id: string, type: ChannelType): Channel {
@@ -14,6 +15,8 @@ function channel(id: string, type: ChannelType): Channel {
 
 const llm = (id: string): Model => ({ id, label: id, type: "LLMModel", arguments: {} });
 const ml = (id: string): Model => ({ id, label: id, type: "MLModel", arguments: {} });
+
+const memory = (id: string, type: MemoryType): Memory => ({ id, label: id, type, arguments: {} });
 
 // Minimal Agent node referencing a catalog model by id — only the model ref
 // matters to the requirement walk. Cast through the union: the other Agent args
@@ -53,6 +56,7 @@ function workflow(parts: Partial<Workflow> & { nodes?: Node[] }): Workflow {
 
 const byId = (chs: Channel[]): Record<string, Channel> => Object.fromEntries(chs.map((c) => [c.id, c]));
 const modelsById = (ms: Model[]): Record<string, Model> => Object.fromEntries(ms.map((m) => [m.id, m]));
+const memoryById = (ms: Memory[]): Record<string, Memory> => Object.fromEntries(ms.map((m) => [m.id, m]));
 
 // CROSS-LANGUAGE CONFORMANCE. Each case below is a golden fixture: a workflow in,
 // an exact id->kind surface out. The backend's deploy.WorkflowBindingRequirements
@@ -94,41 +98,53 @@ describe("workflowBindingRequirements", () => {
     expect(workflowBindingRequirements(workflow({ channels: chs }))).toEqual({ led: "hardware" });
   });
 
-  it("splits declared models: LLMModel -> 'declaredModel', MLModel -> 'mlInference'", () => {
+  it("splits declared models: LLMModel -> 'declaredLlm', MLModel -> 'ml'", () => {
     const models = modelsById([llm("local-llm"), ml("yolo")]);
-    expect(workflowBindingRequirements(workflow({ models }))).toEqual({ "local-llm": "declaredModel", yolo: "mlInference" });
+    expect(workflowBindingRequirements(workflow({ models }))).toEqual({ "local-llm": "declaredLlm", yolo: "ml" });
   });
 
-  it("maps a referenced-but-undeclared catalog model to 'catalogModel', keyed by model id", () => {
+  it("maps a referenced-but-undeclared catalog model to 'catalogLlm', keyed by model id", () => {
     const wf = workflow({ nodes: [agent("a1", "gpt-4o")] });
-    expect(workflowBindingRequirements(wf)).toEqual({ "gpt-4o": "catalogModel" });
+    expect(workflowBindingRequirements(wf)).toEqual({ "gpt-4o": "catalogLlm" });
   });
 
-  it("prefers 'declaredModel' when an id is both declared and referenced (no overwrite)", () => {
+  it("prefers 'declaredLlm' when an id is both declared and referenced (no overwrite)", () => {
     const wf = workflow({ models: modelsById([llm("shared")]), nodes: [agent("a1", "shared")] });
-    expect(workflowBindingRequirements(wf)).toEqual({ shared: "declaredModel" });
+    expect(workflowBindingRequirements(wf)).toEqual({ shared: "declaredLlm" });
   });
 
-  it("does not extract MemoryFile / VectorDatabase memory (RAG not yet in the OSS surface)", () => {
-    const wf = workflow({
-      memory: { notes: { id: "notes", label: "Notes", type: "MemoryFile", arguments: {} } as Workflow["memory"][string] },
-    });
+  it("maps a declared VectorDatabase to 'rag', keyed by memory id", () => {
+    const wf = workflow({ memory: memoryById([memory("vdb1", "VectorDatabase")]) });
+    expect(workflowBindingRequirements(wf)).toEqual({ vdb1: "rag" });
+  });
+
+  it("does not extract MemoryFile memory (engine workspace volume, nothing to bind)", () => {
+    const wf = workflow({ memory: memoryById([memory("notes", "MemoryFile")]) });
     expect(workflowBindingRequirements(wf)).toEqual({});
+  });
+
+  // The rag requirement is the DECLARATION, not the reference: a VectorDatabase
+  // with no Retriever node still resolves through the mapping at engine build.
+  it("emits 'rag' for a declared VectorDatabase even with no Retriever node", () => {
+    const wf = workflow({ memory: memoryById([memory("vdb1", "VectorDatabase")]), nodes: [agent("a1", "gpt-4o")] });
+    expect(workflowBindingRequirements(wf)).toEqual({ vdb1: "rag", "gpt-4o": "catalogLlm" });
   });
 
   it("produces the full surface for a mixed workflow", () => {
     const wf = workflow({
       channels: byId([channel("led", "GPIOOUT"), channel("telemetry", "MQTT"), channel("cam0", "CAMERA"), channel("log", "LOG")]),
       models: modelsById([llm("local-llm"), ml("yolo")]),
+      memory: memoryById([memory("vdb1", "VectorDatabase"), memory("notes", "MemoryFile")]),
       nodes: [agent("a1", "claude-sonnet")],
     });
     const expected: Record<string, BindingKind> = {
       led: "hardware",
       telemetry: "mqtt",
       cam0: "camera",
-      "local-llm": "declaredModel",
-      yolo: "mlInference",
-      "claude-sonnet": "catalogModel",
+      "local-llm": "declaredLlm",
+      yolo: "ml",
+      vdb1: "rag",
+      "claude-sonnet": "catalogLlm",
     };
     expect(workflowBindingRequirements(wf)).toEqual(expected);
   });
