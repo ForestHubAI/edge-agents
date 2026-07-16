@@ -52,12 +52,12 @@ export function formatParamDisplay(
       return channelLabels?.[channelId] ? { text: channelLabels[channelId] } : { text: "unknown", isInvalid: true };
     }
     case "modelSelect": {
-      // A ModelID is human-meaningful (e.g. "claude-opus-4-7"); show the catalog/
-      // custom label when known, otherwise the id itself. Staleness is surfaced
-      // by diagnostics, not inline, since the catalog isn't available headlessly.
+      // `modelLabels` covers catalog ∪ declared models, so a miss is the same
+      // staleness computeNodeDiagnostics flags — render it like every other
+      // dangling reference rather than printing a bare id.
       const modelId = value as string | undefined;
       if (!modelId) return { text: "" };
-      return { text: modelLabels?.[modelId] ?? modelId };
+      return modelLabels?.[modelId] ? { text: modelLabels[modelId] } : { text: "unknown", isInvalid: true };
     }
     default:
       return { text: String(value ?? "") };

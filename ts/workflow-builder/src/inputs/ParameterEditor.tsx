@@ -6,12 +6,17 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { Switch } from "../components/ui/switch";
-import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { AddButton } from "../components/ui/add-button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { DataType, Expression, Reference } from "@foresthubai/workflow-core";
 import type {
   ExpressionParam,
@@ -33,12 +38,22 @@ import { useAvailableVariables } from "../hooks/useAvailableVariables";
 import { useEditorStore } from "../stores/editorStore";
 import { varKey, refToLookupKey } from "@foresthubai/workflow-core/variable";
 import type { Channel } from "@foresthubai/workflow-core/channel";
-import type { Memory, MemoryRef } from "@foresthubai/workflow-core/memory";
-import type { ModelCapability } from "@foresthubai/workflow-core/model";
+import { MemoryRegistry, type Memory, type MemoryRef } from "@foresthubai/workflow-core/memory";
+import { ModelRegistry, type ModelCapability } from "@foresthubai/workflow-core/model";
+import { addDeclaredVariable } from "../utils/variableOperations";
+import { addChannel } from "../utils/channelOperations";
+import { addMemory } from "../utils/memoryOperations";
+import { addModel } from "../utils/modelOperations";
 import ExpressionInput from "./ExpressionInput";
 import { getParamDescription } from "../utils/translation";
 
-/** Shared Select component for all reference-select parameter types */
+/**
+ * Shared Select for every ReferenceSelectParam variant (variable/channel/memory/model),
+ * so they all behave identically: `None` is always offered, and a value whose target
+ * is gone reads "Deleted reference" while staying clearable. An empty option list is
+ * NOT a special case — the select still renders, or a stale reference could never be
+ * cleared once the last candidate was deleted.
+ */
 function ReferenceSelect({
   value,
   options,
@@ -55,7 +70,9 @@ function ReferenceSelect({
   onChange: (value: string | undefined) => void;
 }) {
   const NONE = "__none__";
-  const selectValue = isStale ? undefined : (value ?? NONE);
+  // "" (not undefined) for the stale case: Radix reads it as "show the placeholder"
+  // while keeping the Select controlled — undefined would flip it to uncontrolled.
+  const selectValue = isStale ? "" : (value ?? NONE);
 
   return (
     <Select value={selectValue} onValueChange={(v) => onChange(v === NONE ? undefined : v)} disabled={loading}>
@@ -77,6 +94,49 @@ function ReferenceSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+/** A create action a reference-select parameter offers, one per type it accepts. */
+interface CreateAction {
+  label: string;
+  run: () => void;
+}
+
+/**
+ * The "+" beside a reference-select: creates a resource of an accepted type,
+ * binds it, and hands off to its panel. Deliberately the same circular plus as
+ * the canvas add-port affordance (PortHandle) — same meaning, same look.
+ */
+function CreateResourcePlus({ actions }: { actions: CreateAction[] }) {
+  const plusClass =
+    "flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-card hover:bg-primary hover:scale-110 transition-all cursor-pointer shrink-0";
+
+  if (actions.length === 1) {
+    const only = actions[0]!;
+    return (
+      <button type="button" title={only.label} aria-label={only.label} className={plusClass} onClick={only.run}>
+        <Plus className="w-2.5 h-2.5" strokeWidth={3} />
+      </button>
+    );
+  }
+
+  // Several accepted types — the plus can't guess which, so it asks.
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={plusClass}>
+          <Plus className="w-2.5 h-2.5" strokeWidth={3} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {actions.map((action) => (
+          <DropdownMenuItem key={action.label} onSelect={action.run}>
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -122,6 +182,61 @@ const ParameterEditor = ({
   const memory = useEditorStore((s) => s.memory);
   const models = useEditorStore((s) => s.models);
   const availableModels = useEditorStore((s) => s.availableModels);
+
+  // Reference-select parameters offer a "+" per type they accept: create the
+  // resource, bind it here, then hand off to its own panel. Derived from the
+  // parameter's accepted types, so it can only ever create something this
+  // parameter will actually list.
+  const createActions = ((): CreateAction[] => {
+    switch (parameter.type) {
+      // Only declared variables are creatable — node outputs come from their node,
+      // the same way catalog models can't be declared into existence.
+      case "variableSelect":
+        return [
+          {
+            label: t("createResource", { label: t("variableLabel", "Variable") }),
+            run: () => {
+              const uid = addDeclaredVariable(canvasId);
+              onChange({ srcId: "declared", varId: uid } satisfies Reference);
+              useEditorStore.getState().setActiveSidebarTab("variables");
+              useEditorStore.getState().selectVariable(uid);
+            },
+          },
+        ];
+      case "channelSelect":
+        return resolveChannelTypes(parameter as ChannelSelectParam, allArguments).map((type) => ({
+          label: t("createResource", { label: type }),
+          run: () => {
+            const created = addChannel(type);
+            onChange(created.id);
+            useEditorStore.getState().setActiveSidebarTab("channels");
+            useEditorStore.getState().selectChannel(created.id);
+          },
+        }));
+      case "memorySelect":
+        return resolveMemoryTypes(parameter as MemorySelectParam, allArguments).map((type) => ({
+          label: t("createResource", { label: MemoryRegistry.getByType(type)?.label ?? type }),
+          run: () => {
+            const created = addMemory(type);
+            onChange(created.id);
+            useEditorStore.getState().setActiveSidebarTab("memory");
+            useEditorStore.getState().selectMemory(created.id);
+          },
+        }));
+      case "modelSelect":
+        return resolveModelTypes(parameter as ModelSelectParam, allArguments).map((type) => ({
+          label: t("createResource", { label: ModelRegistry.getByType(type)?.label ?? type }),
+          run: () => {
+            const created = addModel(type);
+            onChange(created.id);
+            useEditorStore.getState().setActiveSidebarTab("models");
+            useEditorStore.getState().selectModel(created.id);
+          },
+        }));
+      default:
+        return [];
+    }
+  })();
 
   const renderInput = () => {
     switch (parameter.type) {
@@ -306,19 +421,6 @@ const ParameterEditor = ({
         const selectedId = currentValue as string | undefined;
         const isStale = !!(selectedId && !options.some((o) => o.value === selectedId));
 
-        if (options.length === 0) {
-          // Catalog-backed selects (LLM) being empty means the catalog failed to
-          // load — a support case. Declared-only selects (ML) just need the user
-          // to declare a model of the right type first.
-          const emptyMessage = allowedTypes.includes("LLMModel") ? t("noLLMModelsAvailable") : t("noMLModelsAvailable");
-          return (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{emptyMessage}</AlertDescription>
-            </Alert>
-          );
-        }
-
         return (
           <ReferenceSelect
             value={selectedId}
@@ -475,17 +577,6 @@ const ParameterEditor = ({
         const isStale = !!(selectedId && !matching.some((v) => v.id === selectedId));
         const options = matching.map((v) => ({ value: v.id, label: v.label }));
 
-        if (options.length === 0) {
-          // No channel of the accepted type is declared; the user must add one in
-          // the Channels panel before this node can reference it.
-          return (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{t("noChannelsAvailable")}</AlertDescription>
-            </Alert>
-          );
-        }
-
         return (
           <ReferenceSelect
             value={selectedId}
@@ -518,7 +609,14 @@ const ParameterEditor = ({
           {translationPrefix ? getParamDescription(t, translationPrefix, parameter) : parameter.description}
         </p>
       )}
-      {renderInput()}
+      {createActions.length > 0 ? (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">{renderInput()}</div>
+          <CreateResourcePlus actions={createActions} />
+        </div>
+      ) : (
+        renderInput()
+      )}
       {hasError && (
         <div className="space-y-0.5">
           {errors.map((msg, i) => (

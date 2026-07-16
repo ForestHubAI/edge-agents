@@ -508,6 +508,20 @@ All colors MUST be HSL.
   background: transparent;
 }
 
+/* SelectViewport injects its own `scrollbar-width:none` + hidden webkit
+ * scrollbar, assuming Radix's scroll buttons are the scroll affordance. We
+ * don't render those buttons (see components/ui/select.tsx), so a long option
+ * list needs its scrollbar back. Radix's rule is a lone attribute selector, so
+ * these two-class selectors outrank it regardless of stylesheet order. */
+.fh-builder-portal [data-radix-select-viewport] {
+  scrollbar-width: thin;
+}
+.fh-builder-portal [data-radix-select-viewport]::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+  height: 6px;
+}
+
 /* Suppress ReactFlow's built-in selection outline — we use custom glow via editorStore */
 .react-flow__node.selected,
 .react-flow__edge.selected {
