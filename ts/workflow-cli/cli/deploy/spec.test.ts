@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import { buildDeploymentSpec, assertDeployable, llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
 import type { DeploymentInputs } from "./inputs";
 import { deriveRequirements } from "./requirements";
+import { ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 import { MAIN_CANVAS_ID, type Workflow } from "@foresthubai/workflow-core/workflow";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
@@ -212,13 +213,13 @@ describe("buildDeploymentSpec", () => {
       mlModels: {},
       cameras: {},
     };
-    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta);
+    const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
     // The provider config in the spec is secret-free; the apiKey is pulled out.
     const ext = engineConfigOf(spec).externalResources!;
     const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhostedLlm")!;
     expect(provider).toEqual({ type: "selfhostedLlm", url: "https://infer.example/v1" });
-    expect(resourceSecrets[ref]).toEqual("k");
+    expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[ref]).toEqual("k");
   });
 
   it("shares one selfhosted provider across models on the same endpoint", () => {
@@ -251,13 +252,13 @@ describe("buildDeploymentSpec", () => {
   });
 
   it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
-    const { spec, resourceSecrets } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
+    const { spec, componentSecrets } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     const ext = engineConfigOf(spec).externalResources!;
     // The stored connection carries metadata but never the password.
     const [mqttRef, mqttConn] = Object.entries(ext).find(([, r]) => r.type === "mqtt")!;
     expect(mqttConn).not.toHaveProperty("password");
     expect(mqttConn).toMatchObject({ username: "u" });
-    expect(resourceSecrets[mqttRef]).toEqual("p");
+    expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[mqttRef]).toEqual("p");
     // Whole spec serialized carries no secret value.
     expect(JSON.stringify(spec)).not.toContain('"p"');
   });
@@ -279,7 +280,7 @@ describe("buildDeploymentSpec catalog providers", () => {
 
   it("emits one localLlm instance per provider (deduped), no model mapping, pulls the key out", () => {
     const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, providers: { anthropic: { routing: "local", apiKey: "sk-x" } } };
-    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
+    const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const config = engineConfigOf(spec);
     const ext = config.externalResources!;
     // Two Agents, same provider → a single provider instance.
@@ -290,16 +291,16 @@ describe("buildDeploymentSpec catalog providers", () => {
     // Catalog models are routed by llmproxy, not mapped — no mapping entries.
     expect(config.mapping?.["claude-opus-4-7"]).toBeUndefined();
     expect(config.mapping?.["claude-haiku-4-7"]).toBeUndefined();
-    expect(resourceSecrets[ref]).toBe("sk-x");
+    expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[ref]).toBe("sk-x");
     expect(JSON.stringify(spec)).not.toContain("sk-x");
   });
 
   it("backendLlm carries the provider, no key and no secret", () => {
     const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, providers: { anthropic: { routing: "backend" } } };
-    const { spec, resourceSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
+    const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const ext = engineConfigOf(spec).externalResources!;
     expect(Object.values(ext)).toContainEqual({ type: "backendLlm", provider: "anthropic" });
-    expect(Object.keys(resourceSecrets)).toHaveLength(0);
+    expect(Object.keys(componentSecrets[ENGINE_COMPONENT_NAME] ?? {})).toHaveLength(0);
   });
 
   it("rejects an unbound provider and a local provider missing its key", () => {
@@ -438,111 +439,132 @@ describe("buildDeploymentSpec capture component", () => {
     memory: {},
     models: {},
   });
-  const camUrls = (spec: Spec): string[] =>
-    Object.values(engineConfigOf(spec).externalResources ?? {})
-      .filter((r) => r.type === "camera")
-      .map((r) => (r as { url: string }).url);
+  const camInputs = (cameras: DeploymentInputs["cameras"]): DeploymentInputs => ({
+    hardware: {},
+    mqtt: {},
+    llmModels: {},
+    mlModels: {},
+    cameras,
+  });
+  const manifestCameras = (spec: Spec) => engineConfigOf(spec).manifest?.cameras ?? {};
 
-  it("emits ONE shared capture component for on-device cameras and points each at it", () => {
-    const inputs: DeploymentInputs = {
-      hardware: {},
-      mqtt: {},
-      llmModels: {},
-      mlModels: {},
-      cameras: {
-        front: { location: "device", source: "v4l2", device: "/dev/video0" },
-        rear: { location: "device", source: "v4l2", device: "/dev/video1" },
-      },
-    };
+  it("declares each camera in the device manifest, never as an external resource", () => {
+    const inputs = camInputs({
+      front: { kind: "v4l2", device: "/dev/video0" },
+      rear: { kind: "v4l2", device: "/dev/video1" },
+    });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "rear"]), inputs, meta);
 
-    // Exactly one component for both cameras — not one per camera.
+    // A camera is device-owned hardware: it lives in the manifest, and nothing
+    // in externalResources points at the driver component.
+    expect(manifestCameras(spec)).toEqual({
+      video0: { kind: "v4l2", device: "/dev/video0" },
+      video1: { kind: "v4l2", device: "/dev/video1" },
+    });
+    expect(engineConfigOf(spec).externalResources ?? {}).toEqual({});
+
+    // Each channel maps to its manifest key — never to its own logical id.
+    expect(engineConfigOf(spec).mapping).toEqual({ front: { ref: "video0" }, rear: { ref: "video1" } });
+  });
+
+  it("emits ONE driver component for the whole camera set", () => {
+    const inputs = camInputs({
+      front: { kind: "v4l2", device: "/dev/video0" },
+      rear: { kind: "v4l2", device: "/dev/video1" },
+    });
+    const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "rear"]), inputs, meta);
+
     const components = spec.components.filter((c) => c.name === cameraComponentServiceName());
     expect(components).toHaveLength(1);
     expect(components[0]).toMatchObject({
       image: "camera:latest",
       pull: "never",
-      volumes: [`./workspaces/${cameraComponentServiceName()}/cameras.json:/etc/foresthub/config.json:ro`],
+      // Its boot config rides as the component's config blob, like every other
+      // component's — so the renderer mounts it with no camera-specific code, and
+      // there is no workspace mount at all.
+      config: { cameras: { video0: { kind: "v4l2", device: "/dev/video0" }, video1: { kind: "v4l2", device: "/dev/video1" } } },
     });
-    // Both v4l2 nodes are passed through to the component.
+    expect(components[0].volumes).toBeUndefined();
     expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
-
-    // Every on-device camera resolves to the same component url; each is mapped by id.
-    expect(camUrls(spec)).toEqual([`http://${cameraComponentServiceName()}:8081`, `http://${cameraComponentServiceName()}:8081`]);
-    expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["front", "rear"]);
   });
 
-  it("uses a network camera's own endpoint and runs no component", () => {
-    const inputs: DeploymentInputs = {
-      hardware: {},
-      mqtt: {},
-      llmModels: {},
-      mlModels: {},
-      cameras: { front: { location: "network", url: "http://cam.remote:8100" } },
-    };
+  it("collapses two channels declaring the same camera onto one manifest entry", () => {
+    // The identity is the camera, not the channel: one entry, one driver, shared.
+    const inputs = camInputs({
+      wide: { kind: "v4l2", device: "/dev/video0" },
+      thumb: { kind: "v4l2", device: "/dev/video0" },
+    });
+    const { spec } = buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta);
+
+    expect(Object.keys(manifestCameras(spec))).toEqual(["video0"]);
+    expect(engineConfigOf(spec).mapping).toEqual({ wide: { ref: "video0" }, thumb: { ref: "video0" } });
+  });
+
+  it("keeps cameras distinct when they differ only by credential", () => {
+    const inputs = camInputs({
+      a: { kind: "rtsp", url: "rtsp://cam/s1", password: "pw1" },
+      b: { kind: "rtsp", url: "rtsp://cam/s1", password: "pw2" },
+    });
+    const { spec, componentSecrets } = buildDeploymentSpec(cameraWorkflow(["a", "b"]), inputs, meta);
+
+    expect(Object.keys(manifestCameras(spec))).toHaveLength(2);
+    expect(Object.keys(componentSecrets[cameraComponentServiceName()] ?? {})).toHaveLength(2);
+  });
+
+  it("puts a stream password in the DRIVER component's secret doc, not the engine's", () => {
+    const inputs = camInputs({ gate: { kind: "rtsp", url: "rtsp://cam/s1", user: "admin", password: "hunter2" } });
+    const { spec, componentSecrets } = buildDeploymentSpec(cameraWorkflow(["gate"]), inputs, meta);
+
+    const ref = Object.keys(manifestCameras(spec))[0]!;
+    // Keyed by the camera's own ref — there is no secretRef to resolve.
+    expect(componentSecrets[cameraComponentServiceName()]).toEqual({ [ref]: "hunter2" });
+    // The engine never sees it: it never builds the capture pipeline.
+    expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[ref]).toBeUndefined();
+    // And it is nowhere in the spec.
+    expect(JSON.stringify(spec)).not.toContain("hunter2");
+  });
+
+  it("keeps an rtsp camera on-device: a manifest entry, no operator endpoint", () => {
+    const inputs = camInputs({ front: { kind: "rtsp", url: "rtsp://cam.remote/s1" } });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front"]), inputs, meta);
-    expect(spec.components).toHaveLength(1); // engine only, no component
-    expect(camUrls(spec)).toEqual(["http://cam.remote:8100"]);
-  });
 
-  it("mixes device + network cameras: the component serves only the device ones", () => {
-    const inputs: DeploymentInputs = {
-      hardware: {},
-      mqtt: {},
-      llmModels: {},
-      mlModels: {},
-      cameras: {
-        front: { location: "device", source: "v4l2", device: "/dev/video0" },
-        remote: { location: "network", url: "http://cam.remote:8100" },
-      },
-    };
-    const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "remote"]), inputs, meta);
+    // An IP camera is still read by the local driver component — it is reached
+    // over the network, not deployed over it.
     expect(spec.components.filter((c) => c.name === cameraComponentServiceName())).toHaveLength(1);
-    expect(camUrls(spec).sort()).toEqual(["http://cam.remote:8100", `http://${cameraComponentServiceName()}:8081`]);
+    expect(manifestCameras(spec)).toEqual({ "cam-cam.remote": { kind: "rtsp", url: "rtsp://cam.remote/s1" } });
   });
 
-  it("passes through v4l2 nodes deduped; a gstreamer source grants no device", () => {
-    const inputs: DeploymentInputs = {
-      hardware: {},
-      mqtt: {},
-      llmModels: {},
-      mlModels: {},
-      cameras: {
-        a: { location: "device", source: "v4l2", device: "/dev/video0" },
-        b: { location: "device", source: "v4l2", device: "/dev/video0" }, // same node → deduped
-        csi: { location: "device", source: "gstreamer", device: "libcamerasrc" }, // no /dev node
-      },
-    };
+  it("passes through v4l2 nodes deduped; libcamera grants no device but needs udev", () => {
+    const inputs = camInputs({
+      a: { kind: "v4l2", device: "/dev/video0" },
+      b: { kind: "v4l2", device: "/dev/video0" }, // same node → deduped
+      csi: { kind: "libcamera" }, // no /dev node
+    });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["a", "b", "csi"]), inputs, meta);
     const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
     expect(component.devices).toEqual(["/dev/video0"]);
-    // A gstreamer camera means libcamera, which needs the host's udev database.
+    // libcamera discovers cameras through the host's udev database.
     expect(component.volumes).toContain("/run/udev:/run/udev:ro");
   });
 
   it("passes through the extra device nodes a binding's setup commands touch", () => {
-    const inputs: DeploymentInputs = {
-      hardware: {},
-      mqtt: {},
-      llmModels: {},
-      mlModels: {},
-      cameras: {
-        cam: {
-          location: "device",
-          source: "v4l2",
-          device: "/dev/video1",
-          setup: ["media-ctl -d /dev/media2 -r"],
-          devices: ["/dev/media2", "/dev/v4l-subdev7"],
-        },
+    const inputs = camInputs({
+      cam: {
+        kind: "v4l2",
+        device: "/dev/video1",
+        setup: ["media-ctl -d /dev/media2 -r"],
+        devices: ["/dev/media2", "/dev/v4l-subdev7"],
       },
-    };
+    });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["cam"]), inputs, meta);
     const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
     expect(component.devices).toEqual(["/dev/video1", "/dev/media2", "/dev/v4l-subdev7"]);
+    // devices is render-only — it never reaches the manifest entry.
+    expect(manifestCameras(spec)["video1"]).toEqual({ kind: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] });
   });
 
   it("rejects an unbound camera", () => {
     const req = deriveRequirements(cameraWorkflow(["front"]));
-    expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} })).toThrow(/camera "front"/);
+    expect(() => assertDeployable(req, camInputs({}))).toThrow(/camera "front"/);
   });
 });

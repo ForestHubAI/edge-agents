@@ -14,8 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 )
 
 // CaptureTimeout bounds a single capture so a stuck pipeline is killed. It is
@@ -31,23 +29,65 @@ type gstreamerSource struct {
 	mu         sync.Mutex
 	sourceArgs []string
 	frames     int
-	v4l2       bool
+	// pinAtSource fixates the size on the source's own caps instead of scaling
+	// afterwards. Only a V4L2 node needs it (see pipeline).
+	pinAtSource bool
 }
 
-// newGStreamerSource builds the pipeline source tokens: v4l2 wraps the /dev path
-// as a v4l2src device arg (USB/UVC), kept as discrete tokens so a path with
-// spaces is safe; gstreamer takes the device as a source fragment (e.g.
-// libcamerasrc) split on whitespace — operator-trusted by design. frames is the
-// total run through the pipeline; only the last is kept, so the warmup frames
-// ahead of it give auto-exposure time to settle.
-func newGStreamerSource(cc cameraapi.CameraSource) *gstreamerSource {
-	var args []string
-	if cc.Source == sourceV4L2 {
-		args = []string{"v4l2src", "device=" + cc.Device}
-	} else {
-		args = strings.Fields(cc.Device)
+// newGStreamerSource turns one camera into pipeline source tokens. Choosing the
+// element per kind is the whole point of a kind: the manifest says which camera
+// and how it is reached, and the recipe lives here.
+//
+// Tokens are discrete rather than one string, so a device path or URL containing
+// spaces stays a single argument. Only raw is split on whitespace — it is the
+// escape hatch and is operator-trusted by design.
+//
+// frames is the total run through the pipeline; only the last is kept, so the
+// warmup frames ahead of it give auto-exposure time to settle.
+func newGStreamerSource(c Camera) *gstreamerSource {
+	return &gstreamerSource{
+		sourceArgs:  sourceArgs(c),
+		frames:      c.WarmupFrames + 1,
+		pinAtSource: c.Kind == KindV4L2,
 	}
-	return &gstreamerSource{sourceArgs: args, frames: cc.WarmupFrames + 1, v4l2: cc.Source == sourceV4L2}
+}
+
+// sourceArgs is the per-kind capture recipe: the elements a pipeline starts with
+// to produce frames from this camera. Everything downstream (frame limiting,
+// sizing, encoding) is kind-independent and lives in pipeline.
+func sourceArgs(c Camera) []string {
+	switch c.Kind {
+	case KindV4L2:
+		return []string{"v4l2src", "device=" + c.Device}
+	case KindLibcamera:
+		args := []string{"libcamerasrc"}
+		if c.CameraName != "" {
+			args = append(args, "camera-name="+c.CameraName)
+		}
+		return args
+	case KindRTSP:
+		// decodebin negotiates the depayloader and decoder from the stream itself,
+		// so h264/h265/mjpeg all work without the manifest naming a codec.
+		return append(networkSourceArgs("rtspsrc", c), "!", "decodebin")
+	case KindHTTP:
+		return append(networkSourceArgs("souphttpsrc", c), "!", "decodebin")
+	case KindRaw:
+		return strings.Fields(c.Pipeline)
+	}
+	return nil // unreachable: newSource rejects unknown kinds
+}
+
+// networkSourceArgs builds a URL-based source element with optional credentials.
+// rtspsrc and souphttpsrc share the location/user-id/user-pw property names.
+func networkSourceArgs(element string, c Camera) []string {
+	args := []string{element, "location=" + c.URL}
+	if c.User != "" {
+		args = append(args, "user-id="+c.User)
+	}
+	if c.Password != "" {
+		args = append(args, "user-pw="+c.Password)
+	}
+	return args
 }
 
 func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byte, error) {
@@ -92,7 +132,7 @@ func (s *gstreamerSource) capture(ctx context.Context, width, height int) ([]byt
 // with identity eos-after.
 func (s *gstreamerSource) pipeline(dir string, width, height int) []string {
 	args := append([]string{}, s.sourceArgs...)
-	if s.v4l2 && width > 0 && height > 0 {
+	if s.pinAtSource && width > 0 && height > 0 {
 		// Pin the size directly at the source: a statically configured capture
 		// node (CSI/ISP media graph, frame grabber) streams only in its pinned
 		// format, and left to itself v4l2src fixates on something else.
@@ -100,7 +140,7 @@ func (s *gstreamerSource) pipeline(dir string, width, height int) []string {
 	}
 	// identity drops the buffer that triggers the EOS, so N frames need eos-after=N+1.
 	args = append(args, "!", "identity", fmt.Sprintf("eos-after=%d", s.frames+1), "!", "videoconvert")
-	if !s.v4l2 && width > 0 && height > 0 {
+	if !s.pinAtSource && width > 0 && height > 0 {
 		// videoscale so the request is honored regardless of the camera's
 		// native resolution, rather than failing caps negotiation.
 		args = append(args, "!", "videoscale", "!", fmt.Sprintf("video/x-raw,width=%d,height=%d", width, height))

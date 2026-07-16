@@ -7,24 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/workflowapi"
+	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/cameraapi"
+	externalRef1 "github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/oapi-codegen/runtime"
 )
-
-// Defines values for CameraConfigType.
-const (
-	Camera CameraConfigType = "camera"
-)
-
-// Valid indicates whether the value is a known member of the CameraConfigType enum.
-func (e CameraConfigType) Valid() bool {
-	switch e {
-	case Camera:
-		return true
-	default:
-		return false
-	}
-}
 
 // Defines values for LLMProviderConfigType.
 const (
@@ -83,17 +69,6 @@ type ADCConfig struct {
 	Device string `json:"device"`
 }
 
-// CameraConfig Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential.
-type CameraConfig struct {
-	Type CameraConfigType `json:"type"`
-
-	// Url Base URL of the capture component (http:// or https://).
-	Url string `json:"url"`
-}
-
-// CameraConfigType defines model for CameraConfig.Type.
-type CameraConfigType string
-
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
@@ -102,11 +77,12 @@ type DACConfig struct {
 
 // DeviceManifest Hardware resources available on the device, keyed by driver instance ID.
 type DeviceManifest struct {
-	Adcs    *map[string]ADCConfig    `json:"adcs,omitempty"`
-	Dacs    *map[string]DACConfig    `json:"dacs,omitempty"`
-	Gpios   *map[string]GPIOConfig   `json:"gpios,omitempty"`
-	Pwms    *map[string]PWMConfig    `json:"pwms,omitempty"`
-	Serials *map[string]SerialConfig `json:"serials,omitempty"`
+	Adcs    *map[string]ADCConfig                 `json:"adcs,omitempty"`
+	Cameras *map[string]externalRef0.CameraSource `json:"cameras,omitempty"`
+	Dacs    *map[string]DACConfig                 `json:"dacs,omitempty"`
+	Gpios   *map[string]GPIOConfig                `json:"gpios,omitempty"`
+	Pwms    *map[string]PWMConfig                 `json:"pwms,omitempty"`
+	Serials *map[string]SerialConfig              `json:"serials,omitempty"`
 }
 
 // EngineConfig The engine's complete boot input, loaded once at startup.
@@ -121,11 +97,8 @@ type EngineConfig struct {
 	Mapping *ResourceMapping `json:"mapping,omitempty"`
 
 	// Workflow The deployment format of a workflow project.
-	Workflow externalRef0.Workflow `json:"workflow"`
+	Workflow externalRef1.Workflow `json:"workflow"`
 }
-
-// EngineSecrets The engine's secret store: a flat map of secret id -> opaque secret value.
-type EngineSecrets map[string]string
 
 // ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
 type ExternalResourceConfig struct {
@@ -224,7 +197,7 @@ type ResourceAddress struct {
 	// Index Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
 	Index *int `json:"index,omitempty"`
 
-	// Model Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings.
+	// Model Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 	Model *string `json:"model,omitempty"`
 
 	// Ref Shared platform resource id this binds to.
@@ -321,32 +294,6 @@ func (t *ExternalResourceConfig) MergeMLInferenceConfig(v MLInferenceConfig) err
 	return err
 }
 
-// AsCameraConfig returns the union data inside the ExternalResourceConfig as a CameraConfig
-func (t ExternalResourceConfig) AsCameraConfig() (CameraConfig, error) {
-	var body CameraConfig
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromCameraConfig overwrites any union data inside the ExternalResourceConfig as the provided CameraConfig
-func (t *ExternalResourceConfig) FromCameraConfig(v CameraConfig) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeCameraConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided CameraConfig
-func (t *ExternalResourceConfig) MergeCameraConfig(v CameraConfig) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 func (t ExternalResourceConfig) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -363,8 +310,6 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 	switch discriminator {
 	case "backendLlm":
 		return t.AsLLMProviderConfig()
-	case "camera":
-		return t.AsCameraConfig()
 	case "localLlm":
 		return t.AsLLMProviderConfig()
 	case "ml-inference":

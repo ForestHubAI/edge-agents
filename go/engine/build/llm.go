@@ -14,7 +14,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	llmcfg "github.com/ForestHubAI/edge-agents/go/llmproxy/config"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/selfhosted"
-	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // buildProviders resolves the boot externalResources into the set of llmproxy
@@ -121,7 +120,7 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, ex
 		if cfg.Kind != engine.LLMSelfHosted {
 			return nil, fmt.Errorf("model %q: declared models must bind to a self-hosted provider, got %q", m.Id, cfg.Kind)
 		}
-		caps := mapping.ModelCapabilitiesToDomain(m.Capabilities)
+		caps := llmproxy.ModelCapabilitiesToDomain(m.Capabilities)
 		if slices.Contains(caps, llmproxy.CapabilityEmbedding) {
 			return nil, fmt.Errorf("model %q: the embedding capability is not supported for self-hosted providers yet (no dimension in the workflow declaration)", m.Id)
 		}

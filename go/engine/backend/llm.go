@@ -12,7 +12,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider"
-	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // llmHealth is the response shape of GET /llm/health.
@@ -33,13 +32,13 @@ func (c *Client) GetProviders(ctx context.Context) ([]llmproxy.ProviderInfo, err
 	if err := c.http.Do(ctx, http.MethodGet, "/llm/providers", nil, nil, &apiProviders); err != nil {
 		return nil, fmt.Errorf("list providers: %w", err)
 	}
-	return mapping.ProvidersToDomain(apiProviders), nil
+	return llmproxy.ProvidersToDomain(apiProviders), nil
 }
 
 // Chat forwards a chat request through the backend's /llm/generate route.
 // The backend dispatches it to whichever underlying provider owns the model.
 func (c *Client) Chat(ctx context.Context, req *llmproxy.ChatRequest) (*llmproxy.ChatResponse, error) {
-	apiReq, err := mapping.ChatRequestToAPI(req)
+	apiReq, err := llmproxy.ChatRequestToAPI(req)
 	if err != nil {
 		return nil, fmt.Errorf("encode chat request: %w", err)
 	}
@@ -47,7 +46,7 @@ func (c *Client) Chat(ctx context.Context, req *llmproxy.ChatRequest) (*llmproxy
 	if err := c.http.Do(ctx, http.MethodPost, "/llm/generate", nil, apiReq, &apiResp); err != nil {
 		return nil, fmt.Errorf("backend chat: %w", err)
 	}
-	return mapping.ChatResponseToDomain(&apiResp), nil
+	return llmproxy.ChatResponseToDomain(&apiResp), nil
 }
 
 // backendRoutedProvider satisfies llmproxy.Provider by forwarding to a

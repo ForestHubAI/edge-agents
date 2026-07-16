@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { writeOutput } from "./write";
@@ -82,7 +82,7 @@ describe("writeOutput", () => {
   it.skipIf(process.platform === "win32")("the secret files are 0o600; the JSON artifacts are not", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    await writeOutput(specOf(), { "mqtt-1": "p" }, cfgOf(out), reqOf());
+    await writeOutput(specOf(), { engine: { "mqtt-1": "p" } }, cfgOf(out), reqOf());
     expect(await mode(path.join(out, "engine.env"))).toBe(0o600);
     expect(await mode(path.join(out, "engine-secrets.json"))).toBe(0o600);
     expect(await mode(path.join(out, "engine-config.json"))).not.toBe(0o600);
@@ -94,7 +94,7 @@ describe("writeOutput", () => {
   it("writes resource secrets into engine-secrets.json, never into env, spec, or config", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
-    const files = await writeOutput(specOf(), { "mqtt-1": "brokerpw" }, cfgOf(out), reqOf());
+    const files = await writeOutput(specOf(), { engine: { "mqtt-1": "brokerpw" } }, cfgOf(out), reqOf());
     expect(files.map((f) => path.basename(f))).toContain("engine-secrets.json");
     const secrets = JSON.parse(await fs.readFile(path.join(out, "engine-secrets.json"), "utf-8"));
     expect(secrets).toEqual({ "mqtt-1": "brokerpw" });
@@ -162,20 +162,23 @@ describe("writeOutput", () => {
     await fs.rm(base, { recursive: true, force: true });
   });
 
-  it("writes the capture component's cameras.json as a file for on-device cameras", async () => {
+  it("writes the camera's config by the standard convention, needing no special case", async () => {
     const base = await tmp();
     const out = path.join(base, "bundle");
     const camera: DeployComponent = {
       name: "camera",
       image: "camera:latest",
-      volumes: ["./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro"],
+      config: { cameras: { video0: { kind: "v4l2", device: "/dev/video0" } } },
     };
-    const cfg = cfgOf(out, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } });
-    await writeOutput(specOf([engineComponent(), camera]), {}, cfg, reqOf());
-    const camerasFile = path.join(out, "workspaces", "camera", "cameras.json");
-    // The file-mount source is written as a file — not created as a directory.
-    expect((await fs.stat(camerasFile)).isFile()).toBe(true);
-    expect(JSON.parse(await fs.readFile(camerasFile, "utf-8"))).toEqual({ cameras: { front: { source: "v4l2", device: "/dev/video0" } } });
+    await writeOutput(specOf([engineComponent(), camera]), { camera: { video0: "hunter2" } }, cfgOf(out), reqOf());
+
+    // Same shape as every other component: <name>-config.json in the bundle root,
+    // no workspace dir (the driver component has no durable data).
+    expect(JSON.parse(await fs.readFile(path.join(out, "camera-config.json"), "utf-8"))).toEqual({
+      cameras: { video0: { kind: "v4l2", device: "/dev/video0" } },
+    });
+    expect(JSON.parse(await fs.readFile(path.join(out, "camera-secrets.json"), "utf-8"))).toEqual({ video0: "hunter2" });
+    expect(existsSync(path.join(out, "workspaces", "camera"))).toBe(false);
     await fs.rm(base, { recursive: true, force: true });
   });
 });

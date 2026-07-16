@@ -6,10 +6,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
-	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
@@ -18,7 +16,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/camera"
 	"github.com/ForestHubAI/edge-agents/go/component"
-	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
@@ -26,32 +23,44 @@ func main() {
 	cfg, err := LoadConfig()
 	if err != nil {
 		// Before logging.Configure, the stdout logger is at info level, so error passes through
-		boot.Fail(err, "loading configuration") // malformed env config is permanent
+		component.BootFail(err, "loading configuration") // malformed env config is permanent
 	}
 	logging.Configure(cfg.Log)
 
-	cams, err := readCameraConfig(component.ConfigFile)
+	bootCfg, err := component.LoadConfig[cameraapi.CameraConfig]()
 	if err != nil {
 		// A missing or unparseable config file fails identically on restart.
-		boot.Fail(err, "loading cameras from "+component.ConfigFile)
+		component.BootFail(err, "loading cameras from "+component.ConfigFile)
 	}
 	// A config with no cameras builds a component that can serve nothing — every
 	// /capture 404s. Fail at boot (like the engine on an empty workflow) so the
 	// deployment is marked failed here, not mysteriously at the engine's first capture.
-	if len(cams.Cameras) == 0 {
-		boot.Fail(errors.New("no cameras configured"), "validating "+component.ConfigFile)
+	if len(bootCfg.Cameras) == 0 {
+		component.BootFail(errors.New("no cameras configured"), "validating "+component.ConfigFile)
+	}
+	// Stream credentials arrive out-of-band in the mounted secret document, keyed
+	// by the same manifest key as the camera they belong to — never in the config
+	// blob. Absent when no camera authenticates.
+	secrets, err := component.ReadSecrets()
+	if err != nil {
+		component.BootFail(err, "loading secrets from "+component.SecretsFile)
+	}
+	cams, err := camera.ToDomain(bootCfg, secrets)
+	if err != nil {
+		// An unknown kind is permanent: the component cannot learn one at runtime.
+		component.BootFail(err, "loading cameras from "+component.ConfigFile)
 	}
 	sources, err := camera.BuildSources(cams)
 	if err != nil {
-		// Invalid camera config (unknown source, missing device) is permanent.
-		boot.Fail(err, "loading cameras from "+component.ConfigFile)
+		// Invalid camera config (missing device, negative warmup) is permanent.
+		component.BootFail(err, "loading cameras from "+component.ConfigFile)
 	}
 
 	// Real capture shells out to gst-launch-1.0; fail at boot, not on first request.
 	// A missing binary is an image-level defect, so a restart fails identically.
 	if sources.RequiresGStreamer() {
 		if _, err := exec.LookPath("gst-launch-1.0"); err != nil {
-			boot.Fail(err, "gst-launch-1.0 not found in PATH")
+			component.BootFail(err, "gst-launch-1.0 not found in PATH")
 		}
 	}
 
@@ -63,7 +72,7 @@ func main() {
 	if err := camera.RunSetup(ctx, cams); err != nil {
 		// Transient: the devices may not be ready yet, so exit nonzero and let the
 		// restart policy retry (not a permanent config error).
-		boot.Retry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
+		component.BootRetry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
 	}
 
 	handler := cameraapi.HandlerFromMux(camera.NewServer(sources), http.NewServeMux())
@@ -95,18 +104,4 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logging.Logger.Error().Err(err).Msg("graceful shutdown failed")
 	}
-}
-
-// readCameraConfig reads and parses cameras.json into the contract seam type.
-// A missing or malformed file is a permanent boot error.
-func readCameraConfig(path string) (cameraapi.CameraConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return cameraapi.CameraConfig{}, err
-	}
-	var cfg cameraapi.CameraConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return cameraapi.CameraConfig{}, err
-	}
-	return cfg, nil
 }

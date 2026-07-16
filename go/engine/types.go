@@ -61,16 +61,6 @@ type Event struct {
 	Apply       func(*Scope) error // Optional: seeds the trigger's outputs and applies the outgoing edge's side effects into the scope. Runs on the runner goroutine; a non-nil error aborts the transition and keeps the runner idle.
 }
 
-// Secrets is the engine's secret store: a flat map of secret id -> opaque secret
-// value, keyed by the external-resource id ExternalResources and the
-// ResourceMapping share. Each value is the single credential that resource needs
-// (MQTT password, self-hosted LLM bearer token), merged into its connection at
-// the api->domain boundary — the engine interprets a value by the kind of the
-// resource its id resolves to. Populated from the mounted secret document
-// (component.SecretsFile) at boot; deliberately NOT part of the deployment spec
-// (not rotation-safe, breach-exposed if stored); empty when no resource needs one.
-type Secrets map[string]string
-
 // ResourceMapping binds a binding-free workflow's logical resource ids to
 // concrete platform resources, keyed by workflow resource id. Mirrors the
 // engineapi wire shape.
@@ -94,6 +84,7 @@ type DeviceManifest struct {
 	DACs    map[string]DACConfig    `json:"dacs,omitempty"`
 	Serials map[string]SerialConfig `json:"serials,omitempty"`
 	PWMs    map[string]PWMConfig    `json:"pwms,omitempty"`
+	Cameras map[string]CameraSource `json:"cameras,omitempty"`
 }
 
 type GPIOConfig struct {
@@ -117,18 +108,40 @@ type PWMConfig struct {
 	Chip string `json:"chip"`
 }
 
+// CameraKind is the path a camera is reached by. Mirrors the wire
+// discriminator; the driver component owns what each kind means in practice.
+type CameraKind string
+
+const (
+	CameraV4L2      CameraKind = "v4l2"      // a V4L2 device node
+	CameraLibcamera CameraKind = "libcamera" // the platform's libcamera stack
+	CameraRTSP      CameraKind = "rtsp"      // an IP camera over RTSP
+	CameraHTTP      CameraKind = "http"      // an MJPEG stream or still endpoint
+	CameraRaw       CameraKind = "raw"       // an escape-hatch source fragment
+	CameraDebug     CameraKind = "debug"     // a synthetic fixed frame, no hardware
+)
+
+// CameraSource is one camera the device owns, as the engine sees it —
+// deliberately narrow. The engine needs the identity and nothing else: the
+// driver component owns every capture detail (device, url, credentials, warmup),
+// receives them in its own derived config, and selects the camera by its manifest
+// key per request. Kind is carried for diagnostics only, never to decide behavior.
+type CameraSource struct {
+	Kind CameraKind
+}
+
 // ExternalResources holds the resolved, boot-delivered configs for a workflow's
 // non-device external resources, keyed by the platform resource id the
 // ResourceMapping points at. The engine builds transports from MQTTs, LLM
 // providers from Providers (the connection for each declared custom/self-hosted
-// model), inference clients from MLInference (the component endpoint each declared
-// ML model is served from), and capture clients from Cameras (the component
-// endpoint each declared camera channel is read from).
+// model), and inference clients from MLInference (the component endpoint each
+// declared ML model is served from). Cameras are NOT here: a camera is
+// device-owned hardware, so it lives in the DeviceManifest and resolves through
+// the driver registry like a gpiochip.
 type ExternalResources struct {
 	MQTTs       map[string]MQTTConfig
 	Providers   map[string]LLMProviderConfig
 	MLInference map[string]MLInferenceConfig
-	Cameras     map[string]CameraConfig
 }
 
 // MLInferenceConfig is the resolved connection to an ML inference component the
@@ -137,14 +150,6 @@ type ExternalResources struct {
 // Model sub-address (ResourceAddress.Model), sent per request, so many models may
 // share one endpoint.
 type MLInferenceConfig struct {
-	URL string
-}
-
-// CameraConfig is the resolved connection to a camera capture component the
-// engine doesn't ship. The declared workflow channel supplies the id; this
-// supplies how to reach the component. Which camera to read is sent per request,
-// so many cameras may share one endpoint.
-type CameraConfig struct {
 	URL string
 }
 

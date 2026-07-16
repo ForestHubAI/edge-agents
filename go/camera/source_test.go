@@ -7,15 +7,14 @@ package camera
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildSources_BuildsOnePerCamera(t *testing.T) {
-	sources, err := BuildSources(cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"front": {Source: sourceV4L2, Device: "/dev/video0"},
-		"dbg":   {Source: sourceDebug},
+	sources, err := BuildSources(Config{Cameras: map[string]Camera{
+		"front": {Kind: KindV4L2, Device: "/dev/video0"},
+		"dbg":   {Kind: KindDebug},
 	}})
 	require.NoError(t, err)
 	assert.Len(t, sources, 2)
@@ -25,43 +24,56 @@ func TestBuildSources_BuildsOnePerCamera(t *testing.T) {
 
 func TestBuildSources_InvalidCameraFails(t *testing.T) {
 	// BuildSources names the offending camera when a source is invalid.
-	_, err := BuildSources(cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"front": {Source: "bogus", Device: "/dev/video0"},
+	_, err := BuildSources(Config{Cameras: map[string]Camera{
+		"front": {Kind: "bogus", Device: "/dev/video0"},
 	}})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "front")
 }
 
-func TestNewSource_UnknownSource(t *testing.T) {
-	_, err := newSource(cameraapi.CameraSource{Source: "bogus", Device: "/dev/video0"})
+func TestNewSource_UnknownKind(t *testing.T) {
+	_, err := newSource(Camera{Kind: "bogus", Device: "/dev/video0"})
 	assert.Error(t, err)
 }
 
 func TestNewSource_NegativeWarmupFrames(t *testing.T) {
-	_, err := newSource(cameraapi.CameraSource{Source: sourceV4L2, Device: "/dev/video0", WarmupFrames: -1})
+	_, err := newSource(Camera{Kind: KindV4L2, Device: "/dev/video0", WarmupFrames: -1})
 	assert.Error(t, err)
 }
 
-func TestNewSource_MissingDevice(t *testing.T) {
-	_, err := newSource(cameraapi.CameraSource{Source: sourceV4L2})
+func TestNewSource_V4L2MissingDevice(t *testing.T) {
+	_, err := newSource(Camera{Kind: KindV4L2})
 	assert.Error(t, err)
 }
 
-func TestNewSource_WhitespaceDevice(t *testing.T) {
+func TestNewSource_WhitespaceDeviceRejected(t *testing.T) {
 	// A whitespace-only device must fail at boot, not silently pass and then
 	// break every capture.
-	_, err := newSource(cameraapi.CameraSource{Source: sourceGStreamer, Device: "   "})
+	_, err := newSource(Camera{Kind: KindV4L2, Device: "   "})
 	assert.Error(t, err)
 }
 
-func TestNewSource_DebugNeedsNoDevice(t *testing.T) {
-	src, err := newSource(cameraapi.CameraSource{Source: sourceDebug})
+func TestNewSource_NetworkKindsNeedURL(t *testing.T) {
+	for _, k := range []Kind{KindRTSP, KindHTTP} {
+		_, err := newSource(Camera{Kind: k})
+		assert.Error(t, err, "kind %q with no url", k)
+	}
+}
+
+func TestNewSource_RawNeedsPipeline(t *testing.T) {
+	_, err := newSource(Camera{Kind: KindRaw})
+	assert.Error(t, err)
+}
+
+func TestNewSource_LibcameraNeedsNothing(t *testing.T) {
+	// cameraName is optional — omitted selects the platform's default sensor.
+	src, err := newSource(Camera{Kind: KindLibcamera})
 	require.NoError(t, err)
 	assert.NotNil(t, src)
 }
 
-func TestNewSource_DebugRejectsSetup(t *testing.T) {
-	// debug has no hardware; setup commands there are a config mistake.
-	_, err := newSource(cameraapi.CameraSource{Source: sourceDebug, Setup: []string{"true"}})
-	assert.Error(t, err)
+func TestNewSource_DebugNeedsNoDevice(t *testing.T) {
+	src, err := newSource(Camera{Kind: KindDebug})
+	require.NoError(t, err)
+	assert.NotNil(t, src)
 }

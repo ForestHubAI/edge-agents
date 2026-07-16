@@ -11,11 +11,11 @@
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
-import type { DeploymentSchemas, EngineSchemas } from "./api";
+import type { CameraSchemas, DeploymentSchemas, EngineSchemas } from "./api";
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import { serialize } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
-import type { DeploymentInputs, HardwareBinding } from "./inputs";
+import type { CameraBinding, DeploymentInputs, HardwareBinding } from "./inputs";
 import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
 import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
@@ -60,19 +60,24 @@ export interface DeploymentSpecMeta {
   cameraComponentImage: string;
 }
 
-// The engine's secret store: a flat map of secret id -> opaque secret value,
-// keyed by the same resource ref the spec's externalResources use. Each value is
-// the single credential that resource needs (MQTT password, self-hosted-LLM
-// bearer token). Secrets are NEVER part of the spec (not rotation-safe, breach-
-// exposed if stored): the resolver returns them separately, for the renderer to
-// deliver out-of-band as a mounted secret document (secrets.json). Mirrors the
-// wire EngineSecrets.
-export type EngineSecrets = Record<string, string>;
+// One component's secret store: a flat map of resource id -> opaque secret value,
+// keyed by the resource's own ref. Each value is the single credential that
+// resource needs (MQTT password, self-hosted-LLM bearer, camera stream password);
+// there is no secretRef, because the ref IS the key and the resource's type/kind
+// is what says a credential may exist. Secrets are NEVER part of the spec (not
+// rotation-safe, breach-exposed if stored): the resolver returns them separately,
+// for the renderer to deliver out-of-band as a mounted secret document. Mirrors
+// the wire ComponentSecrets.
+export type ComponentSecrets = Record<string, string>;
 
-// buildDeploymentSpec's output: the secret-free spec plus the pulled-out secrets.
+// buildDeploymentSpec's output: the secret-free spec plus the pulled-out secrets,
+// one document per component that needs one, keyed by component name. Per
+// component rather than one shared doc so each holds only what it uses — the
+// engine never receives a camera's stream credential, since the driver component
+// builds the pipeline and the engine never sees the url.
 export interface DeploymentSpecResult {
   spec: DeploymentSpec;
-  resourceSecrets: EngineSecrets;
+  componentSecrets: Record<string, ComponentSecrets>;
 }
 
 // Hands out stable, collision-free ref names. Same dedup key -> same ref (the
@@ -98,6 +103,50 @@ class RefAllocator {
 function basename(p: string): string {
   const tail = p.replace(/\/+$/, "").split("/").pop() ?? p;
   return tail.replace(/[^A-Za-z0-9._:-]/g, "-") || "res";
+}
+
+// A camera binding's manifest entry — the secret-free wire shape. The kind maps
+// straight across; only render-only fields (devices) and the password are dropped.
+function cameraSourceOf(b: CameraBinding): EngineSchemas["CameraSource"] {
+  const warmup = b.kind !== "debug" && b.warmupFrames && b.warmupFrames > 0 ? { warmupFrames: b.warmupFrames } : {};
+  const setup = (b.kind === "v4l2" || b.kind === "libcamera" || b.kind === "raw") && b.setup?.length ? { setup: b.setup } : {};
+  switch (b.kind) {
+    case "v4l2":
+      return { kind: "v4l2", device: b.device, ...warmup, ...setup };
+    case "libcamera":
+      return { kind: "libcamera", ...(b.cameraName ? { cameraName: b.cameraName } : {}), ...warmup, ...setup };
+    case "rtsp":
+      return { kind: "rtsp", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
+    case "http":
+      return { kind: "http", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
+    case "raw":
+      return { kind: "raw", pipeline: b.pipeline, ...warmup, ...setup };
+    case "debug":
+      return { kind: "debug" };
+  }
+}
+
+// A camera's credential, when its kind has one. Kept out of the manifest entry
+// (and thus the spec) and delivered in the driver component's secret document.
+function cameraPasswordOf(b: CameraBinding): string | undefined {
+  return b.kind === "rtsp" || b.kind === "http" ? b.password : undefined;
+}
+
+// A readable manifest key for a camera: its device node, sensor, or stream host.
+function cameraRefHint(b: CameraBinding): string {
+  switch (b.kind) {
+    case "v4l2":
+      return basename(b.device);
+    case "libcamera":
+      return b.cameraName ? basename(b.cameraName) : "libcamera";
+    case "rtsp":
+    case "http":
+      return `cam-${urlHost(b.url)}`;
+    case "raw":
+      return "cam-raw";
+    case "debug":
+      return "cam-debug";
+  }
 }
 
 // Host of a URL, for a readable ref (MQTT broker / self-hosted endpoint).
@@ -246,13 +295,13 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   }
   for (const ch of req.cameraChannels) {
     const b = inputs.cameras[ch.id];
-    // device needs a capture source device (v4l2 path or gstreamer element);
-    // network needs its endpoint URL.
-    if (b?.location === "device") {
-      if (!b.device) missing.push(`camera "${ch.id}": capture source device`);
-    } else if (!b?.url) {
-      missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
-    }
+    // Each kind needs the one field that identifies the camera on its access
+    // path; libcamera and debug need nothing (the platform default sensor / a
+    // synthetic frame).
+    if (!b) missing.push(`camera "${ch.id}": how the camera is reached`);
+    else if (b.kind === "v4l2" && !b.device) missing.push(`camera "${ch.id}": device node`);
+    else if ((b.kind === "rtsp" || b.kind === "http") && !b.url) missing.push(`camera "${ch.id}": stream URL`);
+    else if (b.kind === "raw" && !b.pipeline) missing.push(`camera "${ch.id}": capture-source fragment`);
   }
   for (const p of req.catalogProviders) {
     const b = inputs.providers?.[p.id];
@@ -300,7 +349,7 @@ export function buildDeploymentSpec(
   assertDeployable(req, inputs);
 
   const refs = new RefAllocator();
-  const resourceSecrets: EngineSecrets = {};
+  const resourceSecrets: ComponentSecrets = {};
 
   // DeviceManifest is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
@@ -309,6 +358,12 @@ export function buildDeploymentSpec(
   const dacs: Record<string, EngineSchemas["DACConfig"]> = {};
   const pwms: Record<string, EngineSchemas["PWMConfig"]> = {};
   const serials: Record<string, EngineSchemas["SerialConfig"]> = {};
+  const cameras: Record<string, EngineSchemas["CameraSource"]> = {};
+
+  // The driver component's own secret document: stream credentials, keyed by the
+  // camera's manifest key. Separate from the engine's — the engine never sees a
+  // camera's credential, because it never builds the capture pipeline.
+  const cameraSecrets: ComponentSecrets = {};
 
   const externalResources: EngineSchemas["ExternalResources"] = {};
   const mapping: EngineSchemas["ResourceMapping"] = {};
@@ -476,51 +531,58 @@ export function buildDeploymentSpec(
     });
   }
 
-  // Cameras: every on-device camera is read by ONE shared capture component that
-  // owns a set of cameras (one cameras.json entry per channel id) and selects one
-  // by name per request — so they all point at the same service URL and only a
-  // single component is emitted. A network camera points at the operator's own
-  // capture endpoint. Credential-free — a trusted in-deployment endpoint.
+  // Cameras: device-owned hardware, so each becomes a DeviceManifest entry the
+  // engine resolves through its driver registry — never an external resource, and
+  // no url anywhere, since the driver component's address is a constant. One
+  // component is issued for the whole set and selects a camera by its manifest key
+  // per request.
+  //
+  // Deduped by content like MQTT: two channels declaring the same camera collapse
+  // onto one manifest entry and share it, each keeping its own size hints on the
+  // channel. The password participates in the key so two cameras differing only by
+  // credential stay distinct resources.
   const cameraComponents: DeployComponent[] = [];
-  let cameraDeviceCount = 0;
-  let hasGstreamerCamera = false;
+  let hasLibcameraCamera = false;
   const cameraDevices = new Set<string>();
   for (const ch of req.cameraChannels) {
     const b = inputs.cameras[ch.id];
     if (!b) throw new Error(`unbound camera ${ch.id}`); // unreachable after assertDeployable
-    const ref = refs.alloc(`camera:${ch.id}`, basename(ch.id));
+    const src = cameraSourceOf(b);
+    const ref = refs.alloc(`camera:${JSON.stringify(src)}:${cameraPasswordOf(b) ?? ""}`, cameraRefHint(b));
+    cameras[ref] = src;
     mapping[ch.id] = { ref };
 
-    if (b.location === "device") {
-      externalResources[ref] = { type: "camera", url: `http://${cameraComponentServiceName()}:${CAMERA_COMPONENT_PORT}` };
-      cameraDeviceCount++;
-      // v4l2 reads a /dev/video* node, passed through to the component container. A
-      // gstreamer source (e.g. libcamerasrc) drives the full media graph, which
-      // has no single node to grant here — the operator wires those devices in.
-      if (b.source === "v4l2") cameraDevices.add(b.device);
-      else hasGstreamerCamera = true;
-      // Nodes the binding's setup commands touch (media graph, subdevices).
+    const password = cameraPasswordOf(b);
+    if (password) cameraSecrets[ref] = password;
+
+    // Container-level access for the driver component, by kind: v4l2 reads a
+    // /dev/video* node, granted directly. libcamera drives the whole media graph,
+    // which has no single node to grant — it discovers cameras through the host's
+    // udev database instead. Network kinds need no device at all.
+    if (b.kind === "v4l2") cameraDevices.add(b.device);
+    if (b.kind === "libcamera") hasLibcameraCamera = true;
+    // Nodes the binding's setup commands touch (media graph, subdevices).
+    if (b.kind === "v4l2" || b.kind === "libcamera" || b.kind === "raw") {
       for (const d of b.devices ?? []) cameraDevices.add(d);
-    } else {
-      externalResources[ref] = { type: "camera", url: b.url };
     }
   }
-  // One shared component for all on-device cameras (not one per camera). The camera
-  // set is described by cameras.json (one entry per channel id), bind-mounted
-  // read-only at the standard component config path — the same config.json every
-  // component boots from, so no env var is wired.
-  if (cameraDeviceCount > 0) {
+  // One shared driver component for the whole camera set (not one per camera).
+  // Its boot config is the manifest's camera section for the bound channels,
+  // keyed by manifest key — carried as the component's config blob like every
+  // other component's, so the renderer writes and mounts it by the standard
+  // convention with no special case.
+  if (Object.keys(cameras).length > 0) {
     const service = cameraComponentServiceName();
-    const volumes = [`${workspaceDir(service)}/cameras.json:${COMPONENT_CONFIG_PATH}:ro`];
-    // libcamera (gstreamer sources) discovers cameras through the host's udev
-    // device database; without this mount the component sees no camera at all.
-    if (hasGstreamerCamera) volumes.push("/run/udev:/run/udev:ro");
+    const config: CameraSchemas["CameraConfig"] = { cameras };
     const camera: DeployComponent = {
       name: service,
       image: meta.cameraComponentImage,
       pull: "never", // built locally before deploy, in no registry
-      volumes,
+      config,
     };
+    // libcamera discovers cameras through the host's udev device database;
+    // without this mount the component sees no camera at all.
+    if (hasLibcameraCamera) camera.volumes = ["/run/udev:/run/udev:ro"];
     if (cameraDevices.size > 0) camera.devices = [...cameraDevices];
     cameraComponents.push(camera);
   }
@@ -531,6 +593,7 @@ export function buildDeploymentSpec(
   if (Object.keys(dacs).length) manifest.dacs = dacs;
   if (Object.keys(pwms).length) manifest.pwms = pwms;
   if (Object.keys(serials).length) manifest.serials = serials;
+  if (Object.keys(cameras).length) manifest.cameras = cameras;
 
   // The engine's boot input. workflow is serialized (and thereby pruned) from
   // the domain. The optional sections attach only when non-empty — an absent
@@ -567,5 +630,11 @@ export function buildDeploymentSpec(
     components,
   };
   if (meta.createdAt) spec.createdAt = meta.createdAt;
-  return { spec, resourceSecrets };
+  // Only components that actually need a credential get a document — an absent one
+  // means no mount, which is correct for an anonymous broker or a keyless endpoint.
+  const componentSecrets: Record<string, ComponentSecrets> = {};
+  if (Object.keys(resourceSecrets).length) componentSecrets[ENGINE_COMPONENT_NAME] = resourceSecrets;
+  if (Object.keys(cameraSecrets).length) componentSecrets[cameraComponentServiceName()] = cameraSecrets;
+
+  return { spec, componentSecrets };
 }

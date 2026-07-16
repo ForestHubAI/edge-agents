@@ -7,7 +7,6 @@ package build
 import (
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
@@ -52,11 +51,3 @@ func TestIndexFor_NilIndexFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestBuildChannels_SkipsCamera(t *testing.T) {
-	// A camera resolves to a capture component in buildDeployCapture, so
-	// buildChannels must skip it cleanly — not reject it as an unsupported type
-	// (which would fail every camera deploy at boot).
-	chs, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, nil, nil, nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, chs)
-}

@@ -2,13 +2,14 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package mapping
+package engine
 
 import (
 	"testing"
 
+	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
-	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/component"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,15 +37,9 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		Type: engineapi.MlInference,
 		Url:  "http://onnx:8000",
 	}))
-	var cam engineapi.ExternalResourceConfig
-	require.NoError(t, cam.FromCameraConfig(engineapi.CameraConfig{
-		Type: engineapi.Camera,
-		Url:  "http://camera:8100",
-	}))
-
-	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml, "cam-1": cam}
+	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
-	secrets := engine.Secrets{
+	secrets := component.Secrets{
 		"mqtt-1": "brokerpw",
 		"llm-1":  "bearer",
 		"llm-2":  "sk-ant",
@@ -59,19 +54,17 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 
 	require.Len(t, out.Providers, 2)
 	// Self-hosted: url + bearer, no provider adapter.
-	assert.Equal(t, engine.LLMSelfHosted, out.Providers["llm-1"].Kind)
+	assert.Equal(t, LLMSelfHosted, out.Providers["llm-1"].Kind)
 	assert.Equal(t, "http://llm:8000", out.Providers["llm-1"].URL)
 	assert.Equal(t, "bearer", out.Providers["llm-1"].APIKey)
 	// Local: adapter id + key, no url.
-	assert.Equal(t, engine.LLMLocal, out.Providers["llm-2"].Kind)
+	assert.Equal(t, LLMLocal, out.Providers["llm-2"].Kind)
 	assert.Equal(t, "Anthropic", out.Providers["llm-2"].Provider)
 	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
 
 	// Credential-free component arms route by discriminator too.
 	require.Len(t, out.MLInference, 1)
 	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
-	require.Len(t, out.Cameras, 1)
-	assert.Equal(t, "http://camera:8100", out.Cameras["cam-1"].URL)
 }
 
 func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
@@ -88,4 +81,26 @@ func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
 
 func TestExternalResourcesToDomain_Nil(t *testing.T) {
 	assert.Nil(t, ExternalResourcesToDomain(nil, nil))
+}
+
+func TestDeviceManifestToDomain_CamerasCollapseToKind(t *testing.T) {
+	// The engine keeps only the discriminator: it reaches every camera the same
+	// way, and the capture details belong to the driver component.
+	var v4l2 cameraapi.CameraSource
+	require.NoError(t, v4l2.FromV4L2Source(cameraapi.V4L2Source{Kind: "v4l2", Device: "/dev/video0"}))
+	var rtsp cameraapi.CameraSource
+	require.NoError(t, rtsp.FromRtspSource(cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1"}))
+
+	in := engineapi.DeviceManifest{Cameras: &map[string]cameraapi.CameraSource{"cam0": v4l2, "gate": rtsp}}
+	out := DeviceManifestToDomain(&in)
+
+	require.Len(t, out.Cameras, 2)
+	assert.Equal(t, CameraSource{Kind: CameraV4L2}, out.Cameras["cam0"])
+	assert.Equal(t, CameraSource{Kind: CameraRTSP}, out.Cameras["gate"])
+}
+
+func TestDeviceManifestToDomain_NoCameras(t *testing.T) {
+	// A device with no cameras is the common case, not an error.
+	out := DeviceManifestToDomain(&engineapi.DeviceManifest{})
+	assert.Empty(t, out.Cameras)
 }

@@ -5,14 +5,12 @@
 package build
 
 import (
-	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,164 +28,75 @@ func cameraChannel(t *testing.T, id string, width, height *int) workflowapi.Chan
 	return c
 }
 
-func mqttChannel(t *testing.T, id string) workflowapi.Channel {
+// cameraDrivers is a registry holding a driver per named manifest camera. Opening
+// one makes no network call, so this needs no server.
+func cameraDrivers(t *testing.T, names ...string) *driver.Registry {
 	t.Helper()
-	var c workflowapi.Channel
-	require.NoError(t, c.FromMQTTChannel(workflowapi.MQTTChannel{
-		Type:  workflowapi.MQTT,
-		Id:    id,
-		Label: id,
-		Topic: "t",
-	}))
-	return c
-}
-
-func TestBuildDeployCapture_ResolvesCamera(t *testing.T) {
-	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
-	dm := engine.ResourceMapping{"front": {Ref: "cam-component"}}
-	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
-		"cam-component": {URL: "http://camera:8100"},
-	}}
-
-	eps, err := buildDeployCapture(wf, dm, ext)
+	m := engine.DeviceManifest{Cameras: map[string]engine.CameraSource{}}
+	for _, n := range names {
+		m.Cameras[n] = engine.CameraSource{Kind: engine.CameraV4L2}
+	}
+	drvs, err := driver.NewRegistry(&m)
 	require.NoError(t, err)
-	require.Len(t, eps, 1)
-	ep := eps["front"]
-	require.NotNil(t, ep)
-	assert.Equal(t, "front", ep.name)
-	assert.NotNil(t, ep.client)
+	return drvs
 }
 
-func TestBuildDeployCapture_SkipsNonCamera(t *testing.T) {
-	// wf.Channels holds every channel kind; a non-camera must not produce an endpoint.
-	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{mqttChannel(t, "bus")}}
-
-	eps, err := buildDeployCapture(wf, nil, nil)
+func TestBuildChannels_CameraResolvesThroughManifest(t *testing.T) {
+	rm := engine.ResourceMapping{"front": {Ref: "cam0"}}
+	chs, err := buildChannels(
+		[]workflowapi.Channel{cameraChannel(t, "front", pointer.Ptr(640), pointer.Ptr(480))},
+		rm, cameraDrivers(t, "cam0"), nil, nil,
+	)
 	require.NoError(t, err)
-	assert.Empty(t, eps)
+
+	c, err := chs.camera("front")
+	require.NoError(t, err)
+	assert.NotNil(t, c.Driver)
+	// The size hints are the workflow's and stay on the channel, not the driver.
+	assert.Equal(t, 640, c.Width)
+	assert.Equal(t, 480, c.Height)
 }
 
-func TestBuildDeployCapture_UnboundFails(t *testing.T) {
-	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
+func TestBuildChannels_CameraWithoutSizeHints(t *testing.T) {
+	rm := engine.ResourceMapping{"front": {Ref: "cam0"}}
+	chs, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, rm, cameraDrivers(t, "cam0"), nil, nil)
+	require.NoError(t, err)
 
-	_, err := buildDeployCapture(wf, nil, nil)
+	c, err := chs.camera("front")
+	require.NoError(t, err)
+	assert.Zero(t, c.Width)
+	assert.Zero(t, c.Height)
+}
+
+func TestBuildChannels_CameraUnboundFails(t *testing.T) {
+	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, nil, cameraDrivers(t, "cam0"), nil, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not bound")
 }
 
-func TestBuildDeployCapture_BoundButNoConfigFails(t *testing.T) {
-	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{cameraChannel(t, "front", nil, nil)}}
-	dm := engine.ResourceMapping{"front": {Ref: "missing"}}
-	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{}}
-
-	_, err := buildDeployCapture(wf, dm, ext)
+func TestBuildChannels_CameraRefNotInManifestFails(t *testing.T) {
+	// Bound to a camera the device doesn't have: the same failure shape as a
+	// miswired gpiochip, caught at boot rather than at first capture.
+	rm := engine.ResourceMapping{"front": {Ref: "missing"}}
+	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front", nil, nil)}, rm, cameraDrivers(t, "cam0"), nil, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no camera config")
+	assert.Contains(t, err.Error(), "not registered")
 }
 
-func TestBuildDeployCapture_MultipleShareURL(t *testing.T) {
-	// One component owns a set of cameras, so many channels may share a ref.
-	wf := &workflowapi.Workflow{Channels: []workflowapi.Channel{
-		cameraChannel(t, "front", nil, nil),
-		cameraChannel(t, "rear", nil, nil),
-	}}
-	dm := engine.ResourceMapping{"front": {Ref: "cam"}, "rear": {Ref: "cam"}}
-	ext := &engine.ExternalResources{Cameras: map[string]engine.CameraConfig{
-		"cam": {URL: "http://camera:8100"},
-	}}
-
-	eps, err := buildDeployCapture(wf, dm, ext)
-	require.NoError(t, err)
-	assert.Len(t, eps, 2)
-}
-
-func captureEndpointAgainst(t *testing.T, srv *httptest.Server, name string, width, height int) *captureEndpoint {
-	t.Helper()
-	client, err := cameraapi.NewClientWithResponses(srv.URL)
-	require.NoError(t, err)
-	return &captureEndpoint{client: client, name: name, width: width, height: height}
-}
-
-func TestCaptureEndpoint_Capture_Success(t *testing.T) {
-	var gotName, gotWidth, gotHeight string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		gotName, gotWidth, gotHeight = q.Get("name"), q.Get("width"), q.Get("height")
-		w.Header().Set("Content-Type", "image/jpeg")
-		_, _ = w.Write([]byte{0xFF, 0xD8, 0xFF})
-	}))
-	defer srv.Close()
-
-	ep := captureEndpointAgainst(t, srv, "front", 640, 480)
-	frame, err := ep.Capture(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, []byte{0xFF, 0xD8, 0xFF}, frame)
-
-	// The bound name and size reach the component as query params.
-	assert.Equal(t, "front", gotName)
-	assert.Equal(t, "640", gotWidth)
-	assert.Equal(t, "480", gotHeight)
-}
-
-func TestCaptureEndpoint_Capture_OmitsUnsetSize(t *testing.T) {
-	var gotWidth, gotHeight string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		gotWidth, gotHeight = q.Get("width"), q.Get("height")
-		w.Header().Set("Content-Type", "image/jpeg")
-		_, _ = w.Write([]byte{0xFF, 0xD8})
-	}))
-	defer srv.Close()
-
-	ep := captureEndpointAgainst(t, srv, "front", 0, 0)
-	_, err := ep.Capture(context.Background())
+func TestBuildChannels_CamerasShareOneDevice(t *testing.T) {
+	// One camera may back several channels, each asking for its own size.
+	rm := engine.ResourceMapping{"wide": {Ref: "cam0"}, "thumb": {Ref: "cam0"}}
+	chs, err := buildChannels([]workflowapi.Channel{
+		cameraChannel(t, "wide", pointer.Ptr(1920), pointer.Ptr(1080)),
+		cameraChannel(t, "thumb", pointer.Ptr(320), pointer.Ptr(240)),
+	}, rm, cameraDrivers(t, "cam0"), nil, nil)
 	require.NoError(t, err)
 
-	// Zero size means "native resolution" — no param is sent.
-	assert.Empty(t, gotWidth)
-	assert.Empty(t, gotHeight)
-}
-
-func TestCaptureEndpoint_Capture_NotFound(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"message":"no camera named front"}`))
-	}))
-	defer srv.Close()
-
-	ep := captureEndpointAgainst(t, srv, "front", 0, 0)
-	_, err := ep.Capture(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "404")
-	assert.Contains(t, err.Error(), "no camera named front")
-}
-
-func TestCaptureEndpoint_Capture_ServerError(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"message":"gstreamer pipeline failed"}`))
-	}))
-	defer srv.Close()
-
-	ep := captureEndpointAgainst(t, srv, "front", 0, 0)
-	_, err := ep.Capture(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
-	assert.Contains(t, err.Error(), "gstreamer pipeline failed")
-}
-
-func TestCaptureEndpoint_Capture_EmptyBodyRejected(t *testing.T) {
-	// A 200 with no bytes is a component bug; it must not surface as an empty frame.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	ep := captureEndpointAgainst(t, srv, "front", 0, 0)
-	_, err := ep.Capture(context.Background())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "empty frame")
+	wide, err := chs.camera("wide")
+	require.NoError(t, err)
+	thumb, err := chs.camera("thumb")
+	require.NoError(t, err)
+	assert.Equal(t, 1920, wide.Width)
+	assert.Equal(t, 320, thumb.Width)
+	// Same underlying camera, shared rather than opened twice.
+	assert.Same(t, wide.Driver, thumb.Driver)
 }

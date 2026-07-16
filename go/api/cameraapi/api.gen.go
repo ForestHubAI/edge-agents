@@ -18,9 +18,99 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// CameraConfig The camera component's boot config (cameras.json): the set of cameras one shared camera component owns. The renderer writes it into the component's config file; the component reads it at boot — a cross-language seam. Each /capture request selects a camera by its key here. Not on the HTTP wire; the component's boot input, carried here so the renderer (producer) and component (consumer) share one generated shape.
+// Defines values for DebugSourceKind.
+const (
+	Debug DebugSourceKind = "debug"
+)
+
+// Valid indicates whether the value is a known member of the DebugSourceKind enum.
+func (e DebugSourceKind) Valid() bool {
+	switch e {
+	case Debug:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HttpSourceKind.
+const (
+	Http HttpSourceKind = "http"
+)
+
+// Valid indicates whether the value is a known member of the HttpSourceKind enum.
+func (e HttpSourceKind) Valid() bool {
+	switch e {
+	case Http:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LibcameraSourceKind.
+const (
+	Libcamera LibcameraSourceKind = "libcamera"
+)
+
+// Valid indicates whether the value is a known member of the LibcameraSourceKind enum.
+func (e LibcameraSourceKind) Valid() bool {
+	switch e {
+	case Libcamera:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RawSourceKind.
+const (
+	Raw RawSourceKind = "raw"
+)
+
+// Valid indicates whether the value is a known member of the RawSourceKind enum.
+func (e RawSourceKind) Valid() bool {
+	switch e {
+	case Raw:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RtspSourceKind.
+const (
+	Rtsp RtspSourceKind = "rtsp"
+)
+
+// Valid indicates whether the value is a known member of the RtspSourceKind enum.
+func (e RtspSourceKind) Valid() bool {
+	switch e {
+	case Rtsp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for V4L2SourceKind.
+const (
+	V4l2 V4L2SourceKind = "v4l2"
+)
+
+// Valid indicates whether the value is a known member of the V4L2SourceKind enum.
+func (e V4L2SourceKind) Valid() bool {
+	switch e {
+	case V4l2:
+		return true
+	default:
+		return false
+	}
+}
+
+// CameraConfig The camera component's boot config (cameras.json): the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape.
 type CameraConfig struct {
-	// Cameras Configured cameras keyed by name — the /capture `name` selector.
+	// Cameras Cameras keyed by their device-manifest key — the /capture `name` selector.
 	Cameras map[string]CameraSource `json:"cameras"`
 }
 
@@ -30,27 +120,31 @@ type CameraMetadata struct {
 	Devices []DeviceMetadata `json:"devices"`
 }
 
-// CameraSource One camera's capture source in cameras.json.
+// CameraSetup Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
+type CameraSetup = []string
+
+// CameraSource One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key.
 type CameraSource struct {
-	// Device The capture source: a /dev/video* path (v4l2) or a GStreamer source fragment (gstreamer).
-	Device string `json:"device"`
-
-	// Setup Shell commands (media-ctl/v4l2-ctl) the component replays on every container start, for statically configured CSI/ISP pipelines.
-	Setup []string `json:"setup,omitempty"`
-
-	// Source Capture backend: `v4l2` (a /dev/video* device) or `gstreamer` (a source element, e.g. libcamerasrc). Determines how `device` is interpreted.
-	Source string `json:"source"`
-
-	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
-	WarmupFrames int `json:"warmupFrames,omitempty"`
+	union json.RawMessage
 }
+
+// CameraWarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+type CameraWarmupFrames = int
+
+// DebugSource A synthetic camera that needs no hardware and returns a fixed frame. For hostless development and CI.
+type DebugSource struct {
+	Kind DebugSourceKind `json:"kind"`
+}
+
+// DebugSourceKind defines model for DebugSource.Kind.
+type DebugSourceKind string
 
 // DeviceMetadata Descriptive metadata for one configured camera.
 type DeviceMetadata struct {
 	// Description Optional human-readable device description.
 	Description string `json:"description,omitempty"`
 
-	// Name Name (id) of the camera — the /capture name selector.
+	// Name Device-manifest key of the camera — the /capture name selector.
 	Name string `json:"name"`
 }
 
@@ -66,9 +160,92 @@ type Health struct {
 	Status string `json:"status"`
 }
 
+// HttpSource A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key.
+type HttpSource struct {
+	Kind HttpSourceKind `json:"kind"`
+
+	// Url Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials.
+	Url string `json:"url"`
+
+	// User Username for endpoints that authenticate. Not a secret; the password is.
+	User string `json:"user,omitempty"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames CameraWarmupFrames `json:"warmupFrames,omitempty"`
+}
+
+// HttpSourceKind defines model for HttpSource.Kind.
+type HttpSourceKind string
+
+// LibcameraSource A camera reached through the platform's libcamera stack, which owns the media graph itself rather than exposing a preconfigured V4L2 node.
+type LibcameraSource struct {
+	// CameraName Selects one sensor when the platform exposes several; the platform default is used when omitted.
+	CameraName string              `json:"cameraName,omitempty"`
+	Kind       LibcameraSourceKind `json:"kind"`
+
+	// Setup Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
+	Setup CameraSetup `json:"setup,omitempty"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames CameraWarmupFrames `json:"warmupFrames,omitempty"`
+}
+
+// LibcameraSourceKind defines model for LibcameraSource.Kind.
+type LibcameraSourceKind string
+
+// RawSource Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits.
+type RawSource struct {
+	Kind RawSourceKind `json:"kind"`
+
+	// Pipeline Capture-source fragment, passed to the driver component as-is and interpreted by it.
+	Pipeline string `json:"pipeline"`
+
+	// Setup Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
+	Setup CameraSetup `json:"setup,omitempty"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames CameraWarmupFrames `json:"warmupFrames,omitempty"`
+}
+
+// RawSourceKind defines model for RawSource.Kind.
+type RawSourceKind string
+
+// RtspSource An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key.
+type RtspSource struct {
+	Kind RtspSourceKind `json:"kind"`
+
+	// Url Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials.
+	Url string `json:"url"`
+
+	// User Username for streams that authenticate. Not a secret; the password is.
+	User string `json:"user,omitempty"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames CameraWarmupFrames `json:"warmupFrames,omitempty"`
+}
+
+// RtspSourceKind defines model for RtspSource.Kind.
+type RtspSourceKind string
+
+// V4L2Source A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't.
+type V4L2Source struct {
+	// Device V4L2 device node, e.g. "/dev/video0".
+	Device string         `json:"device"`
+	Kind   V4L2SourceKind `json:"kind"`
+
+	// Setup Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
+	Setup CameraSetup `json:"setup,omitempty"`
+
+	// WarmupFrames Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+	WarmupFrames CameraWarmupFrames `json:"warmupFrames,omitempty"`
+}
+
+// V4L2SourceKind defines model for V4L2Source.Kind.
+type V4L2SourceKind string
+
 // CaptureParams defines parameters for Capture.
 type CaptureParams struct {
-	// Name Name of the configured device to read (see /metadata).
+	// Name Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
 	Name string `form:"name" json:"name"`
 
 	// Width Optional width hint in pixels; ignored by sources that lack it.
@@ -76,6 +253,215 @@ type CaptureParams struct {
 
 	// Height Optional height hint in pixels; ignored by sources that lack it.
 	Height *int `form:"height,omitempty" json:"height,omitempty"`
+}
+
+// AsV4L2Source returns the union data inside the CameraSource as a V4L2Source
+func (t CameraSource) AsV4L2Source() (V4L2Source, error) {
+	var body V4L2Source
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromV4L2Source overwrites any union data inside the CameraSource as the provided V4L2Source
+func (t *CameraSource) FromV4L2Source(v V4L2Source) error {
+	v.Kind = "v4l2"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeV4L2Source performs a merge with any union data inside the CameraSource, using the provided V4L2Source
+func (t *CameraSource) MergeV4L2Source(v V4L2Source) error {
+	v.Kind = "v4l2"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLibcameraSource returns the union data inside the CameraSource as a LibcameraSource
+func (t CameraSource) AsLibcameraSource() (LibcameraSource, error) {
+	var body LibcameraSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLibcameraSource overwrites any union data inside the CameraSource as the provided LibcameraSource
+func (t *CameraSource) FromLibcameraSource(v LibcameraSource) error {
+	v.Kind = "libcamera"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeLibcameraSource performs a merge with any union data inside the CameraSource, using the provided LibcameraSource
+func (t *CameraSource) MergeLibcameraSource(v LibcameraSource) error {
+	v.Kind = "libcamera"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRtspSource returns the union data inside the CameraSource as a RtspSource
+func (t CameraSource) AsRtspSource() (RtspSource, error) {
+	var body RtspSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRtspSource overwrites any union data inside the CameraSource as the provided RtspSource
+func (t *CameraSource) FromRtspSource(v RtspSource) error {
+	v.Kind = "rtsp"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRtspSource performs a merge with any union data inside the CameraSource, using the provided RtspSource
+func (t *CameraSource) MergeRtspSource(v RtspSource) error {
+	v.Kind = "rtsp"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsHttpSource returns the union data inside the CameraSource as a HttpSource
+func (t CameraSource) AsHttpSource() (HttpSource, error) {
+	var body HttpSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromHttpSource overwrites any union data inside the CameraSource as the provided HttpSource
+func (t *CameraSource) FromHttpSource(v HttpSource) error {
+	v.Kind = "http"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeHttpSource performs a merge with any union data inside the CameraSource, using the provided HttpSource
+func (t *CameraSource) MergeHttpSource(v HttpSource) error {
+	v.Kind = "http"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsRawSource returns the union data inside the CameraSource as a RawSource
+func (t CameraSource) AsRawSource() (RawSource, error) {
+	var body RawSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRawSource overwrites any union data inside the CameraSource as the provided RawSource
+func (t *CameraSource) FromRawSource(v RawSource) error {
+	v.Kind = "raw"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRawSource performs a merge with any union data inside the CameraSource, using the provided RawSource
+func (t *CameraSource) MergeRawSource(v RawSource) error {
+	v.Kind = "raw"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDebugSource returns the union data inside the CameraSource as a DebugSource
+func (t CameraSource) AsDebugSource() (DebugSource, error) {
+	var body DebugSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDebugSource overwrites any union data inside the CameraSource as the provided DebugSource
+func (t *CameraSource) FromDebugSource(v DebugSource) error {
+	v.Kind = "debug"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDebugSource performs a merge with any union data inside the CameraSource, using the provided DebugSource
+func (t *CameraSource) MergeDebugSource(v DebugSource) error {
+	v.Kind = "debug"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CameraSource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t CameraSource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "debug":
+		return t.AsDebugSource()
+	case "http":
+		return t.AsHttpSource()
+	case "libcamera":
+		return t.AsLibcameraSource()
+	case "raw":
+		return t.AsRawSource()
+	case "rtsp":
+		return t.AsRtspSource()
+	case "v4l2":
+		return t.AsV4L2Source()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t CameraSource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CameraSource) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
 }
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function

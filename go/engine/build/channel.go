@@ -31,6 +31,7 @@ type channels struct {
 	uarts       map[string]*channel.UART
 	mqtts       map[string]*channel.MQTT
 	logs        map[string]*channel.Log
+	cameras     map[string]*channel.Camera
 }
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
@@ -51,6 +52,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 		uarts:       make(map[string]*channel.UART),
 		mqtts:       make(map[string]*channel.MQTT),
 		logs:        make(map[string]*channel.Log),
+		cameras:     make(map[string]*channel.Camera),
 	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
@@ -156,6 +158,23 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
 			}
 			ch.uarts[x.Id] = &channel.UART{Driver: d}
+		case workflowapi.CAMERAChannel:
+			b, err := addressFor(rm, x.Id)
+			if err != nil {
+				return nil, err
+			}
+			d, err := drvs.Camera(b.Ref)
+			if err != nil {
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+			}
+			// No index: a camera is addressed by its manifest key alone. Width and
+			// height are the workflow's hints and stay on the channel, so several
+			// channels may share one camera at different sizes.
+			ch.cameras[x.Id] = &channel.Camera{
+				Driver: d,
+				Width:  pointer.Val(x.Width),
+				Height: pointer.Val(x.Height),
+			}
 		case workflowapi.MQTTChannel:
 			b, err := addressFor(rm, x.Id)
 			if err != nil {
@@ -192,11 +211,6 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
 			}
 			ch.logs[x.Id] = &channel.Log{Level: level, Tag: pointer.Val(x.Tag)}
-		case workflowapi.CAMERAChannel:
-			// A camera resolves to a capture component, not a device driver or
-			// transport, so there is nothing to build here. Its endpoint is
-			// resolved in buildDeployCapture and the CameraCapture node binds to
-			// that CaptureClient directly.
 		default:
 			return nil, fmt.Errorf("channel: unsupported type %T", val)
 		}
@@ -271,6 +285,11 @@ func (ch *channels) SetupAll() error {
 			return fmt.Errorf("log %q: %w", id, err)
 		}
 	}
+	for id, v := range ch.cameras {
+		if err := v.Setup(); err != nil {
+			return fmt.Errorf("camera %q: %w", id, err)
+		}
+	}
 	return nil
 }
 
@@ -339,6 +358,14 @@ func (ch *channels) mqtt(id string) (*channel.MQTT, error) {
 	v, ok := ch.mqtts[id]
 	if !ok {
 		return nil, fmt.Errorf("no MQTT channel %q", id)
+	}
+	return v, nil
+}
+
+func (ch *channels) camera(id string) (*channel.Camera, error) {
+	v, ok := ch.cameras[id]
+	if !ok {
+		return nil, fmt.Errorf("no camera channel %q", id)
 	}
 	return v, nil
 }

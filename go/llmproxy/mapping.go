@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package mapping
+package llmproxy
 
 import (
 	"encoding/json"
@@ -11,17 +11,17 @@ import (
 	"mime/multipart"
 
 	"github.com/ForestHubAI/edge-agents/go/api/llmapi"
-	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/schemautil"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
+	"github.com/ForestHubAI/edge-agents/go/util/slice"
 )
 
 // OptionsToDomain converts API options to core options.
-func OptionsToDomain(in *llmapi.Options) *llmproxy.Options {
+func OptionsToDomain(in *llmapi.Options) *Options {
 	if in == nil {
 		return nil
 	}
-	return &llmproxy.Options{
+	return &Options{
 		FrequencyPenalty: in.FrequencyPenalty,
 		MaxTokens:        in.MaxTokens,
 		PresencePenalty:  in.PresencePenalty,
@@ -33,9 +33,9 @@ func OptionsToDomain(in *llmapi.Options) *llmproxy.Options {
 }
 
 // ChatRequestToDomain converts HTTP API request to domain request
-func ChatRequestToDomain(in *llmapi.ChatRequest) (*llmproxy.ChatRequest, error) {
-	req := &llmproxy.ChatRequest{
-		Model:              llmproxy.ModelID(in.Model),
+func ChatRequestToDomain(in *llmapi.ChatRequest) (*ChatRequest, error) {
+	req := &ChatRequest{
+		Model:              ModelID(in.Model),
 		SystemPrompt:       in.SystemPrompt,
 		ImageURLs:          in.ImageURLs,
 		PreviousResponseID: in.PreviousResponseID,
@@ -57,15 +57,15 @@ func ChatRequestToDomain(in *llmapi.ChatRequest) (*llmproxy.ChatRequest, error) 
 
 	// Convert strings to FileID
 	if len(in.FileIDs) > 0 {
-		req.FileIDs = make([]llmproxy.FileID, len(in.FileIDs))
+		req.FileIDs = make([]FileID, len(in.FileIDs))
 		for i, id := range in.FileIDs {
-			req.FileIDs[i] = llmproxy.FileID(id)
+			req.FileIDs[i] = FileID(id)
 		}
 	}
 	if len(in.ImageIDs) > 0 {
-		req.ImageIDs = make([]llmproxy.FileID, len(in.ImageIDs))
+		req.ImageIDs = make([]FileID, len(in.ImageIDs))
 		for i, id := range in.ImageIDs {
-			req.ImageIDs[i] = llmproxy.FileID(id)
+			req.ImageIDs[i] = FileID(id)
 		}
 	}
 
@@ -75,7 +75,7 @@ func ChatRequestToDomain(in *llmapi.ChatRequest) (*llmproxy.ChatRequest, error) 
 		if err != nil {
 			return nil, fmt.Errorf("invalid response format schema: %w", err)
 		}
-		req.ResponseFormat = &llmproxy.ResponseFormat{
+		req.ResponseFormat = &ResponseFormat{
 			Name:   in.ResponseFormat.Name,
 			Schema: schema,
 		}
@@ -89,7 +89,7 @@ func ChatRequestToDomain(in *llmapi.ChatRequest) (*llmproxy.ChatRequest, error) 
 }
 
 // ChatResponseToAPI converts domain response to HTTP API response
-func ChatResponseToAPI(in *llmproxy.ChatResponse) *llmapi.ChatResponse {
+func ChatResponseToAPI(in *ChatResponse) *llmapi.ChatResponse {
 	res := &llmapi.ChatResponse{
 		Text:       in.Text,
 		ResponseID: in.ResponseID,
@@ -124,8 +124,8 @@ func ChatResponseToAPI(in *llmproxy.ChatResponse) *llmapi.ChatResponse {
 
 // FileUploadRequestToDomain maps multipart.Reader to FileUploadRequest
 // The caller is responsible for closing the File field.
-func FileUploadRequestToDomain(reader *multipart.Reader) (*llmproxy.FileUploadRequest, error) {
-	res := &llmproxy.FileUploadRequest{}
+func FileUploadRequestToDomain(reader *multipart.Reader) (*FileUploadRequest, error) {
+	res := &FileUploadRequest{}
 	for {
 		part, err := reader.NextPart()
 		if err == io.EOF {
@@ -140,13 +140,13 @@ func FileUploadRequestToDomain(reader *multipart.Reader) (*llmproxy.FileUploadRe
 			if err != nil {
 				return nil, fmt.Errorf("failed to read provider part: %w", err)
 			}
-			res.ProviderID = llmproxy.ProviderID(string(val))
+			res.ProviderID = ProviderID(string(val))
 		case "fileType":
 			val, err := io.ReadAll(part)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read fileType part: %w", err)
 			}
-			res.FileType = llmproxy.ContentType(string(val))
+			res.FileType = ContentType(string(val))
 		case "purpose":
 			val, err := io.ReadAll(part)
 			if err != nil {
@@ -169,7 +169,7 @@ func FileUploadRequestToDomain(reader *multipart.Reader) (*llmproxy.FileUploadRe
 }
 
 // FileUploadResponseToAPI converts domain file response to HTTP API file response
-func FileUploadResponseToAPI(in *llmproxy.FileUploadResponse) *llmapi.FileUpload {
+func FileUploadResponseToAPI(in *FileUploadResponse) *llmapi.FileUpload {
 	return &llmapi.FileUpload{
 		FileID:   string(in.FileID),
 		FileName: in.FileName,
@@ -177,18 +177,18 @@ func FileUploadResponseToAPI(in *llmproxy.FileUploadResponse) *llmapi.FileUpload
 }
 
 // ProvidersToAPI converts provider info to its API representation.
-func ProvidersToAPI(in []llmproxy.ProviderInfo) []llmapi.ProviderInfo {
-	return Slice(in, providerInfoToAPI)
+func ProvidersToAPI(in []ProviderInfo) []llmapi.ProviderInfo {
+	return slice.Map(in, providerInfoToAPI)
 }
 
-func providerInfoToAPI(p *llmproxy.ProviderInfo) llmapi.ProviderInfo {
+func providerInfoToAPI(p *ProviderInfo) llmapi.ProviderInfo {
 	return llmapi.ProviderInfo{
 		Id:     string(p.ID),
-		Models: Slice(p.Models, modelInfoToAPI),
+		Models: slice.Map(p.Models, modelInfoToAPI),
 	}
 }
 
-func modelInfoToAPI(m *llmproxy.ModelInfo) llmapi.ModelInfo {
+func modelInfoToAPI(m *ModelInfo) llmapi.ModelInfo {
 	return llmapi.ModelInfo{
 		Id:                 string(m.ID),
 		Provider:           string(m.Provider),
@@ -196,34 +196,34 @@ func modelInfoToAPI(m *llmproxy.ModelInfo) llmapi.ModelInfo {
 		MaxTokens:          m.MaxTokens,
 		EmbeddingDimension: m.EmbeddingDimension,
 		TokenModifier:      float32(m.TokenModifier),
-		Capabilities: Slice(m.Capabilities, func(c *llmproxy.ModelCapability) llmapi.ModelCapability {
+		Capabilities: slice.Map(m.Capabilities, func(c *ModelCapability) llmapi.ModelCapability {
 			return llmapi.ModelCapability(*c)
 		}),
 	}
 }
 
 // InputToDomain converts api Input to domain Input.
-func InputToDomain(in llmapi.Input) (llmproxy.Input, error) {
+func InputToDomain(in llmapi.Input) (Input, error) {
 	// Input is InputString
 	inpStr, err := in.AsInputString()
 	if err == nil {
-		return llmproxy.InputString(inpStr.Value), nil
+		return InputString(inpStr.Value), nil
 	}
 	// Input must be []InputItem
 	items, err := in.AsInput1()
 	if err != nil {
 		return nil, fmt.Errorf("unknown input type: %T", in)
 	}
-	coreItems := make(llmproxy.InputItems, len(items))
+	coreItems := make(InputItems, len(items))
 	for i, item := range items {
 		inpStr, err := item.AsInputString()
 		if err == nil && inpStr.Value != "" {
-			coreItems[i] = llmproxy.InputString(inpStr.Value)
+			coreItems[i] = InputString(inpStr.Value)
 			continue
 		}
 		tcr, err := item.AsToolCallRequest()
 		if err == nil && tcr.CallId != "" && tcr.Name != "" && tcr.Arguments != nil {
-			coreItems[i] = llmproxy.ToolCallRequest{
+			coreItems[i] = ToolCallRequest{
 				CallID:    tcr.CallId,
 				Name:      tcr.Name,
 				Arguments: tcr.Arguments,
@@ -232,7 +232,7 @@ func InputToDomain(in llmapi.Input) (llmproxy.Input, error) {
 		}
 		tr, err := item.AsToolResult()
 		if err == nil && tr.CallId != "" && tr.Name != "" && tr.Output != nil {
-			coreItems[i] = llmproxy.ToolResult{
+			coreItems[i] = ToolResult{
 				CallID: tr.CallId,
 				Output: tr.Output,
 				Name:   tr.Name,
@@ -247,8 +247,8 @@ func InputToDomain(in llmapi.Input) (llmproxy.Input, error) {
 // toolsToDomain converts API tools to domain tools. If externalMapper is non-nil, it is used
 // to convert external tools (e.g. to wrap them as FunctionTool with a stub handler).
 // If nil, external tools are converted to ExternalToolBase (can not be executed).
-func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool) llmproxy.Tool) ([]llmproxy.Tool, error) {
-	result := make([]llmproxy.Tool, len(tools))
+func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool) Tool) ([]Tool, error) {
+	result := make([]Tool, len(tools))
 	for i, tool := range tools {
 		val, err := tool.ValueByDiscriminator()
 		if err != nil {
@@ -259,14 +259,14 @@ func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool)
 			if externalMapper != nil {
 				result[i] = externalMapper(t)
 			} else {
-				result[i] = llmproxy.ExternalToolBase{
+				result[i] = ExternalToolBase{
 					Name:        t.Name,
 					Description: t.Description,
 					Parameters:  t.Parameters,
 				}
 			}
 		case llmapi.WebSearchTool:
-			result[i] = llmproxy.WebSearch{}
+			result[i] = WebSearch{}
 		}
 	}
 	return result, nil
@@ -274,7 +274,7 @@ func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool)
 
 // ChatRequestToAPI converts an ChatRequest into the api shape.
 // Used by the engine-side backend.Client to forward chat calls to fh-backend.
-func ChatRequestToAPI(in *llmproxy.ChatRequest) (*llmapi.ChatRequest, error) {
+func ChatRequestToAPI(in *ChatRequest) (*llmapi.ChatRequest, error) {
 	input, err := inputToAPI(in.Input)
 	if err != nil {
 		return nil, fmt.Errorf("input: %w", err)
@@ -322,16 +322,16 @@ func ChatRequestToAPI(in *llmproxy.ChatRequest) (*llmapi.ChatRequest, error) {
 }
 
 // ChatResponseToDomain converts a api ChatResponse back to llmproxy form.
-func ChatResponseToDomain(in *llmapi.ChatResponse) *llmproxy.ChatResponse {
-	out := &llmproxy.ChatResponse{
+func ChatResponseToDomain(in *llmapi.ChatResponse) *ChatResponse {
+	out := &ChatResponse{
 		Text:       in.Text,
 		ResponseID: in.ResponseID,
 		TokensUsed: in.TokensUsed,
 	}
 	if len(in.Citations) > 0 {
-		out.Citations = make([]llmproxy.Citation, len(in.Citations))
+		out.Citations = make([]Citation, len(in.Citations))
 		for i, c := range in.Citations {
-			out.Citations[i] = llmproxy.Citation{
+			out.Citations[i] = Citation{
 				URL:      c.Url,
 				Title:    pointer.Val(c.Title),
 				Snippet:  pointer.Val(c.Snippet),
@@ -341,9 +341,9 @@ func ChatResponseToDomain(in *llmapi.ChatResponse) *llmproxy.ChatResponse {
 		}
 	}
 	if len(in.ToolCallRequests) > 0 {
-		out.ToolCallRequests = make([]llmproxy.ToolCallRequest, len(in.ToolCallRequests))
+		out.ToolCallRequests = make([]ToolCallRequest, len(in.ToolCallRequests))
 		for i, t := range in.ToolCallRequests {
-			out.ToolCallRequests[i] = llmproxy.ToolCallRequest{
+			out.ToolCallRequests[i] = ToolCallRequest{
 				CallID:    t.CallId,
 				Name:      t.Name,
 				Arguments: t.Arguments,
@@ -354,28 +354,28 @@ func ChatResponseToDomain(in *llmapi.ChatResponse) *llmproxy.ChatResponse {
 }
 
 // ProvidersToDomain converts a list of api ProviderInfo back to llmproxy form.
-func ProvidersToDomain(in []llmapi.ProviderInfo) []llmproxy.ProviderInfo {
-	out := make([]llmproxy.ProviderInfo, len(in))
+func ProvidersToDomain(in []llmapi.ProviderInfo) []ProviderInfo {
+	out := make([]ProviderInfo, len(in))
 	for i, p := range in {
-		out[i] = llmproxy.ProviderInfo{
-			ID:     llmproxy.ProviderID(p.Id),
-			Models: Slice(p.Models, modelInfoToDomain),
+		out[i] = ProviderInfo{
+			ID:     ProviderID(p.Id),
+			Models: slice.Map(p.Models, modelInfoToDomain),
 		}
 	}
 	return out
 }
 
 // ModelCapabilitiesToDomain converts api model capabilities to domain.
-func ModelCapabilitiesToDomain(in []llmapi.ModelCapability) []llmproxy.ModelCapability {
-	return Slice(in, func(c *llmapi.ModelCapability) llmproxy.ModelCapability {
-		return llmproxy.ModelCapability(*c)
+func ModelCapabilitiesToDomain(in []llmapi.ModelCapability) []ModelCapability {
+	return slice.Map(in, func(c *llmapi.ModelCapability) ModelCapability {
+		return ModelCapability(*c)
 	})
 }
 
-func modelInfoToDomain(m *llmapi.ModelInfo) llmproxy.ModelInfo {
-	return llmproxy.ModelInfo{
-		ID:                 llmproxy.ModelID(m.Id),
-		Provider:           llmproxy.ProviderID(m.Provider),
+func modelInfoToDomain(m *llmapi.ModelInfo) ModelInfo {
+	return ModelInfo{
+		ID:                 ModelID(m.Id),
+		Provider:           ProviderID(m.Provider),
 		Label:              m.Label,
 		Capabilities:       ModelCapabilitiesToDomain(m.Capabilities),
 		TokenModifier:      float64(m.TokenModifier),
@@ -384,7 +384,7 @@ func modelInfoToDomain(m *llmapi.ModelInfo) llmproxy.ModelInfo {
 	}
 }
 
-func optionsToAPI(in *llmproxy.Options) *llmapi.Options {
+func optionsToAPI(in *Options) *llmapi.Options {
 	if in == nil {
 		return nil
 	}
@@ -399,14 +399,14 @@ func optionsToAPI(in *llmproxy.Options) *llmapi.Options {
 	}
 }
 
-func inputToAPI(in llmproxy.Input) (llmapi.Input, error) {
+func inputToAPI(in Input) (llmapi.Input, error) {
 	var out llmapi.Input
 	switch v := in.(type) {
-	case llmproxy.InputString:
+	case InputString:
 		if err := out.FromInputString(llmapi.InputString{Value: string(v)}); err != nil {
 			return out, fmt.Errorf("encode input string: %w", err)
 		}
-	case llmproxy.InputItems:
+	case InputItems:
 		items := make(llmapi.Input1, len(v))
 		for i, item := range v {
 			converted, err := inputItemToAPI(item)
@@ -424,14 +424,14 @@ func inputToAPI(in llmproxy.Input) (llmapi.Input, error) {
 	return out, nil
 }
 
-func inputItemToAPI(item llmproxy.InputItem) (llmapi.Input_1_Item, error) {
+func inputItemToAPI(item InputItem) (llmapi.Input_1_Item, error) {
 	var out llmapi.Input_1_Item
 	switch v := item.(type) {
-	case llmproxy.InputString:
+	case InputString:
 		if err := out.FromInputString(llmapi.InputString{Value: string(v)}); err != nil {
 			return out, err
 		}
-	case llmproxy.ToolCallRequest:
+	case ToolCallRequest:
 		if err := out.FromToolCallRequest(llmapi.ToolCallRequest{
 			CallId:    v.CallID,
 			Name:      v.Name,
@@ -439,7 +439,7 @@ func inputItemToAPI(item llmproxy.InputItem) (llmapi.Input_1_Item, error) {
 		}); err != nil {
 			return out, err
 		}
-	case llmproxy.ToolResult:
+	case ToolResult:
 		// ToolResult.Output is `any`; the api shape requires a JSON object.
 		// Marshal/unmarshal coerces; non-object outputs get wrapped under "result".
 		output, ok := v.Output.(map[string]any)
@@ -468,12 +468,12 @@ func inputItemToAPI(item llmproxy.InputItem) (llmapi.Input_1_Item, error) {
 
 // toolsToAPI maps tools as metadata only — the engine-side ToolCall
 // handler stays local; only name/description/parameters cross the api.
-func toolsToAPI(tools []llmproxy.Tool) ([]llmapi.Tool, error) {
+func toolsToAPI(tools []Tool) ([]llmapi.Tool, error) {
 	out := make([]llmapi.Tool, len(tools))
 	for i, t := range tools {
 		var item llmapi.Tool
 		switch v := t.(type) {
-		case llmproxy.ExternalTool:
+		case ExternalTool:
 			if err := item.FromExternalTool(llmapi.ExternalTool{
 				Name:        v.ToolName(),
 				Description: v.ToolDescription(),
@@ -482,7 +482,7 @@ func toolsToAPI(tools []llmproxy.Tool) ([]llmapi.Tool, error) {
 			}); err != nil {
 				return nil, fmt.Errorf("tool %d: %w", i, err)
 			}
-		case llmproxy.WebSearch:
+		case WebSearch:
 			if err := item.FromWebSearchTool(llmapi.WebSearchTool{
 				Type: llmapi.WebSearch,
 			}); err != nil {

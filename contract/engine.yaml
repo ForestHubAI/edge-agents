@@ -24,12 +24,6 @@ components:
         manifest:
           $ref: "#/components/schemas/DeviceManifest"
 
-    EngineSecrets:
-      type: object
-      description: "The engine's secret store: a flat map of secret id -> opaque secret value."
-      additionalProperties:
-        type: string
-
     ResourceMapping:
       type: object
       description: "Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id."
@@ -49,7 +43,7 @@ components:
           description: Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
         model:
           type: string
-          description: Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings.
+          description: Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 
     ExternalResources:
       type: object
@@ -63,7 +57,6 @@ components:
         - $ref: "#/components/schemas/MQTTConfig"
         - $ref: "#/components/schemas/LLMProviderConfig"
         - $ref: "#/components/schemas/MLInferenceConfig"
-        - $ref: "#/components/schemas/CameraConfig"
       discriminator:
         propertyName: type
         mapping:
@@ -72,7 +65,6 @@ components:
           backendLlm: "#/components/schemas/LLMProviderConfig"
           selfhostedLlm: "#/components/schemas/LLMProviderConfig"
           ml-inference: "#/components/schemas/MLInferenceConfig"
-          camera: "#/components/schemas/CameraConfig"
 
     LLMProviderConfig:
       type: object
@@ -100,18 +92,6 @@ components:
         url:
           type: string
           description: Base URL of the inference component (http:// or https://).
-
-    CameraConfig:
-      type: object
-      description: "Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential."
-      required: [type, url]
-      properties:
-        type:
-          type: string
-          enum: [camera]
-        url:
-          type: string
-          description: Base URL of the capture component (http:// or https://).
 
     MQTTConfig:
       type: object
@@ -178,6 +158,10 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/PWMConfig"
+        cameras:
+          type: object
+          additionalProperties:
+            $ref: "camera.yaml#/components/schemas/CameraSource"
 
     GPIOConfig:
       type: object

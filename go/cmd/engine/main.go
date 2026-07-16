@@ -6,17 +6,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/ForestHubAI/edge-agents/go/api/engineapi"
 	"github.com/ForestHubAI/edge-agents/go/component"
-	"github.com/ForestHubAI/edge-agents/go/component/boot"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
@@ -25,16 +21,20 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/logging"
-	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 func main() {
 	cfg, err := LoadConfig()
 	if err != nil {
 		// Before logging.Configure, the stdout logger is at info level, so error passes through
-		boot.Fail(err, "loading configuration") // malformed env config is permanent
+		component.BootFail(err, "loading configuration") // malformed env config is permanent
 	}
 	logging.Configure(cfg.Log)
+
+	bootCfg, err := component.LoadConfig[engineapi.EngineConfig]()
+	if err != nil {
+		component.BootFail(err, "loading engine config")
+	}
 
 	// Create backend client only when configured
 	var backendClient *backend.Client
@@ -42,46 +42,33 @@ func main() {
 		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
 	}
 
-	// Load the single boot config file: workflow + bindings + device manifest.
-	// A workflow is mandatory — the engine exists only to run one — so a missing
-	// config or workflow is a boot error, not an idle engine.
-	configFile := component.ConfigFile
-	if abs, err := filepath.Abs(configFile); err == nil {
-		configFile = abs
-	}
-	eCfg, err := loadEngineConfig(configFile)
-	if err != nil {
-		boot.Fail(err, "loading engine config")
-	}
 	// A present config with no workflow is still a boot error, not an idle engine:
 	// an empty workflow builds into a runner with no triggers that blocks forever
 	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
 	// requires schemaVersion >= 1).
-	if eCfg.Workflow.SchemaVersion == 0 {
-		boot.Fail(errors.New("engine config has no workflow"), "validating engine config")
+	if bootCfg.Workflow.SchemaVersion == 0 {
+		component.BootFail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
 	// Build the I/O registries main owns for the engine's lifetime: drivers from
 	// the device manifest, MQTT transports from the external resources. Both are
 	// injected into the builder, borrowed by the workflow's channels, and closed
 	// by main at shutdown.
-	manifest := mapping.DeviceManifestToDomain(eCfg.Manifest)
+	manifest := engine.DeviceManifestToDomain(bootCfg.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
-		boot.Fail(err, "initialising driver registry")
+		component.BootFail(err, "initialising driver registry")
 	}
-	// Resolve resource credentials from the mounted secret store, not env: a
-	// dynamic, id-keyed JSON doc mounted read-only at component.SecretsFile,
-	// parallel to the boot config file. Absent when no resource needs a secret.
-	secrets, err := loadEngineSecrets(component.SecretsFile)
+	// Resolve resource credentials from the mounted secret store
+	secrets, err := component.ReadSecrets()
 	if err != nil {
-		boot.Fail(err, "loading engine secrets")
+		component.BootFail(err, "loading engine secrets")
 	}
-	ext := mapping.ExternalResourcesToDomain(eCfg.ExternalResources, secrets)
+	ext := engine.ExternalResourcesToDomain(bootCfg.ExternalResources, secrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		// A broker unreachable at boot may come back; let the orchestrator retry.
-		boot.Retry(err, "opening transports")
+		component.BootRetry(err, "opening transports")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at the
@@ -97,7 +84,7 @@ func main() {
 	if cfg.WebSearch.APIKey != "" {
 		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
 		if err != nil {
-			boot.Fail(err, "configuring web search provider")
+			component.BootFail(err, "configuring web search provider")
 		}
 		webSearchProvider = p
 		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
@@ -142,17 +129,17 @@ func main() {
 	}()
 
 	// Build the runner.
-	rm := mapping.ResourceMappingToDomain(eCfg.Mapping)
-	runner, err := builder.Build(ctx, &eCfg.Workflow, rm, ext)
+	rm := engine.ResourceMappingToDomain(bootCfg.Mapping)
+	runner, err := builder.Build(ctx, &bootCfg.Workflow, rm, ext)
 	if err != nil {
-		boot.Fail(err, "building workflow runner")
+		component.BootFail(err, "building workflow runner")
 	}
 
 	// Run the workflow, BLOCKING until it exits — on its own (terminal: the
 	// workflow stopped or hit a fatal error) or because ctx was cancelled
 	// (graceful shutdown). A runner exit is terminal in the immutable model;
 	// the exit code surfaces the outcome (nonzero on error) to the supervisor.
-	logging.Logger.Info().Str("config-file", configFile).Msg("engine running")
+	logging.Logger.Info().Msg("engine running")
 	runErr := runner.Run(ctx)
 
 	cancel() // also stops the heartbeat on the natural-exit path
@@ -165,40 +152,4 @@ func main() {
 	if runErr != nil && !errors.Is(runErr, context.Canceled) {
 		logging.Logger.Fatal().Err(runErr).Msg("runner exited with error")
 	}
-}
-
-// loadEngineConfig reads the engine's single boot config file (the EngineConfig
-// wire shape: workflow + bindings + device manifest). The path is the contract
-// mount constant (component.ConfigFile); a missing or malformed file is a fatal
-// boot error — the engine exists only to run the workflow this file carries.
-func loadEngineConfig(path string) (*engineapi.EngineConfig, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var ec engineapi.EngineConfig
-	if err := json.Unmarshal(data, &ec); err != nil {
-		return nil, err
-	}
-	return &ec, nil
-}
-
-// loadEngineSecrets reads the mounted secret store (a JSON map of secret id ->
-// opaque value) and maps it into the domain secrets the api->domain mapping
-// merges into connections. Secrets travel out-of-band in this file, never in the
-// deployment spec. A missing file yields no secrets (valid: anonymous broker,
-// keyless endpoint); only a present-but-malformed file is a boot error.
-func loadEngineSecrets(path string) (engine.Secrets, error) {
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	var wire engineapi.EngineSecrets
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	return mapping.SecretsToDomain(wire), nil
 }

@@ -222,10 +222,14 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
   }
   for (const ch of req.cameraChannels) {
     const b = p.cameras?.[ch.id];
-    if (b?.location === "device") {
-      if (!b.device) missing.push(`camera "${ch.id}": capture source device`);
-    } else if (!b?.url) {
-      missing.push(`camera "${ch.id}": on-device source or endpoint URL`);
+    if (!b) {
+      missing.push(`camera "${ch.id}": how the camera is reached`);
+    } else if (b.kind === "v4l2" && !b.device) {
+      missing.push(`camera "${ch.id}": device node`);
+    } else if ((b.kind === "rtsp" || b.kind === "http") && !b.url) {
+      missing.push(`camera "${ch.id}": stream URL`);
+    } else if (b.kind === "raw" && !b.pipeline) {
+      missing.push(`camera "${ch.id}": capture-source fragment`);
     }
   }
   if (req.hasWebSearch && !p.webSearch?.apiKey) missing.push("web search: API key");
@@ -452,7 +456,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // never in .env or the spec.
   let files: string[];
   try {
-    files = await writeOutput(built.spec, built.resourceSecrets, cfg, req, componentEnv);
+    files = await writeOutput(built.spec, built.componentSecrets, cfg, req, componentEnv);
   } catch (err) {
     process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);

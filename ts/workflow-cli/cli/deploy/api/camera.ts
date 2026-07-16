@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * List the configured cameras.
-         * @description Names every configured camera — the valid /capture name selectors.
+         * @description Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since the manifest already tells it which exist and the renderer derived this component's config from it.
          */
         get: operations["metadata"];
         put?: never;
@@ -88,6 +88,89 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description The camera component's boot config (cameras.json): the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. */
+        CameraConfig: {
+            /** @description Cameras keyed by their device-manifest key — the /capture `name` selector. */
+            cameras: {
+                [key: string]: components["schemas"]["CameraSource"];
+            };
+        };
+        /** @description One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key. */
+        CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
+        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
+        V4L2Source: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "v4l2";
+            /** @description V4L2 device node, e.g. "/dev/video0". */
+            device: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description A camera reached through the platform's libcamera stack, which owns the media graph itself rather than exposing a preconfigured V4L2 node. */
+        LibcameraSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "libcamera";
+            /** @description Selects one sensor when the platform exposes several; the platform default is used when omitted. */
+            cameraName?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key. */
+        RtspSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "rtsp";
+            /** @description Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials. */
+            url: string;
+            /** @description Username for streams that authenticate. Not a secret; the password is. */
+            user?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+        };
+        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key. */
+        HttpSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "http";
+            /** @description Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials. */
+            url: string;
+            /** @description Username for endpoints that authenticate. Not a secret; the password is. */
+            user?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+        };
+        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits. */
+        RawSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "raw";
+            /** @description Capture-source fragment, passed to the driver component as-is and interpreted by it. */
+            pipeline: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description A synthetic camera that needs no hardware and returns a fixed frame. For hostless development and CI. */
+        DebugSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "debug";
+        };
+        /** @description Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0. */
+        CameraWarmupFrames: number;
+        /** @description Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design. */
+        CameraSetup: string[];
         /** @description The set of configured cameras. */
         CameraMetadata: {
             /** @description Every configured camera. */
@@ -95,28 +178,10 @@ export interface components {
         };
         /** @description Descriptive metadata for one configured camera. */
         DeviceMetadata: {
-            /** @description Name (id) of the camera — the /capture name selector. */
+            /** @description Device-manifest key of the camera — the /capture name selector. */
             name: string;
             /** @description Optional human-readable device description. */
             description?: string;
-        };
-        /** @description The camera component's boot config (cameras.json): the set of cameras one shared camera component owns. The renderer writes it into the component's config file; the component reads it at boot — a cross-language seam. Each /capture request selects a camera by its key here. Not on the HTTP wire; the component's boot input, carried here so the renderer (producer) and component (consumer) share one generated shape. */
-        CameraConfig: {
-            /** @description Configured cameras keyed by name — the /capture `name` selector. */
-            cameras: {
-                [key: string]: components["schemas"]["CameraSource"];
-            };
-        };
-        /** @description One camera's capture source in cameras.json. */
-        CameraSource: {
-            /** @description Capture backend: `v4l2` (a /dev/video* device) or `gstreamer` (a source element, e.g. libcamerasrc). Determines how `device` is interpreted. */
-            source: string;
-            /** @description The capture source: a /dev/video* path (v4l2) or a GStreamer source fragment (gstreamer). */
-            device: string;
-            /** @description Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0. */
-            warmupFrames?: number;
-            /** @description Shell commands (media-ctl/v4l2-ctl) the component replays on every container start, for statically configured CSI/ISP pipelines. */
-            setup?: string[];
         };
         /** @description A simple health-probe response. */
         Health: {
@@ -140,7 +205,7 @@ export interface operations {
     capture: {
         parameters: {
             query: {
-                /** @description Name of the configured device to read (see /metadata). */
+                /** @description Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id. */
                 name: string;
                 /** @description Optional width hint in pixels; ignored by sources that lack it. */
                 width?: number;

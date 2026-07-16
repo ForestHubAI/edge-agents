@@ -222,10 +222,11 @@ async function promptMLModels(
   return result;
 }
 
-// Per camera channel: first where it runs, then what that location needs.
-// device -> read by the shared capture component this bundle generates (a capture
-// source: a v4l2 /dev node or a gstreamer source element); network -> a capture
-// endpoint the operator runs elsewhere (its URL, no credential).
+// Per camera channel: first HOW the camera is reached, then what that path needs.
+// The kind is the access path, not the sensor's form factor — a CSI sensor is
+// v4l2 on boards that expose a preconfigured node and libcamera on boards that
+// don't. It picks the capture recipe, which the driver component owns, so nothing
+// here asks for a pipeline (except `raw`, the escape hatch).
 async function promptCameras(
   channels: CameraChannel[],
   seed: Record<string, CameraBinding>,
@@ -233,24 +234,47 @@ async function promptCameras(
   const result: Record<string, CameraBinding> = { ...seed };
   for (const ch of channels) {
     if (result[ch.id]) continue;
-    const location = await select<"device" | "network">({
-      message: `${ch.label}: where does this camera run?`,
+    const kind = await select<CameraBinding["kind"]>({
+      message: `${ch.label}: how is this camera reached?`,
       choices: [
-        { value: "device", name: "on this device (read by the shared capture component)" },
-        { value: "network", name: "on another machine on the network (call its endpoint URL)" },
+        { value: "v4l2", name: "v4l2 — a device node (USB/UVC webcam, or a CSI sensor your board exposes as /dev/video*)" },
+        { value: "libcamera", name: "libcamera — a CSI camera your board drives through libcamera (e.g. Raspberry Pi)" },
+        { value: "rtsp", name: "rtsp — an IP camera streaming over RTSP" },
+        { value: "http", name: "http — a camera served over HTTP (MJPEG stream or snapshot endpoint)" },
+        { value: "raw", name: "raw — anything else: supply a capture-source fragment yourself" },
+        { value: "debug", name: "debug — a fixed synthetic frame, no hardware (development)" },
       ],
     });
 
-    if (location === "device") {
-      const source = await select<"v4l2" | "gstreamer">({
-        message: `${ch.label}: capture source`,
-        choices: [
-          { value: "v4l2", name: "v4l2 — a USB/UVC camera at a /dev/video* node" },
-          { value: "gstreamer", name: "gstreamer — a source element (e.g. libcamerasrc for CSI/ISP cameras)" },
-        ],
-      });
+    if (kind === "debug") {
+      result[ch.id] = { kind: "debug" };
+      continue;
+    }
+
+    if (kind === "rtsp" || kind === "http") {
+      const url = (
+        await input({
+          message: `${ch.label}: stream URL (no credentials — they are asked for separately)`,
+          default: kind === "rtsp" ? "rtsp://camera.local:554/stream1" : "http://camera.local/video.mjpg",
+          validate: (v) => v.trim().length > 0 || "stream URL is required",
+        })
+      ).trim();
+      const user = (await input({ message: `${ch.label}: username (blank if the stream is open)` })).trim();
+      // The password never enters the spec: the resolver pulls it into the driver
+      // component's secret document, keyed by this camera's ref.
+      const pw = user ? (await password({ message: `${ch.label}: password (stored in the component's secrets file)` })).trim() : "";
+      const binding: Extract<CameraBinding, { kind: "rtsp" | "http" }> = { kind, url };
+      if (user) binding.user = user;
+      if (pw) binding.password = pw;
+      const warmupNet = await promptWarmupFrames(ch.label);
+      if (warmupNet > 0) binding.warmupFrames = warmupNet;
+      result[ch.id] = binding;
+      continue;
+    }
+
+    {
       const device =
-        source === "v4l2"
+        kind === "v4l2"
           ? (
               await input({
                 message: `${ch.label}: device path (prefer a stable /dev/v4l/by-id/... path)`,
@@ -258,13 +282,25 @@ async function promptCameras(
                 validate: (v) => v.trim().length > 0 || "device path is required",
               })
             ).trim()
-          : (
+          : "";
+      const cameraName =
+        kind === "libcamera"
+          ? (
               await input({
-                message: `${ch.label}: gstreamer source element`,
-                default: "libcamerasrc",
-                validate: (v) => v.trim().length > 0 || "source element is required",
+                message: `${ch.label}: sensor name (blank for the platform default; e.g. /base/soc/i2c0mux/imx477@1a)`,
               })
-            ).trim();
+            ).trim()
+          : "";
+      const pipeline =
+        kind === "raw"
+          ? (
+              await input({
+                message: `${ch.label}: capture-source fragment (GStreamer, used verbatim)`,
+                default: "videotestsrc",
+                validate: (v) => v.trim().length > 0 || "a capture-source fragment is required",
+              })
+            ).trim()
+          : "";
       const warmup = Number(
         (
           await input({
@@ -316,22 +352,32 @@ async function promptCameras(
           .split(/\s+/)
           .filter((s) => s.length > 0);
       }
-      const binding: Extract<CameraBinding, { location: "device" }> = { location: "device", source, device };
+      const binding: Extract<CameraBinding, { kind: "v4l2" | "libcamera" | "raw" }> =
+        kind === "v4l2" ? { kind, device } : kind === "libcamera" ? { kind, ...(cameraName ? { cameraName } : {}) } : { kind: "raw", pipeline };
       if (warmup > 0) binding.warmupFrames = warmup;
       if (setup.length > 0) binding.setup = setup;
       if (devices.length > 0) binding.devices = devices;
       result[ch.id] = binding;
-      continue;
     }
-
-    const url = await input({
-      message: `${ch.label}: capture endpoint URL (a capture component you run elsewhere)`,
-      default: "http://localhost:8100",
-      validate: (v) => v.trim().length > 0 || "endpoint URL is required",
-    });
-    result[ch.id] = { location: "network", url: url.trim() };
   }
   return result;
+}
+
+// Leading frames to discard so a sensor's auto-exposure settles. Shared by every
+// kind that reads a live source.
+async function promptWarmupFrames(label: string): Promise<number> {
+  return Number(
+    (
+      await input({
+        message: `${label}: warmup frames to discard so auto-exposure settles (0 to disable, ~5-8 for CSI cameras)`,
+        default: "0",
+        validate: (v) => {
+          const n = Number(v.trim());
+          return (Number.isInteger(n) && n >= 0) || "enter a whole number >= 0";
+        },
+      })
+    ).trim(),
+  );
 }
 
 // Web-search provider + key (once, when any WebSearchTool node exists).

@@ -84,16 +84,47 @@ const mlModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({ location: z.literal("network"), url: z.string(), model: z.string() }),
 ]);
 
-const cameraBindingSchema = z.discriminatedUnion("location", [
+// A camera is device-owned hardware: it becomes a DeviceManifest entry, not an
+// endpoint, so it has no `location` — nothing points at a driver component. The
+// kind is the access path (see CameraBinding in inputs.ts), and it picks the
+// capture recipe the component owns.
+const cameraBindingSchema = z.discriminatedUnion("kind", [
   z.strictObject({
-    location: z.literal("device"),
-    source: z.enum(["v4l2", "gstreamer"]),
+    kind: z.literal("v4l2"),
     device: z.string(),
     warmupFrames: z.number().int().min(0).optional(),
     setup: z.array(z.string()).optional(),
     devices: z.array(z.string()).optional(),
   }),
-  z.strictObject({ location: z.literal("network"), url: z.string() }),
+  z.strictObject({
+    kind: z.literal("libcamera"),
+    cameraName: z.string().optional(),
+    warmupFrames: z.number().int().min(0).optional(),
+    setup: z.array(z.string()).optional(),
+    devices: z.array(z.string()).optional(),
+  }),
+  z.strictObject({
+    kind: z.literal("rtsp"),
+    url: z.string(),
+    user: z.string().optional(),
+    password: z.string().optional(),
+    warmupFrames: z.number().int().min(0).optional(),
+  }),
+  z.strictObject({
+    kind: z.literal("http"),
+    url: z.string(),
+    user: z.string().optional(),
+    password: z.string().optional(),
+    warmupFrames: z.number().int().min(0).optional(),
+  }),
+  z.strictObject({
+    kind: z.literal("raw"),
+    pipeline: z.string(),
+    warmupFrames: z.number().int().min(0).optional(),
+    setup: z.array(z.string()).optional(),
+    devices: z.array(z.string()).optional(),
+  }),
+  z.strictObject({ kind: z.literal("debug") }),
 ]);
 
 // Web-search provider + key. Engine-wide, so just one. Device env, never in the

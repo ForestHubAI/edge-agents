@@ -172,8 +172,8 @@ describe("missingRequired", () => {
   it("flags an unbound camera and accepts a bound one", () => {
     const req = reqOf({ cameraChannels: [{ id: "front", label: "front" }] });
     expect(missingRequired(req, {}).join()).toMatch(/camera "front"/);
-    expect(missingRequired(req, { cameras: { front: { location: "device", source: "v4l2", device: "/dev/video0" } } })).toEqual([]);
-    expect(missingRequired(req, { cameras: { front: { location: "network", url: "http://cam:8100" } } })).toEqual([]);
+    expect(missingRequired(req, { cameras: { front: { kind: "v4l2", device: "/dev/video0" } } })).toEqual([]);
+    expect(missingRequired(req, { cameras: { front: { kind: "rtsp", url: "rtsp://cam/s1" } } })).toEqual([]);
   });
 
   it("flags an unbound ml model and accepts device or a network url", () => {

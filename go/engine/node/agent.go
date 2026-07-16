@@ -23,7 +23,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
 	"github.com/ForestHubAI/edge-agents/go/logging"
-	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // Implementation guards
@@ -305,7 +304,7 @@ func (n *Agent) buildResponseFormat() *llmproxy.ResponseFormat {
 		"answer": map[string]any{"type": "string"},
 	}
 	for _, od := range n.outputDecl {
-		properties[od.Name] = map[string]any{"type": mapping.JSONTypeFor(od.DataType)}
+		properties[od.Name] = map[string]any{"type": JSONTypeFor(od.DataType)}
 	}
 	branches := n.Transitions(engine.PortCtrl)
 	if len(branches) > 1 {
@@ -362,4 +361,20 @@ func buildBranchingPrompt(branches []engine.Transition) (string, error) {
 		fmt.Fprintf(&sb, "- %q: %s\n", choiceToken(i), *tr.Description)
 	}
 	return sb.String(), nil
+}
+
+// JSONTypeFor maps a workflow data type to its JSON Schema type name. Shared
+// by nodes that build runtime schemas (Agent response format, FunctionCall
+// tool parameters).
+func JSONTypeFor(dt workflowapi.DataType) string {
+	switch dt {
+	case workflowapi.Int:
+		return "integer"
+	case workflowapi.Float:
+		return "number"
+	case workflowapi.Bool:
+		return "boolean"
+	default:
+		return "string"
+	}
 }

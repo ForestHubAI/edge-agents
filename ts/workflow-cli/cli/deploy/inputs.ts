@@ -53,25 +53,31 @@ export type MLModelBinding =
   | { location: "device"; model: string }
   | { location: "network"; url: string; model: string };
 
-// One camera channel's runtime location. `device` = read by the shared capture
-// component on this controller from a local capture source (`v4l2` wraps a
-// /dev/video* path; `gstreamer` takes a source element verbatim, e.g.
-// libcamerasrc); `network` = a capture endpoint the operator runs elsewhere.
-// Credential-free — a trusted endpoint. `warmupFrames` discards that many leading
-// frames so a sensor's auto-exposure can settle before the returned one.
-// `setup` = shell commands (media-ctl/v4l2-ctl) the component replays on every
-// container start, for statically configured CSI/ISP pipelines; `devices` = the
-// extra device nodes those commands touch, passed through to the container.
+// One camera the device owns, declared by HOW it is reached — not by where it
+// runs. A camera is device-owned hardware, so this becomes a DeviceManifest entry
+// (EngineSchemas["CameraSource"]) and resolves through the engine's driver
+// registry like a gpiochip; the driver component that reads it is issued by the
+// engine and never pointed at.
+//
+// The kind picks the capture recipe, which the component owns — so a binding
+// declares intent and never a pipeline. It is the access path that decides, not
+// the sensor's form factor: a CSI sensor is `v4l2` on boards that expose a
+// preconfigured node and `libcamera` on boards that don't.
+//
+// `warmupFrames` discards that many leading frames so a sensor's auto-exposure
+// can settle before the returned one. `setup` = shell commands (media-ctl/v4l2-ctl)
+// the component replays on every container start, for statically configured
+// CSI/ISP pipelines. `devices` = the extra device nodes those commands touch;
+// render-only, passed through to the container and never part of the manifest
+// entry. `password` is a secret: pulled into the component's secret document
+// keyed by the camera's ref, never written into the spec.
 export type CameraBinding =
-  | {
-      location: "device";
-      source: "v4l2" | "gstreamer";
-      device: string;
-      warmupFrames?: number;
-      setup?: string[];
-      devices?: string[];
-    }
-  | { location: "network"; url: string };
+  | { kind: "v4l2"; device: string; warmupFrames?: number; setup?: string[]; devices?: string[] }
+  | { kind: "libcamera"; cameraName?: string; warmupFrames?: number; setup?: string[]; devices?: string[] }
+  | { kind: "rtsp"; url: string; user?: string; password?: string; warmupFrames?: number }
+  | { kind: "http"; url: string; user?: string; password?: string; warmupFrames?: number }
+  | { kind: "raw"; pipeline: string; warmupFrames?: number; setup?: string[]; devices?: string[] }
+  | { kind: "debug" };
 
 // One catalog provider's routing, keyed by provider id. `local` = the engine's
 // built-in adapter serves it with a deploy-delivered API key (pulled into

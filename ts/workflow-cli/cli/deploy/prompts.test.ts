@@ -213,12 +213,9 @@ describe("promptMissing", () => {
     expect(cfg.mlModels.yolo).toEqual({ location: "network", url: "http://onnx:8000", model: "yolov8n" });
   });
 
-  it("device camera (v4l2): asks where it runs, source, then the device path", async () => {
+  it("v4l2 camera: asks how it is reached, then the device path", async () => {
     script({
-      select: [
-        [/where does this camera run/, "device"],
-        [/capture source/, "v4l2"],
-      ],
+      select: [[/how is this camera reached/, "v4l2"]],
       input: [
         [/device path/, "/dev/video2"],
         [/warmup frames/, "0"],
@@ -226,47 +223,76 @@ describe("promptMissing", () => {
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "front", label: "front" }] }));
-    expect(cfg.cameras.front).toEqual({ location: "device", source: "v4l2", device: "/dev/video2" });
+    expect(cfg.cameras.front).toEqual({ kind: "v4l2", device: "/dev/video2" });
   });
 
-  it("device camera (gstreamer): asks source, then the source element", async () => {
+  it("libcamera camera: needs no device, and omits a blank sensor name", async () => {
     script({
-      select: [
-        [/where does this camera run/, "device"],
-        [/capture source/, "gstreamer"],
-      ],
+      select: [[/how is this camera reached/, "libcamera"]],
       input: [
-        [/gstreamer source element/, "libcamerasrc"],
+        [/sensor name/, ""],
         [/warmup frames/, "0"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
-    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc" });
+    expect(cfg.cameras.csi).toEqual({ kind: "libcamera" });
   });
 
-  it("device camera: keeps warmupFrames when set above zero", async () => {
+  it("libcamera camera: keeps a named sensor and warmupFrames above zero", async () => {
     script({
-      select: [
-        [/where does this camera run/, "device"],
-        [/capture source/, "gstreamer"],
-      ],
+      select: [[/how is this camera reached/, "libcamera"]],
       input: [
-        [/gstreamer source element/, "libcamerasrc"],
+        [/sensor name/, "imx477"],
         [/warmup frames/, "8"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "csi", label: "csi" }] }));
-    expect(cfg.cameras.csi).toEqual({ location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 });
+    expect(cfg.cameras.csi).toEqual({ kind: "libcamera", cameraName: "imx477", warmupFrames: 8 });
   });
 
-  it("device camera: collects setup commands via the editor and their device nodes", async () => {
+  it("rtsp camera: collects the url, and the password only when a user is given", async () => {
     script({
-      select: [
-        [/where does this camera run/, "device"],
-        [/capture source/, "v4l2"],
+      select: [[/how is this camera reached/, "rtsp"]],
+      input: [
+        [/stream URL/, "rtsp://cam.local/s1"],
+        [/username/, "admin"],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
       ],
+      password: [[/password/, "hunter2"]],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "gate", label: "gate" }] }));
+    expect(cfg.cameras.gate).toEqual({ kind: "rtsp", url: "rtsp://cam.local/s1", user: "admin", password: "hunter2" });
+  });
+
+  it("rtsp camera: an open stream is never asked for a password", async () => {
+    script({
+      select: [[/how is this camera reached/, "rtsp"]],
+      input: [
+        [/stream URL/, "rtsp://cam.local/s1"],
+        [/username/, ""],
+        [/warmup frames/, "0"],
+        [/Output directory/, "b"],
+      ],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "gate", label: "gate" }] }));
+    expect(cfg.cameras.gate).toEqual({ kind: "rtsp", url: "rtsp://cam.local/s1" });
+  });
+
+  it("debug camera: asks nothing beyond the kind", async () => {
+    script({
+      select: [[/how is this camera reached/, "debug"]],
+      input: [[/Output directory/, "b"]],
+    });
+    const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
+    expect(cfg.cameras.cam).toEqual({ kind: "debug" });
+  });
+
+  it("v4l2 camera: collects setup commands via the editor and their device nodes", async () => {
+    script({
+      select: [[/how is this camera reached/, "v4l2"]],
       confirm: [
         [/setup commands/, true],
         [/custom component/, false],
@@ -282,20 +308,16 @@ describe("promptMissing", () => {
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
     expect(cfg.cameras.cam).toEqual({
-      location: "device",
-      source: "v4l2",
+      kind: "v4l2",
       device: "/dev/video1",
       setup: ["media-ctl -d /dev/media2 -r", "v4l2-ctl -d /dev/v4l-subdev7 --set-ctrl=exposure=1800"],
       devices: ["/dev/media2", "/dev/v4l-subdev7"],
     });
   });
 
-  it("device camera: an editor that returns nothing is caught, and continuing drops the setup step", async () => {
+  it("v4l2 camera: an editor that returns nothing is caught, and continuing drops the setup step", async () => {
     script({
-      select: [
-        [/where does this camera run/, "device"],
-        [/capture source/, "v4l2"],
-      ],
+      select: [[/how is this camera reached/, "v4l2"]],
       confirm: [
         [/add setup commands/, true],
         [/continue without a setup step/, true],
@@ -311,19 +333,21 @@ describe("promptMissing", () => {
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
     // No setup / devices keys — the empty result did not silently become a setup step.
-    expect(cfg.cameras.cam).toEqual({ location: "device", source: "v4l2", device: "/dev/video1" });
+    expect(cfg.cameras.cam).toEqual({ kind: "v4l2", device: "/dev/video1" });
   });
 
-  it("network camera: asks where it runs, then url", async () => {
+  it("http camera: collects the url", async () => {
     script({
-      select: [[/where does this camera run/, "network"]],
+      select: [[/how is this camera reached/, "http"]],
       input: [
-        [/capture endpoint URL/, "http://cam:8100"],
+        [/stream URL/, "http://cam.local/video.mjpg"],
+        [/username/, ""],
+        [/warmup frames/, "0"],
         [/Output directory/, "b"],
       ],
     });
     const cfg = await run({}, "def", reqOf({ cameraChannels: [{ id: "cam", label: "cam" }] }));
-    expect(cfg.cameras.cam).toEqual({ location: "network", url: "http://cam:8100" });
+    expect(cfg.cameras.cam).toEqual({ kind: "http", url: "http://cam.local/video.mjpg" });
   });
 
   // The mocks answer prompts without running their validate callbacks; these

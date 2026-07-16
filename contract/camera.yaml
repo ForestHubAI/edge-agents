@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Camera Component Contract
   version: 0.1.0
-  description: "Engine<->camera component wire. One container owns several named cameras and each /capture request names which to read. The wire is modality-neutral: a server returns encoded frames for its modality. Source of truth for the engine's generated client and the component's generated server."
+  description: "Engine<->camera component wire. PRIVATE: the camera component is a driver component, not a standalone service — the engine is its sole issuer and sole caller, its config is derived from the device manifest, and its address is a constant. Nothing in ExternalResources may point at it and no operator supplies its url. One container owns the cameras it is issued, each /capture request naming which to read by its device-manifest key. Source of truth for the engine's generated client and the component's generated server."
 
 paths:
   /capture:
@@ -17,7 +17,7 @@ paths:
         - name: name
           in: query
           required: true
-          description: Name of the configured device to read (see /metadata).
+          description: Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
           schema:
             type: string
         - name: width
@@ -91,7 +91,7 @@ paths:
     get:
       operationId: metadata
       summary: List the configured cameras.
-      description: Names every configured camera — the valid /capture name selectors.
+      description: "Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since the manifest already tells it which exist and the renderer derived this component's config from it."
       responses:
         "200":
           description: The component's configured cameras.
@@ -102,6 +102,147 @@ paths:
 
 components:
   schemas:
+    CameraConfig:
+      type: object
+      description: "The camera component's boot config (cameras.json): the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape."
+      required: [cameras]
+      properties:
+        cameras:
+          type: object
+          description: "Cameras keyed by their device-manifest key — the /capture `name` selector."
+          additionalProperties:
+            $ref: "#/components/schemas/CameraSource"
+
+    CameraSource:
+      description: "One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key."
+      oneOf:
+        - $ref: "#/components/schemas/V4L2Source"
+        - $ref: "#/components/schemas/LibcameraSource"
+        - $ref: "#/components/schemas/RtspSource"
+        - $ref: "#/components/schemas/HttpSource"
+        - $ref: "#/components/schemas/RawSource"
+        - $ref: "#/components/schemas/DebugSource"
+      discriminator:
+        propertyName: kind
+        mapping:
+          v4l2: "#/components/schemas/V4L2Source"
+          libcamera: "#/components/schemas/LibcameraSource"
+          rtsp: "#/components/schemas/RtspSource"
+          http: "#/components/schemas/HttpSource"
+          raw: "#/components/schemas/RawSource"
+          debug: "#/components/schemas/DebugSource"
+
+    V4L2Source:
+      type: object
+      description: "A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't."
+      required: [kind, device]
+      properties:
+        kind:
+          type: string
+          enum: [v4l2]
+        device:
+          type: string
+          minLength: 1
+          description: 'V4L2 device node, e.g. "/dev/video0".'
+        warmupFrames:
+          $ref: "#/components/schemas/CameraWarmupFrames"
+        setup:
+          $ref: "#/components/schemas/CameraSetup"
+
+    LibcameraSource:
+      type: object
+      description: A camera reached through the platform's libcamera stack, which owns the media graph itself rather than exposing a preconfigured V4L2 node.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [libcamera]
+        cameraName:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Selects one sensor when the platform exposes several; the platform default is used when omitted.
+        warmupFrames:
+          $ref: "#/components/schemas/CameraWarmupFrames"
+        setup:
+          $ref: "#/components/schemas/CameraSetup"
+
+    RtspSource:
+      type: object
+      description: An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key.
+      required: [kind, url]
+      properties:
+        kind:
+          type: string
+          enum: [rtsp]
+        url:
+          type: string
+          minLength: 1
+          description: 'Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials.'
+        user:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Username for streams that authenticate. Not a secret; the password is.
+        warmupFrames:
+          $ref: "#/components/schemas/CameraWarmupFrames"
+
+    HttpSource:
+      type: object
+      description: A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key.
+      required: [kind, url]
+      properties:
+        kind:
+          type: string
+          enum: [http]
+        url:
+          type: string
+          minLength: 1
+          description: 'Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials.'
+        user:
+          x-go-type-skip-optional-pointer: true
+          type: string
+          description: Username for endpoints that authenticate. Not a secret; the password is.
+        warmupFrames:
+          $ref: "#/components/schemas/CameraWarmupFrames"
+
+    RawSource:
+      type: object
+      description: "Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits."
+      required: [kind, pipeline]
+      properties:
+        kind:
+          type: string
+          enum: [raw]
+        pipeline:
+          type: string
+          minLength: 1
+          description: Capture-source fragment, passed to the driver component as-is and interpreted by it.
+        warmupFrames:
+          $ref: "#/components/schemas/CameraWarmupFrames"
+        setup:
+          $ref: "#/components/schemas/CameraSetup"
+
+    DebugSource:
+      type: object
+      description: A synthetic camera that needs no hardware and returns a fixed frame. For hostless development and CI.
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [debug]
+
+    CameraWarmupFrames:
+      type: integer
+      minimum: 0
+      x-go-type-skip-optional-pointer: true
+      description: Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0.
+
+    CameraSetup:
+      type: array
+      x-go-type-skip-optional-pointer: true
+      description: Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
+      items:
+        type: string
+
     CameraMetadata:
       type: object
       description: The set of configured cameras.
@@ -120,45 +261,11 @@ components:
       properties:
         name:
           type: string
-          description: Name (id) of the camera — the /capture name selector.
+          description: Device-manifest key of the camera — the /capture name selector.
         description:
           x-go-type-skip-optional-pointer: true
           type: string
           description: Optional human-readable device description.
-
-    CameraConfig:
-      type: object
-      description: "The camera component's boot config (cameras.json): the set of cameras one shared camera component owns. The renderer writes it into the component's config file; the component reads it at boot — a cross-language seam. Each /capture request selects a camera by its key here. Not on the HTTP wire; the component's boot input, carried here so the renderer (producer) and component (consumer) share one generated shape."
-      required: [cameras]
-      properties:
-        cameras:
-          type: object
-          description: "Configured cameras keyed by name — the /capture `name` selector."
-          additionalProperties:
-            $ref: "#/components/schemas/CameraSource"
-
-    CameraSource:
-      type: object
-      description: "One camera's capture source in cameras.json."
-      required: [source, device]
-      properties:
-        source:
-          type: string
-          description: "Capture backend: `v4l2` (a /dev/video* device) or `gstreamer` (a source element, e.g. libcamerasrc). Determines how `device` is interpreted."
-        device:
-          type: string
-          description: "The capture source: a /dev/video* path (v4l2) or a GStreamer source fragment (gstreamer)."
-        warmupFrames:
-          type: integer
-          minimum: 0
-          x-go-type-skip-optional-pointer: true
-          description: "Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0."
-        setup:
-          type: array
-          x-go-type-skip-optional-pointer: true
-          description: "Shell commands (media-ctl/v4l2-ctl) the component replays on every container start, for statically configured CSI/ISP pipelines."
-          items:
-            type: string
 
     Health:
       type: object

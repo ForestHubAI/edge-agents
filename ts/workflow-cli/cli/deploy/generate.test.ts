@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
-import { camerasJson, composeYaml, envFile, readme, slugify } from "./generate";
+import { composeYaml, envFile, readme, slugify } from "./generate";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas, EngineSchemas } from "./api";
 
@@ -65,7 +65,7 @@ function cameraComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
     name: "camera",
     image: "camera:latest",
     pull: "never",
-    volumes: ["./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro"],
+    config: { cameras: { video0: { kind: "v4l2", device: "/dev/video0" } } },
     ...overrides,
   };
 }
@@ -242,15 +242,17 @@ describe("composeYaml", () => {
     expect(yaml).toContain("  grafana-storage:"); // declared as a top-level named volume
   });
 
-  it("renders the camera component with device passthrough and a read-only cameras.json file mount", () => {
+  it("renders the camera component with device passthrough and its config by convention", () => {
     const yaml = composeYaml(specOf([engineComponent(), cameraComponent({ devices: ["/dev/video0"] })]));
     expect(yaml).toContain("camera:");
     expect(yaml).toContain("image: camera:latest");
     expect(yaml).toContain("pull_policy: never");
     expect(yaml).toContain('- "/dev/video0:/dev/video0"');
-    expect(yaml).toContain("./workspaces/camera/cameras.json:/etc/foresthub/config.json:ro");
-    // A file bind mount needs no top-level named volume; no container_name is set
-    // (several bundles may share one host).
+    // Its config blob is mounted like every other component's — the driver
+    // component needs no bespoke mount and no workspace dir.
+    expect(yaml).toContain("./camera-config.json:/etc/foresthub/config.json:ro");
+    expect(yaml).not.toContain("workspaces/camera");
+    // No container_name is set (several bundles may share one host).
     expect(yaml).not.toContain("container_name");
     expect(yaml).not.toMatch(/^volumes:/m);
   });
@@ -330,13 +332,13 @@ describe("readme", () => {
   });
 
   it("a gstreamer camera adds the media-graph operator note", () => {
-    const md = readme(specOf(), cfgOf({ cameras: { csi: { location: "device", source: "gstreamer", device: "libcamerasrc" } } }), false);
+    const md = readme(specOf(), cfgOf({ cameras: { csi: { kind: "libcamera" } } }), false);
     expect(md).toContain("## On-device cameras");
     expect(md).toContain("/dev/media*");
   });
 
   it("a network camera adds only the network note", () => {
-    const md = readme(specOf(), cfgOf({ cameras: { cam: { location: "network", url: "http://cam.remote:8100" } } }), false);
+    const md = readme(specOf(), cfgOf({ cameras: { cam: { kind: "rtsp", url: "rtsp://cam.remote/s1" } } }), false);
     expect(md).toContain("## Network cameras");
     expect(md).not.toContain("## On-device cameras");
   });
@@ -352,7 +354,7 @@ describe("readme", () => {
   it("documents building and loading a self-built camera component image", () => {
     const md = readme(
       specOf([engineComponent(), cameraComponent()]),
-      cfgOf({ cameras: { cam: { location: "device", source: "v4l2", device: "/dev/video0" } } }),
+      cfgOf({ cameras: { cam: { kind: "v4l2", device: "/dev/video0" } } }),
       false,
     );
     expect(md).toContain("docker build -f go/Dockerfile.camera -t camera:latest go");
@@ -366,64 +368,20 @@ describe("readme", () => {
   });
 });
 
-describe("camerasJson", () => {
-  it("emits one entry per on-device camera, keyed by channel id", () => {
-    const out = camerasJson(
-      cfgOf({
-        cameras: {
-          front: { location: "device", source: "v4l2", device: "/dev/video0" },
-          csi: { location: "device", source: "gstreamer", device: "libcamerasrc" },
-        },
-      }),
-    );
-    expect(out && JSON.parse(out)).toEqual({
-      cameras: {
-        front: { source: "v4l2", device: "/dev/video0" },
-        csi: { source: "gstreamer", device: "libcamerasrc" },
-      },
-    });
+describe("composeYaml — camera component", () => {
+  it("mounts the camera's config by the standard convention, with no special case", () => {
+    // The driver component carries its boot config like any other component, so
+    // it gets <name>-config.json at the contract path — nothing camera-specific.
+    const camera = cameraComponent({ config: { cameras: { video0: { kind: "v4l2", device: "/dev/video0" } } } });
+    const yaml = composeYaml(specOf([engineComponent(), camera]));
+    expect(yaml).toContain("./camera-config.json:/etc/foresthub/config.json:ro");
+    expect(yaml).not.toContain("cameras.json");
   });
 
-  it("skips network cameras and returns null when none is on-device", () => {
-    expect(camerasJson(cfgOf({ cameras: { cam: { location: "network", url: "http://cam.remote:8100" } } }))).toBeNull();
-    expect(camerasJson(cfgOf())).toBeNull();
-  });
-
-  it("includes setup commands; binding devices stay out (compose-only)", () => {
-    const out = camerasJson(
-      cfgOf({
-        cameras: {
-          cam: {
-            location: "device",
-            source: "v4l2",
-            device: "/dev/video1",
-            setup: ["media-ctl -d /dev/media2 -r"],
-            devices: ["/dev/media2"],
-          },
-        },
-      }),
-    );
-    expect(out && JSON.parse(out)).toEqual({
-      cameras: {
-        cam: { source: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] },
-      },
-    });
-  });
-
-  it("includes warmupFrames only when set above zero", () => {
-    const out = camerasJson(
-      cfgOf({
-        cameras: {
-          warm: { location: "device", source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
-          none: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 0 },
-        },
-      }),
-    );
-    expect(out && JSON.parse(out)).toEqual({
-      cameras: {
-        warm: { source: "gstreamer", device: "libcamerasrc", warmupFrames: 8 },
-        none: { source: "v4l2", device: "/dev/video0" },
-      },
-    });
+  it("mounts the camera's own secret doc when a stream authenticates", () => {
+    const camera = cameraComponent({ config: { cameras: { gate: { kind: "rtsp", url: "rtsp://cam/s1" } } } });
+    const yaml = composeYaml(specOf([engineComponent(), camera]), { camera: { gate: "hunter2" } });
+    expect(yaml).toContain("./camera-secrets.json:/etc/foresthub/secrets.json:ro");
+    expect(yaml).not.toContain("hunter2");
   });
 });

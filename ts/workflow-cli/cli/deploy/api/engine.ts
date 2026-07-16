@@ -14,8 +14,8 @@ export interface components {
             externalResources?: components["schemas"]["ExternalResources"];
             manifest?: components["schemas"]["DeviceManifest"];
         };
-        /** @description The engine's secret store: a flat map of secret id -> opaque secret value. */
-        EngineSecrets: {
+        /** @description One component's secret store: a flat map of resource id -> opaque secret value, mounted at the component contract's secrets path. Keyed by the resource's own id — the config that needs a credential names no separate reference, and its type/kind is what says a credential may exist. Not engine-only: each component is handed just the credentials it needs, so the engine never holds a driver component's. */
+        ComponentSecrets: {
             [key: string]: string;
         };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id. */
@@ -28,7 +28,7 @@ export interface components {
             ref: string;
             /** @description Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only. */
             index?: number;
-            /** @description Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt/camera bindings. */
+            /** @description Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings. */
             model?: string;
         };
         /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id. */
@@ -36,7 +36,7 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"] | components["schemas"]["CameraConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"];
         /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
@@ -57,16 +57,6 @@ export interface components {
              */
             type: "ml-inference";
             /** @description Base URL of the inference component (http:// or https://). */
-            url: string;
-        };
-        /** @description Resolved connection to a camera capture component the engine doesn't ship: a separate service reached by URL that owns a set of cameras and captures a frame on demand. The engine calls it per node; which camera is read is named on each request, so it is not configured here. A trusted in-deployment endpoint — no credential. */
-        CameraConfig: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "camera";
-            /** @description Base URL of the capture component (http:// or https://). */
             url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */
@@ -108,6 +98,9 @@ export interface components {
             };
             pwms?: {
                 [key: string]: components["schemas"]["PWMConfig"];
+            };
+            cameras?: {
+                [key: string]: components["schemas"]["CameraSource"];
             };
         };
         GPIOConfig: {
@@ -812,6 +805,82 @@ export interface components {
             /** @description Declared custom/self-hosted models; referenced from nodes by id. Static catalog models need no declaration. */
             models: components["schemas"]["Model"][];
         };
+        /** @description Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0. */
+        CameraWarmupFrames: number;
+        /** @description Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design. */
+        CameraSetup: string[];
+        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
+        V4L2Source: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "v4l2";
+            /** @description V4L2 device node, e.g. "/dev/video0". */
+            device: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description A camera reached through the platform's libcamera stack, which owns the media graph itself rather than exposing a preconfigured V4L2 node. */
+        LibcameraSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "libcamera";
+            /** @description Selects one sensor when the platform exposes several; the platform default is used when omitted. */
+            cameraName?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key. */
+        RtspSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "rtsp";
+            /** @description Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials. */
+            url: string;
+            /** @description Username for streams that authenticate. Not a secret; the password is. */
+            user?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+        };
+        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key. */
+        HttpSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "http";
+            /** @description Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials. */
+            url: string;
+            /** @description Username for endpoints that authenticate. Not a secret; the password is. */
+            user?: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+        };
+        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits. */
+        RawSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "raw";
+            /** @description Capture-source fragment, passed to the driver component as-is and interpreted by it. */
+            pipeline: string;
+            warmupFrames?: components["schemas"]["CameraWarmupFrames"];
+            setup?: components["schemas"]["CameraSetup"];
+        };
+        /** @description A synthetic camera that needs no hardware and returns a fixed frame. For hostless development and CI. */
+        DebugSource: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "debug";
+        };
+        /** @description One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key. */
+        CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
     };
     responses: never;
     parameters: never;

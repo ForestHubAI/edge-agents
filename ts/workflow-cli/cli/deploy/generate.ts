@@ -10,9 +10,9 @@
 
 import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
-import type { DeploymentSchemas, CameraSchemas } from "./api";
+import type { DeploymentSchemas, CameraSchemas, EngineSchemas } from "./api";
 import { llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
-import type { EngineSecrets } from "./spec";
+import type { ComponentSecrets } from "./spec";
 import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -24,7 +24,7 @@ export function configFileName(name: string): string {
   return `${name}-config.json`;
 }
 
-// The secret-document basename a component's EngineSecrets doc is written to
+// The secret-document basename a component's ComponentSecrets doc is written to
 // (write.ts) and bind-mounted from. Parallel to configFileName; one source of
 // truth so the renderer and writer agree.
 export function secretsFileName(name: string): string {
@@ -43,7 +43,7 @@ function namedVolumeSource(mount: string): string | null {
 // mapping — NO branching on which component it is, so a custom component renders
 // exactly like a first-party one. Component-specific knowledge lives in the
 // resolver (which produced this) and in the image's own entrypoint, never here.
-function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
+function serviceBlock(c: DeployComponent, secretDoc?: ComponentSecrets): string {
   const hasSecretDoc = secretDoc !== undefined && Object.keys(secretDoc).length > 0;
 
   // pull_policy comes straight from the component; "missing" (Docker's default)
@@ -124,7 +124,7 @@ function serviceBlock(c: DeployComponent, secretDoc?: EngineSecrets): string {
 // shape. The one out-of-band input is secretDocs (resource credentials, keyed by
 // component name) — never in the spec, so the caller supplies them here to mount
 // each owning component's secret file. Their content only affects a hash label.
-export function composeYaml(spec: DeploymentSpec, secretDocs: Record<string, EngineSecrets> = {}): string {
+export function composeYaml(spec: DeploymentSpec, secretDocs: Record<string, ComponentSecrets> = {}): string {
   const services = spec.components.map((c) => serviceBlock(c, secretDocs[c.name])).join("\n\n");
 
   // Top-level named volumes, deduped across every component's mounts.
@@ -163,27 +163,6 @@ ENGINE_LOG_LEVEL=${cfg.logLevel}     # debug | info | warn | error
 `;
 }
 
-// The capture component's cameras.json content: one entry per on-device camera,
-// keyed by the channel id the engine requests it by. Null when no camera is
-// on-device (a network camera needs no local config) — then no file is written.
-export function camerasJson(cfg: DeployConfig): string | null {
-  // The cameras.json shape is the contract seam type (camera.yaml → CameraSource):
-  // this renderer writes it, the Go camera component reads it. One generated shape,
-  // no hand-mirrored struct to drift.
-  type Entry = CameraSchemas["CameraSource"];
-  const cameras: Record<string, Entry> = {};
-  for (const [id, b] of Object.entries(cfg.cameras)) {
-    if (b.location === "device") {
-      const entry: Entry = { source: b.source, device: b.device };
-      if (b.warmupFrames && b.warmupFrames > 0) entry.warmupFrames = b.warmupFrames;
-      if (b.setup && b.setup.length > 0) entry.setup = b.setup;
-      cameras[id] = entry;
-    }
-  }
-  if (Object.keys(cameras).length === 0) return null;
-  return JSON.stringify({ cameras }, null, 2) + "\n";
-}
-
 // Exported for testing purposes only.
 export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel: boolean, hasSecrets = false): string {
   const localProviders = Object.keys(cfg.llmKeys).filter((id) => Boolean(cfg.llmKeys[id]));
@@ -209,14 +188,14 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
-  // On-device cameras share ONE capture component; its cameras.json lives under that
-  // component's workspace dir. v4l2 cameras get a /dev passthrough; gstreamer/CSI
-  // cameras need the operator to wire the full media graph (see the note below).
+  // Every camera is read by ONE driver component the engine issues; its cameras.json
+  // lives under that component's workspace dir. v4l2 cameras get a /dev passthrough;
+  // libcamera needs the operator to wire the full media graph (see the note below).
   const cameraDir = `./workspaces/${cameraComponentServiceName()}`;
-  const deviceCameras = Object.values(cfg.cameras).filter((b) => b.location === "device");
-  const hasV4l2Camera = deviceCameras.some((b) => b.source === "v4l2");
-  const hasGstreamerCamera = deviceCameras.some((b) => b.source === "gstreamer");
-  const hasNetworkCamera = Object.values(cfg.cameras).some((b) => b.location === "network");
+  const deviceCameras = Object.values(cfg.cameras).filter((b) => b.kind === "v4l2" || b.kind === "libcamera" || b.kind === "raw");
+  const hasV4l2Camera = deviceCameras.some((b) => b.kind === "v4l2");
+  const hasGstreamerCamera = deviceCameras.some((b) => b.kind === "libcamera");
+  const hasNetworkCamera = Object.values(cfg.cameras).some((b) => b.kind === "rtsp" || b.kind === "http");
   // Any on-device component (llama, inference, capture) ships its workspace data out
   // of the main scp line and means the engine reaches it over the network at runtime.
   const hasDeviceComponent = deviceModels.length > 0 || mlDeviceModels.length > 0 || deviceCameras.length > 0;

@@ -15,7 +15,6 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/node"
 	"github.com/ForestHubAI/edge-agents/go/engine/node/trigger"
-	"github.com/ForestHubAI/edge-agents/go/mapping"
 )
 
 // graph holds the per-build state for a single graph (main workflow or function).
@@ -70,7 +69,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.IntervalValue == nil {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "intervalValue"}
 			}
-			interval := mapping.TickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
+			interval := tickerInterval(*nd.Arguments.IntervalValue, nd.Arguments.IntervalUnit)
 			if interval <= 0 {
 				return fmt.Errorf("node %s: intervalValue must be positive, got %d", nd.Id, *nd.Arguments.IntervalValue)
 			}
@@ -284,11 +283,11 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.CameraReference == "" {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "cameraReference"}
 			}
-			ep, ok := g.capture[nd.Arguments.CameraReference]
-			if !ok {
-				return fmt.Errorf("node %s: camera %q is not declared or not bound", nd.Id, nd.Arguments.CameraReference)
+			ch, err := g.channels.camera(nd.Arguments.CameraReference)
+			if err != nil {
+				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ep)
+			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ch)
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 
@@ -491,4 +490,18 @@ func (g *graph) setupNodes() error {
 		}
 	}
 	return nil
+}
+
+// tickerInterval converts a wire ticker (value + unit) into a runtime duration.
+func tickerInterval(value int, unit workflowapi.TickerNodeArgumentsIntervalUnit) time.Duration {
+	switch unit {
+	case workflowapi.Seconds:
+		return time.Duration(value) * time.Second
+	case workflowapi.Minutes:
+		return time.Duration(value) * time.Minute
+	case workflowapi.Hours:
+		return time.Duration(value) * time.Hour
+	default:
+		return time.Duration(value) * time.Millisecond
+	}
 }

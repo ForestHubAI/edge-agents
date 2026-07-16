@@ -139,7 +139,7 @@ describe("unknownIds", () => {
     const m = unknownIds(reqOf(), {
       mqtt: { ghost: { brokerUrl: "tcp://x:1883" } },
       llmModels: { phantom: { location: "device", modelFile: "x.gguf" } },
-      cameras: { ghostcam: { location: "network", url: "http://x:8100" } },
+      cameras: { ghostcam: { kind: "rtsp", url: "rtsp://x/s1" } },
     });
     expect(m.join()).toMatch(/mqtt "ghost".*no such channel/);
     expect(m.join()).toMatch(/model "phantom".*no such model/);
@@ -176,23 +176,28 @@ describe("valuesFileSchema", () => {
     expect(valuesFileSchema.safeParse({ llmModels: { m: { location: "Device", modelFile: "x.gguf" } } }).success).toBe(false);
   });
 
-  it("validates the camera binding: device needs a source, network needs a url", () => {
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0" } } }).success).toBe(true);
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100" } } }).success).toBe(true);
-    // device without a source, and an unknown source, are rejected.
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", device: "/dev/video0" } } }).success).toBe(false);
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "csi", device: "/dev/video0" } } }).success).toBe(false);
+  it("validates the camera binding: each kind needs the field that identifies it", () => {
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "v4l2", device: "/dev/video0" } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "rtsp", url: "rtsp://cam/s1" } } }).success).toBe(true);
+    // libcamera and debug identify a camera on their own.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "libcamera" } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "debug" } } }).success).toBe(true);
+    // v4l2 without a device, and an unknown kind, are rejected.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "v4l2" } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "telepathy" } } }).success).toBe(false);
+    // A location has no meaning now: a camera is hardware, not an endpoint.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100" } } }).success).toBe(false);
     // optional warmupFrames is accepted; a negative or fractional count is rejected.
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 8 } } }).success).toBe(true);
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: -1 } } }).success).toBe(false);
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "device", source: "v4l2", device: "/dev/video0", warmupFrames: 1.5 } } }).success).toBe(false);
-    // optional setup commands + their device nodes; network cameras take neither.
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "v4l2", device: "/dev/video0", warmupFrames: 8 } } }).success).toBe(true);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "v4l2", device: "/dev/video0", warmupFrames: -1 } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "v4l2", device: "/dev/video0", warmupFrames: 1.5 } } }).success).toBe(false);
+    // optional setup commands + their device nodes; network kinds take neither.
     expect(
       valuesFileSchema.safeParse({
-        cameras: { c: { location: "device", source: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"], devices: ["/dev/media2"] } },
+        cameras: { c: { kind: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"], devices: ["/dev/media2"] } },
       }).success,
     ).toBe(true);
-    expect(valuesFileSchema.safeParse({ cameras: { c: { location: "network", url: "http://cam:8100", setup: ["true"] } } }).success).toBe(false);
+    expect(valuesFileSchema.safeParse({ cameras: { c: { kind: "rtsp", url: "rtsp://cam/s1", setup: ["true"] } } }).success).toBe(false);
   });
 
   it("validates the ml model binding: both need a model name, network also a url", () => {
