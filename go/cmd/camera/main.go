@@ -72,7 +72,7 @@ func main() {
 	if err := camera.RunSetup(ctx, cams); err != nil {
 		// Transient: the devices may not be ready yet, so exit nonzero and let the
 		// restart policy retry (not a permanent config error).
-		component.BootRetry(err, "camera setup failed — check the setup commands in cameras.json (see the bundle README)")
+		component.BootRetry(err, "camera setup failed — check the setup commands in the camera config (see the bundle README)")
 	}
 
 	handler := cameraapi.HandlerFromMux(camera.NewServer(sources), http.NewServeMux())

@@ -6,7 +6,6 @@ package trigger
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
@@ -42,10 +41,7 @@ func (p *OnPinEdge) Wait(ctx context.Context) (engine.Event, error) {
 		select {
 		case <-ctx.Done():
 			return engine.Event{}, ctx.Err()
-		case ev, ok := <-p.events:
-			if !ok {
-				return engine.Event{}, fmt.Errorf("onPinEdge %s: edge stream closed", p.ID())
-			}
+		case ev := <-p.events:
 			if !p.matches(ev) {
 				continue
 			}

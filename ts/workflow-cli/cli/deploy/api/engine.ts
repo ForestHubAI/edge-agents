@@ -14,10 +14,6 @@ export interface components {
             externalResources?: components["schemas"]["ExternalResources"];
             manifest?: components["schemas"]["DeviceManifest"];
         };
-        /** @description One component's secret store: a flat map of resource id -> opaque secret value, mounted at the component contract's secrets path. Keyed by the resource's own id — the config that needs a credential names no separate reference, and its type/kind is what says a credential may exist. Not engine-only: each component is handed just the credentials it needs, so the engine never holds a driver component's. */
-        ComponentSecrets: {
-            [key: string]: string;
-        };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id. */
         ResourceMapping: {
             [key: string]: components["schemas"]["ResourceAddress"];
@@ -360,8 +356,12 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time. */
+                /** @description Reference to a CAMERA channel id. */
                 cameraReference: string;
+                /** @description Capture width in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size. */
+                width?: number;
+                /** @description Capture height in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size. */
+                height?: number;
                 output: components["schemas"]["OutputBinding"];
             };
         };
@@ -708,10 +708,6 @@ export interface components {
             type: "CAMERA";
             id: string;
             label: string;
-            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
-            width?: number;
-            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
-            height?: number;
         };
         LOGChannel: {
             /**

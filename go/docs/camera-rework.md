@@ -146,9 +146,9 @@ func (r *Registry) Camera(id string) (CameraDriver, error)
 ```
 
 `build/camera.go` and its endpoint map are gone. `buildChannels` builds a
-`channel.Camera{Driver, Width, Height}` in the same switch as every other hardware
-channel, and boot validation became *"camera ref not in driver registry"* — the same
-failure shape as a miswired gpiochip.
+`channel.Camera{Driver}` in the same switch as every other hardware channel, and boot
+validation became *"camera ref not in driver registry"* — the same failure shape as a
+miswired gpiochip.
 
 A camera takes **no sub-address**, which is less of an anomaly than it looks: `UART`
 already resolves `ref`-only. `index` exists to pick an addressable part *inside* a bound
@@ -157,15 +157,20 @@ is nothing to say about line 17 except its number. A camera, like a serial port,
 configured leaf: its `CameraSource` *is* the resource, so there is nothing beneath it to
 address.
 
-`width`/`height` are **not** that sub-address — they address nothing. They are the analog
-of `GPIOIN`'s `bias`/`debounceMs`: workflow-owned parameters that ride on the channel and
-travel per request (`/capture?width=&height=`). They must stay off `CameraSource`,
-because the ref is content-addressed over it —
-``refs.alloc(`camera:${JSON.stringify(src)}:${password}`)`` — so two channels reading one
-`/dev/video0` at 640×480 and 1920×1080 would hash to two refs, two manifest entries, and
-two pipelines opening the same node. On a v4l2 device that is an `EBUSY` at capture time,
-on a deployment that looked valid. Keeping size on the channel is what makes "several
-channels share one camera at different sizes" expressible at all.
+It takes **no channel config either**, and `width`/`height` were the last thing to work
+that out. They looked like `GPIOIN`'s `bias`/`debounceMs` — workflow-owned fields riding
+on the channel — but `bias` is applied to the driver at `Setup`, while a size is an
+argument to one capture. Nothing distinguishes them mechanically: both were channel
+fields frozen at build and passed into a per-call API. What distinguishes them is that
+`640×480` **names nothing** — no such endpoint exists on the camera; it comes into being
+when you ask. So a size is a `CameraCapture` argument, and `channel.Camera` is now the
+bare binding.
+
+That makes camera **1:1**: with the sizes gone it has no discriminator, so two channels on
+one camera are one requirement declared twice. The capability survives intact and reads
+better — a detector at 640×480 and a snapshot at full resolution are **two capture nodes
+on one channel**, not two channels. See `workflow-deployment-layers.md` ("The model"),
+which this case is the worked example for.
 
 The engine's **domain** `CameraSource` keeps only the discriminator. It reaches every
 camera identically, so the capture details (device, url, credentials, warmup, setup)

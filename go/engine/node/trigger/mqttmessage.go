@@ -31,18 +31,16 @@ type OnMqttMessage struct {
 	incoming <-chan transport.MQTTMessage
 }
 
-// NewOnMqttMessage creates a new OnMqttMessage trigger.
-func NewOnMqttMessage(id string, ch *channel.MQTT, topic string, dataType workflowapi.DataType, binding workflowapi.OutputBinding, qos byte) (*OnMqttMessage, error) {
-	in, err := ch.Subscribe(topic, qos)
-	if err != nil {
-		return nil, err
-	}
+// NewOnMqttMessage creates a new OnMqttMessage trigger listening on the
+// channel's topic. The channel subscribes to the transport in Setup, once all
+// its triggers have registered.
+func NewOnMqttMessage(id string, ch *channel.MQTT, dataType workflowapi.DataType, binding workflowapi.OutputBinding) *OnMqttMessage {
 	return &OnMqttMessage{
 		TriggerNode: engine.NewTriggerNode(id),
 		dataType:    dataType,
 		binding:     binding,
-		incoming:    in,
-	}, nil
+		incoming:    ch.Subscribe(),
+	}
 }
 
 func (t *OnMqttMessage) Outputs() map[string]workflowapi.DataType {
@@ -57,10 +55,7 @@ func (t *OnMqttMessage) Wait(ctx context.Context) (engine.Event, error) {
 		select {
 		case <-ctx.Done():
 			return engine.Event{}, ctx.Err()
-		case msg, ok := <-t.incoming:
-			if !ok {
-				return engine.Event{}, fmt.Errorf("onMqttMessage %s: stream closed", t.ID())
-			}
+		case msg := <-t.incoming:
 			val, err := decodePayload(msg.Payload, t.dataType)
 			if err != nil {
 				logging.Logger.Warn().

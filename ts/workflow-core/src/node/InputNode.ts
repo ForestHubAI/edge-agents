@@ -48,11 +48,15 @@ export interface WebFetchNode extends NodeBase {
   };
 }
 
-// CameraCapture - grabs a single still image from a camera channel
+// CameraCapture - grabs a single still image from a camera channel. Size is this
+// node's argument, not the channel's: the same camera is the same camera at any
+// resolution, so two nodes may read one camera at different sizes.
 export interface CameraCaptureNode extends NodeBase {
   type: "CameraCapture";
   arguments: {
     cameraReference: string | undefined;
+    width?: number;
+    height?: number;
     output: OutputBinding;
   };
 }
@@ -209,6 +213,20 @@ export const CameraCaptureNodeDefinition: NodeDefinition = {
       description: "Camera to capture from",
       type: "channelSelect",
       channelType: ["CAMERA"],
+    },
+    {
+      id: "width",
+      label: "Width (px)",
+      description: "Capture width in pixels (source's native resolution when empty)",
+      type: "int",
+      optional: true,
+    },
+    {
+      id: "height",
+      label: "Height (px)",
+      description: "Capture height in pixels (source's native resolution when empty)",
+      type: "int",
+      optional: true,
     },
   ],
 };

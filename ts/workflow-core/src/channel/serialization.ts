@@ -46,7 +46,7 @@ export function serialize(ch: Channel): ApiChannel {
     case "LOG":
       return { type, id, label, level: args.level as Schemas["LOGChannel"]["level"], tag: args.tag as string | undefined };
     case "CAMERA":
-      return { type, id, label, width: args.width as number | undefined, height: args.height as number | undefined };
+      return { type, id, label };
   }
 }
 
@@ -69,14 +69,11 @@ export function deserialize(api: ApiChannel): Channel {
       args.level = api.level;
       args.tag = api.tag;
       break;
-    case "CAMERA":
-      args.width = api.width;
-      args.height = api.height;
-      break;
     case "GPIOOUT":
     case "ADC":
     case "DAC":
     case "UART":
+    case "CAMERA":
       break;
   }
   return { id, label, type, arguments: args };

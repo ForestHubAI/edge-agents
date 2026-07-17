@@ -1281,8 +1281,8 @@ func (_m *MockCaptureClient) EXPECT() *MockCaptureClient_Expecter {
 }
 
 // Capture provides a mock function for the type MockCaptureClient
-func (_mock *MockCaptureClient) Capture(ctx context.Context) ([]byte, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockCaptureClient) Capture(ctx context.Context, width int, height int) ([]byte, error) {
+	ret := _mock.Called(ctx, width, height)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Capture")
@@ -1290,18 +1290,18 @@ func (_mock *MockCaptureClient) Capture(ctx context.Context) ([]byte, error) {
 
 	var r0 []byte
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]byte, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) ([]byte, error)); ok {
+		return returnFunc(ctx, width, height)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []byte); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) []byte); ok {
+		r0 = returnFunc(ctx, width, height)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = returnFunc(ctx, width, height)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1315,18 +1315,30 @@ type MockCaptureClient_Capture_Call struct {
 
 // Capture is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockCaptureClient_Expecter) Capture(ctx interface{}) *MockCaptureClient_Capture_Call {
-	return &MockCaptureClient_Capture_Call{Call: _e.mock.On("Capture", ctx)}
+//   - width int
+//   - height int
+func (_e *MockCaptureClient_Expecter) Capture(ctx interface{}, width interface{}, height interface{}) *MockCaptureClient_Capture_Call {
+	return &MockCaptureClient_Capture_Call{Call: _e.mock.On("Capture", ctx, width, height)}
 }
 
-func (_c *MockCaptureClient_Capture_Call) Run(run func(ctx context.Context)) *MockCaptureClient_Capture_Call {
+func (_c *MockCaptureClient_Capture_Call) Run(run func(ctx context.Context, width int, height int)) *MockCaptureClient_Capture_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
 		run(
 			arg0,
+			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -1337,7 +1349,7 @@ func (_c *MockCaptureClient_Capture_Call) Return(bytes []byte, err error) *MockC
 	return _c
 }
 
-func (_c *MockCaptureClient_Capture_Call) RunAndReturn(run func(ctx context.Context) ([]byte, error)) *MockCaptureClient_Capture_Call {
+func (_c *MockCaptureClient_Capture_Call) RunAndReturn(run func(ctx context.Context, width int, height int) ([]byte, error)) *MockCaptureClient_Capture_Call {
 	_c.Call.Return(run)
 	return _c
 }

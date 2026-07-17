@@ -265,6 +265,8 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         position: position,
         arguments: {
           cameraReference: data.arguments.cameraReference!,
+          width: data.arguments.width,
+          height: data.arguments.height,
           output: data.arguments.output,
         },
       };
@@ -535,6 +537,8 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           cameraReference: apiNode.arguments.cameraReference ?? "",
+          width: apiNode.arguments.width,
+          height: apiNode.arguments.height,
           output: apiNode.arguments.output as OutputBinding,
         },
       };

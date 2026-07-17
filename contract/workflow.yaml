@@ -660,7 +660,15 @@ components:
           properties:
             cameraReference:
               type: string
-              description: Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time.
+              description: Reference to a CAMERA channel id.
+            width:
+              type: integer
+              minimum: 1
+              description: Capture width in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size.
+            height:
+              type: integer
+              minimum: 1
+              description: Capture height in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size.
             output:
               $ref: "#/components/schemas/OutputBinding"
 
@@ -964,12 +972,6 @@ components:
         type: { type: string, enum: [CAMERA] }
         id: { type: string }
         label: { type: string }
-        width:
-          type: integer
-          description: Default capture width in pixels. The source picks its native resolution when omitted.
-        height:
-          type: integer
-          description: Default capture height in pixels. The source picks its native resolution when omitted.
 
     LOGChannel:
       type: object

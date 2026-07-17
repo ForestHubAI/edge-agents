@@ -6,28 +6,23 @@ package channel
 
 import (
 	"context"
+
+	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 )
 
-// cameraDriver is the capture side of driver.CameraDriver. Declared here rather
-// than imported so the size hints stay the only thing this channel adds.
-type cameraDriver interface {
-	Capture(ctx context.Context, width, height int) ([]byte, error)
-}
-
-// Camera is a still-capture channel bound to one camera. Width and Height are
-// the workflow's capture hints and are per-channel, not per-camera: one camera
-// may back several channels that each want their own size, so they travel with
-// every call rather than being configured into the driver. Zero means "no hint".
+// Camera is a still-capture channel bound to one camera. It adds nothing of its
+// own: a camera takes no sub-address and no setup config, so the channel is the
+// binding and nothing else. Capture size is a node argument — the same camera is
+// the same camera at any resolution, so a size names no camera.
 type Camera struct {
-	Driver cameraDriver
-	Width  int
-	Height int
+	Driver driver.CameraDriver
 }
 
+// Setup is a no-op: a camera is configured by its manifest entry, not per channel.
 func (*Camera) Setup() error { return nil }
 
-// Capture reads one frame. Satisfies engine.CaptureClient, which CameraCapture
-// nodes hold.
-func (v *Camera) Capture(ctx context.Context) ([]byte, error) {
-	return v.Driver.Capture(ctx, v.Width, v.Height)
+// Capture reads one frame at the caller's size. Satisfies engine.CaptureClient,
+// which CameraCapture nodes hold.
+func (v *Camera) Capture(ctx context.Context, width, height int) ([]byte, error) {
+	return v.Driver.Capture(ctx, width, height)
 }

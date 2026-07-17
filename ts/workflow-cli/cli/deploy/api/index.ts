@@ -5,7 +5,7 @@
 // Deploy-artifact wire api layer: the generated TS bindings for the deployment,
 // engine and camera contracts. These shapes cross the OSS deploy pipeline's seams —
 // the resolver PRODUCES a DeploymentSpec (with a frozen EngineConfig) and the
-// renderer PRODUCES the camera component's cameras.json (CameraConfig), consumed by
+// renderer PRODUCES the camera component's boot config (CameraConfig), consumed by
 // the Go camera component. The CLI is the only TS consumer, so the codegen lives
 // here (npm run generate) rather than in the headless core lib, which owns only the
 // workflow wire (@foresthubai/workflow-core/api).
@@ -29,7 +29,7 @@ import type { components as engineComponents } from "./engine";
 export type EngineSchemas = engineComponents["schemas"];
 
 // Camera component wire + boot-config api layer, from contract/camera.yaml. The
-// deploy renderer PRODUCES the camera component's cameras.json (CameraConfig); the
+// deploy renderer PRODUCES the camera component's boot config (CameraConfig); the
 // Go camera component consumes it — one generated shape across that seam.
 import type { components as cameraComponents } from "./camera";
 export type CameraSchemas = cameraComponents["schemas"];

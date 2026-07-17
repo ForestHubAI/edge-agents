@@ -870,14 +870,9 @@ type AlarmNodeType string
 
 // CAMERAChannel defines model for CAMERAChannel.
 type CAMERAChannel struct {
-	// Height Default capture height in pixels. The source picks its native resolution when omitted.
-	Height *int              `json:"height,omitempty"`
-	Id     string            `json:"id"`
-	Label  string            `json:"label"`
-	Type   CAMERAChannelType `json:"type"`
-
-	// Width Default capture width in pixels. The source picks its native resolution when omitted.
-	Width *int `json:"width,omitempty"`
+	Id    string            `json:"id"`
+	Label string            `json:"label"`
+	Type  CAMERAChannelType `json:"type"`
 }
 
 // CAMERAChannelType defines model for CAMERAChannel.Type.
@@ -886,9 +881,15 @@ type CAMERAChannelType string
 // CameraCaptureNode defines model for CameraCaptureNode.
 type CameraCaptureNode struct {
 	Arguments struct {
-		// CameraReference Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time.
-		CameraReference string        `json:"cameraReference"`
-		Output          OutputBinding `json:"output"`
+		// CameraReference Reference to a CAMERA channel id.
+		CameraReference string `json:"cameraReference"`
+
+		// Height Capture height in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size.
+		Height *int          `json:"height,omitempty"`
+		Output OutputBinding `json:"output"`
+
+		// Width Capture width in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size.
+		Width *int `json:"width,omitempty"`
 	} `json:"arguments"`
 	Id       string                `json:"id"`
 	Label    *string               `json:"label,omitempty"`

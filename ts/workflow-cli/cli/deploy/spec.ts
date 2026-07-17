@@ -16,7 +16,7 @@ import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import { serialize } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { CameraBinding, DeploymentInputs, HardwareBinding } from "./inputs";
-import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
+import type { CameraChannel, DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
 import { deriveRequirements } from "./requirements";
 import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
 
@@ -240,6 +240,85 @@ export function hardwareConflicts(channels: HardwareChannel[], bindings: Record<
   return conflicts;
 }
 
+// A camera binding's identity: the key its ref is allocated from, so the conflict
+// check below and the manifest dedup agree by construction. The password is part
+// of it — a credential is part of a resource's identity.
+function cameraIdentityKey(b: CameraBinding): string {
+  return `camera:${JSON.stringify(cameraSourceOf(b))}:${cameraPasswordOf(b) ?? ""}`;
+}
+
+// The device node a binding opens exclusively, or null when it opens none. Only
+// the local kinds have one: a v4l2 node is typically single-open, and libcamera
+// drives the whole media graph. A network stream is not exclusive — an RTSP
+// server serves concurrent sessions — and `raw` is operator-authored, so what it
+// opens is unknowable.
+function cameraDeviceKey(b: CameraBinding): string | null {
+  switch (b.kind) {
+    case "v4l2":
+      return `v4l2:${b.device.trim()}`;
+    case "libcamera":
+      return `libcamera:${b.cameraName?.trim() ?? ""}`; // "" = the platform's default sensor
+    default:
+      return null;
+  }
+}
+
+// A camera identity phrased for an error message.
+function cameraLabel(b: CameraBinding): string {
+  switch (b.kind) {
+    case "v4l2":
+      return b.device;
+    case "libcamera":
+      return b.cameraName ? b.cameraName : "the default sensor";
+    case "rtsp":
+    case "http":
+      return b.url;
+    case "raw":
+      return "the same capture pipeline";
+    case "debug":
+      return "the debug source";
+  }
+}
+
+// Two distinct constraints, both real:
+//
+//  1. IDENTITY — a camera takes no discriminator, so two channels resolving to one
+//     ref are the same requirement declared twice. The right expression is one
+//     channel and several CameraCapture nodes, each asking for its own size.
+//  2. EXCLUSIVITY — two *different* refs may still name one device node: bindings
+//     differing only in warmupFrames or setup are content-addressed apart, pass
+//     check 1, and then race for a single-open handle. Only the local kinds are
+//     exclusive, which is why two RTSP streams differing by credential stay legal.
+//
+// Incomplete bindings are skipped (completeness is checked separately).
+export function cameraConflicts(channels: CameraChannel[], bindings: Record<string, CameraBinding>): string[] {
+  const conflicts: string[] = [];
+  const byIdentity = new Map<string, string>(); // ref key -> channel id holding it
+  const byDevice = new Map<string, string>(); // device node -> channel id opening it
+  for (const ch of channels) {
+    const b = bindings[ch.id];
+    if (!b) continue;
+
+    const identity = cameraIdentityKey(b);
+    const twin = byIdentity.get(identity);
+    if (twin) {
+      conflicts.push(`camera "${ch.id}": ${cameraLabel(b)} is already used by "${twin}" (one channel per camera; give each capture node its own size)`);
+      continue; // already reported; don't double-report the device below
+    }
+    byIdentity.set(identity, ch.id);
+
+    const dev = cameraDeviceKey(b);
+    if (!dev) continue;
+    const holder = byDevice.get(dev);
+    if (holder) {
+      conflicts.push(`camera "${ch.id}": ${cameraLabel(b)} is already opened by "${holder}" (a capture device is single-open)`);
+    } else {
+      byDevice.set(dev, ch.id);
+    }
+  }
+  return conflicts;
+}
+
 // One message per binding carrying a field its family doesn't have (`baud` is
 // serial-only, `index` is everything-but-serial). Usually a mixed-up channel id
 // in a machine-written binding set — reject loudly instead of ignoring.
@@ -317,6 +396,7 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   for (const m of req.ragMemories) missing.push(`memory "${m.id}": retrieval (RAG) is not supported by a standalone engine`);
   missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
   missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
+  missing.push(...cameraConflicts(req.cameraChannels, inputs.cameras));
   if (missing.length > 0) {
     throw new Error(`invalid deploy config:\n  - ${missing.join("\n  - ")}`);
   }
@@ -536,10 +616,12 @@ export function buildDeploymentSpec(
   // component is issued for the whole set and selects a camera by its manifest key
   // per request.
   //
-  // Deduped by content like MQTT: two channels declaring the same camera collapse
-  // onto one manifest entry and share it, each keeping its own size hints on the
-  // channel. The password participates in the key so two cameras differing only by
-  // credential stay distinct resources.
+  // One channel per camera: a camera takes no discriminator, so two channels on
+  // one camera are the same requirement declared twice and cameraConflicts has
+  // already rejected them. The ref is still content-addressed rather than derived
+  // from the channel id, so it stays a device fact on both ends (/capture?name=
+  // carries it). The password participates in the key so two cameras differing
+  // only by credential stay distinct resources.
   const cameraComponents: DeployComponent[] = [];
   let hasLibcameraCamera = false;
   const cameraDevices = new Set<string>();
@@ -547,7 +629,7 @@ export function buildDeploymentSpec(
     const b = inputs.cameras[ch.id];
     if (!b) throw new Error(`unbound camera ${ch.id}`); // unreachable after assertDeployable
     const src = cameraSourceOf(b);
-    const ref = refs.alloc(`camera:${JSON.stringify(src)}:${cameraPasswordOf(b) ?? ""}`, cameraRefHint(b));
+    const ref = refs.alloc(cameraIdentityKey(b), cameraRefHint(b));
     cameras[ref] = src;
     mapping[ch.id] = { ref };
 

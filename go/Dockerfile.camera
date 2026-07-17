@@ -39,7 +39,7 @@ FROM debian:trixie-slim
 # gst-launch-1.0 + the capture-pipeline plugins; the lib* packages are the
 # runtime dependencies of the source-built libcamera above. The software ISP
 # runs CPU-only (softisp-gpu disabled) to keep Mesa/LLVM out of the image.
-# v4l-utils provides media-ctl/v4l2-ctl for cameras.json setup commands.
+# v4l-utils provides media-ctl/v4l2-ctl for the camera config's setup commands.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     v4l-utils \
     gstreamer1.0-tools \

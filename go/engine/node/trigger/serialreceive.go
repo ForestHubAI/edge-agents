@@ -6,7 +6,6 @@ package trigger
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
@@ -45,10 +44,7 @@ func (t *OnSerialReceive) Wait(ctx context.Context) (engine.Event, error) {
 	select {
 	case <-ctx.Done():
 		return engine.Event{}, ctx.Err()
-	case line, ok := <-t.incoming:
-		if !ok {
-			return engine.Event{}, fmt.Errorf("onSerialReceive %s: stream closed", t.ID())
-		}
+	case line := <-t.incoming:
 		binding := t.binding
 		return t.Emit(func(s *engine.Scope) error {
 			return engine.ApplyOutput(s, t.ID(), serialReceiveOutID, binding, expr.StringVal(line))

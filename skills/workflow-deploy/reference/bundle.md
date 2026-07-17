@@ -23,10 +23,9 @@ Written only when the workflow / setup needs them:
 | File / dir            | When                                                | Mode |
 | --------------------- | --------------------------------------------------- | ---- |
 | `engine-secrets.json` | any MQTT password or network-model API key resolves — the resource-credential doc, mounted read-only at `/etc/foresthub/secrets.json` | **600 (secret)** |
-| `<name>-config.json`  | a component carries a `config` blob — `llama-server` (any device LLM) or a custom component whose `component.json` declares one; bind-mounted read-only at `/etc/foresthub/config.json` | 644 |
+| `<name>-config.json`  | a component carries a `config` blob — `llama-server` (any device LLM), `camera` (the generated ref→source map, a projection of the device manifest), or a custom component whose `component.json` declares one; bind-mounted read-only at `/etc/foresthub/config.json` | 644 |
 | `workspaces/llama-server/` | any **device** LLM model — the shared GGUF dir, mounted read-only at `/var/lib/foresthub/workspace`  | dir — operator drops the `.gguf`s here |
 | `workspaces/ml-inference/<model>/` | any **device** ML model — one sub-folder per model in the shared repository, mounted read-only | dir — operator drops `model.onnx` + `manifest.yaml` |
-| `workspaces/camera/cameras.json` | any **device** camera — the generated name→source map, mounted read-only at `/etc/foresthub/config.json` | 644 (generated, not operator-dropped) |
 | `<name>.env`          | a custom component that ships a `<name>.env.example`| **600 (secret-bearing)** |
 
 Every on-device component's host state lives under `workspaces/<container>/`, mounted onto
@@ -103,7 +102,7 @@ The skill stops after writing the bundle; these steps stay manual. Summarize the
 2. **Fill the secrets** — replace every `REPLACE_ME_*` placeholder in `engine.env` (and any empty
    values in a custom component's `<name>.env`); keep the `chmod 600` files locked down.
 3. **Transfer** — `docker save fh-engine:latest -o fh-engine.tar`, then `scp` the tar + the bundle
-   files to the controller. On-device component data (`.gguf`s, ONNX bundles, `cameras.json`) goes
+   files to the controller. On-device component data (`.gguf`s, ONNX bundles) goes
    separately as the whole `workspaces/` tree (`scp -r workspaces/`) — the weights are large.
 4. **Run** — on the controller: `docker load -i fh-engine.tar`, then `docker compose up -d`. The
    engine and any component start independently — the engine retries until the component is up — so

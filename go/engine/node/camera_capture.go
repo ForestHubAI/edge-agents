@@ -22,23 +22,31 @@ const cameraCaptureOutID = "output"
 // CameraCapture grabs one frame from a capture component, emits it through the
 // output binding as an opaque image value, and advances. Transport is the
 // client's concern; this node only forwards the frame.
+//
+// width and height are this node's requested size, so two nodes may read one
+// camera at different resolutions. Zero means "no hint" — the source picks its
+// native resolution.
 type CameraCapture struct {
 	engine.LinearNode
 	binding workflowapi.OutputBinding
 	client  engine.CaptureClient
+	width   int
+	height  int
 }
 
 // NewCameraCapture builds a CameraCapture bound to one camera's capture client.
-func NewCameraCapture(id string, binding workflowapi.OutputBinding, client engine.CaptureClient) *CameraCapture {
+func NewCameraCapture(id string, binding workflowapi.OutputBinding, client engine.CaptureClient, width, height int) *CameraCapture {
 	return &CameraCapture{
 		LinearNode: engine.NewLinearNode(id),
 		binding:    binding,
 		client:     client,
+		width:      width,
+		height:     height,
 	}
 }
 
 func (c *CameraCapture) Execute(ctx context.Context, scope *engine.Scope) (string, error) {
-	frame, err := c.client.Capture(ctx)
+	frame, err := c.client.Capture(ctx, c.width, c.height)
 	if err != nil {
 		return "", fmt.Errorf("cameraCapture %s: %w", c.ID(), err)
 	}

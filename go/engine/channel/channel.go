@@ -24,15 +24,17 @@ type TextWriter interface {
 // SubBufSize is the buffer size used in subscription channels. Events are dropped when this buffer size is exceeded.
 const SubBufSize = 64
 
-// Broadcaster is the fanout primitive for channels that emit events to
-// trigger nodes. broadcast pushes non-blockingly and drops on full so a
+// Broadcaster allows multiple trigger nodes to receive events from a single channel.
+// broadcast pushes non-blockingly and drops on full so a
 // slow subscriber can never stall the producing driver thread.
 type Broadcaster[T any] struct {
 	subscribers []chan T
 }
 
 // Subscribe appends a buffered channel to the fanout list and returns it;
-// call during build, before the driver starts producing.
+// call during build, before the driver starts producing. The channel stays open
+// for the process lifetime: a subscriber ends on its own context, never on a
+// closed stream.
 func (b *Broadcaster[T]) Subscribe() <-chan T {
 	ch := make(chan T, SubBufSize)
 	b.subscribers = append(b.subscribers, ch)

@@ -200,7 +200,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if err != nil {
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewMqttPublish(nd.Id, mq, mq.Topic, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
+			n := node.NewMqttPublish(nd.Id, mq, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 
@@ -212,10 +212,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if err != nil {
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			t, err := trigger.NewOnMqttMessage(nd.Id, mq, mq.Topic, nd.Arguments.DataType, nd.Arguments.Output, 0)
-			if err != nil {
-				return fmt.Errorf("node %s: %w", nd.Id, err)
-			}
+			t := trigger.NewOnMqttMessage(nd.Id, mq, nd.Arguments.DataType, nd.Arguments.Output)
 			g.allNodes[nd.Id] = t
 			g.triggers[nd.Id] = t
 
@@ -283,11 +280,17 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.CameraReference == "" {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "cameraReference"}
 			}
+			// A size is all-or-nothing: the pipeline fixates width and height
+			// together, so half of one is dropped rather than half-applied. Reject
+			// it instead of silently returning the native resolution.
+			if (nd.Arguments.Width == nil) != (nd.Arguments.Height == nil) {
+				return fmt.Errorf("node %s: width and height must be set together or not at all", nd.Id)
+			}
 			ch, err := g.channels.camera(nd.Arguments.CameraReference)
 			if err != nil {
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ch)
+			n := node.NewCameraCapture(nd.Id, nd.Arguments.Output, ch, pointer.Val(nd.Arguments.Width), pointer.Val(nd.Arguments.Height))
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 

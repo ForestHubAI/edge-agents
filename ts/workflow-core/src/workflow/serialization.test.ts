@@ -164,24 +164,60 @@ describe("workflowSerialization — reverse roundtrip (JSON → deserialize → 
     expect(out).toEqual(withFunctionCanvas);
   });
 
-  it("preserves a CAMERA channel's width and height", () => {
+  it("roundtrips a CAMERA channel, which carries no config of its own", () => {
     const wf: Schemas["Workflow"] = {
       schemaVersion: 1,
       nodes: [],
       edges: [],
       functions: [],
       declaredVariables: [],
-      channels: [{ type: "CAMERA", id: "cam1", label: "Front", width: 640, height: 480 }],
+      channels: [{ type: "CAMERA", id: "cam1", label: "Front" }],
       memory: [],
       models: [],
     };
     expect(serialize(deserialize(wf))).toEqual(wf);
   });
 
-  it("roundtrips a CAMERA channel that sets neither width nor height", () => {
+  it("preserves each CameraCapture's own width and height", () => {
+    // Size is the node's argument, not the channel's: two nodes on one camera
+    // ask for their own resolutions.
     const wf: Schemas["Workflow"] = {
       schemaVersion: 1,
-      nodes: [],
+      nodes: [
+        {
+          id: "snap",
+          type: "CameraCapture",
+          position: { x: 0, y: 0 },
+          arguments: { cameraReference: "cam1", width: 1920, height: 1080, output: { active: true, mode: "emit" } },
+        },
+        {
+          id: "thumb",
+          type: "CameraCapture",
+          position: { x: 0, y: 100 },
+          arguments: { cameraReference: "cam1", width: 320, height: 240, output: { active: true, mode: "emit" } },
+        },
+      ],
+      edges: [],
+      functions: [],
+      declaredVariables: [],
+      channels: [{ type: "CAMERA", id: "cam1", label: "Front" }],
+      memory: [],
+      models: [],
+    };
+    expect(serialize(deserialize(wf))).toEqual(wf);
+  });
+
+  it("roundtrips a CameraCapture that requests no size", () => {
+    const wf: Schemas["Workflow"] = {
+      schemaVersion: 1,
+      nodes: [
+        {
+          id: "snap",
+          type: "CameraCapture",
+          position: { x: 0, y: 0 },
+          arguments: { cameraReference: "cam1", output: { active: true, mode: "emit" } },
+        },
+      ],
       edges: [],
       functions: [],
       declaredVariables: [],

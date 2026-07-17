@@ -54,149 +54,145 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 		logs:        make(map[string]*channel.Log),
 		cameras:     make(map[string]*channel.Camera),
 	}
+	if err := checkEndpointUniqueness(apiChannels, rm); err != nil {
+		return nil, err
+	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
 		if err != nil {
 			return nil, fmt.Errorf("channel: %w", err)
 		}
-		switch x := val.(type) {
+		switch c := val.(type) {
 		case workflowapi.GPIOINChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			line, err := indexFor(b, x.Id)
+			line, err := indexFor(addr, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.GPIO(b.Ref)
+			d, err := drvs.GPIO(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.gpioInputs[x.Id] = &channel.GPIOInput{
+			ch.gpioInputs[c.Id] = &channel.GPIOInput{
 				Driver:     d,
 				Line:       line,
-				Bias:       driver.Bias(x.Bias),
-				DebounceMs: x.DebounceMs,
+				Bias:       driver.Bias(c.Bias),
+				DebounceMs: c.DebounceMs,
 			}
 		case workflowapi.GPIOOUTChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			line, err := indexFor(b, x.Id)
+			line, err := indexFor(addr, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.GPIO(b.Ref)
+			d, err := drvs.GPIO(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.gpioOutputs[x.Id] = &channel.GPIOOutput{
+			ch.gpioOutputs[c.Id] = &channel.GPIOOutput{
 				Driver: d,
 				Line:   line,
 			}
 		case workflowapi.ADCChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			channelNum, err := indexFor(b, x.Id)
+			channelNum, err := indexFor(addr, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.ADC(b.Ref)
+			d, err := drvs.ADC(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.adcs[x.Id] = &channel.ADC{
+			ch.adcs[c.Id] = &channel.ADC{
 				Driver:  d,
 				Channel: channelNum,
 			}
 		case workflowapi.DACChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			channelNum, err := indexFor(b, x.Id)
+			channelNum, err := indexFor(addr, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.DAC(b.Ref)
+			d, err := drvs.DAC(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.dacs[x.Id] = &channel.DAC{
+			ch.dacs[c.Id] = &channel.DAC{
 				Driver:  d,
 				Channel: channelNum,
 			}
 		case workflowapi.PWMChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			channelNum, err := indexFor(b, x.Id)
+			channelNum, err := indexFor(addr, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.PWM(b.Ref)
+			d, err := drvs.PWM(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.pwms[x.Id] = &channel.PWM{
+			ch.pwms[c.Id] = &channel.PWM{
 				Driver:    d,
 				Channel:   channelNum,
-				Frequency: x.Frequency,
+				Frequency: c.Frequency,
 			}
 		case workflowapi.UARTChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.Serial(b.Ref)
+			d, err := drvs.Serial(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			ch.uarts[x.Id] = &channel.UART{Driver: d}
+			ch.uarts[c.Id] = &channel.UART{Driver: d}
 		case workflowapi.CAMERAChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.Camera(b.Ref)
+			d, err := drvs.Camera(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", b.Ref, x.Id, err)
+				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
-			// No index: a camera is addressed by its manifest key alone. Width and
-			// height are the workflow's hints and stay on the channel, so several
-			// channels may share one camera at different sizes.
-			ch.cameras[x.Id] = &channel.Camera{
-				Driver: d,
-				Width:  pointer.Val(x.Width),
-				Height: pointer.Val(x.Height),
-			}
+			ch.cameras[c.Id] = &channel.Camera{Driver: d}
 		case workflowapi.MQTTChannel:
-			b, err := addressFor(rm, x.Id)
+			addr, err := addressFor(rm, c.Id)
 			if err != nil {
 				return nil, err
 			}
 			if ext == nil {
-				return nil, fmt.Errorf("channel %s: workflow references MQTT but no external resources provided", x.Id)
+				return nil, fmt.Errorf("channel %s: workflow references MQTT but no external resources provided", c.Id)
 			}
-			cfg, ok := ext.MQTTs[b.Ref]
+			cfg, ok := ext.MQTTs[addr.Ref]
 			if !ok {
-				return nil, fmt.Errorf("channel %s: external resource %q not in externalResources", x.Id, b.Ref)
+				return nil, fmt.Errorf("channel %s: external resource %q not in externalResources", c.Id, addr.Ref)
 			}
 			if transports == nil {
-				return nil, fmt.Errorf("channel %s: no transport registry", x.Id)
+				return nil, fmt.Errorf("channel %s: no transport registry", c.Id)
 			}
-			t, err := transports.MQTT(b.Ref)
+			t, err := transports.MQTT(addr.Ref)
 			if err != nil {
-				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
+				return nil, fmt.Errorf("channel %s: %w", c.Id, err)
 			}
-			ch.mqtts[x.Id] = &channel.MQTT{
+			ch.mqtts[c.Id] = &channel.MQTT{
 				Transport:       t,
-				Topic:           x.Topic,
+				Topic:           c.Topic,
 				PublishPrefix:   cfg.PublishPrefix,
 				SubscribePrefix: cfg.SubscribePrefix,
 			}
@@ -206,16 +202,54 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			// entry for it. Level is contract-constrained to a known enum; parse
 			// defensively and hard-fail rather than silently logging at the wrong
 			// severity.
-			level, err := logging.ParseLevel(string(x.Level))
+			level, err := logging.ParseLevel(string(c.Level))
 			if err != nil {
-				return nil, fmt.Errorf("channel %s: %w", x.Id, err)
+				return nil, fmt.Errorf("channel %s: %w", c.Id, err)
 			}
-			ch.logs[x.Id] = &channel.Log{Level: level, Tag: pointer.Val(x.Tag)}
+			ch.logs[c.Id] = &channel.Log{Level: level, Tag: pointer.Val(c.Tag)}
 		default:
 			return nil, fmt.Errorf("channel: unsupported type %T", val)
 		}
 	}
 	return ch, nil
+}
+
+// checkEndpointUniqueness rejects two channels that claim one endpoint. An
+// endpoint is (ref, discriminator) — for MQTT, (ref, topic) — so it is known
+// only once the mapping supplies the ref, and it is a property of that mapping
+// rather than of any resource resolving: hence a pass over the declarations,
+// before the build loop.
+//
+// Two channels on one endpoint are the same requirement declared twice; the
+// engine cannot honor both, since the transport carries one callback per filter
+// and the loser's triggers would go quiet with no error. The resolver that
+// authored the mapping owns this check — this is the backstop for one that
+// did not.
+//
+// Only MQTT is covered: the index families and UART are checked by the resolver
+// (hardwareConflicts) and have no engine backstop yet.
+func checkEndpointUniqueness(apiChannels []workflowapi.Channel, rm engine.ResourceMapping) error {
+	claimed := make(map[string]string) // ref+topic → channel id holding it
+	for _, c := range apiChannels {
+		val, err := c.ValueByDiscriminator()
+		if err != nil {
+			return fmt.Errorf("channel: %w", err)
+		}
+		mq, ok := val.(workflowapi.MQTTChannel)
+		if !ok {
+			continue
+		}
+		addr, err := addressFor(rm, mq.Id)
+		if err != nil {
+			return err
+		}
+		key := addr.Ref + "\x00" + mq.Topic
+		if prev, dup := claimed[key]; dup {
+			return fmt.Errorf("channels %s and %s both bind topic %q on %q; one endpoint takes one channel", prev, mq.Id, mq.Topic, addr.Ref)
+		}
+		claimed[key] = mq.Id
+	}
+	return nil
 }
 
 // addressFor resolves a channel's address from the resource mapping. The workflow
@@ -236,11 +270,11 @@ func addressFor(rm engine.ResourceMapping, channelID string) (engine.ResourceAdd
 // indexFor returns the address's physical sub-address (GPIO line / ADC-PWM-DAC
 // channel). Addressable channels require it; a nil index is a config
 // misconfiguration.
-func indexFor(b engine.ResourceAddress, channelID string) (int, error) {
-	if b.Index == nil {
+func indexFor(addr engine.ResourceAddress, channelID string) (int, error) {
+	if addr.Index == nil {
 		return 0, fmt.Errorf("channel %s: address has no index (line/channel)", channelID)
 	}
-	return *b.Index, nil
+	return *addr.Index, nil
 }
 
 // SetupAll runs Setup on every channel. Must run after all graph nodes are built.

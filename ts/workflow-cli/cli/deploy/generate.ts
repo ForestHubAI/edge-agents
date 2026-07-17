@@ -188,10 +188,10 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
   const hasExternalService = hasMqtt || hasNetworkModel;
-  // Every camera is read by ONE driver component the engine issues; its cameras.json
-  // lives under that component's workspace dir. v4l2 cameras get a /dev passthrough;
-  // libcamera needs the operator to wire the full media graph (see the note below).
-  const cameraDir = `./workspaces/${cameraComponentServiceName()}`;
+  // Every camera is read by ONE driver component the engine issues; its config rides
+  // the generic <name>-config.json mechanism, so there is no camera workspace dir.
+  // v4l2 cameras get a /dev passthrough; libcamera needs the operator to wire the
+  // full media graph (see the note below).
   const deviceCameras = Object.values(cfg.cameras).filter((b) => b.kind === "v4l2" || b.kind === "libcamera" || b.kind === "raw");
   const hasV4l2Camera = deviceCameras.some((b) => b.kind === "v4l2");
   const hasGstreamerCamera = deviceCameras.some((b) => b.kind === "libcamera");
@@ -275,20 +275,21 @@ The component runs nonroot, so these files must be world-readable — \`chmod 64
       `## On-device cameras
 
 This bundle runs one shared capture component (\`${cameraComponentServiceName()}\`) that reads your
-cameras; the engine reaches it over the compose network by service name. The name→source
-mapping is in \`${cameraDir}/cameras.json\` (already generated, shipped with the workspaces tree).`,
+cameras; the engine reaches it over the compose network by service name. The ref→source
+mapping is in \`${cameraComponentServiceName()}-config.json\` (already generated, mounted read-only
+at \`${COMPONENT_CONFIG_PATH}\`).`,
     ];
     if (hasV4l2Camera) {
       parts.push(`USB/UVC (v4l2) cameras are passed into the component via \`devices:\` in the compose file.
 A v4l2 device can also be a statically configured capture node of a CSI/ISP media graph
 (e.g. when the board kernel cannot run libcamera's software ISP). For those, put the
 board's \`media-ctl\`/\`v4l2-ctl\` sequence (from the board vendor's docs) into the camera's
-\`setup\` list in \`cameras.json\` — the component replays it on every container start, so a
+\`setup\` list in \`${cameraComponentServiceName()}-config.json\` — the component replays it on every container start, so a
 host reboot needs no board-side boot script. The lines run as one shell script: a variable
 set early stays available, so discover unstable device numbers (\`/dev/mediaN\` shifts
 across boots) in the first line instead of hard-coding them. The device nodes those commands touch
 (\`/dev/media*\`, \`/dev/v4l-subdev*\`) must be listed in the compose \`devices:\` — the
-camera binding's \`devices\` list does that for you. Set the CAMERA channel's width/height
+camera binding's \`devices\` list does that for you. Set each CameraCapture node's width/height
 to exactly the pinned format.`);
     }
     if (hasGstreamerCamera) {

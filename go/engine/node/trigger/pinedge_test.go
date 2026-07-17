@@ -79,15 +79,6 @@ func TestOnPinEdge_Wait(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 
-	t.Run("closed event stream errors", func(t *testing.T) {
-		ch := make(chan bool)
-		close(ch)
-		p := newTestPinEdge("p", EdgeBoth, ch)
-		_, err := p.Wait(context.Background())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "stream closed")
-	})
-
 	t.Run("Close is a no-op", func(t *testing.T) {
 		p := newTestPinEdge("p", EdgeBoth, nil)
 		assert.NoError(t, p.Close())

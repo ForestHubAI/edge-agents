@@ -95,8 +95,9 @@ model name.
 ## CaptureClient — required only when used
 
 `Capture` is the frame-capture seam: the engine asks its camera driver for one
-encoded frame. The adapter is `channel.Camera`, which binds the workflow's optional
-width/height on top of a `driver.CameraDriver`, so the node calls it parameterless.
+encoded frame at the caller's size. The adapter is `channel.Camera`, a bare binding
+over a `driver.CameraDriver` — width and height are `CameraCapture` arguments passed
+per call, because a size names no camera (see `workflow-deployment-layers.md`).
 
 Unlike the ML port, this is **not** a deploy-resolved endpoint: a camera is
 device-owned hardware, so it resolves from the `DeviceManifest` through

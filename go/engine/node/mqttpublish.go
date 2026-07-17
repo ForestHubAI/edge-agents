@@ -25,7 +25,6 @@ var _ engine.Executable = (*MqttPublish)(nil)
 type MqttPublish struct {
 	engine.LinearNode
 	channel  *channel.MQTT
-	topic    string
 	dataType workflowapi.DataType
 	value    workflowapi.Expression
 	qos      byte
@@ -33,11 +32,10 @@ type MqttPublish struct {
 }
 
 // NewMqttPublish builds an MqttPublish bound to the given MQTT channel.
-func NewMqttPublish(id string, ch *channel.MQTT, topic string, dataType workflowapi.DataType, value workflowapi.Expression, qos byte, retain bool) *MqttPublish {
+func NewMqttPublish(id string, ch *channel.MQTT, dataType workflowapi.DataType, value workflowapi.Expression, qos byte, retain bool) *MqttPublish {
 	return &MqttPublish{
 		LinearNode: engine.NewLinearNode(id),
 		channel:    ch,
-		topic:      topic,
 		dataType:   dataType,
 		value:      value,
 		qos:        qos,
@@ -55,7 +53,7 @@ func (n *MqttPublish) Execute(_ context.Context, scope *engine.Scope) (string, e
 	if err != nil {
 		return "", fmt.Errorf("mqttPublish %s: encoding payload: %w", n.ID(), err)
 	}
-	if err := n.channel.Publish(n.topic, payload, n.qos, n.retain); err != nil {
+	if err := n.channel.Publish(payload, n.qos, n.retain); err != nil {
 		return "", fmt.Errorf("mqttPublish %s: %w", n.ID(), err)
 	}
 	return n.Next(engine.PortCtrl, scope)

@@ -6,17 +6,12 @@ package transport
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
-
-// mqttSubBufSize matches channel.SubBufSize for consistent backpressure
-// behavior between hardware-channel fanouts and MQTT subscriptions.
-const mqttSubBufSize = 64
 
 // mqttOpTimeout caps every paho operation (connect/publish/subscribe) so a
 // half-open connection cannot wedge the engine.
@@ -26,9 +21,6 @@ const mqttOpTimeout = 10 * time.Second
 // owns one TCP connection; concurrent Publish/Subscribe are safe per paho.
 type pahoTransport struct {
 	client mqtt.Client
-
-	mu   sync.Mutex
-	subs []chan MQTTMessage // closed by Close to unblock readers
 }
 
 // OpenMQTT establishes a connection to the broker and returns an
@@ -58,16 +50,11 @@ func OpenMQTT(brokerURL, clientID, username, password string, will *engine.MQTTW
 	return &pahoTransport{client: client}, nil
 }
 
-// Close disconnects from the broker (250ms grace for in-flight messages) and
-// closes every subscriber channel so blocked readers exit.
+// Close disconnects from the broker, allowing 250ms for in-flight messages.
+// Callbacks stop firing once paho's receive loop is down; listeners above
+// unblock on their own context, not on a closed stream.
 func (t *pahoTransport) Close() error {
 	t.client.Disconnect(250)
-	t.mu.Lock()
-	for _, ch := range t.subs {
-		close(ch)
-	}
-	t.subs = nil
-	t.mu.Unlock()
 	return nil
 }
 
@@ -82,27 +69,20 @@ func (t *pahoTransport) Publish(topic string, payload []byte, qos byte, retain b
 	return nil
 }
 
-func (t *pahoTransport) Subscribe(filter string, qos byte) (<-chan MQTTMessage, error) {
-	ch := make(chan MQTTMessage, mqttSubBufSize)
+// Subscribe installs onMessage as the permanent callback for filter. paho keys
+// its route table by filter and overwrites a matching entry, so a second call
+// with the same filter silently unhooks the first — hence the replacing
+// contract rather than a per-call subscription.
+func (t *pahoTransport) Subscribe(filter string, qos byte, onMessage func(MQTTMessage)) error {
 	handler := func(_ mqtt.Client, m mqtt.Message) {
-		// Non-blocking send: drop on full so a slow subscriber cannot stall
-		// paho's receive goroutine and thereby every other subscription.
-		select {
-		case ch <- MQTTMessage{Topic: m.Topic(), Payload: m.Payload()}:
-		default:
-		}
+		onMessage(MQTTMessage{Topic: m.Topic(), Payload: m.Payload()})
 	}
-
 	tok := t.client.Subscribe(filter, qos, handler)
 	if !tok.WaitTimeout(mqttOpTimeout) {
-		return nil, fmt.Errorf("mqtt subscribe %q: timed out", filter)
+		return fmt.Errorf("mqtt subscribe %q: timed out", filter)
 	}
 	if err := tok.Error(); err != nil {
-		return nil, fmt.Errorf("mqtt subscribe %q: %w", filter, err)
+		return fmt.Errorf("mqtt subscribe %q: %w", filter, err)
 	}
-
-	t.mu.Lock()
-	t.subs = append(t.subs, ch)
-	t.mu.Unlock()
-	return ch, nil
+	return nil
 }

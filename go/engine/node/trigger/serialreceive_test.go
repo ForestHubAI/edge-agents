@@ -78,15 +78,6 @@ func TestOnSerialReceive_Wait(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 
-	t.Run("closed stream errors", func(t *testing.T) {
-		ch := make(chan string)
-		close(ch)
-		tr := newTestSerialReceive("t", workflowapi.OutputBinding{}, ch)
-		_, err := tr.Wait(context.Background())
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "stream closed")
-	})
-
 	t.Run("Close is a no-op", func(t *testing.T) {
 		tr := newTestSerialReceive("t", workflowapi.OutputBinding{}, nil)
 		assert.NoError(t, tr.Close())

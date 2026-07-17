@@ -23,9 +23,9 @@ type MQTTTransport interface {
 	Transport
 	// Publish sends payload to topic.
 	Publish(topic string, payload []byte, qos byte, retain bool) error
-	// Subscribe returns a buffered channel of messages matching filter. Each
-	// call creates a separate subscription with its own channel; sends are
-	// non-blocking and drop on full so a slow subscriber can never stall the
-	// paho receive loop.
-	Subscribe(filter string, qos byte) (<-chan MQTTMessage, error)
+	// Subscribe installs onMessage as the permanent callback for filter,
+	// replacing any prior callback for that same filter; onMessage must be
+	// non-blocking. One filter therefore carries one callback — fan-out to
+	// several listeners belongs above this layer.
+	Subscribe(filter string, qos byte, onMessage func(MQTTMessage)) error
 }

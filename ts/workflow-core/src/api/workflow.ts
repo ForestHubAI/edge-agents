@@ -402,8 +402,12 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description Reference to a CAMERA channel id. The channel carries optional capture defaults; it resolves to a capture component endpoint at deploy time. */
+                /** @description Reference to a CAMERA channel id. */
                 cameraReference: string;
+                /** @description Capture width in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size. */
+                width?: number;
+                /** @description Capture height in pixels for this capture. The source picks its native resolution when omitted, and ignores it when it cannot size. */
+                height?: number;
                 output: components["schemas"]["OutputBinding"];
             };
         };
@@ -646,10 +650,6 @@ export interface components {
             type: "CAMERA";
             id: string;
             label: string;
-            /** @description Default capture width in pixels. The source picks its native resolution when omitted. */
-            width?: number;
-            /** @description Default capture height in pixels. The source picks its native resolution when omitted. */
-            height?: number;
         };
         LOGChannel: {
             /**

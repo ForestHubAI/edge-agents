@@ -36,99 +36,41 @@ apart is their **discriminator** — see "The rule" below.
 
 ---
 
-## The model: where every fact lives
+## How Layer 2 resources get configured
 
-**This section is normative.** Every recurring bug in this area has been the same mistake
-wearing a different hat: a camera classified as an `ExternalResource` because its driver
-was in another container; a channel id punched through to a Layer 2 key; capture size
-declared as channel config. Each is a fact placed in the wrong home.
+Resource config lives in Layer 2, never the workflow — a different workflow on this device
+sees the same fact. Whether the driver runs in
+another container is **not** a fact about the resource, and must never decide its home.
+Packaging is a Layer 3 detail.
 
-There are exactly three homes.
+Sub-resource config **cannot** live in Layer 2, and this is structural, not a convention:
+Layer 2 has one entry per `ref`, while the sub-resource is chosen by the mapping, which
+Layer 2 cannot see. `manifest.gpios[ref] = {chip}` has no slot for line 17's bias and
+cannot have one. So it lives in something keyed by **channel id** instead.
 
-| Home                | Holds                                        | Keyed by   | Examples                                                      |
-| ------------------- | -------------------------------------------- | ---------- | ------------------------------------------------------------- |
-| **Layer 2 config**  | facts about the resource itself               | `ref`      | device path, baud, broker url, camera kind/device/credentials |
-| **The address**     | `ref` + discriminator                         | channel id | `index`, `model` (mapping facts); `topic`, `level`/`tag` (logical facts) |
-| **Node arguments**  | what you ask of the resource, per operation   | node       | capture `width`/`height`                                      |
+| Config of          | Home                       | Keyed by   | Examples                                       |
+| ------------------ | -------------------------- | ---------- | ---------------------------------------------- |
+| the **resource**   | Layer 2                    | `ref`      | chip path, baud, broker url, camera source     |
+| a **sub-resource** | the channel or the address | channel id | `bias`, `frequency`, `topic`; `index`, `model` |
 
-### The rules
+Whether logical config lives on the channel or the address is decided by **logical fact vs.
+deployment fact**, and nothing else. Which line a sensor is wired to, or what an operator's server
+calls a model, is a fact about _this deployment_ → the address (the mapping). A topic name
+is the workflow's intent → the channel.
 
-**R1 — A fact about the resource lives in Layer 2, never the workflow.** A different
-workflow on this device sees the same fact. The corollary that keeps being missed: whether
-the resource's driver happens to run in another container is **not** a fact about the
-resource, and must never decide its home. Packaging is a Layer 3 detail (see
-`camera-rework.md`).
+This has **no bearing on cardinality**: `(ref, topic)` discriminates exactly as
+`(ref, index)` does. Where the discriminator lives and how many ids share a `ref` are
+independent questions.
 
-**R2 — Per-subindex config cannot live in Layer 2.** Layer 2 is keyed by `ref`, one entry
-per resource, and the subindex is chosen by the mapping, which Layer 2 cannot see.
-`manifest.gpios[ref] = {chip}` has no slot for line 17's bias and cannot have one. So
-per-subindex config lives in something keyed by **channel id**: the **mapping** (a
-deployment fact) or the **channel** (a logical fact). Both remain open — R4 picks.
+Anything else a channel might carry is a **node argument** — by definition, not by
+preference. Config is decided at build and fixed for the channel's life, shared by every
+node bound to it. A fact that isn't config can vary from one invocation to the next, and a
+channel field cannot express that.
 
-**R3 — A channel field is legitimate only if it completes the address, or is setup config
-for that address.** Anything else is a node argument. See the test below.
-
-**R4 — Logical fact or deployment fact decides mapping vs. channel.** Which line a sensor
-is wired to, or what an operator's server calls a model, are facts about *this deployment*
-→ the mapping. A topic name is the workflow's intent → the channel. The location has **no
-bearing on cardinality**: `(ref, topic)` discriminates exactly as `(ref, index)` does.
-
-### The test: address or argument?
-
-**The mechanism cannot tell you.** `channel.MQTT.Topic` and `channel.Camera.Width` are
-both channel fields, frozen at build, passed into a per-call API — identical shapes.
-Anyone reasoning from the code will keep getting this wrong. Ask instead:
-
-> **Does the field name something that exists independently of any request?**
-
-| Field           | Names                                                                                          | Verdict      |
-| --------------- | ---------------------------------------------------------------------------------------------- | ------------ |
-| `topic` `alarm` | an endpoint on the broker — other clients publish to it whether or not this workflow runs       | **address**  |
-| `level` + `tag` | a stream in the output a reader can filter on                                                   | **address**  |
-| line 17         | a pin that exists in silicon                                                                    | **address**  |
-| `yolov8`        | a model in the component's repository                                                           | **address**  |
-| `640×480`       | **nothing.** No such endpoint exists on the camera; it comes into being when you ask and is gone when the pipeline tears down | **argument** |
-
-A destination persists; a request shape does not.
-
-**Structural backstop**, when the semantic test feels slippery: a discriminator is honest
-only if the resource genuinely **hosts those endpoints at once**. One broker connection
-serves N topics concurrently, one logger serves N streams, one gpiochip drives 40 lines.
-A camera does not — `gstreamerSource.mu` serializes every capture because the device is
-single-open. Endpoints that cannot coexist are fiction.
-
-### The home is the decision
-
-Where a field lives **is** the design choice, not a consequence of one. `tag` on the `LOG`
-channel declares *a tagged stream is a destination* — a second tag means a second channel.
-`tag` on the writing node would declare *a tag is a per-message label*. Both are coherent;
-the model's job is to force the choice to be stated rather than defaulted into.
-
-`width`/`height` are **not** such a choice: there is no reading in which `640×480` is a
-destination. The nearest attempt — "a low-res camera profile" — is a Layer 2 concept, and
-it pins one size per entry, producing two refs on one `/dev/video0`.
-
-### Resources may be implicit
-
-`LOG` carries no `ref` and no mapping entry, and that is **not** an absence of a resource:
-the ambient `logging.Logger` *is* the resource, injected as a package global rather than by
-a registry. It is a singleton, so its `ref` would be constant — and a constant carries no
-information, so it is omitted. `LOG` is therefore `MQTT`'s shape exactly (a shared resource
-beneath N endpoints), N:1 over an implicit ref, unique by `(level, tag)`.
-
-> **Absence of a `ref` is not absence of a resource.** Reading it the other way is what
-> made a camera an `ExternalResource`.
-
-### Known deviations
-
-The rules are normative; the code has not caught up everywhere. Tables elsewhere in this
-document describe the system **as it is**.
-
-| Deviation                                                            | Rule        | Status                                                                          |
-| -------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------- |
-| `CAMERA` carries `width`/`height` as channel config, making it N:1     | R3          | Decided wrong; they are node arguments and camera is 1:1. Contract change pending. |
-| `(ref, topic)`, `(ref, model)` and `(level, tag)` uniqueness          | uniqueness  | No enforcer on any side — see "Enforcement: Stage 0 only"                        |
-| `MQTT.Publish(topic, …)` / `Subscribe(filter, …)` take a topic that is always `mq.Topic` | R3 | API advertises a per-call topic that never occurs — the shape that makes `width` look normal |
+Capture size is the worked example. Nothing configures `640×480` — no setup applies it and
+no endpoint bears its name; the next capture may ask for something else. So it belongs on
+`CameraCapture`, which is what makes `CAMERA` 1:1: with the sizes gone it has no
+discriminator, and two sizes from one camera is two capture nodes on one channel.
 
 ---
 
@@ -139,16 +81,16 @@ Three binding-free requirement lists (`contract/workflow.yaml`), each keyed by a
 
 ### `Channels[]` — hardware and transport needs
 
-| Channel type | Logical config (workflow-owned) |    Sub-address    | Pool               |
-| ------------ | ------------------------------- | :---------------: | ------------------ |
-| `GPIOIN`     | `bias`, `debounceMs`            |  `index` (line)   | DeviceManifest     |
-| `GPIOOUT`    | —                               |  `index` (line)   | DeviceManifest     |
-| `ADC`        | —                               | `index` (channel) | DeviceManifest     |
-| `DAC`        | —                               | `index` (channel) | DeviceManifest     |
-| `PWM`        | `frequency`                     | `index` (channel) | DeviceManifest     |
-| `UART`       | —                               |         —         | DeviceManifest     |
-| `CAMERA`     | `width?`, `height?` (deviation) |         —         | DeviceManifest     |
-| `MQTT`       | `topic`                         |         —         | ExternalResources  |
+| Channel type | Logical config (workflow-owned) |    Sub-address    | Pool                             |
+| ------------ | ------------------------------- | :---------------: | -------------------------------- |
+| `GPIOIN`     | `bias`, `debounceMs`            |  `index` (line)   | DeviceManifest                   |
+| `GPIOOUT`    | —                               |  `index` (line)   | DeviceManifest                   |
+| `ADC`        | —                               | `index` (channel) | DeviceManifest                   |
+| `DAC`        | —                               | `index` (channel) | DeviceManifest                   |
+| `PWM`        | `frequency`                     | `index` (channel) | DeviceManifest                   |
+| `UART`       | —                               |         —         | DeviceManifest                   |
+| `CAMERA`     | —                               |         —         | DeviceManifest                   |
+| `MQTT`       | `topic`                         |         —         | ExternalResources                |
 | `LOG`        | `level`, `tag?`                 |         —         | — (implicit: the ambient logger) |
 
 ### `Models[]` — declared models
@@ -175,8 +117,8 @@ workspace mount. See `docs/engine-ports.md`.
 The split across all three lists is deliberate: `frequency`, `bias`, `topic` and
 `capabilities` describe _the workflow's intent_ and travel with it everywhere. The
 physical pin, the broker URL, the inference endpoint are _environment facts_, supplied
-separately. (`width`/`height` are listed above because the contract carries them today,
-not because they belong — per R3 they are node arguments.)
+separately. A `CAMERA` carries nothing at all: it takes no sub-address, and capture size
+configures nothing, so it is a `CameraCapture` argument.
 
 ---
 
@@ -198,19 +140,19 @@ type ResourceAddress struct {
 
 ### How it maps
 
-| Layer 1 requirement  | Pool (Layer 2)                             | Discriminator     | Lives in | ids : ref | Unique by              |
-| -------------------- | ------------------------------------------ | ----------------- | -------- | :-------: | ---------------------- |
-| `GPIOIN` / `GPIOOUT` | `DeviceManifest.gpios`                     | `index` (line)    | mapping  |  **N:1**  | `(ref, index)`         |
-| `ADC`                | `DeviceManifest.adcs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`         |
-| `DAC`                | `DeviceManifest.dacs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`         |
-| `PWM`                | `DeviceManifest.pwms`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`         |
-| `UART`               | `DeviceManifest.serials`                   | —                 | —        |  **1:1**  | `ref`                  |
-| `CAMERA`             | `DeviceManifest.cameras`                   | `width`, `height` — *deviation, see R3* | workflow |  **N:1**  | `(ref, width, height)` |
-| `MQTT`               | `ExternalResources.MQTTs`                  | `topic`           | workflow |  **N:1**  | `(ref, topic)`         |
-| `LOG`                | — (implicit: the ambient logger)           | `level`, `tag`    | workflow |  **N:1**  | `(level, tag)`         |
-| declared `LLMModel`  | `ExternalResources.Providers`              | `model`           | mapping  |  **N:1**  | `(ref, model)`         |
-| declared `MLModel`   | `ExternalResources.MLInference`            | `model`           | mapping  |  **N:1**  | `(ref, model)`         |
-| `VectorDatabase`     | — (`ref` _is_ the collection id)           | —                 | —        |  **1:1**  | `ref`                  |
+| Layer 1 requirement  | Pool (Layer 2)                             | Discriminator     | Lives in | ids : ref | Unique by                               |
+| -------------------- | ------------------------------------------ | ----------------- | -------- | :-------: | --------------------------------------- |
+| `GPIOIN` / `GPIOOUT` | `DeviceManifest.gpios`                     | `index` (line)    | mapping  |  **N:1**  | `(ref, index)`                          |
+| `ADC`                | `DeviceManifest.adcs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
+| `DAC`                | `DeviceManifest.dacs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
+| `PWM`                | `DeviceManifest.pwms`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
+| `UART`               | `DeviceManifest.serials`                   | —                 | —        |  **1:1**  | `ref`                                   |
+| `CAMERA`             | `DeviceManifest.cameras`                   | —                 | —        |  **1:1**  | `ref`                                   |
+| `MQTT`               | `ExternalResources.MQTTs`                  | `topic`           | workflow |  **N:1**  | `(ref, topic)`                          |
+| `LOG`                | — (implicit: the ambient logger)           | `level`, `tag`    | workflow |  **N:1**  | `(level, tag)`                          |
+| declared `LLMModel`  | `ExternalResources.Providers`              | `model`           | mapping  |  **N:1**  | `(ref, model)`                          |
+| declared `MLModel`   | `ExternalResources.MLInference`            | `model`           | mapping  |  **N:1**  | `(ref, model)`                          |
+| `VectorDatabase`     | — (`ref` _is_ the collection id)           | —                 | —        |  **1:1**  | `ref`                                   |
 | catalog model id     | `ExternalResources.Providers`, by identity | **no entry**      | —        |     —     | resolved by llmproxy routing, not bound |
 
 ### The rule
@@ -220,59 +162,63 @@ One rule generates the whole table:
 > **A requirement is always unique by `(ref, discriminator)`. `ids : ref` is N:1 if and
 > only if a discriminator exists — 1:1 when none does.**
 
-That is what a discriminator is *for*: it is what makes N:1 routing to one `ref` safe, by
+That is what a discriminator is _for_: it is what makes N:1 routing to one `ref` safe, by
 telling two requirements on the same resource apart. `UART` and `VectorDatabase` are 1:1
 for the same single reason — they have nothing to discriminate on, so a second
 requirement on that `ref` would be indistinguishable from the first.
 
-Uniqueness is not about whether a second claimant would *break* something. It is the
+Uniqueness is not about whether a second claimant would _break_ something. It is the
 design rule: one requirement, one thing. Two channels on one `(ref, index)`, two models
-on one `(ref, model)`, two channels on one camera at the same size — all are the same
-requirement declared twice, and the right expression is one requirement with several
-subscriber nodes (as `channel.UART`'s `Broadcaster` already does).
+on one `(ref, model)`, two channels on one camera — all are the same requirement declared
+twice, and the right expression is one requirement with several subscriber nodes, which is
+what `channel.Broadcaster` is for: `UART`, `GPIOIN` and `MQTT` each claim their resource
+once and fan out to every node that listens.
 
 ### Where the discriminator lives
 
-The mapping or the channel, decided by R4 (logical vs. deployment fact), with **no bearing
-on cardinality** — see "The model" above. What a discriminator may be at all is R3's test:
-it must name something that exists independently of a request. `bias` and `frequency` are
-neither address nor argument but **setup config for an address already owned**, which is
-why they sit on the channel and identify nothing.
+The channel or the address, decided by logical vs. deployment fact — see "The model"
+above, and note it has **no bearing on cardinality**. `bias` and `frequency` are
+sub-resource config that identifies nothing: they configure an address already owned, so
+they sit on the channel without discriminating.
 
 The corollary matters for correctness: a workflow-fact discriminator must **not** be
 pushed down into the Layer 2 config. Two requirements differing only by discriminator must
 still resolve to one `ref` — otherwise they become two refs, two configs, and two opens of
 one device.
 
-### Enforcement: Stage 0 only
+### Enforcing uniqueness
 
 **No uniqueness constraint can live in the workflow builder** — not by omission, but
 because `(ref, discriminator)` is not complete until the `ref` is bound. Two `MQTT`
 channels on topic `alarm` are perfectly legal until they land on the same broker; two
-camera channels at 640×480 are legal until they land on the same camera. Uniqueness is a
-property of the **binding**, never of the workflow. Stage 0 is the first place both
-halves are known, and therefore the only place the check can run.
+camera channels are legal until they land on the same camera. Uniqueness is a property of
+the **binding**, never of the workflow.
 
-The engine does not re-check either, and would let the last claimer win. Two `UART`
-channels on one port both call `WatchRead`, which _"installs onLine as the permanent line
-callback, **replacing any prior callback**"_ and returns nil — so one channel's
-subscribers silently stop firing, and which one loses depends on map iteration order in
-`SetupAll`.
+Both halves are known in two places — a resolver at Stage 0, and the engine at boot, which
+is the only one that sees a mapping the resolver did not author. **Which of them evaluates
+each constraint is undecided**; `checkEndpointUniqueness` (`build/channel.go`) and
+`hardwareConflicts` / `cameraConflicts` (`ts/workflow-cli/cli/deploy/spec.ts`) are today's
+partial answers.
 
-Today only the `index` families and `UART` are actually enforced, by
-`hardwareConflicts` over `hardwareAddressKey` (`ts/workflow-cli/cli/deploy/spec.ts`),
-which keys `family:dev:index` — or `serial:dev`, because the path _is_ the device.
+Where nothing enforces, the last claimer wins silently. Two `UART` channels on one port
+both call `WatchRead`, which _"installs onLine as the permanent line callback, **replacing
+any prior callback**"_ and returns nil — so one channel's subscribers stop firing, and
+which one loses depends on map iteration order in `SetupAll`. `MQTT` failed the same way
+through paho's route table, which keys by filter and overwrites a match, until
+`checkEndpointUniqueness`.
 
-> **Gap:** `(ref, topic)`, `(ref, model)` and `(level, tag)` have no enforcer on any side.
-> Any resolver — this CLI, fh-backend's, anything hand-authoring a mapping — owns all of
-> these checks, because neither the builder nor the engine can.
+**Layer 3 may constrain more tightly than the rule.** `selfhosted.Provider` registers every
+endpoint into one flat `ModelID` namespace and `resolveModelID` yields a bare server name
+carrying no ref — so two providers each serving a `llama3` is legal by `(ref, model)` and
+unroutable in the code. Its real constraint is `model`, global.
 
-A second gap sits underneath: uniqueness is over the **ref**, but a device's exclusivity
-is over its **path**. Refs are content-addressed, so two camera bindings on one
-`/dev/video0` differing only in `warmupFrames` hash to two refs, satisfy every check, and
-race for a single-open node. The fix is the `hardwareAddressKey` pattern extended to
-camera — key on device identity (`v4l2` → `device`, `libcamera` → `cameraName`), which
-catches this and "two channels, one camera" with one check.
+**Identity is not the only constraint.** Uniqueness is over the `ref`, but a _device's_
+exclusivity is over its **path**, and refs are content-addressed — so two camera bindings
+on one `/dev/video0` differing only in `warmupFrames` hash to two refs, pass the identity
+check, and then race for a single-open node. `cameraConflicts` therefore runs two checks:
+identity (the ref key) and device exclusivity (`v4l2` → `device`, `libcamera` →
+`cameraName`; network kinds have none, since an RTSP server serves concurrent sessions).
+Any resource whose Layer 2 identity can outnumber its physical one needs the same pair.
 
 ### The invariants
 
@@ -419,10 +365,10 @@ GPIOIN "door_sensor"                                    ← addressable
   ├─ drivers.GPIO("gpiochip0")       → GPIODriver             (not registered = error)
   └─ &channel.GPIOInput{Driver, Line:17, Bias, DebounceMs}    ← workflow-owned config
 
-CAMERA "front_door"                                     ← configured leaf, no index
+CAMERA "front_door"                                     ← no discriminator, no config
   ├─ addressFor(rm, "front_door")    → ResourceAddress{ref:"video0"}
   ├─ drivers.Camera("video0")        → CameraDriver           (not registered = error)
-  └─ &channel.Camera{Driver, Width, Height}                   ← workflow-owned config
+  └─ &channel.Camera{Driver}                                  ← size is a node argument
 
 MQTT "alarm"                                            ← external pool
   ├─ addressFor(rm, "alarm")         → ResourceAddress{ref:"site-broker"}
@@ -446,6 +392,8 @@ all nodes are built, applying each channel's accumulated requirements to its dri
 | ----------------------------------------------------- | ----------------------------- |
 | channel id has no mapping entry / empty `ref`         | `addressFor` (`channel.go`)   |
 | addressable channel has nil `index`                   | `indexFor` (`channel.go`)     |
+| two MQTT channels on one `(ref, topic)`               | `checkEndpointUniqueness`     |
+| MQTT channel with an empty `topic`                    | `channel.MQTT.Setup`          |
 | hardware `ref` not in driver registry                 | `drivers.GPIO/ADC/Camera/...` |
 | MQTT `ref` not in `ext.MQTTs`                         | `buildChannels` MQTT arm      |
 | declared model not bound by the mapping               | `selfHostedEndpoints`         |
@@ -486,8 +434,7 @@ device/environment.
 
    Then **enforce uniqueness over `(ref, discriminator)`** — including the workflow-fact
    discriminators (`topic`, `level`/`tag`), which the builder cannot check because it does
-   not know the `ref`. A resolver is the only place both halves are known; see
-   "Enforcement" under the join.
+   not know the `ref`; see "Enforcing uniqueness" under the join.
 
    Catalog providers aren't _bound_ — instead offer a per-provider **routing choice**:
    serve it with a local API key (`localLlm`) or route it to the backend (`backendLlm`).

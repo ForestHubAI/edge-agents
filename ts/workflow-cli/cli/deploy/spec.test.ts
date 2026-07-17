@@ -490,16 +490,25 @@ describe("buildDeploymentSpec capture component", () => {
     expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
   });
 
-  it("collapses two channels declaring the same camera onto one manifest entry", () => {
-    // The identity is the camera, not the channel: one entry, one driver, shared.
+  it("rejects two channels declaring the same camera", () => {
+    // A camera takes no discriminator, so this is one requirement declared twice.
+    // Two sizes from one camera is two CameraCapture nodes, not two channels.
     const inputs = camInputs({
       wide: { kind: "v4l2", device: "/dev/video0" },
       thumb: { kind: "v4l2", device: "/dev/video0" },
     });
-    const { spec } = buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta);
+    expect(() => buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta)).toThrow(/already used by "wide"/);
+  });
 
-    expect(Object.keys(manifestCameras(spec))).toEqual(["video0"]);
-    expect(engineConfigOf(spec).mapping).toEqual({ wide: { ref: "video0" }, thumb: { ref: "video0" } });
+  it("rejects two bindings on one device node that differ elsewhere", () => {
+    // Distinct refs (warmupFrames is part of the content-addressed identity), so
+    // the identity check passes — but one /dev/video0 is single-open, and two
+    // pipelines on it race for EBUSY at capture time on a spec that looked valid.
+    const inputs = camInputs({
+      a: { kind: "v4l2", device: "/dev/video0", warmupFrames: 2 },
+      b: { kind: "v4l2", device: "/dev/video0", warmupFrames: 5 },
+    });
+    expect(() => buildDeploymentSpec(cameraWorkflow(["a", "b"]), inputs, meta)).toThrow(/already opened by "a"/);
   });
 
   it("keeps cameras distinct when they differ only by credential", () => {
@@ -538,13 +547,14 @@ describe("buildDeploymentSpec capture component", () => {
 
   it("passes through v4l2 nodes deduped; libcamera grants no device but needs udev", () => {
     const inputs = camInputs({
-      a: { kind: "v4l2", device: "/dev/video0" },
-      b: { kind: "v4l2", device: "/dev/video0" }, // same node → deduped
+      // Two distinct cameras whose setup touches one shared media node — granted once.
+      a: { kind: "v4l2", device: "/dev/video0", devices: ["/dev/media0"] },
+      b: { kind: "v4l2", device: "/dev/video1", devices: ["/dev/media0"] },
       csi: { kind: "libcamera" }, // no /dev node
     });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["a", "b", "csi"]), inputs, meta);
     const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
-    expect(component.devices).toEqual(["/dev/video0"]);
+    expect(component.devices).toEqual(["/dev/video0", "/dev/media0", "/dev/video1"]);
     // libcamera discovers cameras through the host's udev database.
     expect(component.volumes).toContain("/run/udev:/run/udev:ro");
   });

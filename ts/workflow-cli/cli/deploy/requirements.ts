@@ -39,8 +39,9 @@ export interface MqttChannel {
   label: string;
 }
 
-// One camera channel the workflow declares — needs an ExternalResources camera
-// entry + a mapping (and a share of the capture component when bound on-device).
+// One camera channel the workflow declares — needs a DeviceManifest camera entry
+// + a mapping. Camera is device-owned hardware: nothing in ExternalResources may
+// point at its driver component, which the engine issues at a constant address.
 export interface CameraChannel {
   id: string;
   label: string;
@@ -106,8 +107,8 @@ export interface DeployRequirements {
   hardwareChannels: HardwareChannel[];
   // Every MQTT channel; each becomes an ExternalResources entry + a mapping.
   mqttChannels: MqttChannel[];
-  // Every camera channel; each becomes an ExternalResources entry + a mapping
-  // (and a share of the capture component when bound on-device).
+  // Every camera channel; each becomes a DeviceManifest entry + a mapping (and a
+  // share of the one driver component the engine issues for the whole set).
   cameraChannels: CameraChannel[];
   // Every declared custom LLM model; each becomes an ExternalResources provider
   // + a mapping (and a llama-server component when bound on-device).

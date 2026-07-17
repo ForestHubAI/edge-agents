@@ -97,21 +97,5 @@ export const CHANNEL_DEFINITION: ChannelDefinition = {
       optional: true,
       activationRules: [{ type: "parameterIn", parameterId: "type", values: ["LOG"] }],
     },
-    {
-      id: "width",
-      label: "Width (px)",
-      description: "Default capture width in pixels (source's native resolution when empty)",
-      type: "int",
-      optional: true,
-      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["CAMERA"] }],
-    },
-    {
-      id: "height",
-      label: "Height (px)",
-      description: "Default capture height in pixels (source's native resolution when empty)",
-      type: "int",
-      optional: true,
-      activationRules: [{ type: "parameterIn", parameterId: "type", values: ["CAMERA"] }],
-    },
   ],
 };

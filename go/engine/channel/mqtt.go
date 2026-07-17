@@ -10,31 +10,35 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/transport"
 )
 
-// MQTT is a workflow-level MQTT channel: a topic endpoint on a bound broker.
+// subscribeQoS is the QoS every subscription uses: the workflow declares a QoS
+// only for publishing, so there is nothing to carry here.
+const subscribeQoS byte = 0
+
+// MQTT is a workflow-level MQTT channel: a topic endpoint on a bound broker,
+// plus the fanout list of OnMqttMessage subscribers.
 type MQTT struct {
+	Broadcaster[transport.MQTTMessage]
 	Transport       transport.MQTTTransport
 	Topic           string // the channel's topic (publish target / subscribe filter)
 	PublishPrefix   string // prepended on every Publish; "" = pass-through
 	SubscribePrefix string // prepended on every Subscribe; "" = pass-through
 }
 
-func (*MQTT) Setup() error { return nil }
-
-// Publish prepends the configured PublishPrefix to topic and forwards to
-// the transport. Topic must not be empty and must not contain MQTT
-// wildcards (+, #).
-func (m *MQTT) Publish(topic string, payload []byte, qos byte, retain bool) error {
-	if topic == "" {
-		return fmt.Errorf("mqtt publish: topic is required")
+// Setup wires broadcast as the transport's permanent callback for the channel's
+// topic when at least one subscriber is registered. The transport carries one
+// callback per filter, so the channel subscribes once and fans out itself.
+func (m *MQTT) Setup() error {
+	if m.Topic == "" {
+		return fmt.Errorf("mqtt channel: topic is required")
 	}
-	return m.Transport.Publish(m.PublishPrefix+topic, payload, qos, retain)
+	if !m.hasSubscribers() {
+		return nil
+	}
+	return m.Transport.Subscribe(m.SubscribePrefix+m.Topic, subscribeQoS, m.broadcast)
 }
 
-// Subscribe prepends the configured SubscribePrefix to filter and forwards
-// to the transport.
-func (m *MQTT) Subscribe(filter string, qos byte) (<-chan transport.MQTTMessage, error) {
-	if filter == "" {
-		return nil, fmt.Errorf("mqtt subscribe: filter is required")
-	}
-	return m.Transport.Subscribe(m.SubscribePrefix+filter, qos)
+// Publish sends payload to the channel's topic under the configured
+// PublishPrefix.
+func (m *MQTT) Publish(payload []byte, qos byte, retain bool) error {
+	return m.Transport.Publish(m.PublishPrefix+m.Topic, payload, qos, retain)
 }
