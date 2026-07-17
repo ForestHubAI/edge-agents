@@ -14,11 +14,14 @@ There are three sources of implementation:
 - **Built-in / standalone behavior** — what happens with no backend. For some
   ports that's a real local implementation; for others it's "the port is
   nil and the engine does without."
-- **Deploy-resolved component clients** — the ML inference and camera capture
-  ports are filled from the deploy's `ExternalResources` (a component URL),
-  resolved in the build layer (`engine/build`), not `main.go`. They are
-  backend-independent: the component is a separate container reached by URL, the
-  same with or without a backend.
+- **Deploy-resolved component clients** — the ML inference port is filled from the
+  deploy's `ExternalResources` (a component URL), resolved in the build layer
+  (`engine/build`), not `main.go`. It is backend-independent: the component is a
+  separate container reached by URL, the same with or without a backend.
+- **Drivers** — the capture port is filled from the `DeviceManifest` through
+  `driver.Registry`, like GPIO or serial. Its driver happens to be out-of-process
+  (an HTTP client to the camera component), but that is the adapter's business: a
+  camera is device-owned hardware, not an environment-supplied endpoint.
 
 `cmd/engine/main.go` decides which adapter fills the backend-or-standalone
 seams (LLM, RAG); the component-backed seams are wired by the build layer from
@@ -31,7 +34,7 @@ seams (LLM, RAG); the component-backed seams are wired by the build layer from
 | `LlmClient`         | `Chat`                        | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
 | `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
 | `MLInferenceClient` | `InferTensors`, `InferBinary` | Required **only if** an ML inference node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
-| `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
+| `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | `channel.Camera` over a `driver.CameraDriver`, resolved from the `DeviceManifest` (backend-independent) | — same (not backend-routed)  |
 
 Three capabilities deliberately are **not** ports:
 
@@ -91,16 +94,22 @@ model name.
 
 ## CaptureClient — required only when used
 
-`Capture` is the frame-capture seam: the engine asks a component for one encoded
-frame. The adapter is `build.captureEndpoint`, a generated `cameraapi` client
-bound to one camera name (and its optional width/height), so the node calls it
-parameterless.
+`Capture` is the frame-capture seam: the engine asks its camera driver for one
+encoded frame. The adapter is `channel.Camera`, which binds the workflow's optional
+width/height on top of a `driver.CameraDriver`, so the node calls it parameterless.
 
-- **Resolution:** `build/capture.go` resolves each declared `CAMERA` channel
-  against the deploy's `ExternalResources` (`camera` arm → component URL). Many
-  cameras may share one component — the camera name is sent per request.
-- **Missing:** a `CameraCapture` node whose channel is unbound or unconfigured
-  **fails the build**. Backend-independent — the component is its own container.
+Unlike the ML port, this is **not** a deploy-resolved endpoint: a camera is
+device-owned hardware, so it resolves from the `DeviceManifest` through
+`driver.Registry` like a gpiochip. That its driver is out-of-process — an HTTP client
+to the camera component at a constant address — is a packaging detail of the adapter,
+invisible to the port. See `workflow-deployment-layers.md`.
+
+- **Resolution:** `buildChannels` resolves each declared `CAMERA` channel's `ref`
+  through `drivers.Camera(ref)`, exactly as GPIO resolves. Many channels may share
+  one camera, each with its own size hints; the manifest key is sent per request.
+- **Missing:** a `CameraCapture` node whose channel is unbound, or bound to a camera
+  the manifest doesn't declare, **fails the build** — the same failure shape as a
+  miswired gpiochip. Backend-independent.
 
 ## Memory — device-storage-only
 

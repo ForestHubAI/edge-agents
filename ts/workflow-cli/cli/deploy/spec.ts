@@ -440,22 +440,25 @@ export function buildDeploymentSpec(
     const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
 
+    // The ref identifies the ENDPOINT, not the model: the model sub-address is what
+    // picks the model within it, so every model on one endpoint dedups onto ONE ref
+    // (like GPIO lines on one chip carry their line in the binding's index). On-device
+    // models all front the one llama-server, so they collapse onto a single provider.
+    const url = b.location === "device" ? `http://${llamaComponentServiceName()}:${LLAMA_COMPONENT_PORT}` : b.url;
+    const apiKey = b.location === "device" ? undefined : b.apiKey;
+    const hint = b.location === "device" ? llamaComponentServiceName() : `provider-${urlHost(b.url)}`;
+    const ref = refs.alloc(`selfhosted:${url}:${apiKey ?? ""}`, hint);
+    externalResources[ref] = { type: "selfhostedLlm", url };
     // The endpoint fronts the model under the workflow id (llama-swap's config.json
     // id on device; the operator's endpoint over the network — no alias input yet),
     // so the binding's model sub-address is the workflow id.
+    mapping[m.id] = { ref, model: m.id };
+    // The endpoint bearer is a secret — out of the spec, returned separately.
+    if (apiKey) resourceSecrets[ref] = apiKey;
     if (b.location === "device") {
-      const ref = refs.alloc(`model:${m.id}`, basename(m.id));
-      mapping[m.id] = { ref, model: m.id };
-      externalResources[ref] = { type: "selfhostedLlm", url: `http://${llamaComponentServiceName()}:${LLAMA_COMPONENT_PORT}` };
       // ctx-size is frozen here — retuning it is a re-deploy, not an env edit. The GGUF
       // is a bare filename the entrypoint resolves under the shared component workspace.
       llamaModels.push({ id: m.id, file: b.modelFile, args: ["--ctx-size", String(b.ctxSize ?? 4096)] });
-    } else {
-      const ref = refs.alloc(`selfhosted:${b.url}:${b.apiKey ?? ""}`, `provider-${urlHost(b.url)}`);
-      mapping[m.id] = { ref, model: m.id };
-      externalResources[ref] = { type: "selfhostedLlm", url: b.url };
-      // The endpoint bearer is a secret — out of the spec, returned separately.
-      if (b.apiKey) resourceSecrets[ref] = b.apiKey;
     }
   }
   // One shared llama-server for all on-device models (not one per model). Its config.json
@@ -502,21 +505,17 @@ export function buildDeploymentSpec(
   for (const m of req.customMLModels) {
     const b = inputs.mlModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
-    const ref = refs.alloc(`ml-model:${m.id}`, basename(m.id));
-    // The model name the component selects on is the binding's sub-address, not
-    // the endpoint config — one endpoint serves many models (like GPIO lines on
-    // one chip carry their line in the binding's index).
+    // The ref identifies the ENDPOINT, not the model: the model name the component
+    // selects on is the binding's sub-address, so every model on one endpoint dedups
+    // onto ONE ref (like GPIO lines on one chip carry their line in the binding's
+    // index). All on-device models collapse onto the single shared component.
+    // Credential-free, so nothing else enters the dedup key.
+    const url = b.location === "device" ? `http://${mlComponentServiceName()}:${ML_COMPONENT_PORT}` : b.url;
+    const hint = b.location === "device" ? mlComponentServiceName() : `ml-${urlHost(b.url)}`;
+    const ref = refs.alloc(`ml-inference:${url}`, hint);
+    externalResources[ref] = { type: "ml-inference", url };
     mapping[m.id] = { ref, model: b.model };
-
-    if (b.location === "device") {
-      externalResources[ref] = {
-        type: "ml-inference",
-        url: `http://${mlComponentServiceName()}:${ML_COMPONENT_PORT}`,
-      };
-      mlDeviceModels++;
-    } else {
-      externalResources[ref] = { type: "ml-inference", url: b.url };
-    }
+    if (b.location === "device") mlDeviceModels++;
   }
   // One shared component for all on-device ML models (not one per model). The model
   // repository is a directory the operator fills, one sub-folder per model id, mounted

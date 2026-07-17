@@ -13,17 +13,50 @@ cmd/camera/   fh-camera binary: lean main — loads config, wires deps, runs the
 api/          oapi-codegen output from ../contract/*.yaml (engineapi, workflow,
               llmapi, debugapi, mlinferenceapi, cameraapi). GENERATED — never
               hand-edit; regen instead.
-engine/       core runtime. Sub-pkgs: runner (state machine), node, expr, build,
-              backend, driver, channel, memory, transport, websearch.
-camera/       fh-camera domain: cameras.json model, gst-launch capture pipelines,
-              setup-script runner, and the cameraapi HTTP server.
+component/    the component contract every binary boots against: fixed
+              in-container paths, canonical names/ports, exit-code policy,
+              BootFail/BootRetry, the generic LoadConfig[T], and Secrets +
+              ReadSecrets. A leaf — imports only logging.
+engine/       core runtime + its OWN api<->domain mapping (mapping.go). Sub-pkgs:
+              runner (state machine), node, expr, build, backend, driver,
+              channel, memory, transport, websearch.
+camera/       fh-camera domain: per-kind capture pipelines, setup-script runner,
+              the cameraapi HTTP server, and its OWN api<->domain mapping.
 logging/      generic zerolog wrapper: structured JSON to stdout. No shipping or
               rotation — the container runtime captures the stream (see below).
 llmproxy/     unified LLM provider abstraction (anthropic/openai/gemini/mistral/
               selfhosted), provider dispatch by model id, agent loop.
-mapping/      generic slice helpers (Slice, SliceErr) + api<->domain mappers.
 util/         http client, linked map, pointer helpers.
 ```
+
+## Components are self-contained
+
+Each component (`engine/`, `camera/`, and whatever comes next) owns everything it
+needs to boot and run — including **its own api↔domain mapping**, in its own
+package. There is no shared mapper, no shared domain, no `mapping/` hub.
+
+The reason is binary size and coupling, not taste. A shared mapper has to import
+every domain it maps, so importing it drags all of them in: `cmd/camera` →
+`mapping` → `engine` → `llmproxy` → … and a driver component that shells out to
+`gst-launch` links the entire workflow runtime it never calls. The same rule
+killed the `CameraSource` type living in `engine.yaml`: it made `cameraapi` import
+`engineapi`, so the contract had the dependency backwards too.
+
+The rule, precisely — it is about **what a package drags behind it**, not about
+sharing as such:
+
+- **A component package must never import another component's domain.** `camera`
+  does not import `engine`, and vice versa. If both need the same shape, it
+  belongs in the contract as a seam type, not in a shared Go package.
+- **Shared packages are fine only if they are leaves.** `component`, `logging`,
+  and `util` are shared by everything and cost nothing, because they import no
+  component domain — `component` imports only `logging`. Adding a domain import to
+  any of them re-creates the `mapping` problem instantly.
+- **Cross-component shapes cross via the contract**, and each side maps it into
+  its own domain privately (`engine/mapping.go`, `camera/mapping.go`). A generated
+  type never reaches domain logic — map it first.
+- **Direction check when in doubt:** would this import make a component link a
+  runtime it never calls? Then it is wrong, however convenient.
 
 ## Architecture
 
@@ -90,5 +123,9 @@ No Makefile. Run from inside `go/`.
   arrive as one `EngineConfig` file read once at boot.
 - **Nodes are instantiated once at build**, reused across executions — node state
   persists unless `Execute` clears it.
-- **`mapping` is not contract↔Go mapping** (that's oapi-codegen). It's generic
-  slice utilities plus a few api↔domain response mappers.
+- **Every component boots the same way.** `component.LoadConfig[T]()` reads the one
+  boot config at the contracted path (missing/malformed = permanent, `BootFail`);
+  `component.ReadSecrets()` reads the credential document (**absent is normal** —
+  it means nothing needs a credential). Secrets are keyed by the resource's own
+  ref: there is no `secretRef` to resolve, and a config's `type`/`kind` is what
+  says a credential may exist.

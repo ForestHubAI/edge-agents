@@ -178,16 +178,18 @@ in-container-path : mode`:
 └─ workspaces/<container>/    per-container durable state
    ├─ engine/                 engine memory              → rw at /var/lib/foresthub/workspace
    ├─ llama-server/ <*.gguf>  operator-staged GGUF weights → ro at /var/lib/foresthub/workspace
-   ├─ ml-inference/<model>/   operator-staged ONNX bundle, one sub-folder per model → ro at same
-   └─ camera/cameras.json     generated (not operator-staged) → ro at /etc/foresthub/config.json
+   └─ ml-inference/<model>/   operator-staged ONNX bundle, one sub-folder per model → ro at same
 ```
 
 The split follows config-vs-workspace ([`component-contract.md`](./component-contract.md)):
 `<name>-config.json` is the spec-derived config blob, written and mounted read-only;
 `workspaces/<container>/` is durable state the renderer only pre-creates empty, filled by
-the operator (weights, ONNX repos) or the component (engine memory). camera is the one
-exception — its config is not a spec `config` blob; the renderer writes `cameras.json`
-_into_ `workspaces/camera/` and mounts that file at the config path.
+the operator (weights, ONNX repos) or the component (engine memory).
+
+There are no exceptions: every component that needs config sets a spec `config` blob
+and gets `<name>-config.json` by convention. The camera component has one too (the
+device manifest's camera section, keyed by manifest key) and no workspace at all — it
+holds no durable state.
 
 Two entries have no render role and just co-locate in the bundle: `deployment-spec.json`
 is the Stage-1 resolver's artifact (see the catalog), and `README.md` is an OSS-only

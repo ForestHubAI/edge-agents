@@ -1,423 +1,304 @@
 # Camera rework
 
-The camera is the only device-owned hardware ForestHub reaches through a separate
+The camera was the only device-owned hardware ForestHub reaches through a separate
 container. That fact leaked into the resource model, and the camera ended up
 classified as an **external resource** — an environment-supplied endpoint, like an
-MQTT broker — when it is nothing of the sort. This doc records why that is wrong,
-what to change, and what to leave alone.
+MQTT broker — when it is nothing of the sort.
 
-Two phases, independent and separately shippable:
-
-- **Phase A** — reclassify the camera as a device-owned hardware fact, driven by an
-  engine-private **driver component**, configured by intent rather than by
-  GStreamer syntax. Do this first.
-- **Phase B** — make capture itself efficient. Optional, and mostly not what it
-  looks like.
+**Phase A fixed the classification** and is done; this doc records what changed and
+why, because the reasoning is easy to lose and expensive to re-derive. For what the
+model *is* now, read `workflow-deployment-layers.md` — this is the rationale, not the
+reference. **Phase B (capture efficiency) is deferred**; it is a separate concern that
+survives Phase A untouched.
 
 ---
 
-## Where we are today
+## Why: four defects, one root cause
 
-Facts, as of this writing:
+The root cause was that **packaging silently became the classifier**. `ExternalResources`
+is documented as *environment-supplied facts*, and the manifest as *device-owned* — the
+axis is **ownership, not lifecycle**. But camera was the first device-owned thing shipped
+out-of-image, and "not in the engine image" got treated as "not the device's". Everything
+below followed from that one slip.
 
-- `contract/engine.yaml` has a `CameraConfig` arm in `ExternalResourceConfig`,
-  carrying `{type: camera, url}`.
-- `contract/camera.yaml` has a **different** `CameraConfig` — the camera
-  component's boot config (nicknamed `cameras.json`), a map of name → `CameraSource`.
-  The name collision is real and confusing.
-- `go/engine/build/camera.go` resolves each `CAMERA` channel to a `captureEndpoint`
-  holding an HTTP client.
-- `go/camera` is ~350 non-test lines. It shells out to the `gst-launch-1.0` **CLI**
-  (no CGO, no GStreamer bindings), one pipeline per frame, JPEGs to a temp dir via
-  `multifilesink`, reads the last one, deletes the dir.
-- `ts/workflow-cli/cli/deploy/spec.ts` emits the camera container and mounts
-  `cameras.json` at the standard component config path.
-
-### The four defects
-
-**1. The logical id is on the wire.** `build/camera.go` sends the workflow's channel
-id as the `/capture?name=` selector:
+**1. The workflow's logical id was on the wire.** `build/camera.go` sent the channel id
+as the `/capture?name=` selector:
 
 ```go
 endpoints[ch.Id] = &captureEndpoint{ client: client, name: ch.Id, ... }
 ```
 
 Every other resource resolves logical id → `ref` (+ optional sub-address). Camera
-skips the join: `ref` picks only the URL, and the physical camera is selected by the
-Layer 1 logical name punching through to a Layer 2 config key. `engine.yaml`
-entrenches this — the `model` sub-address is documented as *"omitted for driver/mqtt/
-camera bindings."* Consequences: renaming a channel breaks the deployment; the
-component's config becomes workflow-specific rather than device-specific; and it only
-appears to work because `refs.alloc(\`camera:${ch.id}\`, basename(ch.id))` happens to
-derive the ref from the channel id. The first `alloc` collision that renames a ref
-turns every capture into a silent 404.
+skipped the join: `ref` picked only the URL, and the physical camera was selected by a
+Layer 1 name punching through to a Layer 2 key. `engine.yaml` entrenched it — the
+`model` sub-address was documented as *"omitted for driver/mqtt/camera bindings"*. So
+renaming a channel broke the deployment, and it only worked at all because
+`refs.alloc(\`camera:${ch.id}\`, basename(ch.id))` happened to derive the ref from the
+channel id — the first `alloc` collision would have turned every capture into a silent
+404.
 
-**2. The `ExternalResources` entry carries zero information.** For an on-device
-camera, `spec.ts` writes:
+**2. The `ExternalResources` entry carried zero information.**
 
 ```ts
 externalResources[ref] = { type: "camera", url: `http://${cameraComponentServiceName()}:${CAMERA_COMPONENT_PORT}` };
 ```
 
-Both are compile-time constants from `contract/component-constants.json`, and the
-camera component is a documented singleton. So this is a constant, dressed as a
-resolved config, duplicated once per channel. It sits in `ExternalResources` not
-because anything about it is environment-supplied, but because that was the only pool
-on offer.
+Both are compile-time constants from `component-constants.json`, and the component is a
+documented singleton. A constant, dressed as a resolved config, duplicated once per
+channel. It sat there not because anything was environment-supplied, but because that
+was the only pool on offer.
 
-**3. `cameras.json` is keyed by the workflow's channel id.** The renderer does generate
-it — `camerasJson()` in `generate.ts:169` builds one entry per on-device camera from
-the wizard binding (`source`, `device`, `warmupFrames`, `setup`) and `write.ts` emits
-it. But it keys each entry by the **channel id**:
+**3. The component's config was keyed by channel id.** The renderer *did* generate it
+(`camerasJson()`); it keyed each entry by `ch.id` — defect 1 seen from the renderer's
+side, so both ends agreed with each other and both encoded the violation. The
+consequence: the component's config was **workflow-specific rather than
+device-specific**. The same sensor got a different key per workflow, and two workflows
+on one box could not describe it consistently.
 
-```ts
-for (const [id, b] of Object.entries(cfg.cameras)) {   // id is the workflow channel id
-  if (b.location === "device") { ...; cameras[id] = entry; }
-}
-```
-
-which is defect 1 seen from the renderer's side: Go sends `ch.Id` as the `/capture`
-selector, TS keys the config by the same `ch.id`, so the two agree with each other and
-both encode the violation. The consequence isn't a missing file — it's that the
-component's config is **workflow-specific rather than device-specific**: the same
-physical camera gets a different config key per workflow, renaming a channel rewrites
-the device's capture config, and two workflows on one box cannot describe the same
-sensor consistently.
-
-**4. The config is a driver recipe, not a hardware fact.** `CameraSource.device`
-holds GStreamer pipeline syntax — `strings.Fields(cc.Device)` splits it into pipeline
-tokens, so `"rtspsrc location=… ! rtph264depay ! avdec_h264"` is a legal value. And
-`setup: []string` runs through `/bin/sh -exc`. Both are explicitly operator-trusted.
+**4. The config was a driver recipe, not a hardware fact.** `CameraSource.device` held
+GStreamer pipeline syntax (`strings.Fields` split it into tokens, so
+`"rtspsrc location=… ! rtph264depay ! avdec_h264"` was legal), and `setup` ran through
+`/bin/sh -exc`.
 
 ---
 
-## Phase A — camera as a device-owned driver component
+## What Phase A changed
 
-### A1. Classification: hardware fact
+### The camera is a hardware fact
 
-A camera is hardware the box owns, exactly as much as `/dev/gpiochip0` or
-`/dev/ttyUSB0`. `workflow-deployment-layers.md` already states the axis: the manifest
-is **device-owned**, `ExternalResources` is **environment-supplied**, and the
-distinction is *ownership, not lifecycle*. Camera was misfiled because it was the
-first device-owned thing shipped out-of-image — so packaging silently became the
-classifier.
+`DeviceManifest.cameras` now holds the box's cameras, and the `camera` arm is **deleted**
+from `ExternalResourceConfig` — which killed the `CameraConfig` name collision for free.
+A `CAMERA` channel's `ref` resolves against the manifest, one pool, like every other
+hardware channel, and `/capture?name=` carries that **ref**. Defects 1 and 2 both die
+here: the ref is a device fact on both ends, so no sub-address is needed, and there is no
+URL left to store.
+
+That the driver runs out-of-process is now purely a Layer 3 packaging detail. The engine
+reaches it at a constant address (`component.Camera` / `component.CameraPort`) — nothing
+points at it, and no operator supplies anything.
+
+The wizard also finally has a pool to offer. It used to say camera candidates come from
+*"existing/new capture-component endpoints"*, i.e. the operator typed `/dev/video0` into
+a form, even though Ranger provisioned the box and knew what cameras it had.
+
+**Why no remote cameras.** An IP camera is a `kind: rtsp` entry in the manifest of the
+box that reaches it — reached over the network, not deployed over it. A camera attached
+to a *different* box is not a camera problem: remote GPIO is exactly as conceivable and
+exactly as unsupported, because the engine's model is one engine, one box, that box's
+hardware. The answer there is an engine on that box publishing over MQTT — already
+contracted, and it survives partition in a way synchronous remote capture doesn't. If
+that's wrong, the cost is one additive contract change; the driver interface doesn't
+move, because both arms are an HTTP client either way.
+
+### Config declares intent; the component owns the recipe
+
+`CameraSource` is a union discriminated by `kind` — `v4l2`, `libcamera`, `rtsp`, `http`,
+`raw`, `debug` — carrying only *which camera, reached how*. The recipe per kind lives in
+`camera/source_gstreamer.go` (`sourceArgs`). This is what makes the classification
+*correct* rather than merely tidier: without it the manifest would contain GStreamer
+syntax and shell scripts, and "device-owned" would be a lie.
+
+**The kinds are access paths, not form factors.** The first cut used `usb`/`csi` and was
+wrong: a CSI sensor is v4l2 on boards that expose a preconfigured node and libcamera on
+boards that don't, so the form factor cannot determine a pipeline — and determining the
+recipe is the entire job of the kind. The access path can, and `v4l2`/`libcamera` are
+*platform* facts (like `/dev/gpiochip0`), not GStreamer vocabulary, so the manifest stays
+device-owned.
+
+**This is not an llmproxy-style provider abstraction, deliberately.** llmproxy earns its
+adapters because Anthropic/OpenAI/Gemini have incompatible protocols with no common
+substrate. GStreamer *is* that substrate. What the component absorbs is **element
+selection**, not protocol knowledge, so each adapter is a few lines and `decodebin`
+handles codec negotiation:
+
+```
+v4l2      → v4l2src device=…
+libcamera → libcamerasrc [camera-name=…]
+rtsp      → rtspsrc location=… [user-id/user-pw] ! decodebin
+http      → souphttpsrc location=… [user-id/user-pw] ! decodebin
+raw       → <fragment, verbatim>
+```
+
+What this bought: the manifest stopped depending on fh-camera's syntax (swapping the
+driver is no longer a manifest migration); the RCE surface shrank to `kind: raw` and
+`setup`; and credentials got a structured home instead of a password embedded in a URL
+inside a pipeline string inside a versioned device fact.
+
+### `CameraSource` lives in `camera.yaml`; `engine.yaml` `$ref`s it
+
+The first cut had this backwards, reasoning "the manifest is the source of truth". That
+conflates **authority over the data** with **ownership of the type**: the manifest is
+authoritative about *which cameras exist*; fh-camera decides *what a kind means*, and
+adding one is a camera-component change the engine never notices.
+
+The decisive argument is dependency direction — the same one that dissolved the shared
+`mapping` package. The engine already imports `cameraapi` (it *is* the client), so
+`engineapi → cameraapi` is free. The other direction invented a fresh dependency that
+made the driver component's generated package drag in the entire engine and workflow api
+surface.
+
+### The engine side: a driver, not an endpoint
+
+`driver.Registry` owns it alongside `GPIO`/`ADC`/`Serial`:
 
 ```go
-type DeviceManifest struct {
-    GPIOs   map[string]GPIOConfig
-    ...
-    Cameras map[string]CameraSource   // ref ─► the box's camera
-}
+func (r *Registry) Camera(id string) (CameraDriver, error)
 ```
 
-- The `camera` arm is **deleted** from `ExternalResourceConfig` in `engine.yaml`.
-  This resolves the `CameraConfig` name collision for free.
-- A `CAMERA` channel's `ref` resolves against `DeviceManifest.Cameras`, one pool,
-  like every other hardware channel.
-- `/capture?name=` carries the **ref**. Defect 1 dies: the ref is a device fact on
-  both ends, and no sub-address is needed.
-- The wizard finally gets a pool to offer. Today `workflow-deployment-layers.md:414`
-  says camera candidates come from *"existing/new capture-component endpoints"* —
-  i.e. the operator types `/dev/video0` into a form, even though Ranger provisioned
-  the box and knows what cameras it has. That knowledge now has a home.
+`build/camera.go` and its endpoint map are gone. `buildChannels` builds a
+`channel.Camera{Driver, Width, Height}` in the same switch as every other hardware
+channel, and boot validation became *"camera ref not in driver registry"* — the same
+failure shape as a miswired gpiochip.
 
-**Which cameras are remote?** None, and this is deliberate. An IP camera is not a
-remote camera component — it's a `kind: rtsp` entry in the manifest of the box that
-reaches it, driven by the local component. A camera physically attached to a
-*different* box is not a camera problem at all: remote GPIO is exactly as conceivable
-and exactly as unsupported, because the engine's model is one engine, one box, that
-box's hardware. The answer there is an engine on that box publishing frames over MQTT
-— already contracted, and it survives network partition in a way synchronous remote
-capture does not. If we are wrong, the cost is one additive contract change (re-add
-the arm, add a second pool); the engine's driver interface does not move, because both
-arms are an HTTP client either way. Low regret — don't pay for the flexibility now.
+A camera takes **no sub-address**, which is less of an anomaly than it looks: `UART`
+already resolves `ref`-only. `index` exists to pick an addressable part *inside* a bound
+resource where that part has no config of its own — a gpiochip owns 40 lines, and there
+is nothing to say about line 17 except its number. A camera, like a serial port, is a
+configured leaf: its `CameraSource` *is* the resource, so there is nothing beneath it to
+address.
 
-### A2. Config by intent, not by recipe
+`width`/`height` are **not** that sub-address — they address nothing. They are the analog
+of `GPIOIN`'s `bias`/`debounceMs`: workflow-owned parameters that ride on the channel and
+travel per request (`/capture?width=&height=`). They must stay off `CameraSource`,
+because the ref is content-addressed over it —
+``refs.alloc(`camera:${JSON.stringify(src)}:${password}`)`` — so two channels reading one
+`/dev/video0` at 640×480 and 1920×1080 would hash to two refs, two manifest entries, and
+two pipelines opening the same node. On a v4l2 device that is an `EBUSY` at capture time,
+on a deployment that looked valid. Keeping size on the channel is what makes "several
+channels share one camera at different sizes" expressible at all.
 
-This is what makes A1 *correct* rather than merely tidier. Without it, the
-`DeviceManifest` contains GStreamer syntax and shell scripts — a driver recipe in one
-driver's vocabulary, with two arbitrary-code-execution surfaces.
+The engine's **domain** `CameraSource` keeps only the discriminator. It reaches every
+camera identically, so the capture details (device, url, credentials, warmup, setup)
+never enter the engine at all — `Kind` is carried for diagnostics, never to decide
+behavior.
 
-Replace the `source` / `device` pair with a **kind discriminator**:
+### The component: a domain layer it lacked
 
-```yaml
-CameraSource:
-  oneOf: [UsbCamera, CsiCamera, RtspCamera, HttpCamera, RawCamera, DebugCamera]
-  discriminator: { propertyName: kind }
+`BuildSources` used to take the generated `cameraapi.CameraConfig` directly, which
+brushed against the repo rule (*never let a generated type leak into domain logic*). It
+was harmless only while the config held nothing sensitive and nothing kind-dependent —
+both of which A2/A4 changed. It now has a domain `Camera`/`Config` and a `ToDomain`
+mapping step that merges credentials at the api→domain boundary, mirroring the engine.
 
-# usb   → { device: /dev/video0 }
-# csi   → { device: <sensor selector>, setup?: [...] }
-# rtsp  → { url, user? }                   password from secrets[ref]; see A4
-# http  → { url, user? }                   password from secrets[ref]; see A4
-# raw   → { pipeline: "<gst fragment>" }   escape hatch, explicitly operator-trusted
-# debug → {}                               fixed frame, hostless CI
-```
+One structural win came free: `debug` has no `setup` field in the contract, so *"setup
+commands are not supported for source debug"* stopped being a runtime check.
 
-Wire configs are **secret-free**, so no arm carries a password or a `secretRef`. The
-`kind` is what declares a credential may exist, exactly as `type: mqtt` does today.
+### Secrets: per component, ref-as-key, no schema
 
-The component owns the recipe per kind. This is **not** an llmproxy-style provider
-abstraction, and we should not build one: llmproxy earns its adapters because
-Anthropic/OpenAI/Gemini have genuinely incompatible protocols with no common
-substrate. GStreamer *is* that substrate, and has been for twenty years. What we are
-absorbing is **element selection**, not protocol knowledge — and GStreamer hands us
-the generic answer, so each adapter is a few lines:
+The engine never sees an RTSP URL — the component builds the pipeline, so it is the only
+thing that needs the credential. `buildDeploymentSpec` therefore returns **one secret
+document per component** instead of one flat map, and the engine cannot leak a credential
+it was never given. That is an improvement independent of camera.
 
-```
-usb  → v4l2src device=…
-csi  → libcamerasrc …
-rtsp → rtspsrc location=… ! decodebin        # decodebin auto-negotiates h264/h265/mjpeg
-http → souphttpsrc location=… ! decodebin
-```
-
-The component already does this once — the `v4l2` arm in `newGStreamerSource` is
-exactly the pattern. Today there is one adapter and an escape hatch; make the
-adapters the main path and keep the escape hatch as `kind: raw`, which is genuinely
-valuable for odd hardware and should stay.
-
-What this buys, beyond taste:
-
-- The manifest declares intent, so it is a hardware fact.
-- The manifest stops depending on fh-camera's syntax — swapping the driver stops
-  being a manifest migration.
-- The RCE surface shrinks to `kind: raw` and `csi.setup`.
-- **Credentials get a structured home** (see A4), instead of a password embedded in a
-  URL inside a pipeline string inside a versioned device fact.
-
-`setup` narrows to the kinds that need it (CSI/ISP media graphs). It stays ugly, and
-it stays correct: "to use this sensor you must run these media-ctl commands" is
-genuinely knowledge about the box, and it has to live somewhere.
-
-### A3. `cameras.json` becomes derived from the manifest
-
-`camerasJson()` already generates the file; what changes is its **source and its key**.
-It stops reading wizard bindings keyed by channel id and starts emitting the subset of
-`DeviceManifest.Cameras` that this deployment's bound channels resolve to, keyed by
-ref. Defect 3 dies: the config becomes device-specific, so the same sensor has the same
-key in every workflow on the box. `/dev` passthrough and the `/run/udev` mount likewise
-come from the manifest rather than the binding. Only bound cameras are emitted — the
-component should not run setup scripts for sensors no workflow reads.
-
-`camera.yaml`'s `CameraConfig` stays; it's still a cross-language seam (renderer
-writes, component reads). It becomes a **projection** of the manifest.
-
-**Where `CameraSource` lives:** define it once in `engine.yaml` beside
-`DeviceManifest` and have `camera.yaml` `$ref` it. The manifest is the source of
-truth; the component's config is derived from it, so the dependency should point that
-way. Cross-contract refs are established (`debug.yaml` and `deployment.yaml` both ref
-`workflow.yaml`).
-
-### A4. Secrets
-
-RTSP/HTTP cameras need credentials, and there is **no structural reason** the secrets
-mechanism can't serve the manifest. The plumbing is already component-neutral:
-`SecretsFile = "/etc/foresthub/secrets.json"` lives in `go/component/constants.go`,
-the generic component contract, not `cmd/engine`. Only the engine currently gets one.
-
-#### The existing mechanism, exactly
-
-Worth stating precisely, because it is tighter than it looks and the camera arm should
-not deviate from it:
-
-- **Wire configs are secret-free.** `MQTTConfig` on the wire carries `username` but no
-  password field at all. Secrets are never in the deployment spec — not rotation-safe,
-  breach-exposed if stored.
-- **`secrets.json` is keyed by the resource's own ref.** There is no `secretRef` field
-  and no indirection: the ref *is* the key. `Password: secrets[id]`
-  (`mapping/engine.go:52`), `APIKey: secrets[id]`.
-- **The domain type carries the credential**, merged at the api→domain boundary
-  (`mapping.ExternalResourcesToDomain`). A generated type never reaches domain logic
-  holding a secret, because it never holds one at all.
-- **The `type`/`kind` decides whether a secret is read.** mqtt → `Password`;
-  `localLlm`/`selfhostedLlm` → `APIKey`; `ml-inference`/`camera` → none today.
-- **It is implicitly optional, never validated.** *"A missing secret leaves the
-  credential empty (the connection may still be valid — e.g. an anonymous broker or a
-  keyless endpoint)."*
-
-**Do not add a `secretRef` field.** `spec.ts:370` already encodes the invariant
-deliberately — the password participates in the ref dedup key precisely so that *"same
-broker, different creds is a different resource."* A credential is part of a resource's
-identity, not an attribute it points at. Adding indirection for camera alone would
-contradict a decision already made, make camera the only arm with a second convention,
-and add a dangling-reference failure mode to buy sharing and multi-secret support that
-camera does not need (RTSP is `user` in config plus one password).
+The mechanism was left exactly as it was, because it is tighter than it looks: wire
+configs are secret-free, `secrets.json` is keyed by the **resource's own ref**, and the
+`type`/`kind` is what says a credential may exist. **No `secretRef` was added** —
+`spec.ts` already encodes the invariant that a credential is part of a resource's
+identity (the password participates in the ref dedup key, so *"same broker, different
+creds is a different resource"*). Indirection would have contradicted a decision already
+made, made camera the only arm with a second convention, and bought sharing and
+multi-secret support camera doesn't need.
 
 The real limit is that ref-as-key hard-codes **one credential per resource**. It holds
-today because every arm needs exactly one. The day something needs two — mTLS cert +
-key + passphrase is the realistic case — the model genuinely breaks, and that should be
-fixed *globally* with a considered design. Camera is not the forcing function.
+because every arm needs exactly one; the day something needs two (mTLS cert + key +
+passphrase), fix it *globally*. Camera is not the forcing function.
 
-So: `RtspCamera { kind, url, user? }` on the wire; password from `secrets[ref]`.
+`ComponentSecrets` was dropped from the contract entirely rather than renamed. A bare
+`map[string]string` has no fields to drift, so codegen bought nothing; what is contracted
+is the **path** and the **keying rule**, and both already live in `component`. `Secrets`
+is now one domain type there, with `component.ReadSecrets()` — which deleted
+`engine.Secrets`, `camera.Secrets`, `SecretsToDomain`, and two bespoke loaders.
 
-#### What actually changes
+**Trap worth keeping:** manifest refs are device-authored; `ExternalResources` refs are
+renderer-allocated. Two namespaces in one flat map can collide. Per-component documents
+dissolve this — don't merge them back into one map later.
 
-**The secret goes to the camera component, not the engine.** The engine never sees the
-RTSP URL — the component builds the pipeline, so it is the only thing that needs the
-credential. That means:
+### The renderer: config by convention, no special case
 
-- `buildDeploymentSpec` stops returning one flat `resourceSecrets` map (`spec.ts:75`,
-  mirrored on `EngineSecrets`) and starts returning **one per component**.
-- `EngineSecrets` is misnamed under this model — it wants to be a neutral
-  `ComponentSecrets`, sitting with the component contract.
-- `cmd/camera` gains a `secrets.json` read, mirroring `loadEngineSecrets`.
+The camera used to hand-roll `workspaces/camera/cameras.json` and mount it at the config
+path, which forced a bespoke block in the writer. That mount was itself the anomaly:
+every other component sets `DeployComponent.config` and gets `<name>-config.json` written
+and mounted for free. Camera now does too — deleting `camerasJson()`, the writer's
+special case, and the workspace dir (it holds no durable state). **There is no file
+called `cameras.json` any more.**
 
-This is an improvement independent of camera: least privilege — the engine cannot leak
-a credential it was never given.
+Its config is the manifest's camera section for the bound channels, keyed by ref, so
+defect 3 dies: device-specific, same key in every workflow. `/dev` passthrough and the
+`/run/udev` mount come from the manifest too. The ref is allocated from the camera's
+*identity* (`camera:${source}:${password}`), so two channels declaring the same camera
+collapse onto one entry and share one driver — and renaming a channel can't move it.
 
-**The camera component needs a domain layer it currently lacks.** `camera.BuildSources`
-takes `cameraapi.CameraConfig` — the generated type — directly, with no domain type and
-no mapping step. That already brushes against the repo rule (*"never let a generated
-type leak into domain logic — map it first"*); it is harmless today only because the
-config holds nothing sensitive and nothing kind-dependent. Once `kind` arms carry
-credentials merged from `secrets[ref]`, the component needs what the engine has: a
-domain `Camera` type and a `mapping` step that performs the merge at the boundary. This
-is a prerequisite for A2/A4, not an afterthought — and it is where the merge belongs.
+### The transport stayed an HTTP server
 
-#### The gap: device-scoped secrets have no author
+"Driver component" is a statement about **ownership** — who issues it, who configures it,
+whether an operator may point at it — not about transport. The engine doesn't spawn the
+container (Ranger/compose does), so the only options were a network socket or a Unix
+socket on a shared volume, and the wire was already contracted, generated, and tested.
 
-This one is not structural either, but the flow genuinely does not exist.
+What changed is classification, not the wire: `camera.yaml` is marked a **private wire**,
+the port is never host-published, and nothing in `ExternalResources` may point at it.
+`/metadata` was **kept but demoted** to diagnostic — nobody discovers cameras through it,
+since the manifest is the truth and the renderer derived the component's config from it.
 
-Every secret today is **deploy-scoped**: the operator types it into the wizard, and
-`buildDeploymentSpec` pulls it out of the binding into `resourceSecrets[ref]`. But the
-manifest is **device-owned, read-only ground truth** — there is no binding to carry a
-credential, and asking per-deployment would be wrong anyway (an RTSP password is a fact
-about the device's camera, not about this workflow; it should be entered once per
-device, not once per deploy).
+**Option not taken:** a Unix socket would make "engine-private" true *by construction*
+rather than by convention — today a TCP listener on the compose bridge is reachable by
+any container on it. Real argument, but it costs a shared volume and dev friction, and
+`127.0.0.1` isn't available across containers. Revisit if the claim ever needs enforcing.
 
-So a manifest-declared camera credential needs a **device-scoped secret store**,
-supplied by Ranger alongside the device registration and injected at render. The
-transport mechanism (`secrets.json` keyed by ref) works unchanged; the *authoring path*
-is new. That lands in fh-backend rather than this repo, but the contract has to
-accommodate it, and it is the one part of Phase A with a genuine external dependency.
-USB and CSI cameras need no credential — so this only blocks `kind: rtsp` / `kind:
-http`, and the phase can ship without them.
+**Dropped from the plan: the `/readyz` probe at registry build.** `driver.NewRegistry` is
+workflow-agnostic, but the driver component only exists when a workflow binds a camera —
+so a device with manifest cameras and a workflow using none would `boot.Retry` forever on
+a valid deployment. Probing only *bound* cameras needs the workflow, which the registry
+doesn't have. Registration makes no network call, so an unreachable component still
+surfaces at first capture. Worth fixing; needs a different seam.
 
-**Trap:** manifest refs are device-authored (`gpiochip0`, `cam0`); `ExternalResources`
-refs are renderer-allocated via `refs.alloc`. Two namespaces in one flat secrets map
-can collide. Per-component secret documents dissolve this — don't merge them back into
-one map later. Note that manifest refs also need no dedup, since the manifest author
-picks them; the `refs.alloc` identity/dedup machinery applies only to the renderer's
-pool.
+### The category got a name
 
-### A5. Transport — it stays a genuine server
+Every other component — ml-inference, llama-server, grafana — is independently
+deployable, and that is how the repo frames the word. Camera isn't: engine-private
+lifecycle, derived config, constant address, never operator-selected. Written down in the
+root `CLAUDE.md` and `components/README.md` as a **driver component**, by **criterion**
+rather than instance — *device-owned hardware whose driver cannot live in the engine
+image* — because a category with one member doesn't defend itself, and audio capture or a
+vendor SDK would join it later. Without that, someone would eventually "fix" camera back
+into the standalone mould by applying the rule that *is* written down.
 
-**Yes, keep the HTTP server.** "Sub-component" is a statement about *ownership* — who
-issues it, who configures it, whether an operator may point at it — not about
-transport.
-
-The engine does not spawn the camera container; Ranger/compose does. They are two
-processes on a bridge, so the only transports available are a network socket or a
-Unix socket on a shared volume. Given that:
-
-- The wire is already contracted, generated on both sides, and tested. Changing it
-  buys nothing functional.
-- `/readyz` is *needed*: the driver registry should probe it at boot (A6). That's a
-  server feature.
-- `/healthz` stays — the container runtime uses it for restart policy.
-- **`/metadata` becomes dead weight.** It exists so an external consumer can discover
-  what cameras a component serves. Under this model nobody discovers: the manifest is
-  the truth and the engine wrote the component's config. Keep it for debugging or drop
-  it, but stop treating it as part of the contract's purpose.
-
-What *does* change is the classification, not the wire: `camera.yaml` is marked a
-**private wire**, the port is never host-published (already true — it's container-side
-only), and nothing in `ExternalResources` may point at it.
-
-**Option not taken:** a Unix socket on a shared volume would make "engine-private"
-true *by construction* rather than by convention — today a TCP listener on the compose
-bridge is reachable by any container on it. That's a real alignment argument, but it
-costs a shared volume mount and dev friction, and note `127.0.0.1` is not an option
-across containers. Revisit if the privacy claim ever needs enforcing rather than
-documenting.
-
-### A6. Engine side
-
-`driver.Registry` owns it, alongside `GPIO`/`ADC`/`Serial`:
-
-```go
-func (r *Registry) Camera(id string) (CaptureDriver, error)
-```
-
-`build/camera.go`'s endpoint map goes away. Boot validation becomes *"camera ref not
-in driver registry"* — the same failure shape as a miswired gpiochip — replacing
-*"camera bound to ref with no config in externalResources"* in the
-`workflow-deployment-layers.md` validation table.
-
-Constructing an HTTP client can't fail, so a camera driver would trivially "open"
-while the component is still loading. Since `transport.Registry` already does
-`boot.Retry` on an unreachable broker, the consistent move is to probe `/readyz` at
-registry build and `boot.Retry`. That is strictly better than today, where an
-unreachable camera surfaces at first capture, potentially hours in.
-
-### A7. The category needs a name
-
-Every other component here — ml-inference, llama-server, grafana — is independently
-deployable, and that is how the repo frames the word. Camera under this model is not:
-engine-private lifecycle, derived config, constant address, never operator-selected.
-The engine is the **sole issuer of its sub-components**.
-
-Write this down in `components/README.md` and the root `CLAUDE.md`, or someone will
-later "fix" camera back into the standalone mould by applying the rule that *is*
-written down. Name the **criterion**, not the instance: *device-owned hardware whose
-driver cannot live in the engine image*. A category with one member doesn't defend
-itself — but audio capture, a vendor SDK, anything CGO'd, all join it later.
-
-Also write down the invariant that makes hardware claims safe: **one engine per
-device; its sub-components are singletons of that engine; hardware claims belong to
-that domain.** Today "one camera component" is enforced by accident — a constant
-service name and port in `component-constants.json` that would simply collide. That's
-a compose-level accident protecting a real safety property (`/dev/video0` is
-typically single-open). State it as a rule.
-
-### Phase A change list
-
-| Area | Change |
-|---|---|
-| `contract/engine.yaml` | `DeviceManifest.Cameras`; define `CameraSource` (kind-discriminated); **delete** the `camera` arm from `ExternalResourceConfig` |
-| `contract/camera.yaml` | `$ref` `CameraSource` from `engine.yaml`; keep `CameraConfig` as the derived projection; decide `/metadata`'s fate; mark as a private wire |
-| `contract/component-constants.json` | unchanged (name + port stay constants) |
-| `go/engine/driver` | `Camera(ref) → CaptureDriver`; `/readyz` probe + `boot.Retry` at registry build |
-| `go/engine/build/camera.go` | deleted; the node takes a driver from the registry |
-| `go/camera` | per-kind adapters replacing `source`/`device`; `kind: raw` escape hatch; domain type + `mapping` step (A4); `secrets.json` read |
-| `ts/…/deploy/spec.ts` | emit derived `cameras.json` from the manifest; `/dev` + `/run/udev` from the manifest; per-component secrets; drop camera from `externalResources` |
-| `workflow-deployment-layers.md` | camera moves to the DeviceManifest row; fix *"a camera is named by the capture node"* (it isn't — it's the channel id today, the ref after this); update the validation table |
+Also recorded: **one engine per device; its driver components are singletons of that
+engine; hardware claims belong to that domain.** That invariant is what makes an
+exclusive `/dev/video0` open safe. It was previously enforced by accident — a constant
+service name and port that would simply collide.
 
 ---
 
-## Phase B — capture efficiency
+## Phase B — capture efficiency (deferred)
 
-The current pipeline is slow: a process spawn, caps negotiation, warmup frames, and
-temp files **per frame**. The 15s `CaptureTimeout` is that, acknowledged. But most of
-it is forced, and one part is defensible. Separating them matters.
+Untouched by Phase A and still worth doing, but the headline is not what it looks like.
+The pipeline is slow: a process spawn, caps negotiation, warmup frames, and temp files
+**per frame** (the 15s `CaptureTimeout` is that, acknowledged). Most of it is forced, and
+one part is defensible.
 
 **Subprocess per frame** is the direct cost of using the CLI rather than the library —
-`gst-launch-1.0` has no persistent mode, so there is nothing else to do. The real
-question is why the CLI, and note the usual answer doesn't hold: the camera image
-*already ships GStreamer userland*, so CGO there costs nothing in image size, and the
-engine stays lean regardless because camera is a separate image. **The actual reason is
-cross-compilation** — CGO costs `GOOS=linux GOARCH=arm64` from x86 CI and buys a cross
-toolchain or qemu builds. That is a real price for an edge fleet, and it should be
-named as *the* reason rather than letting "lean image" stand in for it.
+`gst-launch-1.0` has no persistent mode. The usual justification doesn't hold: the camera
+image *already ships GStreamer userland*, so CGO there costs nothing in image size, and
+the engine stays lean regardless because camera is a separate image. **The actual reason
+is cross-compilation** — CGO costs `GOOS=linux GOARCH=arm64` from x86 CI and buys a cross
+toolchain or qemu builds. That's a real price for an edge fleet; name it as *the* reason.
 
-**Temp files are a symptom, not a flaw.** The reasoning in the code is sound:
-concatenated JPEGs on stdout have no reliable boundary, and `num-buffers` genuinely
-doesn't exist on live sources like `libcamerasrc`. Within subprocess-land,
-`multifilesink` + read-the-last is a reasonable answer. Fix the architecture or leave
-this alone.
+**Temp files are a symptom, not a flaw.** Concatenated JPEGs on stdout have no reliable
+boundary, and `num-buffers` genuinely doesn't exist on live sources like `libcamerasrc`.
+Within subprocess-land, `multifilesink` + read-the-last is reasonable. Fix the
+architecture or leave it alone.
 
-**Warmup frames exist because the pipeline dies each time.** This is the one worth
-staring at. A persistent pipeline with `appsink` kills the spawn cost *and* the warmup
-cost — auto-exposure settles once, then every capture is a buffer pull. That's the
-strong argument for `go-gst`.
+**Warmup frames exist because the pipeline dies each time.** A persistent pipeline with
+`appsink` would kill the spawn cost *and* the warmup cost — auto-exposure settles once,
+then every capture is a buffer pull. That's the argument for `go-gst`.
 
 But the counter is real: a persistent pipeline holds the sensor open forever, drawing
-power and blocking every other user of the node. If the workflow captures on an hourly
-trigger — the LLM-vision case this is built for — spawning is *right*. **The design is
-coherently tuned for infrequent capture.** Challenge the frequency assumption, not the
-implementation. If it turns out we capture every few seconds, the answer is a
-**lazy persistent pipeline with an idle timeout**: open on first capture, hold for N
-seconds, tear down when idle. That gets both properties, and it's the design worth
-writing if we go CGO — not "use CGO" on its own.
+power and blocking every other user of the node. For an hourly trigger — the LLM-vision
+case this is built for — spawning is *right*. **The design is coherently tuned for
+infrequent capture.** Challenge the frequency assumption, not the implementation. If we
+do capture every few seconds, the answer is a **lazy persistent pipeline with an idle
+timeout**, not "use CGO" on its own.
 
 ### The free win, and it isn't CGO
 
@@ -427,40 +308,38 @@ args = append(args, "!", fmt.Sprintf("video/x-raw,width=%d,height=%d", width, he
 args = append(args, "!", "videoconvert", ..., "!", "jpegenc", ...)
 ```
 
-`video/x-raw` forces raw output. Most UVC webcams emit **MJPEG natively** — so we make
-the camera decode JPEG to raw, then re-encode it back to JPEG. A double transcode
-costing CPU and image quality for nothing. On a Pi at 1080p that's a meaningful chunk
-of capture latency, and nothing forces it: negotiate `image/jpeg` caps and pass the
-buffer through when the source offers it, falling back to `videoconvert ! jpegenc`
-when it doesn't. RTSP-h264 must still decode — unavoidable, and fine.
+`video/x-raw` forces raw output. Most UVC webcams emit **MJPEG natively** — so the camera
+decodes JPEG to raw and we re-encode it back to JPEG. A double transcode costing CPU and
+image quality for nothing. On a Pi at 1080p that's a meaningful chunk of capture latency,
+and nothing forces it: negotiate `image/jpeg` caps and pass the buffer through when the
+source offers it, falling back to `videoconvert ! jpegenc` when it doesn't. RTSP-h264
+must still decode — unavoidable, and fine.
 
-**Recommendation: do the passthrough fix, don't do CGO yet.** It captures much of the
-real-world win at zero architectural cost and no build-pipeline change. Revisit go-gst
-only when the capture-frequency assumption actually changes, and then build the
-idle-timeout design rather than a naive always-on pipeline.
+**Do the passthrough fix; don't do CGO yet.** It captures much of the real-world win at
+zero architectural cost and no build-pipeline change.
 
 ### While we're here
 
-`jpegenc` is hardcoded, which makes `camera.yaml`'s *"modality-neutral… a server
-returns encoded frames for its modality"* fiction. Either make the output format a
-config field or stop claiming it in the contract. The contract should not describe a
-component we haven't built.
+`jpegenc` is hardcoded, which makes `camera.yaml`'s *"modality-neutral… a server returns
+encoded frames for its modality"* fiction. Either make the output format a config field
+or stop claiming it in the contract.
 
 ---
 
-## Open decisions
+## Still open
 
-1. **`/metadata`** — keep for debugging, or drop as redundant under A3?
-2. **`CameraSource`'s home** — `engine.yaml` (recommended: manifest is upstream) vs
-   `camera.yaml` (it is the component's input vocabulary).
-3. **Unix socket vs TCP** (A5) — convention vs construction. Recommend TCP now.
-4. **Capture frequency** — the load-bearing assumption under all of Phase B. If
-   sub-minute capture is a real target, B is not optional and the idle-timeout
-   persistent pipeline is the design.
-5. **`kind: raw` and `csi.setup`** — both are RCE-by-design, fine while Ranger authors
-   the manifest. If the manifest ever becomes wizard-editable, they need gating. This
-   is now a committed constraint rather than an accident.
-6. **Device-scoped secrets** (A4) — the only part of Phase A with an external
-   dependency (Ranger must author credentials against the device, not the deploy).
-   Ship USB/CSI first and gate `kind: rtsp` / `kind: http` on it, or block the phase?
-   Recommend the former.
+1. **Capture frequency** — the load-bearing assumption under all of Phase B. If
+   sub-minute capture is a real target, B is not optional and the idle-timeout persistent
+   pipeline is the design.
+2. **`kind: raw` and `setup`** — both are RCE-by-design, fine while Ranger authors the
+   manifest. If it ever becomes wizard-editable, they need gating. Now a committed
+   constraint rather than an accident.
+3. **Device-scoped secrets** — the transport works (`secrets[ref]`, per component), but
+   the *authoring path* doesn't exist: every secret today is deploy-scoped, pulled from a
+   wizard binding. An RTSP password is a fact about the device's camera and should be
+   entered once per device, not once per deploy. Ranger's to build; until then, an
+   authenticated `rtsp`/`http` camera has no way to receive its password.
+4. **The `/readyz` probe** — dropped for the reason above; an unreachable component still
+   surfaces at first capture rather than at boot.
+5. **The MJPEG double transcode** — the one gratuitous cost, fixable with a caps
+   negotiation and no architecture change. Highest value-per-effort left here.

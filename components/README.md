@@ -6,6 +6,12 @@ a dashboard, an MQTT broker, a metrics exporter — that the workflow graph does
 summon. You author it; the wizard merges it in and renders it exactly like the
 first-party components.
 
+> **Not every container here is one of these.** A *driver component* — camera today —
+> is engine-private: the engine issues it, derives its config from the device
+> manifest, and reaches it at a constant address. It is not independently deployable,
+> not something you point at, and not authored this way. See "Two kinds of component"
+> in the root `CLAUDE.md`. Everything below is about **service** components.
+
 You hand the wizard a **folder**, via `--component <dir>` (repeatable) or the
 interactive prompt. It reads at most **two files** from that folder:
 

@@ -174,13 +174,14 @@ describe("buildDeploymentSpec", () => {
         { id: "b", file: "b.gguf", args: ["--ctx-size", "8192"] },
       ],
     });
-    // Every device model points at the same shared component url; each mapped by id.
+    // ONE provider for both models, not one per model: the ref identifies the endpoint
+    // and the model sub-address picks the model within it.
     const ext = engineConfigOf(spec).externalResources!;
-    const urls = Object.values(ext)
-      .filter((r) => r.type === "selfhostedLlm")
-      .map((r) => (r as { url: string }).url);
-    expect(urls).toEqual([`http://${llamaComponentServiceName()}:8080`, `http://${llamaComponentServiceName()}:8080`]);
-    expect(Object.keys(engineConfigOf(spec).mapping ?? {}).sort()).toEqual(["a", "b"]);
+    const providers = Object.entries(ext).filter(([, r]) => r.type === "selfhostedLlm");
+    expect(providers).toHaveLength(1);
+    const [ref, provider] = providers[0]!;
+    expect(provider).toMatchObject({ url: `http://${llamaComponentServiceName()}:8080` });
+    expect(engineConfigOf(spec).mapping).toEqual({ a: { ref, model: "a" }, b: { ref, model: "b" } });
   });
 
   it("omits privileged and the llama component when neither applies", () => {
@@ -400,16 +401,17 @@ describe("buildDeploymentSpec ML inference component", () => {
       volumes: [`./workspaces/${mlComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
     });
 
-    // Every on-device model resolves to the same component url; each is mapped by id.
+    // ONE endpoint entry for both models, not one per model: the ref identifies the
+    // component and each model is picked by its sub-address within it.
     const ext = engineConfigOf(spec).externalResources!;
-    const mlUrls = Object.values(ext)
-      .filter((r) => r.type === "ml-inference")
-      .map((r) => (r as { url: string }).url);
-    expect(mlUrls).toEqual([`http://${mlComponentServiceName()}:8082`, `http://${mlComponentServiceName()}:8082`]);
-    // Each model is mapped by id, carrying its component model name as the sub-address.
+    const mlEntries = Object.entries(ext).filter(([, r]) => r.type === "ml-inference");
+    expect(mlEntries).toHaveLength(1);
+    const [ref, conn] = mlEntries[0]!;
+    expect(conn).toEqual({ type: "ml-inference", url: `http://${mlComponentServiceName()}:8082` });
+    // Each model is mapped at that one ref, carrying its component model name.
     const mapping = engineConfigOf(spec).mapping!;
-    expect(mapping.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
-    expect(mapping.classifier).toEqual({ ref: expect.any(String), model: "resnet50" });
+    expect(mapping.detector).toEqual({ ref, model: "yolov8n" });
+    expect(mapping.classifier).toEqual({ ref, model: "resnet50" });
   });
 
   it("uses a network ML model's own endpoint and runs no component", () => {
