@@ -18,7 +18,7 @@ import type { ApiWorkflow } from "@foresthubai/workflow-core/workflow";
 import { deserialize } from "@foresthubai/workflow-core/workflow";
 import { deriveRequirements } from "./requirements";
 import { buildDeploymentSpec } from "./spec";
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { promptMissing } from "./prompts";
@@ -397,13 +397,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   let customComponents: DeployComponent[];
   let componentEnv: Record<string, string>;
   if (process.stdin.isTTY) {
-    ({ config: cfg, customComponents, componentEnv } = await promptMissing(
-      partial,
-      outputDirDefault,
-      req,
-      workflowName,
-      preloaded,
-    ));
+    ({ config: cfg, customComponents, componentEnv } = await promptMissing(partial, outputDirDefault, req, workflowName, preloaded));
   } else {
     const missing = missingRequired(req, partial);
     if (missing.length > 0) {
@@ -430,9 +424,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
       llmModels: cfg.llmModels,
       mlModels: cfg.mlModels,
       cameras: cfg.cameras,
-      providers: Object.fromEntries(
-        Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "local" as const, apiKey }]),
-      ),
+      providers: Object.fromEntries(Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "local" as const, apiKey }])),
     };
     built = buildDeploymentSpec(
       domain,
@@ -467,5 +459,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   for (const f of files) {
     process.stdout.write(`  - ${path.relative(process.cwd(), f)}\n`);
   }
-  process.stdout.write(`\nNext: build the image (\`docker build -f go/Dockerfile.engine -t fh-engine:latest go\`), then follow README.md.\n`);
+  process.stdout.write(
+    `\nNext: build the image (\`docker build -f go/Dockerfile.engine -t fh-engine:latest go\`), then follow README.md.\n`,
+  );
 }

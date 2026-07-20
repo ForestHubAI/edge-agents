@@ -43,7 +43,8 @@ func agentNode(t *testing.T, id, model string) workflowapi.Node {
 // chatClient builds an llmproxy.Client serving exactly the given chat model ids.
 func chatClient(modelIDs ...string) *llmproxy.Client {
 	if len(modelIDs) == 0 {
-		return llmproxy.NewClient(nil)
+		c, _ := llmproxy.NewClient(nil)
+		return c
 	}
 	eps := make([]selfhosted.ModelEndpoint, 0, len(modelIDs))
 	for _, id := range modelIDs {
@@ -53,7 +54,8 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 			Capabilities: []llmproxy.ModelCapability{llmproxy.CapabilityChat},
 		})
 	}
-	return llmproxy.NewClient([]llmproxy.Provider{selfhosted.NewProvider(selfhosted.Config{Endpoints: eps})})
+	c, _ := llmproxy.NewClient([]llmproxy.Provider{selfhosted.NewProvider(selfhosted.Config{Endpoints: eps})})
+	return c
 }
 
 func selfHosted(url string) engine.LLMProviderConfig {

@@ -55,7 +55,10 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 	if err != nil {
 		return nil, fmt.Errorf("resolving llm providers: %w", err)
 	}
-	llmClient := llmproxy.NewClient(providers)
+	llmClient, err := llmproxy.NewClient(providers)
+	if err != nil {
+		return nil, fmt.Errorf("composing llm client: %w", err)
+	}
 	if err := validateModelsResolvable(wf, rm, llmClient); err != nil {
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}

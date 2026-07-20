@@ -18,7 +18,7 @@ import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Model, ModelInfo } from "@foresthubai/workflow-core/model";
 import type { Memory } from "@foresthubai/workflow-core/memory";
-import { workflowBindingRequirements, type BindingKind } from "@foresthubai/workflow-core/deploy";
+import { workflowBindingRequirements, type Requirement } from "@foresthubai/workflow-core/deploy";
 
 // The five hardware-channel families the engine has a driver for. UART is the
 // odd one out: it carries no per-channel sub-address (see `addressable`).
@@ -118,8 +118,9 @@ export interface DeployRequirements {
   customMLModels: CustomMLModel[];
 }
 
-// Drift sentinel: a new BindingKind breaks compilation here until it is enriched
-// into a pool below. Keeps this enrichment layer honest with the Stage-0 surface.
+// Drift sentinel: a new Requirement kind breaks compilation here until it is
+// enriched into a pool below. Keeps this enrichment layer honest with the Stage-0
+// surface.
 function assertNeverKind(k: never): never {
   throw new Error(`unhandled binding kind: ${String(k)}`);
 }
@@ -186,19 +187,19 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
   const ragMemories: RagMemory[] = [];
   const catalogModelIds: string[] = [];
 
-  for (const [id, kind] of Object.entries(surface) as [string, BindingKind][]) {
-    switch (kind) {
-      case "hardware":
-        hardwareChannels.push(hardwareChannelOf(requireChannel(workflow, id)));
+  for (const [id, req] of Object.entries(surface) as [string, Requirement][]) {
+    switch (req.kind) {
+      case "hardware": {
+        // Camera is a hardware family on the seam, but the OSS enrichment keeps it
+        // in its own pool (a CameraSource is nothing like a gpio chip+line).
+        const ch = requireChannel(workflow, id);
+        if (req.family === "camera") cameraChannels.push({ id: ch.id, label: ch.label });
+        else hardwareChannels.push(hardwareChannelOf(ch));
         break;
+      }
       case "mqtt": {
         const ch = requireChannel(workflow, id);
         mqttChannels.push({ id: ch.id, label: ch.label });
-        break;
-      }
-      case "camera": {
-        const ch = requireChannel(workflow, id);
-        cameraChannels.push({ id: ch.id, label: ch.label });
         break;
       }
       case "declaredLlm": {
@@ -226,7 +227,7 @@ export function deriveRequirements(workflow: Workflow, catalog: ModelInfo[] = []
         catalogModelIds.push(id);
         break;
       default:
-        return assertNeverKind(kind);
+        return assertNeverKind(req);
     }
   }
 

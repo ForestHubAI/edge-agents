@@ -28,7 +28,7 @@ func newAgentNode(
 	answer workflowapi.OutputBinding,
 	decls []workflowapi.OutputDeclaration,
 ) *Agent {
-	client := llmproxy.NewClient(nil)
+	client, _ := llmproxy.NewClient(nil)
 	return NewAgent(
 		id,
 		"agent-"+id,

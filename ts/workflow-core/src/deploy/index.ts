@@ -9,7 +9,8 @@
 // independently agree with: the Stage-0 binding surface (the cross-language seam),
 // the catalog-model walk it builds on, and the component contract.
 
-export { workflowBindingRequirements, getReferencedCatalogModelIds, type BindingKind } from "./requirements";
+export { workflowBindingRequirements, getReferencedCatalogModelIds, uniquenessKey, bindingConflicts } from "./requirements";
+export type { BindingKind, HardwareFamily, Requirement, BindingConflict } from "./requirements";
 export { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, COMPONENT_WORKSPACE_PATH } from "./constants";
 export { ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME } from "./constants";
 export { LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "./constants";

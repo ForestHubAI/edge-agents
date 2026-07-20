@@ -54,9 +54,6 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 		logs:        make(map[string]*channel.Log),
 		cameras:     make(map[string]*channel.Camera),
 	}
-	if err := checkEndpointUniqueness(apiChannels, rm); err != nil {
-		return nil, err
-	}
 	for _, c := range apiChannels {
 		val, err := c.ValueByDiscriminator()
 		if err != nil {
@@ -212,44 +209,6 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 		}
 	}
 	return ch, nil
-}
-
-// checkEndpointUniqueness rejects two channels that claim one endpoint. An
-// endpoint is (ref, discriminator) — for MQTT, (ref, topic) — so it is known
-// only once the mapping supplies the ref, and it is a property of that mapping
-// rather than of any resource resolving: hence a pass over the declarations,
-// before the build loop.
-//
-// Two channels on one endpoint are the same requirement declared twice; the
-// engine cannot honor both, since the transport carries one callback per filter
-// and the loser's triggers would go quiet with no error. The resolver that
-// authored the mapping owns this check — this is the backstop for one that
-// did not.
-//
-// Only MQTT is covered: the index families and UART are checked by the resolver
-// (hardwareConflicts) and have no engine backstop yet.
-func checkEndpointUniqueness(apiChannels []workflowapi.Channel, rm engine.ResourceMapping) error {
-	claimed := make(map[string]string) // ref+topic → channel id holding it
-	for _, c := range apiChannels {
-		val, err := c.ValueByDiscriminator()
-		if err != nil {
-			return fmt.Errorf("channel: %w", err)
-		}
-		mq, ok := val.(workflowapi.MQTTChannel)
-		if !ok {
-			continue
-		}
-		addr, err := addressFor(rm, mq.Id)
-		if err != nil {
-			return err
-		}
-		key := addr.Ref + "\x00" + mq.Topic
-		if prev, dup := claimed[key]; dup {
-			return fmt.Errorf("channels %s and %s both bind topic %q on %q; one endpoint takes one channel", prev, mq.Id, mq.Topic, addr.Ref)
-		}
-		claimed[key] = mq.Id
-	}
-	return nil
 }
 
 // addressFor resolves a channel's address from the resource mapping. The workflow

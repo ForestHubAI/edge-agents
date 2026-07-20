@@ -140,20 +140,19 @@ type ResourceAddress struct {
 
 ### How it maps
 
-| Layer 1 requirement  | Pool (Layer 2)                             | Discriminator     | Lives in | ids : ref | Unique by                               |
-| -------------------- | ------------------------------------------ | ----------------- | -------- | :-------: | --------------------------------------- |
-| `GPIOIN` / `GPIOOUT` | `DeviceManifest.gpios`                     | `index` (line)    | mapping  |  **N:1**  | `(ref, index)`                          |
-| `ADC`                | `DeviceManifest.adcs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
-| `DAC`                | `DeviceManifest.dacs`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
-| `PWM`                | `DeviceManifest.pwms`                      | `index` (channel) | mapping  |  **N:1**  | `(ref, index)`                          |
-| `UART`               | `DeviceManifest.serials`                   | —                 | —        |  **1:1**  | `ref`                                   |
-| `CAMERA`             | `DeviceManifest.cameras`                   | —                 | —        |  **1:1**  | `ref`                                   |
-| `MQTT`               | `ExternalResources.MQTTs`                  | `topic`           | workflow |  **N:1**  | `(ref, topic)`                          |
-| `LOG`                | — (implicit: the ambient logger)           | `level`, `tag`    | workflow |  **N:1**  | `(level, tag)`                          |
-| declared `LLMModel`  | `ExternalResources.Providers`              | `model`           | mapping  |  **N:1**  | `(ref, model)`                          |
-| declared `MLModel`   | `ExternalResources.MLInference`            | `model`           | mapping  |  **N:1**  | `(ref, model)`                          |
-| `VectorDatabase`     | — (`ref` _is_ the collection id)           | —                 | —        |  **1:1**  | `ref`                                   |
-| catalog model id     | `ExternalResources.Providers`, by identity | **no entry**      | —        |     —     | resolved by llmproxy routing, not bound |
+| Layer 1 requirement         | Pool (Layer 2)                   | Discriminator     | Lives in         | ids : ref | Unique by      |
+| --------------------------- | -------------------------------- | ----------------- | ---------------- | :-------: | -------------- |
+| `GPIOIN` / `GPIOOUT`        | `DeviceManifest.gpios`           | `index` (line)    | mapping          |  **N:1**  | `(ref, index)` |
+| `ADC`                       | `DeviceManifest.adcs`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `DAC`                       | `DeviceManifest.dacs`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `PWM`                       | `DeviceManifest.pwms`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `UART`                      | `DeviceManifest.serials`         | —                 | —                |  **1:1**  | `ref`          |
+| `CAMERA`                    | `DeviceManifest.cameras`         | —                 | —                |  **1:1**  | `ref`          |
+| `MQTT`                      | `ExternalResources.MQTTs`        | `topic`           | workflow         |  **N:1**  | `(ref, topic)` |
+| `LOG`                       | — (implicit: the ambient logger) | `level`, `tag`    | workflow         |     —     | —              |
+| catalog/declared `LLMModel` | `ExternalResources.Providers`    | `model`           | mapping / static |  **N:1**  | `model`        |
+| declared `MLModel`          | `ExternalResources.MLInference`  | `model`           | mapping          |  **N:1**  | `(ref, model)` |
+| `VectorDatabase`            | — (`ref` _is_ the collection id) | —                 | —                |  **1:1**  | `ref`          |
 
 ### The rule
 
@@ -167,12 +166,22 @@ telling two requirements on the same resource apart. `UART` and `VectorDatabase`
 for the same single reason — they have nothing to discriminate on, so a second
 requirement on that `ref` would be indistinguishable from the first.
 
+**Layer 3 may drop the `ref`.** The rule is the default; a code layer that routes on the
+discriminator _alone_ tightens it to a global constraint. `LLMModel` is the case: the
+llmproxy resolves a chat by model id across **one flat namespace over every provider**
+(`llmproxy.Client`), so a served model name must be unique _globally_, not per-`ref` —
+and a self-hosted name that shadows a catalog id is the same collision. Hence the table's
+`LLMModel` row is `model`, not `(ref, model)`. The engine enforces it at boot
+(`NewClient` rejects a duplicate registration); the deploy resolver mirrors it (the `llm:`
+key in `uniquenessKey`).
+
 Uniqueness is not about whether a second claimant would _break_ something. It is the
-design rule: one requirement, one thing. Two channels on one `(ref, index)`, two models
-on one `(ref, model)`, two channels on one camera — all are the same requirement declared
-twice, and the right expression is one requirement with several subscriber nodes, which is
-what `channel.Broadcaster` is for: `UART`, `GPIOIN` and `MQTT` each claim their resource
-once and fan out to every node that listens.
+design rule: one requirement, one thing. Two channels on one `(ref, index)`, two
+`MLModel`s on one `(ref, model)`, two channels on one camera, two ids on one
+`VectorDatabase` collection — all are the same requirement declared twice, and the right
+expression is one requirement with several subscriber nodes, which is what
+`channel.Broadcaster` is for: `UART`, `GPIOIN` and `MQTT` each claim their resource once
+and fan out to every node that listens.
 
 ### Where the discriminator lives
 
@@ -186,73 +195,60 @@ pushed down into the Layer 2 config. Two requirements differing only by discrimi
 still resolve to one `ref` — otherwise they become two refs, two configs, and two opens of
 one device.
 
-### Enforcing uniqueness
+Enforcement is split by _who authored the mapping_: the deploy resolver checks the
+mapping it built; the engine defends the invariant the mapping stands for.
 
-**No uniqueness constraint can live in the workflow builder** — not by omission, but
-because `(ref, discriminator)` is not complete until the `ref` is bound. Two `MQTT`
-channels on topic `alarm` are perfectly legal until they land on the same broker; two
-camera channels are legal until they land on the same camera. Uniqueness is a property of
-the **binding**, never of the workflow.
+**The resolver owns the uniqueness check.** The rule is executable and canonical:
+`uniquenessKey` + `bindingConflicts` (`workflow-core`'s `deploy` module) are the one table
+every deploy path agrees on. `uniquenessKey` maps a filled `Requirement` to the string
+identifying the resource it claims; two ids sharing a key are the same claim declared
+twice. Both resolvers run it off the shared function — the OSS CLI (`spec.ts`) and the
+backend, each supplying its own binding shape.
 
-Both halves are known in two places — a resolver at Stage 0, and the engine at boot, which
-is the only one that sees a mapping the resolver did not author. **Which of them evaluates
-each constraint is undecided**; `checkEndpointUniqueness` (`build/channel.go`) and
-`hardwareConflicts` / `cameraConflicts` (`ts/workflow-cli/cli/deploy/spec.ts`) are today's
-partial answers.
+The flow is **derive → fill → check**. `workflowBindingRequirements` derives a
+`Requirement` per id carrying only workflow facts (`family`, `topic`); the consumer fills
+the deployment holes (`ref`, `index`, served `model`) from its own binding representation;
+then `bindingConflicts` groups by key. Order matters: completeness runs **first** — a
+required field still `null` makes `uniquenessKey` throw, never silently skip, so an
+unfilled requirement can't masquerade as "no conflict."
 
-Where nothing enforces, the last claimer wins silently. Two `UART` channels on one port
-both call `WatchRead`, which _"installs onLine as the permanent line callback, **replacing
-any prior callback**"_ and returns nil — so one channel's subscribers stop firing, and
-which one loses depends on map iteration order in `SetupAll`. `MQTT` failed the same way
-through paho's route table, which keys by filter and overwrites a match, until
-`checkEndpointUniqueness`.
+**No uniqueness constraint can live in the workflow builder**, because `(ref, discriminator)`
+is not complete until the `ref` is bound: two `MQTT` channels on topic `alarm` are legal
+until they land on one broker; two cameras until they land on one device. Uniqueness is a
+property of the **binding**, not the workflow. It lives in `workflow-core` — but as a pure
+function over `(workflow-derived requirement, binding)`, not in the builder's editor state,
+so there is no contradiction.
 
-**Layer 3 may constrain more tightly than the rule.** `selfhosted.Provider` registers every
-endpoint into one flat `ModelID` namespace and `resolveModelID` yields a bare server name
-carrying no ref — so two providers each serving a `llama3` is legal by `(ref, model)` and
-unroutable in the code. Its real constraint is `model`, global.
+**The engine does not re-run this check.** It has no Go twin of `bindingConflicts`: a
+second `(ref, discriminator)` pass would duplicate the resolver and still not see the real
+hazard (content-addressed refs, a physical device path). Instead the engine defends the
+invariant _at the point of claim_ — a driver or transport that already holds an exclusive
+resource **rejects a second claimant with an error at `Setup`** rather than silently
+overwriting. That catches a mapping the resolver did not author (hand-edited, third-party)
+where it actually matters, regardless of how the duplicate arose, and needs no knowledge of
+the uniqueness table. (This is the reason `checkEndpointUniqueness`, the old MQTT-only
+pre-check, was removed.)
 
-**Identity is not the only constraint.** Uniqueness is over the `ref`, but a _device's_
-exclusivity is over its **path**, and refs are content-addressed — so two camera bindings
-on one `/dev/video0` differing only in `warmupFrames` hash to two refs, pass the identity
-check, and then race for a single-open node. `cameraConflicts` therefore runs two checks:
-identity (the ref key) and device exclusivity (`v4l2` → `device`, `libcamera` →
-`cameraName`; network kinds have none, since an RTSP server serves concurrent sessions).
-Any resource whose Layer 2 identity can outnumber its physical one needs the same pair.
+> The driver-side rejection is the standing rework: today several still overwrite the last
+> claimer silently — `serial_impl.go`'s `WatchRead` replaces the prior callback and returns
+> nil (which channel loses depends on `SetupAll` map order); `gpio_linux.go`'s `replaceLine`
+> tears down the prior request; the paho route table overwrites by filter. Each must return
+> an error on a second claim instead.
 
-### The invariants
+**Two constraints sit outside this split:**
 
-| Edge                        |  Cardinality  |                                                                    |
-| --------------------------- | :-----------: | ------------------------------------------------------------------ |
-| requirement → mapping entry |    **1:1**    | every declared id has exactly one; a missing one is a boot failure |
-| requirement → `ref`         | **N:1 / 1:1** | N:1 exactly when a discriminator exists — **never 1:N**            |
-| `ref` → Layer 2 config      |    **1:1**    | a ref is a key in exactly one pool                                 |
-| `ref` → Layer 3 object      |    **1:1**    | opened once at boot; the handle is shared by all N                 |
-
-**Nothing fans out.** A logical id resolves to exactly one `ref` and one live object;
-there is no 1:N edge anywhere in the join. Sharing only ever runs the other way — N
-requirements collapsing onto one resource, told apart by their discriminator — which is
-what makes the `ref` a sharing identity rather than a name.
-
-The pool a `ref` resolves against is **not stored in the binding**. It is implied by the
-_type of the workflow resource_ carrying that id, per the table above.
-
-### Catalog models are the exception
-
-A mapping entry exists only for _declared_ resources. A catalog model — a built-in id
-referenced from an agent node, never declared — is resolved by **identity**, not by name:
-the config lists its provider as an `ExternalResources.Providers` entry, and the llmproxy
-routes the model id to that provider at runtime by matching the provider's built-in
-`AvailableModels`. So a catalog provider appears in `Providers` with **no `ref` pointing
-at it**.
-
-> The rule: declared resources are bound _by name_ (a mapping entry); catalog models are
-> resolved _by identity_ (llmproxy routing).
-
-> **Completeness is enforced at build (boot), not at runtime.** A requirement with no
-> mapping entry, an addressable one with a nil `index`, or a `ref` with no config are all
-> hard build failures — see "Validation" below. Silent degradation would hide config bugs
-> until a node fires hours later.
+- **LLM global namespace.** `LLMModel` is unique by served `model` across _all_ providers,
+  not per-`ref` (see "The rule" — Layer 3 drops the ref). `uniquenessKey` emits the `llm:`
+  key for both `declaredLlm` and `catalogLlm` so a self-hosted name shadowing a catalog id
+  is caught at deploy; the engine enforces the same at boot, where `llmproxy.NewClient`
+  rejects a model id served by two providers — its provider map is the "point of claim" for
+  models, so this is the same driver-side discipline, not a re-run of the table.
+- **Camera device injectivity.** `uniquenessKey` catches two ids on one camera _ref_. Its
+  other hazard — two _refs_ on one physical `/dev/video0`, which content-addressed refs can
+  manufacture (two bindings differing only in `warmupFrames` hash to two refs) — needs the
+  device path, not the ref, so it is a check over the assembled `DeviceManifest.cameras`
+  (`v4l2` → `device`, `libcamera` → `cameraName`; network kinds have none), not part of
+  this function.
 
 ---
 
@@ -392,7 +388,7 @@ all nodes are built, applying each channel's accumulated requirements to its dri
 | ----------------------------------------------------- | ----------------------------- |
 | channel id has no mapping entry / empty `ref`         | `addressFor` (`channel.go`)   |
 | addressable channel has nil `index`                   | `indexFor` (`channel.go`)     |
-| two MQTT channels on one `(ref, topic)`               | `checkEndpointUniqueness`     |
+| one model id served by two providers                  | `llmproxy.NewClient`          |
 | MQTT channel with an empty `topic`                    | `channel.MQTT.Setup`          |
 | hardware `ref` not in driver registry                 | `drivers.GPIO/ADC/Camera/...` |
 | MQTT `ref` not in `ext.MQTTs`                         | `buildChannels` MQTT arm      |

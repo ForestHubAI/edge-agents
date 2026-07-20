@@ -21,19 +21,23 @@ type Client struct {
 // NewClient creates a new client with the given set of providers.
 // Providers are constructed by a registry/wiring layer and injected here; llmproxy
 // itself has no knowledge of concrete provider implementations.
-func NewClient(providers []Provider) *Client {
+//
+// A model id must be unique across ALL providers: Chat routes by model id alone
+// (inferProvider), so two providers serving one id would be unroutable.
+func NewClient(providers []Provider) (*Client, error) {
 	provs := make(map[ProviderID]Provider, len(providers))
 	models := make(map[ModelID]ModelInfo)
 	for _, p := range providers {
 		provs[p.ProviderID()] = p
-		// Cache models for provider inference
-		mod := p.AvailableModels()
-		for _, m := range mod {
-			// TODO: throw error on modelID conflict?
-			models[ModelID(m.ID)] = m
+		for _, m := range p.AvailableModels() {
+			id := ModelID(m.ID)
+			if prev, dup := models[id]; dup {
+				return nil, fmt.Errorf("model %q is served by two providers (%s and %s); model ids must be unique across all providers", id, prev.Provider, p.ProviderID())
+			}
+			models[id] = m
 		}
 	}
-	return &Client{providers: provs, models: models}
+	return &Client{providers: provs, models: models}, nil
 }
 
 // Health verifies the health of all configured providers. It returns an error if any provider is unhealthy.
