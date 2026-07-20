@@ -24,29 +24,29 @@ import (
 )
 
 func main() {
-	cfg, err := LoadConfig()
+	env, err := LoadEnvConfig()
 	if err != nil {
 		// Before logging.Configure, the stdout logger is at info level, so error passes through
 		component.BootFail(err, "loading configuration") // malformed env config is permanent
 	}
-	logging.Configure(cfg.Log)
+	logging.Configure(env.Log)
 
-	bootCfg, err := component.LoadConfig[engineapi.EngineConfig]()
+	cfg, err := component.LoadConfig[engineapi.EngineConfig]()
 	if err != nil {
 		component.BootFail(err, "loading engine config")
 	}
 
 	// Create backend client only when configured
 	var backendClient *backend.Client
-	if cfg.BackendURL != "" {
-		backendClient = backend.NewClient(cfg.BackendURL, cfg.Secret)
+	if env.BackendURL != "" {
+		backendClient = backend.NewClient(env.BackendURL, env.Secret)
 	}
 
 	// A present config with no workflow is still a boot error, not an idle engine:
 	// an empty workflow builds into a runner with no triggers that blocks forever
 	// doing nothing. SchemaVersion == 0 is the zero-value signal (the contract
 	// requires schemaVersion >= 1).
-	if bootCfg.Workflow.SchemaVersion == 0 {
+	if cfg.Workflow.SchemaVersion == 0 {
 		component.BootFail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
@@ -54,7 +54,7 @@ func main() {
 	// the device manifest, MQTT transports from the external resources. Both are
 	// injected into the builder, borrowed by the workflow's channels, and closed
 	// by main at shutdown.
-	manifest := engine.DeviceManifestToDomain(bootCfg.Manifest)
+	manifest := engine.DeviceManifestToDomain(cfg.Manifest)
 	drivers, err := driver.NewRegistry(&manifest)
 	if err != nil {
 		component.BootFail(err, "initialising driver registry")
@@ -64,7 +64,7 @@ func main() {
 	if err != nil {
 		component.BootFail(err, "loading engine secrets")
 	}
-	ext := engine.ExternalResourcesToDomain(bootCfg.ExternalResources, secrets)
+	ext := engine.ExternalResourcesToDomain(cfg.ExternalResources, secrets)
 	transports, err := transport.NewRegistry(ext)
 	if err != nil {
 		// A broker unreachable at boot may come back; let the orchestrator retry.
@@ -81,13 +81,13 @@ func main() {
 	// fatal at boot; absent api key leaves it nil and any WebSearchTool node
 	// in the workflow fails the build with a clear message.
 	var webSearchProvider websearch.Provider
-	if cfg.WebSearch.APIKey != "" {
-		p, err := websearch.New(cfg.WebSearch.Provider, cfg.WebSearch.APIKey)
+	if env.WebSearch.APIKey != "" {
+		p, err := websearch.New(env.WebSearch.Provider, env.WebSearch.APIKey)
 		if err != nil {
 			component.BootFail(err, "configuring web search provider")
 		}
 		webSearchProvider = p
-		logging.Logger.Info().Str("provider", cfg.WebSearch.Provider).Msg("web search enabled")
+		logging.Logger.Info().Str("provider", env.WebSearch.Provider).Msg("web search enabled")
 	}
 
 	// Retriever: backend if cloud mode, otherwise nil. No offline RAG backend
@@ -129,8 +129,8 @@ func main() {
 	}()
 
 	// Build the runner.
-	rm := engine.ResourceMappingToDomain(bootCfg.Mapping)
-	runner, err := builder.Build(ctx, &bootCfg.Workflow, rm, ext)
+	rm := engine.ResourceMappingToDomain(cfg.Mapping)
+	runner, err := builder.Build(ctx, &cfg.Workflow, rm, ext)
 	if err != nil {
 		component.BootFail(err, "building workflow runner")
 	}

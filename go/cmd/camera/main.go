@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"os/signal"
@@ -20,14 +21,14 @@ import (
 )
 
 func main() {
-	cfg, err := LoadConfig()
+	env, err := LoadEnvConfig()
 	if err != nil {
 		// Before logging.Configure, the stdout logger is at info level, so error passes through
 		component.BootFail(err, "loading configuration") // malformed env config is permanent
 	}
-	logging.Configure(cfg.Log)
+	logging.Configure(env.Log)
 
-	bootCfg, err := component.LoadConfig[cameraapi.CameraConfig]()
+	cfg, err := component.LoadConfig[cameraapi.CameraConfig]()
 	if err != nil {
 		// A missing or unparseable config file fails identically on restart.
 		component.BootFail(err, "loading cameras from "+component.ConfigFile)
@@ -35,7 +36,7 @@ func main() {
 	// A config with no cameras builds a component that can serve nothing — every
 	// /capture 404s. Fail at boot (like the engine on an empty workflow) so the
 	// deployment is marked failed here, not mysteriously at the engine's first capture.
-	if len(bootCfg.Cameras) == 0 {
+	if len(cfg.Cameras) == 0 {
 		component.BootFail(errors.New("no cameras configured"), "validating "+component.ConfigFile)
 	}
 	// Stream credentials arrive out-of-band in the mounted secret document, keyed
@@ -45,7 +46,7 @@ func main() {
 	if err != nil {
 		component.BootFail(err, "loading secrets from "+component.SecretsFile)
 	}
-	cams, err := camera.ToDomain(bootCfg, secrets)
+	cams, err := camera.ToDomain(cfg, secrets)
 	if err != nil {
 		// An unknown kind is permanent: the component cannot learn one at runtime.
 		component.BootFail(err, "loading cameras from "+component.ConfigFile)
@@ -75,9 +76,12 @@ func main() {
 		component.BootRetry(err, "camera setup failed — check the setup commands in the camera config (see the bundle README)")
 	}
 
+	// The engine dials this component at component.CameraPort; that constant is the
+	// only thing that decides where we listen.
+	addr := fmt.Sprintf(":%d", component.CameraPort)
 	handler := cameraapi.HandlerFromMux(camera.NewServer(sources), http.NewServeMux())
 	srv := &http.Server{
-		Addr:    cfg.Addr,
+		Addr:    addr,
 		Handler: handler,
 		// Guard against slow/stuck clients holding connections open. No
 		// WriteTimeout: a capture can take up to CaptureTimeout plus the response
@@ -89,7 +93,7 @@ func main() {
 	}
 
 	go func() {
-		logging.Logger.Info().Str("addr", cfg.Addr).Int("cameras", len(sources)).Msg("fh-camera listening")
+		logging.Logger.Info().Str("addr", addr).Int("cameras", len(sources)).Msg("fh-camera listening")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logging.Logger.Fatal().Err(err).Msg("server error")
 		}

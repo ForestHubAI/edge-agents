@@ -11,10 +11,10 @@ import (
 	"github.com/caarlos0/env/v9"
 )
 
-// Config holds engine boot configuration. All values come from env vars. The
+// EnvConfig holds engine boot configuration. All values come from env vars. The
 // fixed in-container paths (boot config file, workspace) are not here — they are
 // contract constants in package component, not per-deployment config.
-type Config struct {
+type EnvConfig struct {
 	// ID identifies this engine to hosted-MQTT brokers, acting as 'username'
 	ID string `env:"ENGINE_ID"`
 	// Secret is the shared secret for authenticating this engine with the backend and brokers
@@ -38,9 +38,9 @@ type WebSearchConfig struct {
 	APIKey   string `env:"ENGINE_WEB_SEARCH_API_KEY"`
 }
 
-// LoadConfig parses Config from the process environment.
-func LoadConfig() (Config, error) {
-	var cfg Config
+// LoadEnvConfig parses EnvConfig from the process environment.
+func LoadEnvConfig() (EnvConfig, error) {
+	var cfg EnvConfig
 	if err := env.Parse(&cfg); err != nil {
 		return cfg, fmt.Errorf("parsing environment: %w", err)
 	}

@@ -7,28 +7,24 @@ package main
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/component"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 	"github.com/caarlos0/env/v9"
 )
 
-// Config holds the component's boot configuration. All values come from env vars.
-type Config struct {
-	// Addr is the listen address for the HTTP server. Defaults to the contracted
-	// component port (component.CameraPort) when CAMERA_ADDR is unset.
-	Addr string `env:"CAMERA_ADDR"`
+// EnvConfig holds the component's env vars.
+// The listen address is deliberately absent: the engine is this driver component's
+// sole caller and dials it at a constant address, so the port is contracted
+// (component.CameraPort), not configurable.
+type EnvConfig struct {
 	// Log configures the shared logger's stdout level via LOG_LEVEL.
 	Log logging.Config
 }
 
-// LoadConfig parses Config from the process environment.
-func LoadConfig() (Config, error) {
-	var cfg Config
+// LoadEnvConfig parses EnvConfig from the process environment.
+func LoadEnvConfig() (EnvConfig, error) {
+	var cfg EnvConfig
 	if err := env.Parse(&cfg); err != nil {
 		return cfg, fmt.Errorf("parsing environment: %w", err)
-	}
-	if cfg.Addr == "" {
-		cfg.Addr = fmt.Sprintf(":%d", component.CameraPort)
 	}
 	return cfg, nil
 }
