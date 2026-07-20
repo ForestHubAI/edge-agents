@@ -31,11 +31,17 @@ import {
   providerFlag,
   familyMismatches,
   ggufNameError,
-  hardwareConflicts,
   logLevelSchema,
   mlModelNameError,
   unknownIds,
   valuesFileSchema,
+  isAddressable,
+  hardwareBindings,
+  cameraBindings,
+  mqttBindings,
+  llmBindings,
+  mlBindings,
+  ragBindings,
 } from "./types";
 import type { DeployConfig, DeployRequirements, LogLevel, RawFlags } from "./types";
 import { MODEL_CATALOG } from "../../src/catalog";
@@ -190,20 +196,21 @@ export async function loadValues(source: string): Promise<Partial<DeployConfig>>
 // used to fail fast (exit 1) when there is no terminal to prompt on.
 export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig>): string[] {
   const missing: string[] = [];
-  for (const ch of req.hardwareChannels) {
+  for (const ch of hardwareBindings(req)) {
     const b = p.hardware?.[ch.id];
     if (!b || !b.chipOrDevice) {
       missing.push(`hardware "${ch.id}": device path`);
       continue;
     }
-    if (ch.addressable && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
+    if (isAddressable(ch.family) && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
   }
-  missing.push(...hardwareConflicts(req.hardwareChannels, p.hardware ?? {}));
-  missing.push(...familyMismatches(req.hardwareChannels, p.hardware ?? {}));
-  for (const ch of req.mqttChannels) {
+  // Uniqueness is validated by buildDeploymentSpec (canonical, post-ref); here we
+  // only fast-fail on field validity in the headless path.
+  missing.push(...familyMismatches(hardwareBindings(req), p.hardware ?? {}));
+  for (const ch of mqttBindings(req)) {
     if (!p.mqtt?.[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
-  for (const m of req.customLLMModels) {
+  for (const m of llmBindings(req)) {
     const b = p.llmModels?.[m.id];
     if (b?.location === "device") {
       const err = ggufNameError(b.modelFile);
@@ -212,7 +219,7 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
       missing.push(`model "${m.id}": endpoint URL`);
     }
   }
-  for (const m of req.customMLModels) {
+  for (const m of mlBindings(req)) {
     const b = p.mlModels?.[m.id];
     const nameErr = mlModelNameError(b?.model);
     if (nameErr) missing.push(`model "${m.id}": ${nameErr}`);
@@ -220,7 +227,7 @@ export function missingRequired(req: DeployRequirements, p: Partial<DeployConfig
       missing.push(`model "${m.id}": on-device or endpoint URL`);
     }
   }
-  for (const ch of req.cameraChannels) {
+  for (const ch of cameraBindings(req)) {
     const b = p.cameras?.[ch.id];
     if (!b) {
       missing.push(`camera "${ch.id}": how the camera is reached`);
@@ -363,8 +370,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // be bound and the engine fails at build. assertDeployable refuses this too, but
   // only after input collection — refuse up front rather than prompt for bindings
   // the operator can never make deployable.
-  if (req.ragMemories.length > 0) {
-    const ids = req.ragMemories.map((m) => `"${m.id}"`).join(", ");
+  if (ragBindings(req).length > 0) {
+    const ids = ragBindings(req).map((m) => `"${m.id}"`).join(", ");
     process.stderr.write(
       `error: workflow declares a vector database (RAG): ${ids}.\n` +
         "       A standalone engine has no retriever, so the collection cannot be bound and\n" +

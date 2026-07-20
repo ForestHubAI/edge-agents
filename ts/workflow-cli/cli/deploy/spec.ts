@@ -11,14 +11,15 @@
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
-import type { CameraSchemas, DeploymentSchemas, EngineSchemas } from "./api";
+import type { CameraSchemas, DeploymentSchemas, EngineSchemas, MLInferenceSchemas } from "./api";
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import { serialize } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { CameraBinding, DeploymentInputs, HardwareBinding } from "./inputs";
-import type { CameraChannel, DeployRequirements, HardwareChannel, HardwareFamily } from "./requirements";
-import { deriveRequirements } from "./requirements";
-import { COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
+import type { BoundOf, DeployRequirements, HardwareFamily, NonCameraHardware } from "./requirements";
+import { deriveRequirements, isAddressable, hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings, ragBindings } from "./requirements";
+import type { Requirement } from "@foresthubai/workflow-core/deploy";
+import { bindingConflicts, COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -204,40 +205,63 @@ export function mlModelNameError(name: string | undefined): string | null {
   return null;
 }
 
-// A physical address belongs to exactly one channel — the engine doesn't police
-// this and would silently let the last claimer win. Same key = collision;
-// sharing just a chip path is fine (one chip, many lines), except serial where
-// the path IS the device. Exported so input collection (prompts) can reject a
-// duplicate at entry with the same identity the resolver validates against.
+// A physical address belongs to exactly one channel. Same key = collision; sharing
+// just a chip path is fine (one chip, many lines), except serial where the path IS
+// the device. Used by input collection (prompts) to reject a duplicate at entry —
+// the pre-ref affordance. The resolver validates the same collisions post-ref, over
+// resolved refs, via the canonical bindingConflicts.
 export function hardwareAddressKey(family: HardwareFamily, chipOrDevice: string, index?: number): string {
   const dev = chipOrDevice.trim();
   return family === "serial" ? `serial:${dev}` : `${family}:${dev}:${index}`;
 }
 
-// The same address phrased for an error message: "/dev/gpiochip0 line 17".
+// The same address phrased for a prompt-time error message: "/dev/gpiochip0 line 17".
 export function hardwareAddressLabel(family: HardwareFamily, chipOrDevice: string, index?: number): string {
   const dev = chipOrDevice.trim();
   if (family === "serial") return dev;
   return `${dev} ${family === "gpio" ? "line" : "channel"} ${index}`;
 }
 
-// One message per channel whose address an earlier channel already claimed.
-// Incomplete bindings are skipped (completeness is checked separately).
-export function hardwareConflicts(channels: HardwareChannel[], bindings: Record<string, HardwareBinding>): string[] {
-  const conflicts: string[] = [];
-  const claimed = new Map<string, string>(); // address key -> channel id holding it
-  for (const ch of channels) {
-    const b = bindings[ch.id];
-    if (!b?.chipOrDevice || (ch.addressable && b.index === undefined)) continue;
-    const key = hardwareAddressKey(ch.family, b.chipOrDevice, b.index);
-    const holder = claimed.get(key);
-    if (holder) {
-      conflicts.push(`hardware "${ch.id}": ${hardwareAddressLabel(ch.family, b.chipOrDevice, b.index)} is already used by "${holder}"`);
-    } else {
-      claimed.set(key, ch.id);
+// bindingConflictErrors is the OSS resolver's authoritative uniqueness check: it runs
+// the canonical bindingConflicts (workflow-core) over the RESOLVED mapping. Post-ref,
+// the RefAllocator has already collapsed shared resources onto one ref, so two ids on
+// one (ref, discriminator) are the conflict — uniform across every kind, including the
+// MQTT (ref, topic) case the pre-ref hardware/camera checks never saw. The wrapped
+// bindings (constructed once by deriveRequirements) supply each requirement's
+// kind/family/topic; the mapping supplies ref/index/model. catalogLlm has no mapping
+// entry (resolved by identity) — its model is a workflow fact, and its `llm:` key
+// still guards a self-hosted served name shadowing a catalog id. Runs after
+// assertDeployable, so every non-catalog requirement here is bound.
+function bindingConflictErrors(bindings: DeployRequirements["bindings"], mapping: EngineSchemas["ResourceMapping"]): string[] {
+  const filled: Record<string, Requirement> = {};
+  for (const [id, r] of Object.entries(bindings)) {
+    if (r.kind === "catalogLlm") {
+      filled[id] = r;
+      continue;
+    }
+    const addr = mapping[id];
+    if (!addr) continue; // no binding reached the mapping (e.g. a refused rag) — completeness owns this
+    switch (r.kind) {
+      case "hardware":
+        filled[id] = { ...r, ref: addr.ref, index: addr.index ?? null };
+        break;
+      case "mqtt":
+        filled[id] = { ...r, ref: addr.ref };
+        break;
+      case "declaredLlm":
+        filled[id] = { ...r, model: addr.model ?? null };
+        break;
+      case "ml":
+        filled[id] = { ...r, ref: addr.ref, model: addr.model ?? null };
+        break;
+      case "rag":
+        filled[id] = { ...r, ref: addr.ref };
+        break;
     }
   }
-  return conflicts;
+  return bindingConflicts(filled).map(
+    (c) => `${c.ids.map((i) => `"${i}"`).join(", ")} conflict: all bound to the same resource (${c.key})`,
+  );
 }
 
 // A camera binding's identity: the key its ref is allocated from, so the conflict
@@ -280,33 +304,21 @@ function cameraLabel(b: CameraBinding): string {
   }
 }
 
-// Two distinct constraints, both real:
-//
-//  1. IDENTITY — a camera takes no discriminator, so two channels resolving to one
-//     ref are the same requirement declared twice. The right expression is one
-//     channel and several CameraCapture nodes, each asking for its own size.
-//  2. EXCLUSIVITY — two *different* refs may still name one device node: bindings
-//     differing only in warmupFrames or setup are content-addressed apart, pass
-//     check 1, and then race for a single-open handle. Only the local kinds are
-//     exclusive, which is why two RTSP streams differing by credential stay legal.
+// Camera DEVICE EXCLUSIVITY — the one camera constraint bindingConflicts cannot
+// see. Two *different* refs may still name one device node: bindings differing only
+// in warmupFrames or setup are content-addressed apart, so they resolve to two refs
+// (and pass the ref-keyed uniqueness check) yet race for a single-open handle. Only
+// the local kinds are exclusive — two RTSP streams differing by credential stay
+// legal, since a server serves concurrent sessions. The IDENTITY case (two channels
+// on one camera ref) is a plain uniqueness conflict, caught by bindingConflicts.
 //
 // Incomplete bindings are skipped (completeness is checked separately).
-export function cameraConflicts(channels: CameraChannel[], bindings: Record<string, CameraBinding>): string[] {
+export function cameraDeviceConflicts(channels: BoundOf<"hardware">[], bindings: Record<string, CameraBinding>): string[] {
   const conflicts: string[] = [];
-  const byIdentity = new Map<string, string>(); // ref key -> channel id holding it
   const byDevice = new Map<string, string>(); // device node -> channel id opening it
   for (const ch of channels) {
     const b = bindings[ch.id];
     if (!b) continue;
-
-    const identity = cameraIdentityKey(b);
-    const twin = byIdentity.get(identity);
-    if (twin) {
-      conflicts.push(`camera "${ch.id}": ${cameraLabel(b)} is already used by "${twin}" (one channel per camera; give each capture node its own size)`);
-      continue; // already reported; don't double-report the device below
-    }
-    byIdentity.set(identity, ch.id);
-
     const dev = cameraDeviceKey(b);
     if (!dev) continue;
     const holder = byDevice.get(dev);
@@ -322,7 +334,7 @@ export function cameraConflicts(channels: CameraChannel[], bindings: Record<stri
 // One message per binding carrying a field its family doesn't have (`baud` is
 // serial-only, `index` is everything-but-serial). Usually a mixed-up channel id
 // in a machine-written binding set — reject loudly instead of ignoring.
-export function familyMismatches(channels: HardwareChannel[], bindings: Record<string, HardwareBinding>): string[] {
+export function familyMismatches(channels: NonCameraHardware[], bindings: Record<string, HardwareBinding>): string[] {
   const mismatches: string[] = [];
   for (const ch of channels) {
     const b = bindings[ch.id];
@@ -348,15 +360,15 @@ function assertNeverFamily(f: never): never {
 // sees them at once. Throws on any gap — the last guard before a dead spec.
 export function assertDeployable(req: DeployRequirements, inputs: DeploymentInputs): void {
   const missing: string[] = [];
-  for (const ch of req.hardwareChannels) {
+  for (const ch of hardwareBindings(req)) {
     const b = inputs.hardware[ch.id];
     if (!b?.chipOrDevice) missing.push(`hardware "${ch.id}": device path`);
-    else if (ch.addressable && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
+    else if (isAddressable(ch.family) && b.index === undefined) missing.push(`hardware "${ch.id}": index`);
   }
-  for (const ch of req.mqttChannels) {
+  for (const ch of mqttBindings(req)) {
     if (!inputs.mqtt[ch.id]?.brokerUrl) missing.push(`mqtt "${ch.id}": broker URL`);
   }
-  for (const m of req.customLLMModels) {
+  for (const m of llmBindings(req)) {
     const b = inputs.llmModels[m.id];
     if (b?.location === "device") {
       const err = ggufNameError(b.modelFile);
@@ -365,14 +377,14 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
       missing.push(`model "${m.id}": endpoint URL`);
     }
   }
-  for (const m of req.customMLModels) {
+  for (const m of mlBindings(req)) {
     const b = inputs.mlModels[m.id];
     // Both locations need a model name; network additionally needs its endpoint URL.
     const nameErr = mlModelNameError(b?.model);
     if (nameErr) missing.push(`model "${m.id}": ${nameErr}`);
     if (b?.location !== "device" && !b?.url) missing.push(`model "${m.id}": on-device or endpoint URL`);
   }
-  for (const ch of req.cameraChannels) {
+  for (const ch of cameraBindings(req)) {
     const b = inputs.cameras[ch.id];
     // Each kind needs the one field that identifies the camera on its access
     // path; libcamera and debug need nothing (the platform default sensor / a
@@ -393,10 +405,13 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   // A standalone engine has no retriever to bind a collection to, and resolves
   // every declared VectorDatabase through the mapping at build (buildCollections)
   // — so an emitted spec would be dead. Unsatisfiable, not merely unbound.
-  for (const m of req.ragMemories) missing.push(`memory "${m.id}": retrieval (RAG) is not supported by a standalone engine`);
-  missing.push(...hardwareConflicts(req.hardwareChannels, inputs.hardware));
-  missing.push(...familyMismatches(req.hardwareChannels, inputs.hardware));
-  missing.push(...cameraConflicts(req.cameraChannels, inputs.cameras));
+  for (const m of ragBindings(req)) missing.push(`memory "${m.id}": retrieval (RAG) is not supported by a standalone engine`);
+  // Uniqueness over (ref, discriminator) is NOT checked here — it needs resolved
+  // refs, so buildDeploymentSpec runs the canonical bindingConflicts post-mapping.
+  // These two are pre-ref concerns the canonical check can't cover: field validity,
+  // and camera device-exclusivity (two refs, one device node).
+  missing.push(...familyMismatches(hardwareBindings(req), inputs.hardware));
+  missing.push(...cameraDeviceConflicts(cameraBindings(req), inputs.cameras));
   if (missing.length > 0) {
     throw new Error(`invalid deploy config:\n  - ${missing.join("\n  - ")}`);
   }
@@ -456,7 +471,7 @@ export function buildDeploymentSpec(
 
   // Hardware: one driver instance per distinct device path (dedup by
   // family+path); one mapping per channel carrying its per-channel index.
-  for (const ch of req.hardwareChannels) {
+  for (const ch of hardwareBindings(req)) {
     const b = inputs.hardware[ch.id];
     if (!b) throw new Error(`unbound hardware channel ${ch.id}`); // unreachable after assertDeployable
     const dev = b.chipOrDevice;
@@ -487,13 +502,13 @@ export function buildDeploymentSpec(
         return assertNeverFamily(ch.family);
     }
 
-    if (ch.addressable && b.index !== undefined) mapping[ch.id] = { ref, index: b.index };
+    if (isAddressable(ch.family) && b.index !== undefined) mapping[ch.id] = { ref, index: b.index };
     else mapping[ch.id] = { ref };
   }
 
   // MQTT: one connection per distinct config (dedup by full content — same
   // broker, different creds is a different resource). No index.
-  for (const ch of req.mqttChannels) {
+  for (const ch of mqttBindings(req)) {
     const b = inputs.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
     const conn: EngineSchemas["MQTTConfig"] = { type: "mqtt", brokerUrl: b.brokerUrl };
@@ -516,7 +531,7 @@ export function buildDeploymentSpec(
   // sends the model's workflow id, which llama-swap routes on (the config.json `id`).
   const llamaComponents: DeployComponent[] = [];
   const llamaModels: LlamaModel[] = [];
-  for (const m of req.customLLMModels) {
+  for (const m of llmBindings(req)) {
     const b = inputs.llmModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
 
@@ -581,8 +596,11 @@ export function buildDeploymentSpec(
   // URL and only a single component is emitted. A network model points at the
   // operator's own component. Credential-free — a trusted in-deployment endpoint.
   const mlComponents: DeployComponent[] = [];
-  let mlDeviceModels = 0;
-  for (const m of req.customMLModels) {
+  // The bundle ids the on-device component must load, keyed by repository sub-folder
+  // name (the binding's `model`, not the workflow's model id — the component selects
+  // on the former).
+  const mlDeviceModels: MLInferenceSchemas["MLInferenceConfig"]["models"] = {};
+  for (const m of mlBindings(req)) {
     const b = inputs.mlModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
     // The ref identifies the ENDPOINT, not the model: the model name the component
@@ -595,18 +613,26 @@ export function buildDeploymentSpec(
     const ref = refs.alloc(`ml-inference:${url}`, hint);
     externalResources[ref] = { type: "ml-inference", url };
     mapping[m.id] = { ref, model: b.model };
-    if (b.location === "device") mlDeviceModels++;
+    // No collision is possible here: bindingConflictErrors below rejects two workflow
+    // models bound to the same (ref, model), so each bundle is claimed exactly once.
+    if (b.location === "device") mlDeviceModels[b.model] = b.params ? { params: b.params } : {};
   }
   // One shared component for all on-device ML models (not one per model). The model
   // repository is a directory the operator fills, one sub-folder per model id, mounted
-  // read-only at the standard workspace path (so no chown, no env var is wired).
-  if (mlDeviceModels > 0) {
+  // read-only at the standard workspace path (so no chown, no env var is wired). The
+  // boot config names which of those bundles must load and is authoritative: the
+  // component fails boot on a declared bundle it cannot load, and ignores any it was
+  // not issued. Carried as the component's config blob like every other component's,
+  // so the renderer writes and mounts it by the standard convention.
+  if (Object.keys(mlDeviceModels).length > 0) {
     const service = mlComponentServiceName();
+    const config: MLInferenceSchemas["MLInferenceConfig"] = { models: mlDeviceModels };
     mlComponents.push({
       name: service,
       image: meta.mlComponentImage,
       pull: "never", // built locally before deploy, in no registry
       volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
+      config,
     });
   }
 
@@ -617,15 +643,16 @@ export function buildDeploymentSpec(
   // per request.
   //
   // One channel per camera: a camera takes no discriminator, so two channels on
-  // one camera are the same requirement declared twice and cameraConflicts has
-  // already rejected them. The ref is still content-addressed rather than derived
+  // one camera are the same requirement declared twice — bindingConflicts rejects
+  // them post-mapping (they dedup to one ref). The ref is still content-addressed
+  // rather than derived
   // from the channel id, so it stays a device fact on both ends (/capture?name=
   // carries it). The password participates in the key so two cameras differing
   // only by credential stay distinct resources.
   const cameraComponents: DeployComponent[] = [];
   let hasLibcameraCamera = false;
   const cameraDevices = new Set<string>();
-  for (const ch of req.cameraChannels) {
+  for (const ch of cameraBindings(req)) {
     const b = inputs.cameras[ch.id];
     if (!b) throw new Error(`unbound camera ${ch.id}`); // unreachable after assertDeployable
     const src = cameraSourceOf(b);
@@ -666,6 +693,14 @@ export function buildDeploymentSpec(
     if (hasLibcameraCamera) camera.volumes = ["/run/udev:/run/udev:ro"];
     if (cameraDevices.size > 0) camera.devices = [...cameraDevices];
     cameraComponents.push(camera);
+  }
+
+  // The mapping is complete — every declared resource has its resolved ref. Run the
+  // canonical uniqueness check now that the RefAllocator has collapsed shared refs;
+  // completeness was already gated by assertDeployable above.
+  const conflicts = bindingConflictErrors(req.bindings, mapping);
+  if (conflicts.length > 0) {
+    throw new Error(`invalid deploy config:\n  - ${conflicts.join("\n  - ")}`);
   }
 
   const manifest: EngineSchemas["DeviceManifest"] = {};

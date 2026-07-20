@@ -87,8 +87,10 @@ hand-written switch on the workflow `Node` discriminator in
   fields (`.Str/.Int/.Err`).
 - **Context:** every async boundary takes `ctx context.Context`. Runner lifecycle
   uses `WithCancel`; boot/config use `WithTimeout`. Honor `ctx.Done()`.
-- **Config:** `caarlos0/env` struct tags (`env:"ENGINE_ADDR" envDefault:"..."`),
+- **Config:** `caarlos0/env` struct tags (`env:"ENGINE_ID" envDefault:"..."`),
   loaded in `cmd/engine/config.go`. Env vars are `ENGINE_*` / `FH_BACKEND_*`.
+  Listen addresses are never env vars — a component's port is contracted in
+  `component/constants.go`, since its caller dials that constant.
 - **Interfaces** are capability-focused and suffixed by role: `Executable`,
   `Trigger`, `Emitter`, `ToolProvider`, `HasSetup` (node contracts);
   `Provider`/`Embedder` (llmproxy). Optional capabilities are separate interfaces

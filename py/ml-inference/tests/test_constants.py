@@ -11,16 +11,22 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.config import DEFAULT_MODELS_DIR, EXIT_BAD_CONFIG
+from app.config import CONFIG_FILE, EXIT_BAD_CONFIG, WORKSPACE_DIR
 
 _CONTRACT = json.loads(
     (Path(__file__).resolve().parents[3] / "contract" / "component-constants.json").read_text()
 )
 
 
-def test_models_dir_matches_workspace() -> None:
-    # The model repository is mounted at the standard component workspace path.
-    assert DEFAULT_MODELS_DIR == _CONTRACT["paths"]["workspace"]
+def test_workspace_matches_contract() -> None:
+    # The model repository is mounted at the standard component workspace path. It is a
+    # constant, not configuration — the renderer's bind-mount target.
+    assert WORKSPACE_DIR == _CONTRACT["paths"]["workspace"]
+
+
+def test_config_file_matches_contract() -> None:
+    # The boot config is mounted read-only at the standard component config path.
+    assert CONFIG_FILE == _CONTRACT["paths"]["configFile"]
 
 
 def test_bad_config_exit_matches() -> None:

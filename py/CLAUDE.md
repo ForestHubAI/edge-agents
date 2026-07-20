@@ -12,9 +12,9 @@ User-facing build/run/API docs live in `py/ml-inference/README.md`; this file an
 app/
   main.py        FastAPI app: loads the repository at startup, serves the endpoints.
   middleware.py  ASGI middleware (request-body size cap, enforced before buffering).
-  config.py      env-driven config (ML_MODELS_DIR — where bundles are mounted).
+  config.py      contract paths + boot-config loader (config.json → MLInferenceConfig).
   manifest.py    bundle manifest schema (Manifest) + loader (fail-fast validation).
-  repository.py  scans the models dir at startup → name→LoadedModel registry.
+  repository.py  loads the issued bundles at startup → name→LoadedModel registry.
   api/models.py  GENERATED Pydantic models from ../../contract/mlinference.yaml.
                  Never hand-edit; regenerate instead.
   handlers/
@@ -29,16 +29,21 @@ scripts/smoke.sh end-to-end test (build image, serve example, POST /infer).
 
 ## Architecture
 
-The container is a **model repository**: at startup it loads every `<model-id>/`
-bundle under the mounted models dir into a `name → LoadedModel` registry; a request
-selects one by name. One container hosts many models behind one ONNX Runtime — not
-one container per model.
+The container is a **model repository**: at startup it loads the `<model-id>/` bundles
+its boot config issues it, from the mounted workspace, into a `name → LoadedModel`
+registry; a request selects one by name. One container hosts many models behind one
+ONNX Runtime — not one container per model.
+
+The boot config (`config.json` → `MLInferenceConfig`) is **authoritative**: exactly the
+bundles it declares are loaded. A declared bundle that is missing or broken aborts
+startup; an undeclared sub-folder in the workspace is ignored, never loaded implicitly.
 
 Two pipelines (full write-ups in [docs/architecture.md](ml-inference/docs/architecture.md)):
 
-- **Startup (fail-fast):** `main.lifespan` → `load_repository` → per bundle:
-  `load_manifest` → open ONNX session → `resolve_handler` → `handler.load`. An empty
-  or broken repository aborts startup, so a misconfigured deployment never serves.
+- **Startup (fail-fast):** `main.lifespan` → `load_boot_config` → `load_repository` →
+  per declared bundle: `load_manifest` → open ONNX session → `resolve_handler` →
+  `handler.load`. A bad config or any unloadable declared bundle aborts startup, so a
+  misconfigured deployment never serves.
 - **`/infer`:** look up the model (404 if unknown) → merge manifest+request params →
   `handler.preprocess` → `session.run` → `handler.postprocess` → `InferResult`.
 
@@ -85,8 +90,9 @@ The image is built locally and never published (`pull_policy: never`).
 - **Importing `app.handlers` registers the built-ins.** Its `__init__` imports `yolo`
   + `raw`, whose `@register_builtin` runs on import. A new built-in handler must be
   imported there or `builtin:<name>` won't resolve.
-- **The image ships no models.** Bundles are mounted at runtime (`ML_MODELS_DIR`,
-  default `/var/lib/foresthub/models`); model weights and the downloaded test image
-  are git-ignored, never committed.
+- **The image ships no models.** Bundles are mounted at runtime under the contracted
+  workspace path (`/var/lib/foresthub/workspace`) — a constant, not configuration, so
+  there is no env override. Model weights and the downloaded test image are
+  git-ignored, never committed.
 - **A `file:handler.py` runs as operator-trusted code** — arbitrary Python with the
   container's privileges. Built-ins need no such trust. See `docs/handlers.md`.

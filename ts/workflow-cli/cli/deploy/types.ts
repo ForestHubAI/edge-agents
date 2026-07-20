@@ -15,15 +15,8 @@ import { z } from "zod";
 
 // The rich requirement vocabulary — CLI-owned OSS packaging (./requirements),
 // re-exported so deploy modules pull the whole vocabulary from one place.
-export type {
-  DeployRequirements,
-  HardwareChannel,
-  MqttChannel,
-  CameraChannel,
-  CustomLLMModel,
-  CustomMLModel,
-  HardwareFamily,
-} from "./requirements";
+export type { DeployRequirements, BoundRequirement, BoundOf, NonCameraHardware, HardwareFamily } from "./requirements";
+export { isAddressable, hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings, ragBindings } from "./requirements";
 // Operator-input binding shapes + the spec resolver's validators are CLI-owned,
 // re-exported so deploy modules pull the whole vocabulary from one place.
 export type {
@@ -38,7 +31,6 @@ export type {
 export {
   ggufNameError,
   mlModelNameError,
-  hardwareConflicts,
   familyMismatches,
   hardwareAddressKey,
   hardwareAddressLabel,
@@ -46,6 +38,7 @@ export {
 } from "./spec";
 
 import type { DeployRequirements } from "./requirements";
+import { hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings } from "./requirements";
 
 // The providers the wizard can take a key for come from the model catalog (the
 // snapshot of the engine's llmproxy). Provider ids are the llmproxy ProviderID
@@ -79,8 +72,16 @@ const llmModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({ location: z.literal("network"), url: z.string(), apiKey: z.string().optional() }),
 ]);
 
+// `params` overrides the bundle manifest's params for a device-located model, and
+// rides the component's boot config. Not prompted for — a free-form per-model bag is
+// only sensibly authored in a --values file. A network model has none: the operator
+// runs that component and configures its bundles there.
 const mlModelBindingSchema = z.discriminatedUnion("location", [
-  z.strictObject({ location: z.literal("device"), model: z.string() }),
+  z.strictObject({
+    location: z.literal("device"),
+    model: z.string(),
+    params: z.record(z.string(), z.unknown()).optional(),
+  }),
   z.strictObject({ location: z.literal("network"), url: z.string(), model: z.string() }),
 ]);
 
@@ -147,11 +148,11 @@ export function unknownIds(req: DeployRequirements, p: Partial<DeployConfig>): s
       if (!known.has(id)) unknown.push(`${kind} "${id}": the workflow declares no such ${kind === "model" ? "model" : "channel"}`);
     }
   };
-  check("hardware", req.hardwareChannels.map((c) => c.id), p.hardware);
-  check("mqtt", req.mqttChannels.map((c) => c.id), p.mqtt);
-  check("model", req.customLLMModels.map((m) => m.id), p.llmModels);
-  check("model", req.customMLModels.map((m) => m.id), p.mlModels);
-  check("camera", req.cameraChannels.map((c) => c.id), p.cameras);
+  check("hardware", hardwareBindings(req).map((c) => c.id), p.hardware);
+  check("mqtt", mqttBindings(req).map((c) => c.id), p.mqtt);
+  check("model", llmBindings(req).map((m) => m.id), p.llmModels);
+  check("model", mlBindings(req).map((m) => m.id), p.mlModels);
+  check("camera", cameraBindings(req).map((c) => c.id), p.cameras);
   return unknown;
 }
 

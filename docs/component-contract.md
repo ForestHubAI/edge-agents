@@ -119,6 +119,31 @@ targets. A component that reads a different path reads an unmounted, empty locat
 Not every component uses all three — a component reads only the paths it needs, and
 the renderer mounts only those (see the per-component table below).
 
+### Who authors what: env vs the mounted files
+
+A component receives configuration two ways, and the split is by **author**, not by
+content. Keep them apart; do not fold one into the other.
+
+| Input          | Author            | Scope          | Lifecycle                     |
+| -------------- | ----------------- | -------------- | ----------------------------- |
+| `<name>.env`   | the operator      | the device     | hand-edited, survives deploys |
+| `config.json`  | the renderer      | the deployment | regenerated every deploy      |
+| `secrets.json` | the secret resolver | the deployment | re-resolved every deploy    |
+
+Environment is device-scoped and human-authored (identity, endpoints, `LOG_LEVEL`,
+fixed-name scalar secrets); the mounted files are deployment-scoped and machine-produced.
+Merging them would mean either the renderer overwriting operator-authored values on
+every deploy, or the operator hand-editing a generated file.
+
+There is also a bootstrap reason. Env is readable at exec with no I/O, while
+`config.json` needs a bind mount that may be missing or malformed — so a component
+reads env and calls `logging.Configure` **first**, and can then report a broken
+`config.json` properly. This is why `LOG_LEVEL` is env and never a config field.
+
+Consequently a component's Go `main` has two distinct structs: a `Config` parsed from
+the environment (process concerns), and the contracted boot-config type loaded via
+`component.LoadConfig[T]` (deployment concerns). Only the latter is "the boot config".
+
 ### `config.json` — the boot config
 
 `config.json` is the component's frozen boot config, read once at startup. Its **shape
@@ -133,7 +158,7 @@ plain domain type documented in that language.
 | Engine       | `EngineConfig` — [`contract/engine.yaml`](../contract/engine.yaml)                                    | contracted (backend produces it)                                                                                     |
 | Camera       | `CameraConfig` — [`contract/camera.yaml`](../contract/camera.yaml)                                    | contracted (the renderer writes it, Go reads it)                                                                     |
 | llama-server | a models list in `config.json`, fronted by llama-swap                                                 | image-owned — the entrypoint defines and reads the shape (a bash consumer, no codegen), like ml-inference's manifest |
-| ML inference | **none** — reads no `config.json`; configured by env (`ML_MODELS_DIR`) + the mounted model repository | domain-only                                                                                                          |
+| ML inference | `MLInferenceConfig` — [`contract/mlinference.yaml`](../contract/mlinference.yaml)                       | contracted (the renderer writes it, Python reads it)                                                                 |
 
 A missing or malformed `config.json` on a component that requires it is a **permanent**
 boot failure — exit `ExitConfigError` (below), not a retry.

@@ -1,6 +1,6 @@
 {
   "name": "@foresthubai/workflow-builder",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Reusable React component library: the workflow canvas/editor. Imports workflow-core for types and validation.",
   "license": "AGPL-3.0-only",
   "repository": {
@@ -41,7 +41,7 @@
     "tailwindcss": "^3.4.0"
   },
   "dependencies": {
-    "@foresthubai/workflow-core": "0.5.0",
+    "@foresthubai/workflow-core": "0.5.1",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-collapsible": "^1.1.0",

@@ -6,8 +6,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { familyMismatches, ggufNameError, hardwareConflicts, unknownIds, valuesFileSchema } from "./types";
-import type { DeployRequirements, HardwareChannel, HardwareFamily } from "./types";
+import { familyMismatches, ggufNameError, unknownIds, valuesFileSchema } from "./types";
+import type { DeployRequirements, BoundRequirement, NonCameraHardware, HardwareFamily } from "./types";
 
 describe("ggufNameError", () => {
   it("accepts a plain .gguf filename, trimmed and case-insensitive", () => {
@@ -31,54 +31,13 @@ describe("ggufNameError", () => {
   });
 });
 
-const hw = (id: string, family: HardwareFamily): HardwareChannel => ({
+const hw = (id: string, family: Exclude<HardwareFamily, "camera">): NonCameraHardware => ({
+  kind: "hardware",
+  family,
+  ref: null,
+  index: null,
   id,
   label: id,
-  family,
-  addressable: family !== "serial",
-});
-
-describe("hardwareConflicts", () => {
-  it("allows two channels on the same chip with different lines", () => {
-    const conflicts = hardwareConflicts([hw("btn", "gpio"), hw("led", "gpio")], {
-      btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
-      led: { chipOrDevice: "/dev/gpiochip0", index: 27 },
-    });
-    expect(conflicts).toEqual([]);
-  });
-
-  it("flags two channels on the same chip and line", () => {
-    const conflicts = hardwareConflicts([hw("btn", "gpio"), hw("led", "gpio")], {
-      btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
-      led: { chipOrDevice: "/dev/gpiochip0", index: 17 },
-    });
-    expect(conflicts.join()).toMatch(/led/);
-    expect(conflicts.join()).toMatch(/line 17.*already used by "btn"/);
-  });
-
-  it("treats a serial device as exclusive, regardless of baud", () => {
-    const conflicts = hardwareConflicts([hw("u1", "serial"), hw("u2", "serial")], {
-      u1: { chipOrDevice: "/dev/ttyUSB0", baud: 9600 },
-      u2: { chipOrDevice: "/dev/ttyUSB0", baud: 115200 },
-    });
-    expect(conflicts.join()).toMatch(/u2.*already used by "u1"/);
-  });
-
-  it("does not collide across families", () => {
-    const conflicts = hardwareConflicts([hw("a", "adc"), hw("p", "pwm")], {
-      a: { chipOrDevice: "/sys/devices/x", index: 0 },
-      p: { chipOrDevice: "/sys/devices/x", index: 0 },
-    });
-    expect(conflicts).toEqual([]);
-  });
-
-  it("skips incomplete bindings — completeness is a separate check", () => {
-    const conflicts = hardwareConflicts([hw("btn", "gpio"), hw("led", "gpio")], {
-      btn: { chipOrDevice: "/dev/gpiochip0", index: 17 },
-      led: { chipOrDevice: "/dev/gpiochip0" },
-    });
-    expect(conflicts).toEqual([]);
-  });
 });
 
 describe("familyMismatches", () => {
@@ -109,19 +68,31 @@ describe("familyMismatches", () => {
   });
 });
 
-const reqOf = (p: Partial<DeployRequirements> = {}): DeployRequirements => ({
-  hasProviderModel: false,
-  catalogProviders: [],
-  unresolvedCatalogModels: [],
-  ragMemories: [],
-  hardwareChannels: [],
-  mqttChannels: [],
-  cameraChannels: [],
-  customLLMModels: [],
-  customMLModels: [],
-  hasWebSearch: false,
-  ...p,
-});
+interface ReqParts {
+  hardwareChannels?: { id: string; label: string; family: HardwareFamily }[];
+  mqttChannels?: { id: string; label: string }[];
+  cameraChannels?: { id: string; label: string }[];
+  customLLMModels?: { id: string; label: string }[];
+  customMLModels?: { id: string; label: string }[];
+  ragMemories?: { id: string; label: string }[];
+  catalogProviders?: { id: string }[];
+}
+const reqOf = (p: ReqParts = {}): DeployRequirements => {
+  const bindings: Record<string, BoundRequirement> = {};
+  for (const h of p.hardwareChannels ?? []) bindings[h.id] = { kind: "hardware", family: h.family, ref: null, index: null, id: h.id, label: h.label };
+  for (const c of p.cameraChannels ?? []) bindings[c.id] = { kind: "hardware", family: "camera", ref: null, index: null, id: c.id, label: c.label };
+  for (const m of p.mqttChannels ?? []) bindings[m.id] = { kind: "mqtt", ref: null, topic: "", id: m.id, label: m.label };
+  for (const m of p.customLLMModels ?? []) bindings[m.id] = { kind: "declaredLlm", model: null, id: m.id, label: m.label };
+  for (const m of p.customMLModels ?? []) bindings[m.id] = { kind: "ml", ref: null, model: null, id: m.id, label: m.label };
+  for (const r of p.ragMemories ?? []) bindings[r.id] = { kind: "rag", ref: null, id: r.id, label: r.label };
+  return {
+    bindings,
+    hasProviderModel: false,
+    catalogProviders: p.catalogProviders ?? [],
+    unresolvedCatalogModels: [],
+    hasWebSearch: false,
+  };
+};
 
 describe("unknownIds", () => {
   it("flags a hardware id the workflow doesn't declare", () => {

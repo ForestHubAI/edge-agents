@@ -28,12 +28,13 @@ service code never mentions YOLO, NMS, or images.
 ## The model repository
 
 The container is a **model repository** (the Triton / TorchServe pattern): a mounted
-directory holds one sub-folder per model; at startup every bundle is loaded into a
-`name → LoadedModel` registry held on `app.state`. A request selects one by name.
-One ONNX Runtime instance is shared across all of a deployment's models.
+directory holds one sub-folder per model; at startup the bundles the boot config
+declares are loaded into a `name → LoadedModel` registry held on `app.state`. A request
+selects one by name. One ONNX Runtime instance is shared across all of a deployment's
+models.
 
 ```
-/var/lib/foresthub/models/   (mounted, read-only)
+/var/lib/foresthub/workspace/   (mounted, read-only)
 ├── yolo/            → LoadedModel(name="yolo",  session, handler, manifest)
 └── my-classifier/   → LoadedModel(name="my-classifier", session, handler, manifest)
 ```
@@ -43,16 +44,17 @@ ONNX `InferenceSession`, the resolved `Handler` instance, and the parsed `Manife
 
 ## Startup pipeline (fail-fast)
 
-`main.py` loads the whole repository before the server accepts traffic, via FastAPI's
-`lifespan`. Any failure — or an empty repository — aborts the process, so a
+`main.py` loads every issued bundle before the server accepts traffic, via FastAPI's
+`lifespan`. Any failure — a missing or invalid `config.json`, a config declaring no
+models, or a declared bundle that will not load — aborts the process with exit 78, so a
 misconfigured deployment never serves stale or partial results.
 
 ```
 uvicorn app.main:app
   → main.lifespan
-      → load_config()                         # ML_MODELS_DIR
-      → load_repository(models_dir)           # repository.py
-          for each <model-id>/ sub-folder:
+      → load_boot_config()                    # config.py — /etc/foresthub/config.json
+      → load_repository(workspace, declared)  # repository.py
+          for each DECLARED <model-id>/ bundle:
             load_manifest(bundle)             # manifest.py — parse + validate manifest.yaml
             check the model file exists
             ort.InferenceSession(model.onnx)  # CPUExecutionProvider
@@ -114,7 +116,7 @@ across every model family. See [handlers.md](./handlers.md).
 | Concern | File |
 | --- | --- |
 | Endpoints, startup load, request orchestration | `app/main.py` |
-| Where bundles are mounted (`ML_MODELS_DIR`) | `app/config.py` |
+| Contract paths + boot-config loader | `app/config.py` |
 | Bundle manifest schema + loader | `app/manifest.py` |
 | Repository scan → `name→LoadedModel` registry | `app/repository.py` |
 | Handler interface | `app/handlers/base.py` |

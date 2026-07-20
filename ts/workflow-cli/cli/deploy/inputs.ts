@@ -48,9 +48,11 @@ export type LLMModelBinding =
 // inference component on this controller (the model repository is a directory the
 // operator fills); `network` = an inference endpoint the operator runs
 // elsewhere. Credential-free — a trusted endpoint. `model` = the name the
-// component selects on (its repository sub-folder on device).
+// component selects on (its repository sub-folder on device). `params` overrides the
+// bundle manifest's own params and rides the component's boot config; a network model
+// has none, since the operator configures the bundles on the component they run.
 export type MLModelBinding =
-  | { location: "device"; model: string }
+  | { location: "device"; model: string; params?: Record<string, unknown> }
   | { location: "network"; url: string; model: string };
 
 // One camera the device owns, declared by HOW it is reached — not by where it

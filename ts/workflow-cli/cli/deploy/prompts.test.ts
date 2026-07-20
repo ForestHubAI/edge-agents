@@ -19,25 +19,38 @@ vi.mock("@inquirer/prompts", () => ({
 
 import { input, password, select, checkbox, confirm, editor } from "@inquirer/prompts";
 import { promptMissing } from "./prompts";
-import type { DeployConfig, DeployRequirements } from "./types";
+import type { DeployConfig, DeployRequirements, BoundRequirement, HardwareFamily } from "./types";
 
-function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
+interface ReqParts {
+  hardwareChannels?: { id: string; label: string; family: HardwareFamily }[];
+  mqttChannels?: { id: string; label: string }[];
+  cameraChannels?: { id: string; label: string }[];
+  customLLMModels?: { id: string; label: string }[];
+  customMLModels?: { id: string; label: string }[];
+  ragMemories?: { id: string; label: string }[];
+  catalogProviders?: { id: string }[];
+  unresolvedCatalogModels?: string[];
+  hasProviderModel?: boolean;
+  hasWebSearch?: boolean;
+}
+function reqOf(p: ReqParts = {}): DeployRequirements {
+  const bindings: Record<string, BoundRequirement> = {};
+  for (const h of p.hardwareChannels ?? []) bindings[h.id] = { kind: "hardware", family: h.family, ref: null, index: null, id: h.id, label: h.label };
+  for (const c of p.cameraChannels ?? []) bindings[c.id] = { kind: "hardware", family: "camera", ref: null, index: null, id: c.id, label: c.label };
+  for (const m of p.mqttChannels ?? []) bindings[m.id] = { kind: "mqtt", ref: null, topic: "", id: m.id, label: m.label };
+  for (const m of p.customLLMModels ?? []) bindings[m.id] = { kind: "declaredLlm", model: null, id: m.id, label: m.label };
+  for (const m of p.customMLModels ?? []) bindings[m.id] = { kind: "ml", ref: null, model: null, id: m.id, label: m.label };
+  for (const r of p.ragMemories ?? []) bindings[r.id] = { kind: "rag", ref: null, id: r.id, label: r.label };
   return {
-    hasProviderModel: false,
-    catalogProviders: [],
-    unresolvedCatalogModels: [],
-    ragMemories: [],
-    hasWebSearch: false,
-    hardwareChannels: [],
-    mqttChannels: [],
-    cameraChannels: [],
-    customLLMModels: [],
-    customMLModels: [],
-    ...p,
+    bindings,
+    hasProviderModel: p.hasProviderModel ?? false,
+    catalogProviders: p.catalogProviders ?? [],
+    unresolvedCatalogModels: p.unresolvedCatalogModels ?? [],
+    hasWebSearch: p.hasWebSearch ?? false,
   };
 }
-const hwGpio = (id: string) => ({ id, label: id, family: "gpio" as const, addressable: true });
-const hwSerial = (id: string) => ({ id, label: id, family: "serial" as const, addressable: false });
+const hwGpio = (id: string) => ({ id, label: id, family: "gpio" as const });
+const hwSerial = (id: string) => ({ id, label: id, family: "serial" as const });
 
 // Answer a prompt by matching its message against [regex, value] pairs; an
 // unmatched prompt throws, so a test never silently drives the wrong path.

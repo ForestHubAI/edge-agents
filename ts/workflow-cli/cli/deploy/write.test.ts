@@ -41,16 +41,11 @@ function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
 
 function reqOf(p: Partial<DeployRequirements> = {}): DeployRequirements {
   return {
+    bindings: {},
     hasProviderModel: false,
     catalogProviders: [],
     unresolvedCatalogModels: [],
-    ragMemories: [],
     hasWebSearch: false,
-    hardwareChannels: [],
-    mqttChannels: [],
-    cameraChannels: [],
-    customLLMModels: [],
-    customMLModels: [],
     ...p,
   };
 }

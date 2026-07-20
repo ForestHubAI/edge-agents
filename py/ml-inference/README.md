@@ -7,24 +7,30 @@ weights and their pre/post-processing live in **mounted bundles**, not in the im
 
 ## Model repository
 
-The container is a **model repository**: at startup it scans a mounted directory of
-bundles and loads *every* one into memory. A request picks which model to run by
-name. One container thus hosts all of a deployment's models behind a shared runtime
-— not one container per model.
+The container is a **model repository**: bundles are staged in a mounted directory, and
+at startup it loads the ones its boot config issues it. A request picks which model to
+run by name. One container thus hosts all of a deployment's models behind a shared
+runtime — not one container per model.
 
 ```
-models/                 # mounted at /var/lib/foresthub/models (read-only)
+/var/lib/foresthub/workspace/   # the mounted repository root (read-only)
 ├── yolo/                # model id = folder name
 │   ├── manifest.yaml
 │   ├── model.onnx
 │   └── coco.txt
-└── my-classifier/       # add a model = add a folder
+└── my-classifier/       # stage a folder, then declare it in the boot config
     ├── manifest.yaml
     └── model.onnx
 ```
 
-Loading is **fail-fast**: an empty repository or any broken bundle aborts startup, so
-a misconfigured deployment never serves stale or partial results.
+The boot config (`/etc/foresthub/config.json`, written by the deploy renderer) is
+**authoritative**: exactly the bundles it declares are loaded. A sub-folder that is
+present but undeclared is ignored, so staging a bundle is not by itself enough to serve
+it.
+
+Loading is **fail-fast**: a missing or invalid config, a config declaring no models, or
+any declared bundle that will not load aborts startup with exit 78, so a misconfigured
+deployment never serves stale or partial results.
 
 ### Bundle manifest
 

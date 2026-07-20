@@ -7,13 +7,19 @@ bundle selects, see [handlers.md](./handlers.md).
 
 ## The repository
 
-The component scans a mounted directory at startup and loads **every** sub-folder as a
-bundle (`repository.py`). The folder name is the model **id** — the value a request
-passes as `/infer`'s `model`. The mount is read-only; default `ML_MODELS_DIR` is
-`/var/lib/foresthub/models`.
+At startup the component loads the bundles its boot config declares (`repository.py`),
+from a mounted directory of sub-folders. The folder name is the model **id** — the
+value a request passes as `/infer`'s `model`, and the key the boot config declares it
+under. The mount is read-only, at the contracted workspace path
+`/var/lib/foresthub/workspace`.
+
+The declaration is **authoritative**: a declared bundle that is missing or broken
+aborts startup, and a sub-folder present but not declared is ignored. So staging a
+bundle on the device is not enough to serve it — the deployment must bind a model to
+it, which is what puts it in the boot config.
 
 ```
-models/                 # mounted read-only into the container
+/var/lib/foresthub/workspace/   # mounted read-only; bundles sit at its root
 ├── yolo/               # model id = "yolo"
 │   ├── manifest.yaml
 │   ├── model.onnx      # weights — NOT committed to git
@@ -23,9 +29,10 @@ models/                 # mounted read-only into the container
     └── model.onnx
 ```
 
-Loading is **fail-fast**: an empty repository or any one broken bundle aborts startup
-(see [architecture.md](./architecture.md)). Adding a model is purely additive — drop
-in another folder; nothing else changes.
+Loading is **fail-fast**: a config declaring no models, or any one declared bundle that
+will not load, aborts startup (see [architecture.md](./architecture.md)). Adding a model
+takes two steps — stage the bundle folder here, and bind a workflow model to it so the
+deployment declares it. Staging alone does not serve it.
 
 ## The manifest (`manifest.yaml`)
 

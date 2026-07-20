@@ -15,8 +15,11 @@ BASE="http://localhost:$PORT"
 TEST_IMAGE="$SERVICE_DIR/examples/bus.jpg"
 TEST_IMAGE_URL="https://ultralytics.com/images/bus.jpg"
 
+CONFIG_DIR="$(mktemp -d)"
+
 fail() { echo "FAIL: $*" >&2; exit 1; }
-cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
+rm_container() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
+cleanup() { rm_container; rm -rf "$CONFIG_DIR"; }
 trap cleanup EXIT
 
 [ -f "$MODELS_DIR/yolo/model.onnx" ] || fail "missing $MODELS_DIR/yolo/model.onnx (see examples/models/yolo/README.md)"
@@ -24,10 +27,15 @@ trap cleanup EXIT
 echo "==> building $IMAGE"
 docker build -t "$IMAGE" "$SERVICE_DIR"
 
+# The boot config is authoritative — the component loads only the bundles it declares.
+# The deploy renderer writes this file on a real device; stand in for it here.
+echo '{"models":{"yolo":{}}}' > "$CONFIG_DIR/config.json"
+
 echo "==> starting container"
-cleanup
+rm_container
 docker run -d --name "$CONTAINER" -p "$PORT:8082" \
-  -v "$MODELS_DIR:/var/lib/foresthub/workspace:ro" "$IMAGE" >/dev/null
+  -v "$MODELS_DIR:/var/lib/foresthub/workspace:ro" \
+  -v "$CONFIG_DIR/config.json:/etc/foresthub/config.json:ro" "$IMAGE" >/dev/null
 
 echo "==> waiting for readiness"
 for _ in $(seq 1 60); do

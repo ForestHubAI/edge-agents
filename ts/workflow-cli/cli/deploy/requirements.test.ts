@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
-import { deriveRequirements } from "./requirements";
+import { deriveRequirements, isAddressable, hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings, ragBindings } from "./requirements";
 import { MAIN_CANVAS_ID, type Workflow, type Canvas } from "@foresthubai/workflow-core/workflow";
 import type { Channel } from "@foresthubai/workflow-core/channel";
 import type { Node } from "@foresthubai/workflow-core/node";
@@ -91,17 +91,17 @@ describe("deriveRequirements resource classification", () => {
       models: { "custom-llm": customModel },
     };
     const req = deriveRequirements(wf);
-    expect(req.hardwareChannels.map((c) => c.family).sort()).toEqual(["adc", "gpio", "serial"]);
-    expect(req.mqttChannels.map((c) => c.id)).toEqual(["telemetry"]);
-    expect(req.customLLMModels.map((c) => c.id)).toEqual(["custom-llm"]);
-    expect(req.hardwareChannels.find((c) => c.family === "serial")?.addressable).toBe(false);
+    expect(hardwareBindings(req).map((c) => c.family).sort()).toEqual(["adc", "gpio", "serial"]);
+    expect(mqttBindings(req).map((c) => c.id)).toEqual(["telemetry"]);
+    expect(llmBindings(req).map((c) => c.id)).toEqual(["custom-llm"]);
+    expect(isAddressable("serial")).toBe(false);
   });
 
   it("classifies declared models into the LLM and ML pools", () => {
     const wf = workflow({ [MAIN_CANVAS_ID]: canvas([]) }, { "custom-llm": customModel, detector: mlModel("detector") });
     const req = deriveRequirements(wf);
-    expect(req.customLLMModels.map((m) => m.id)).toEqual(["custom-llm"]);
-    expect(req.customMLModels.map((m) => m.id)).toEqual(["detector"]);
+    expect(llmBindings(req).map((m) => m.id)).toEqual(["custom-llm"]);
+    expect(mlBindings(req).map((m) => m.id)).toEqual(["detector"]);
   });
 
   it("classifies camera channels into the camera pool", () => {
@@ -113,7 +113,7 @@ describe("deriveRequirements resource classification", () => {
       models: {},
     };
     const req = deriveRequirements(wf);
-    expect(req.cameraChannels.map((c) => c.id).sort()).toEqual(["front", "rear"]);
+    expect(cameraBindings(req).map((c) => c.id).sort()).toEqual(["front", "rear"]);
   });
 
   it("pools declared VectorDatabases as rag memories, ignoring MemoryFile", () => {
@@ -128,6 +128,6 @@ describe("deriveRequirements resource classification", () => {
       models: {},
     };
     const req = deriveRequirements(wf);
-    expect(req.ragMemories).toEqual([{ id: "vdb1", label: "Docs" }]);
+    expect(ragBindings(req).map((m) => ({ id: m.id, label: m.label }))).toEqual([{ id: "vdb1", label: "Docs" }]);
   });
 });

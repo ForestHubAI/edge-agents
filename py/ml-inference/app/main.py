@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api.models import Error, Health, InferResult, ModelMetadata, RepositoryMetadata
-from .config import EXIT_BAD_CONFIG, load_config
+from .config import EXIT_BAD_CONFIG, WORKSPACE_DIR, ConfigError, load_boot_config
 from .middleware import MaxBodySizeMiddleware
 from .repository import LoadedModel, RepositoryError, load_repository
 
@@ -39,18 +39,21 @@ MAX_UPLOAD_BYTES = 32 * 1024 * 1024
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load every model bundle before the server accepts traffic."""
-    config = load_config()
+    """Load every issued model bundle before the server accepts traffic."""
     try:
-        app.state.models = load_repository(config.models_dir)
-    except RepositoryError as exc:
-        # A bad or empty repository fails identically on restart — a permanent config
-        # error. Exit 78 (EX_CONFIG) so the orchestrator stops retrying, matching the
-        # engine/llama components. os._exit bypasses uvicorn's own exit handling, which
-        # would otherwise mask the code. Logged first (StreamHandler flushes on emit).
-        logger.error("repository load failed, exiting: %s", exc)
+        # The boot config is authoritative: it names the bundles this component was
+        # issued, and the repository loads exactly those from the mounted workspace.
+        config = load_boot_config()
+        app.state.models = load_repository(WORKSPACE_DIR, config.models)
+    except (ConfigError, RepositoryError) as exc:
+        # A bad config or an unloadable declared bundle fails identically on restart —
+        # a permanent config error. Exit 78 (EX_CONFIG) so the orchestrator stops
+        # retrying, matching the engine/camera components. os._exit bypasses uvicorn's
+        # own exit handling, which would otherwise mask the code. Logged first
+        # (StreamHandler flushes on emit).
+        logger.error("boot failed, exiting: %s", exc)
         os._exit(EXIT_BAD_CONFIG)
-    logger.info("loaded %d model(s) from %s", len(app.state.models), config.models_dir)
+    logger.info("loaded %d model(s) from %s", len(app.state.models), WORKSPACE_DIR)
     yield
 
 

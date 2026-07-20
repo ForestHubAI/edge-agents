@@ -10,26 +10,34 @@ import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { ggufNameError, hardwareAddressKey, hardwareAddressLabel, mlModelNameError } from "./types";
+import {
+  ggufNameError,
+  hardwareAddressKey,
+  hardwareAddressLabel,
+  mlModelNameError,
+  isAddressable,
+  hardwareBindings,
+  cameraBindings,
+  mqttBindings,
+  llmBindings,
+  mlBindings,
+} from "./types";
 import type {
+  BoundOf,
   CameraBinding,
-  CameraChannel,
-  CustomLLMModel,
-  CustomMLModel,
   DeployConfig,
   DeployRequirements,
   HardwareBinding,
-  HardwareChannel,
   HardwareFamily,
   LLMModelBinding,
   MLModelBinding,
   MqttBinding,
-  MqttChannel,
+  NonCameraHardware,
   WebSearchBinding,
 } from "./types";
 
 // Prompt-default device path per hardware family.
-const HARDWARE_EXAMPLE: Record<HardwareFamily, string> = {
+const HARDWARE_EXAMPLE: Record<Exclude<HardwareFamily, "camera">, string> = {
   gpio: "/dev/gpiochip0",
   adc: "/sys/bus/iio/devices/iio:device0",
   dac: "/sys/bus/iio/devices/iio:device1",
@@ -43,7 +51,7 @@ const isUint = (v: string) => /^\d+$/.test(v.trim()) || "enter a non-negative in
 // A claimed-address map rejects a duplicate line/device right at the prompt;
 // assertDeployable re-checks the full set later (it alone covers --values).
 async function promptHardware(
-  channels: HardwareChannel[],
+  channels: NonCameraHardware[],
   seed: Record<string, HardwareBinding>,
 ): Promise<Record<string, HardwareBinding>> {
   const result: Record<string, HardwareBinding> = { ...seed };
@@ -53,7 +61,7 @@ async function promptHardware(
   };
   for (const ch of channels) {
     const b = result[ch.id];
-    if (b?.chipOrDevice && (!ch.addressable || b.index !== undefined)) {
+    if (b?.chipOrDevice && (!isAddressable(ch.family) || b.index !== undefined)) {
       claim(hardwareAddressKey(ch.family, b.chipOrDevice, b.index), ch.label);
     }
   }
@@ -72,7 +80,7 @@ async function promptHardware(
     });
     const dev = chipOrDevice.trim();
     const binding: HardwareBinding = { chipOrDevice: dev };
-    if (ch.addressable) {
+    if (isAddressable(ch.family)) {
       const idx = await input({
         message: `${ch.label}: channel index / GPIO line`,
         validate: (v) => {
@@ -97,7 +105,7 @@ async function promptHardware(
 // Per MQTT channel: broker URL + optional creds. Offers to reuse a broker
 // already configured this run (same URL -> builder dedups onto one resource).
 async function promptMqtt(
-  channels: MqttChannel[],
+  channels: BoundOf<"mqtt">[],
   seed: Record<string, MqttBinding>,
 ): Promise<Record<string, MqttBinding>> {
   const result: Record<string, MqttBinding> = { ...seed };
@@ -139,7 +147,7 @@ async function promptMqtt(
 // device -> a llama-server component this bundle generates (a model filename);
 // network -> an endpoint the operator runs elsewhere (its URL + optional key).
 async function promptLLMModels(
-  models: CustomLLMModel[],
+  models: BoundOf<"declaredLlm">[],
   seed: Record<string, LLMModelBinding>,
 ): Promise<Record<string, LLMModelBinding>> {
   const result: Record<string, LLMModelBinding> = { ...seed };
@@ -186,7 +194,7 @@ async function promptLLMModels(
 // -> an endpoint the operator runs elsewhere (the name must match what that
 // component calls the model; its URL, no credential).
 async function promptMLModels(
-  models: CustomMLModel[],
+  models: BoundOf<"ml">[],
   seed: Record<string, MLModelBinding>,
 ): Promise<Record<string, MLModelBinding>> {
   const result: Record<string, MLModelBinding> = { ...seed };
@@ -228,7 +236,7 @@ async function promptMLModels(
 // don't. It picks the capture recipe, which the driver component owns, so nothing
 // here asks for a pipeline (except `raw`, the escape hatch).
 async function promptCameras(
-  channels: CameraChannel[],
+  channels: BoundOf<"hardware">[],
   seed: Record<string, CameraBinding>,
 ): Promise<Record<string, CameraBinding>> {
   const result: Record<string, CameraBinding> = { ...seed };
@@ -408,11 +416,11 @@ export async function promptMissing(
   // Work out which sections will actually ask something this run. A section the
   // partial (flags / --values) already pre-filled stays silent, so it must get
   // neither a header nor a slot in the [step/total] denominator.
-  const hwTodo = req.hardwareChannels.filter((ch) => !partial.hardware?.[ch.id]);
-  const mqttTodo = req.mqttChannels.filter((ch) => !partial.mqtt?.[ch.id]);
-  const llmModelsTodo = req.customLLMModels.filter((m) => !partial.llmModels?.[m.id]);
-  const mlModelsTodo = req.customMLModels.filter((m) => !partial.mlModels?.[m.id]);
-  const camerasTodo = req.cameraChannels.filter((ch) => !partial.cameras?.[ch.id]);
+  const hwTodo = hardwareBindings(req).filter((ch) => !partial.hardware?.[ch.id]);
+  const mqttTodo = mqttBindings(req).filter((ch) => !partial.mqtt?.[ch.id]);
+  const llmModelsTodo = llmBindings(req).filter((m) => !partial.llmModels?.[m.id]);
+  const mlModelsTodo = mlBindings(req).filter((m) => !partial.mlModels?.[m.id]);
+  const camerasTodo = cameraBindings(req).filter((ch) => !partial.cameras?.[ch.id]);
   const askKeys = req.catalogProviders.length > 0;
   const askWeb = req.hasWebSearch && !partial.webSearch;
 
@@ -461,15 +469,15 @@ export async function promptMissing(
   // Resource values: each helper asks only for what the partial didn't pre-fill,
   // so each header is gated on that same "has open items" check.
   if (hwTodo.length > 0) section("Hardware channels", hwTodo.length);
-  const hardware = await promptHardware(req.hardwareChannels, partial.hardware ?? {});
+  const hardware = await promptHardware(hardwareBindings(req), partial.hardware ?? {});
   if (mqttTodo.length > 0) section("MQTT brokers", mqttTodo.length);
-  const mqtt = await promptMqtt(req.mqttChannels, partial.mqtt ?? {});
+  const mqtt = await promptMqtt(mqttBindings(req), partial.mqtt ?? {});
   if (llmModelsTodo.length > 0) section("Custom LLM models", llmModelsTodo.length);
-  const llmModels = await promptLLMModels(req.customLLMModels, partial.llmModels ?? {});
+  const llmModels = await promptLLMModels(llmBindings(req), partial.llmModels ?? {});
   if (mlModelsTodo.length > 0) section("Custom ML models", mlModelsTodo.length);
-  const mlModels = await promptMLModels(req.customMLModels, partial.mlModels ?? {});
+  const mlModels = await promptMLModels(mlBindings(req), partial.mlModels ?? {});
   if (camerasTodo.length > 0) section("Cameras", camerasTodo.length);
-  const cameras = await promptCameras(req.cameraChannels, partial.cameras ?? {});
+  const cameras = await promptCameras(cameraBindings(req), partial.cameras ?? {});
   if (askWeb) section("Web search");
   const webSearch = req.hasWebSearch ? await promptWebSearch(partial.webSearch) : undefined;
 

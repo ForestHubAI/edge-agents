@@ -94,6 +94,50 @@ const meta = {
   cameraComponentImage: "camera:latest",
 };
 
+// A channels-only workflow for uniqueness tests.
+function channelsWorkflow(channels: Record<string, Channel>): Workflow {
+  return {
+    canvases: { [MAIN_CANVAS_ID]: { nodes: [], edges: [], variables: {} } },
+    functions: {},
+    channels,
+    memory: {},
+    models: {},
+  };
+}
+const noInputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} };
+
+describe("buildDeploymentSpec uniqueness (canonical bindingConflicts, post-ref)", () => {
+  it("rejects two hardware channels on one chip and line", () => {
+    const wf = channelsWorkflow({ btn: channel("btn", "GPIOIN"), led: channel("led", "GPIOOUT") });
+    const inputs = {
+      ...noInputs,
+      hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17 }, led: { chipOrDevice: "/dev/gpiochip0", index: 17 } },
+    };
+    expect(() => buildDeploymentSpec(wf, inputs, meta)).toThrow(/conflict: all bound to the same resource \(gpio:/);
+  });
+
+  it("allows two hardware channels on one chip with different lines", () => {
+    const wf = channelsWorkflow({ btn: channel("btn", "GPIOIN"), led: channel("led", "GPIOOUT") });
+    const inputs = {
+      ...noInputs,
+      hardware: { btn: { chipOrDevice: "/dev/gpiochip0", index: 17 }, led: { chipOrDevice: "/dev/gpiochip0", index: 27 } },
+    };
+    expect(() => buildDeploymentSpec(wf, inputs, meta)).not.toThrow();
+  });
+
+  it("rejects two MQTT channels on one broker and topic (a check the pre-ref path never had)", () => {
+    const wf = channelsWorkflow({ a: channel("a", "MQTT", { topic: "alarm" }), b: channel("b", "MQTT", { topic: "alarm" }) });
+    const inputs = { ...noInputs, mqtt: { a: { brokerUrl: "mqtt://x:1883" }, b: { brokerUrl: "mqtt://x:1883" } } };
+    expect(() => buildDeploymentSpec(wf, inputs, meta)).toThrow(/conflict: all bound to the same resource \(mqtt:/);
+  });
+
+  it("allows two MQTT channels on one broker with different topics", () => {
+    const wf = channelsWorkflow({ a: channel("a", "MQTT", { topic: "alarm" }), b: channel("b", "MQTT", { topic: "telemetry" }) });
+    const inputs = { ...noInputs, mqtt: { a: { brokerUrl: "mqtt://x:1883" }, b: { brokerUrl: "mqtt://x:1883" } } };
+    expect(() => buildDeploymentSpec(wf, inputs, meta)).not.toThrow();
+  });
+});
+
 describe("buildDeploymentSpec", () => {
   it("resolves a full workflow into a contract-shaped spec", () => {
     const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
@@ -412,6 +456,38 @@ describe("buildDeploymentSpec ML inference component", () => {
     const mapping = engineConfigOf(spec).mapping!;
     expect(mapping.detector).toEqual({ ref, model: "yolov8n" });
     expect(mapping.classifier).toEqual({ ref, model: "resnet50" });
+
+    // The boot config declares the bundles the component must load, keyed by
+    // repository sub-folder name — authoritative, so the component loads exactly these.
+    expect(components[0]!.config).toEqual({ models: { yolov8n: {}, resnet50: {} } });
+  });
+
+  it("carries per-model params into the boot config", () => {
+    const wf = mlWorkflow({ detector: mlModel("detector") });
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: { detector: { location: "device", model: "yolov8n", params: { confThreshold: 0.5 } } },
+      cameras: {},
+    };
+    const { spec } = buildDeploymentSpec(wf, inputs, meta);
+    const component = spec.components.find((c) => c.name === mlComponentServiceName())!;
+    expect(component.config).toEqual({ models: { yolov8n: { params: { confThreshold: 0.5 } } } });
+  });
+
+  it("rejects two workflow models claiming the same bundle", () => {
+    const wf = mlWorkflow({ detector: mlModel("detector"), other: mlModel("other") });
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: { detector: { location: "device", model: "yolov8n" }, other: { location: "device", model: "yolov8n" } },
+      cameras: {},
+    };
+    // A bundle is an exclusive claim like any other resource, so the boot config can
+    // never be asked to declare one twice.
+    expect(() => buildDeploymentSpec(wf, inputs, meta)).toThrow(/same resource/);
   });
 
   it("uses a network ML model's own endpoint and runs no component", () => {
@@ -492,12 +568,24 @@ describe("buildDeploymentSpec capture component", () => {
 
   it("rejects two channels declaring the same camera", () => {
     // A camera takes no discriminator, so this is one requirement declared twice.
-    // Two sizes from one camera is two CameraCapture nodes, not two channels.
+    // Two sizes from one camera is two CameraCapture nodes, not two channels. Two
+    // v4l2 channels on one node also open one device, so device-exclusivity rejects
+    // them first (in assertDeployable) before the ref-identity check runs.
     const inputs = camInputs({
       wide: { kind: "v4l2", device: "/dev/video0" },
       thumb: { kind: "v4l2", device: "/dev/video0" },
     });
-    expect(() => buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta)).toThrow(/already used by "wide"/);
+    expect(() => buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta)).toThrow(/already opened by "wide"/);
+  });
+
+  it("rejects two channels declaring the same network camera (ref identity, no device)", () => {
+    // rtsp opens no exclusive device, so device-exclusivity can't catch it — the
+    // identical bindings dedup to one ref and bindingConflicts rejects the pair.
+    const inputs = camInputs({
+      wide: { kind: "rtsp", url: "rtsp://cam/stream" },
+      thumb: { kind: "rtsp", url: "rtsp://cam/stream" },
+    });
+    expect(() => buildDeploymentSpec(cameraWorkflow(["wide", "thumb"]), inputs, meta)).toThrow(/conflict: all bound to the same resource/);
   });
 
   it("rejects two bindings on one device node that differ elsewhere", () => {

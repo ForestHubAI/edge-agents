@@ -2,13 +2,15 @@
 # Copyright (c) 2026 ForestHub. All rights reserved.
 # For commercial licensing, contact root@foresthub.ai
 
-"""The model repository: turn a mounted directory of bundles into a registry.
+"""The model repository: turn the issued bundles into a registry.
 
-At startup the component scans the models directory — one ``<model-id>/`` sub-folder
-per model — and loads every bundle (ONNX session + resolved handler + manifest)
-into a ``name -> LoadedModel`` map. One container thus hosts many models; a request
-selects one by name. Loading is eager and fail-fast: an empty directory or any
-single bad bundle aborts startup, so a misconfigured deployment never serves.
+The boot config names which ``<model-id>/`` sub-folders of the mounted workspace this
+component is issued, and it is **authoritative**: exactly those bundles are loaded
+(ONNX session + resolved handler + manifest) into a ``name -> LoadedModel`` map. A
+declared bundle that is absent or broken aborts startup; an undeclared sub-folder is
+ignored, never loaded implicitly. One container thus hosts many models and a request
+selects one by name. Loading is eager and fail-fast, so a misconfigured deployment
+never serves.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from pathlib import Path
 
 import onnxruntime as ort
 
+from .api.models import MLModelConfig
 from .handlers.base import Handler
 from .handlers.registry import resolve_handler
 from .manifest import Manifest, load_manifest
@@ -38,17 +41,35 @@ class RepositoryError(Exception):
     """Raised when the models repository cannot be loaded."""
 
 
-def load_repository(models_dir: str | Path) -> dict[str, LoadedModel]:
-    """Load every ``<model-id>/`` bundle under ``models_dir`` into a name->model map."""
+def load_repository(
+    models_dir: str | Path, declared: dict[str, MLModelConfig]
+) -> dict[str, LoadedModel]:
+    """Load exactly the ``declared`` bundles under ``models_dir`` into a name->model map.
+
+    ``declared`` comes from the boot config and is authoritative — a bundle named there
+    but missing from the repository is a permanent failure, and a sub-folder present but
+    not named is left alone.
+    """
     root = Path(models_dir)
     if not root.is_dir():
         raise RepositoryError(f"models directory not found: {root}")
 
     models: dict[str, LoadedModel] = {}
-    for bundle_dir in sorted(p for p in root.iterdir() if p.is_dir()):
-        model_id = bundle_dir.name
+    for model_id, model_cfg in sorted(declared.items()):
+        bundle_dir = root / model_id
+        if not bundle_dir.is_dir():
+            raise RepositoryError(
+                f"model '{model_id}' is declared in the boot config but no bundle "
+                f"directory exists at {bundle_dir} — stage the bundle in the workspace"
+            )
         try:
             manifest = load_manifest(bundle_dir)
+            # The deployment's params override the bundle's own defaults; a request's
+            # params override both at inference time.
+            if model_cfg.params:
+                manifest = manifest.model_copy(
+                    update={"params": {**manifest.params, **model_cfg.params}}
+                )
             model_path = manifest.model_path(bundle_dir)
             if not model_path.is_file():
                 raise RepositoryError(f"model file not found: {model_path}")
@@ -69,6 +90,6 @@ def load_repository(models_dir: str | Path) -> dict[str, LoadedModel]:
             name=model_id, session=session, handler=handler, manifest=manifest
         )
 
-    if not models:
-        raise RepositoryError(f"no model bundles found in {root}")
+    # An empty result is impossible: load_boot_config rejects a config declaring no
+    # models, and every declared model either loaded or raised above.
     return models

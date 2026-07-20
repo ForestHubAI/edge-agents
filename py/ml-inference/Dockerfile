@@ -17,9 +17,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./app/
 
-# The models repository mounts at the component's default workspace path
-# (contract/component-constants.json → paths.workspace, == config.py DEFAULT_MODELS_DIR).
-# No ML_MODELS_DIR override — the drift-tested app default is the single source.
+# The models repository mounts at the component's workspace path
+# (contract/component-constants.json → paths.workspace, == config.py WORKSPACE_DIR).
+# A contract constant, not configuration: there is no env override to set.
 # Run unprivileged; pre-create the mountpoint so a bare run without a volume still starts.
 RUN useradd --system --uid 65532 fh-onnx \
     && mkdir -p /var/lib/foresthub/workspace \

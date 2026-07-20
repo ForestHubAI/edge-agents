@@ -8,6 +8,17 @@ from typing import Any
 from pydantic import BaseModel
 
 
+class MLModelConfig(BaseModel):
+    """
+    Deployment-level settings for one issued model. The bundle itself — weights, handler binding, default params — is staged in the workspace and self-described by its manifest.yaml; only what the deployment decides appears here. Empty is valid and usual: it declares the model must load, nothing more.
+    """
+
+    params: dict[str, Any] | None = None
+    """
+    Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, these, then a request's params.
+    """
+
+
 class InferRequest(BaseModel):
     """
     A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both.
@@ -84,6 +95,17 @@ class Error(BaseModel):
     message: str
     """
     Human-readable error description.
+    """
+
+
+class MLInferenceConfig(BaseModel):
+    """
+    The ml-inference component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights.
+    """
+
+    models: dict[str, MLModelConfig]
+    """
+    Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector.
     """
 
 

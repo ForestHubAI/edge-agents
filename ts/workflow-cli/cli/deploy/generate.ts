@@ -268,6 +268,11 @@ repository dir below (read-only mounted into the component), then transfer the w
 tree in step 3:
 ${mlDeviceModels.map((name) => `- \`${mlRepoDir}/${name}/\``).join("\n")}
 
+Which models load is fixed by \`${mlComponentServiceName()}-config.json\` (already generated, mounted
+read-only at \`${COMPONENT_CONFIG_PATH}\`) — exactly the folders listed above. The component
+fails to start if one of them is missing, and ignores any extra folder you stage, so add a
+model by binding it in the workflow and re-rendering, not by copying it in.
+
 The component runs nonroot, so these files must be world-readable — \`chmod 644\` them if your copy left them private (e.g. \`0600\`).`);
   }
   if (deviceCameras.length > 0) {
