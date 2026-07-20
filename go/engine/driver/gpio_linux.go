@@ -93,27 +93,29 @@ func (d *linuxGPIO) ConfigureInput(offset int, bias Bias, debounceMs int, onEven
 			}),
 		)
 	}
-	return d.replaceLine(offset, opts)
+	return d.claimLine(offset, opts)
 }
 
 // ConfigureOutput requests the line as output (initial value 0).
 func (d *linuxGPIO) ConfigureOutput(offset int) error {
-	return d.replaceLine(offset, []gpiocdev.LineReqOption{gpiocdev.AsOutput(0)})
+	return d.claimLine(offset, []gpiocdev.LineReqOption{gpiocdev.AsOutput(0)})
 }
 
-// replaceLine swaps the live request for offset. Build-time path —
-// runtime callers should not reconfigure pins on the fly.
-func (d *linuxGPIO) replaceLine(offset int, opts []gpiocdev.LineReqOption) error {
+// claimLine requests offset as a driver-owned line. A line takes one owner: if it
+// is already configured, claimLine errors rather than tearing down the prior
+// request (which would silently break the first channel's I/O, input vs output
+// included). Two channels on one (chip, line) are the same requirement declared
+// twice — a conflict the deploy resolver rejects; this is the engine's backstop
+// for a mapping it did not author. Build-time path — runtime callers must not
+// reconfigure pins on the fly.
+func (d *linuxGPIO) claimLine(offset int, opts []gpiocdev.LineReqOption) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.chip == nil {
 		return fmt.Errorf("gpio chip %s: not open", d.chipName)
 	}
-	if prev, ok := d.lines[offset]; ok {
-		if err := prev.Close(); err != nil {
-			d.log.Warn().Err(err).Int("line", offset).Msg("closing prior line")
-		}
-		delete(d.lines, offset)
+	if _, ok := d.lines[offset]; ok {
+		return fmt.Errorf("gpio chip %s: line %d already configured; one channel per line", d.chipName, offset)
 	}
 	line, err := d.chip.RequestLine(offset, opts...)
 	if err != nil {

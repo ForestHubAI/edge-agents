@@ -12,15 +12,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRunSetup_RunsCommandsInOrder(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "log")
-	file := cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"cam": {Source: sourceV4L2, Device: "/dev/video0", Setup: []string{
+	file := Config{Cameras: map[string]Camera{
+		"cam": {Kind: KindV4L2, Device: "/dev/video0", Setup: []string{
 			"echo one >> " + out,
 			"echo two >> " + out,
 		}},
@@ -33,8 +32,8 @@ func TestRunSetup_RunsCommandsInOrder(t *testing.T) {
 
 func TestRunSetup_VariablesCarryAcrossLines(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "log")
-	file := cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"cam": {Source: sourceV4L2, Device: "/dev/video0", Setup: []string{
+	file := Config{Cameras: map[string]Camera{
+		"cam": {Kind: KindV4L2, Device: "/dev/video0", Setup: []string{
 			"M=hello",
 			"echo $M >> " + out,
 		}},
@@ -46,8 +45,8 @@ func TestRunSetup_VariablesCarryAcrossLines(t *testing.T) {
 }
 
 func TestRunSetup_FailureNamesCameraAndShowsTrace(t *testing.T) {
-	file := cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"cam": {Source: sourceV4L2, Device: "/dev/video0", Setup: []string{"echo broken >&2; exit 3"}},
+	file := Config{Cameras: map[string]Camera{
+		"cam": {Kind: KindV4L2, Device: "/dev/video0", Setup: []string{"echo broken >&2; exit 3"}},
 	}}
 	err := RunSetup(context.Background(), file)
 	require.Error(t, err)
@@ -57,8 +56,8 @@ func TestRunSetup_FailureNamesCameraAndShowsTrace(t *testing.T) {
 
 func TestRunSetup_StopsAtFirstFailingLine(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "log")
-	file := cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"cam": {Source: sourceV4L2, Device: "/dev/video0", Setup: []string{
+	file := Config{Cameras: map[string]Camera{
+		"cam": {Kind: KindV4L2, Device: "/dev/video0", Setup: []string{
 			"false",
 			"echo reached >> " + out,
 		}},
@@ -68,8 +67,8 @@ func TestRunSetup_StopsAtFirstFailingLine(t *testing.T) {
 }
 
 func TestRunSetup_NoCommandsIsNoop(t *testing.T) {
-	file := cameraapi.CameraConfig{Cameras: map[string]cameraapi.CameraSource{
-		"cam": {Source: sourceV4L2, Device: "/dev/video0"},
+	file := Config{Cameras: map[string]Camera{
+		"cam": {Kind: KindV4L2, Device: "/dev/video0"},
 	}}
 	assert.NoError(t, RunSetup(context.Background(), file))
 }

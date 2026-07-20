@@ -229,11 +229,14 @@ where it actually matters, regardless of how the duplicate arose, and needs no k
 the uniqueness table. (This is the reason `checkEndpointUniqueness`, the old MQTT-only
 pre-check, was removed.)
 
-> The driver-side rejection is the standing rework: today several still overwrite the last
-> claimer silently — `serial_impl.go`'s `WatchRead` replaces the prior callback and returns
-> nil (which channel loses depends on `SetupAll` map order); `gpio_linux.go`'s `replaceLine`
-> tears down the prior request; the paho route table overwrites by filter. Each must return
-> an error on a second claim instead.
+Each exclusive claim enforces this itself: `serial_impl.go`'s `WatchRead` errors if a line
+callback is already installed; `gpio_linux.go`'s `claimLine` errors if the line is already
+configured (rather than tearing down the prior request); `pwm_linux.go`'s `Configure`
+errors if the channel is already configured (rather than overwriting its period);
+`transport/mqtt.go`'s `Subscribe` tracks claimed filters and errors on a second
+subscription of one filter (paho would overwrite the route). Each surfaces at `Setup`, so a
+duplicate that slipped past the resolver fails the build (`boot.Fail`) instead of going
+quiet.
 
 **Two constraints sit outside this split:**
 

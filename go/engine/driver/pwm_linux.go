@@ -67,10 +67,13 @@ func OpenPWM(chipDir string) (PWMDriver, error) {
 	return d, nil
 }
 
-// Configure exports the channel (tolerating EBUSY if already exported), sets
-// the period from freqHz, resets duty to zero, and enables the output. Safe
-// to call again on the same channel — duty is zeroed before the period is
-// updated so the kernel never sees duty > period.
+// Configure claims the channel and enables its output: export (tolerating EBUSY
+// from a leftover sysfs export), reset duty to zero, set the period from freqHz,
+// enable. Duty is zeroed before the period so the kernel never sees duty > period
+// when a stale export is reused. A channel takes one owner — configuring an
+// already-claimed channel errors rather than overwriting its period, so two PWM
+// channels on one (chip, channel) fail the build instead of last-frequency silently
+// winning.
 func (d *linuxPWM) Configure(channel int, freqHz int) error {
 	if freqHz <= 0 {
 		return fmt.Errorf("pwm: frequency must be positive, got %d", freqHz)
@@ -79,6 +82,10 @@ func (d *linuxPWM) Configure(channel int, freqHz int) error {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	if _, ok := d.channels[channel]; ok {
+		return fmt.Errorf("pwm channel %d already configured; one channel per PWM channel", channel)
+	}
 
 	chanDir := filepath.Join(d.chipDir, fmt.Sprintf("pwm%d", channel))
 	if err := writeSysfsString(filepath.Join(d.chipDir, "export"), strconv.Itoa(channel)); err != nil {

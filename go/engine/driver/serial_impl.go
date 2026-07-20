@@ -128,16 +128,22 @@ func (d *genericSerial) Read(ctx context.Context) (string, error) {
 	}
 }
 
-// WatchRead installs onLine as the permanent line callback, replacing
-// any prior callback.
+// WatchRead installs onLine as the port's single permanent line callback. A
+// serial port takes one owner: if a callback is already installed, it errors
+// rather than replacing it (which would silently mute the prior channel's
+// subscribers). Two UART channels on one port are the same requirement declared
+// twice — a conflict the deploy resolver rejects; this is the engine's backstop
+// for a mapping it did not author.
 func (d *genericSerial) WatchRead(onLine func(string)) error {
 	d.mu.Lock()
+	defer d.mu.Unlock()
 	if d.closed {
-		d.mu.Unlock()
 		return fmt.Errorf("serial %s: closed", d.port)
 	}
+	if d.onLine != nil {
+		return fmt.Errorf("serial %s: line callback already installed; one channel per serial port", d.port)
+	}
 	d.onLine = onLine
-	d.mu.Unlock()
 	return nil
 }
 

@@ -6,6 +6,7 @@ package transport
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
@@ -21,6 +22,9 @@ const mqttOpTimeout = 10 * time.Second
 // owns one TCP connection; concurrent Publish/Subscribe are safe per paho.
 type pahoTransport struct {
 	client mqtt.Client
+
+	mu      sync.Mutex
+	claimed map[string]bool // subscribed filters, to reject a second claim on one filter
 }
 
 // OpenMQTT establishes a connection to the broker and returns an
@@ -47,7 +51,7 @@ func OpenMQTT(brokerURL, clientID, username, password string, will *engine.MQTTW
 	if err := tok.Error(); err != nil {
 		return nil, fmt.Errorf("mqtt connect %s: %w", brokerURL, err)
 	}
-	return &pahoTransport{client: client}, nil
+	return &pahoTransport{client: client, claimed: make(map[string]bool)}, nil
 }
 
 // Close disconnects from the broker, allowing 250ms for in-flight messages.
@@ -69,20 +73,37 @@ func (t *pahoTransport) Publish(topic string, payload []byte, qos byte, retain b
 	return nil
 }
 
-// Subscribe installs onMessage as the permanent callback for filter. paho keys
-// its route table by filter and overwrites a matching entry, so a second call
-// with the same filter silently unhooks the first — hence the replacing
-// contract rather than a per-call subscription.
+// Subscribe installs onMessage as the single callback for filter. A filter takes
+// one owner: paho keys its route table by filter and overwrites a match, so a
+// second subscription on one filter would silently unhook the first — instead this
+// errors. The claim is reserved before the network call and
+// rolled back if it fails.
 func (t *pahoTransport) Subscribe(filter string, qos byte, onMessage func(MQTTMessage)) error {
+	t.mu.Lock()
+	if t.claimed[filter] {
+		t.mu.Unlock()
+		return fmt.Errorf("mqtt subscribe %q: filter already subscribed; one channel per topic", filter)
+	}
+	t.claimed[filter] = true
+	t.mu.Unlock()
+
 	handler := func(_ mqtt.Client, m mqtt.Message) {
 		onMessage(MQTTMessage{Topic: m.Topic(), Payload: m.Payload()})
 	}
 	tok := t.client.Subscribe(filter, qos, handler)
 	if !tok.WaitTimeout(mqttOpTimeout) {
+		t.unclaim(filter)
 		return fmt.Errorf("mqtt subscribe %q: timed out", filter)
 	}
 	if err := tok.Error(); err != nil {
+		t.unclaim(filter)
 		return fmt.Errorf("mqtt subscribe %q: %w", filter, err)
 	}
 	return nil
+}
+
+func (t *pahoTransport) unclaim(filter string) {
+	t.mu.Lock()
+	delete(t.claimed, filter)
+	t.mu.Unlock()
 }
