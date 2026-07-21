@@ -14,7 +14,7 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
 
@@ -28,7 +28,7 @@ type OnMqttMessage struct {
 	engine.TriggerNode
 	dataType workflowapi.DataType
 	binding  workflowapi.OutputBinding
-	incoming <-chan transport.MQTTMessage
+	incoming <-chan resource.MQTTMessage
 }
 
 // NewOnMqttMessage creates a new OnMqttMessage trigger listening on the

@@ -2,20 +2,25 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-// Package driver is the OS-level abstraction for I/O resources. Each
-// driver instance owns one opened kernel handle (a GPIO chip, an IIO
-// device, a PWM chip, a serial port) and any thread that produces events
-// from it.
+// Package resource is the abstraction for every I/O resource the engine opens
+// at boot and holds for its lifetime, local or remote. A resource owns one
+// handle — a kernel handle (GPIO chip, IIO device, PWM chip, serial port), an
+// out-of-process driver component reached over HTTP (camera), or a network
+// connection (MQTT) — and any thread that produces events from it. Device
+// families come from the device manifest, network families from the external
+// resources; both share the one Resource lifecycle and the one Registry.
 // Implementations are build-tag-selected and created via family-specific constructors.
-package driver
+package resource
 
 import (
 	"context"
 )
 
-// Driver is the base contract for interacting with hardware resources
-type Driver interface {
-	Close() error // Close releases the kernel handle and any associated resources.
+// Resource is the base contract every engine resource satisfies, local or
+// remote: a handle opened once at engine boot and released at shutdown. The
+// capability interfaces extend it with their specific I/O.
+type Resource interface {
+	Close() error // Close releases the underlying handle and any associated resources.
 }
 
 // Bias is the internal pull-resistor configuration of a GPIO input.
@@ -30,7 +35,7 @@ const (
 
 // GPIODriver handles digital I/O lines.
 type GPIODriver interface {
-	Driver
+	Resource
 	// ConfigureInput requests the line as input. Bias and debounceMs are line-wide properties.
 	// Pass onEvent for edge reporting (always reports rising and falling); nil keeps the line event-free.
 	ConfigureInput(line int, bias Bias, debounceMs int, onEvent func(rising bool)) error
@@ -42,7 +47,7 @@ type GPIODriver interface {
 
 // ADCDriver handles analog inputs. Channels do not need per-channel acquisition.
 type ADCDriver interface {
-	Driver
+	Resource
 	ReadAnalog(channel int) (float64, error)
 }
 
@@ -52,14 +57,14 @@ type ADCDriver interface {
 // filtering by the connected load. Channels do not need per-channel
 // acquisition — same shape as ADC, just inverse direction.
 type DACDriver interface {
-	Driver
+	Resource
 	// WriteAnalog writes the given voltage (millivolts) to the channel.
 	WriteAnalog(channel int, mV float64) error
 }
 
 // PWMDriver handles analog outputs via pulse-width modulation.
 type PWMDriver interface {
-	Driver
+	Resource
 	// Configure must be called once per channel before channel can be written to
 	Configure(channel int, freqHz int) error
 	// WriteAnalog takes duty cycle in [0.0, 1.0] (clampes outside the range)
@@ -70,7 +75,7 @@ type PWMDriver interface {
 // line stream with stealing semantics — an in-flight Read takes a line
 // before the WatchRead callback.
 type SerialDriver interface {
-	Driver
+	Resource
 	// Read blocks until one line arrives (therefore takes context). Errors if another Read is in flight.
 	Read(ctx context.Context) (string, error)
 	// WatchRead installs onLine as the permanent line callback; onLine must be non-blocking.

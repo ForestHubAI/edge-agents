@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package driver
+package resource
 
 import (
 	"testing"

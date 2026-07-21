@@ -13,13 +13,13 @@ service code never mentions YOLO, NMS, or images.
         contract/ml.yaml          OpenAPI 3.0.3 — the wire (source of truth)
                  │  datamodel-codegen
                  ▼
-        app/api/models.py                  GENERATED Pydantic models (InferRequest,
+        app/api/models.py                  GENERATED Pydantic models (Tensor, TensorInput,
                  │                          InferResult, RepositoryMetadata, …)
                  ▼
         app/  (the service)                config, manifest, handlers, repository, middleware, main
 ```
 
-- **Contract** defines the four endpoints and the request/response shapes. It is the
+- **Contract** defines the endpoints and the request/response shapes. It is the
   single source of truth; the engine's Go client generates from the same file.
 - **Generated models** are the Pydantic classes `main.py` uses for responses, so the
   wire stays locked to the contract. Never hand-edit — regenerate (`datamodel-codegen`).
@@ -66,28 +66,35 @@ uvicorn app.main:app
 ```
 
 `/healthz` returns 200 once the process is up; `/readyz` returns 200 only once the
-registry is non-empty, else 503.
+registry is non-empty, else 503. `/models` lists the loaded models; `/models/{model}`
+describes one (404 if absent).
 
-## The /infer pipeline
+## The infer pipeline
 
-`POST /infer` is `multipart/form-data`: a required `model` selector, an optional
-`binary` part (e.g. an image), an optional `tensors` field (named numeric arrays as
-JSON), and optional `params` (JSON overrides). The flow in `main.infer`:
+Inference is addressed per model in the path and split by input kind — one endpoint
+per way the input arrives:
+
+- `POST /models/{model}/infer/binary` — the raw request body (`application/octet-stream`)
+  is an opaque encoded artifact (e.g. a JPEG) the handler decodes itself.
+- `POST /models/{model}/infer/tensors` — a JSON body of already-numeric named `Tensor`s
+  (KServe/OIP: `datatype` + `shape` + flat `data`) the caller prepared.
+
+Both routes converge on `main._run`:
 
 ```
-multipart: model + (binary and/or tensors) + params
+model (path) + (binary body | tensors body)
   → lm = app.state.models.get(model)              # registry lookup
         not found → HTTPException 404
-  → effective_params = { **manifest.params, **request_params }   # request wins
-  → feed, context = lm.handler.preprocess(binary, tensors, effective_params)
-  → outputs        = lm.handler.infer(lm.session, feed, context, effective_params)  # run the model
-  → result         = lm.handler.postprocess(outputs, context, effective_params)
-  → InferResult(model=model, result=result)        # contract-shaped JSON
+  → params = lm.manifest.params                    # bundle defaults (+ deploy overrides)
+  → feed, context = lm.handler.preprocess(binary, tensors, params)
+  → outputs        = lm.handler.infer(lm.session, feed, context, params)  # run the model
+  → result         = lm.handler.postprocess(outputs, context, params)
+  → return result                                  # the task-shaped union variant, as-is
 ```
 
-- **Params merge.** The manifest carries defaults; the request may override per call
-  (e.g. a stricter `confThreshold`) without a redeploy. Conflicts resolve in the
-  request's favor.
+- **No request params.** The knobs a model needs live in its manifest (with any
+  deployment overrides already merged at boot); there is no per-request override on the
+  wire. Retuning is a redeploy, not a request field.
 - **`feed` vs `context`.** `feed` is the dict ONNX Runtime consumes
   (`{input_name: ndarray}`). `context` is handler-private state remembered from
   preprocessing (for YOLO: the letterbox scale + padding) that `postprocess` needs to
@@ -96,16 +103,18 @@ multipart: model + (binary and/or tensors) + params
   A handler that needs more (a separate encoder and decoder graph, or an
   autoregressive model that calls the session repeatedly) overrides `infer` and owns
   the loop; `main` stays the same. Extra graphs are opened by the handler in `load`.
-- **Errors.** A handler raises `ValueError` for bad input (undecodable image, missing
-  tensors); `main` maps that to HTTP 422. An unknown model is 404.
+- **Errors.** A handler raises `ValueError` for bad input (undecodable image, wrong-kind
+  input, a tensor that does not match its shape); `main` maps that to HTTP 422. An
+  unknown model is 404; an oversized binary body is 413.
 
-The result shape is defined by the handler, not the contract: the YOLO handler
-returns `{ "detections": [ { label, score, box: { x, y, w, h } } ] }`; the raw
-handler returns `{ "outputs": { <name>: <nested array> } }`.
+The result is the task-shaped union variant, returned directly (no envelope) and
+discriminated by `task`: the YOLO handler returns
+`{ "task": "object-detection", "detections": [ { label, score, box: { xmin, ymin, xmax, ymax } } ] }`;
+the raw handler returns `{ "task": "tensor", "tensors": { <name>: Tensor } }`.
 
 ## Why main.py is model-agnostic
 
-`main.infer` only does: **lookup → preprocess → infer → postprocess → wrap**. It knows
+`main._run` only does: **lookup → preprocess → infer → postprocess → return**. It knows
 nothing about images, NMS, or tensor layouts — that all lives behind the `Handler`
 interface. Swap the selected model's handler from `yolo` to `raw` and the exact same
 `main.py` serves a decision-tree model. This is the seam that keeps one image generic

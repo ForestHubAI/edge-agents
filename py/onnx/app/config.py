@@ -59,8 +59,8 @@ def load_boot_config(path: str | Path = CONFIG_FILE) -> MLConfig:
         config = MLConfig.model_validate(data)
     except ValidationError as e:
         raise ConfigError(f"invalid boot config in {file}: {e}") from e
-    # A component issued no models can serve nothing — every /infer would 404. Fail
-    # here so the deployment is marked failed at boot, not at the engine's first call.
+    # A component issued no models can serve nothing — every inference call would 404.
+    # Fail here so the deployment is marked failed at boot, not at the engine's first call.
     if not config.models:
         raise ConfigError(f"{file} declares no models")
     return config

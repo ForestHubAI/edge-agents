@@ -7,7 +7,7 @@ package channel
 import (
 	"context"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // Camera is a still-capture channel bound to one camera. It adds nothing of its
@@ -15,7 +15,7 @@ import (
 // binding and nothing else. Capture size is a node argument — the same camera is
 // the same camera at any resolution, so a size names no camera.
 type Camera struct {
-	Driver driver.CameraDriver
+	Driver resource.CameraDriver
 }
 
 // Setup is a no-op: a camera is configured by its manifest entry, not per channel.

@@ -7,15 +7,15 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // GPIOInput is a digital input pin channel.
 type GPIOInput struct {
 	Broadcaster[bool]
-	Driver     driver.GPIODriver
+	Driver     resource.GPIODriver
 	Line       int
-	Bias       driver.Bias
+	Bias       resource.Bias
 	DebounceMs int // Debounce time in milliseconds; 0 for no debounce
 }
 

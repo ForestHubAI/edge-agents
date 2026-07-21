@@ -46,7 +46,7 @@ const (
 	Llama = "llama"
 	// Camera is the camera-capture component's identity.
 	Camera = "camera"
-	// Onnx is the on-device ML component's identity (image fh-onnx).
+	// Onnx is the on-device Onnx runtime component's identity.
 	Onnx = "onnx"
 )
 

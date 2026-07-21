@@ -5,12 +5,12 @@
 package channel
 
 import (
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // ADC is an analog input channel.
 type ADC struct {
-	Driver  driver.ADCDriver
+	Driver  resource.ADCDriver
 	Channel int
 }
 

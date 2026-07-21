@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package driver
+package resource
 
 import (
 	"context"
@@ -20,6 +20,11 @@ import (
 // component is unreachable.
 const captureTimeout = 25 * time.Second
 
+// cameraComponentURL is the constant where the driver component listens.
+func cameraComponentURL() string {
+	return fmt.Sprintf("http://%s:%d", component.Camera, component.CameraPort)
+}
+
 // CameraDriver captures stills from one camera. Unlike the other families it is
 // out-of-process: the capture stack (GStreamer, libcamera, vendor userland) is too
 // heavy for the engine image, so it lives in a driver component the engine issues
@@ -29,25 +34,19 @@ const captureTimeout = 25 * time.Second
 // Width and height are per-call because one camera is shared by every channel
 // bound to it, and each channel may ask for its own size.
 type CameraDriver interface {
-	Driver
+	Resource
 	Capture(ctx context.Context, width, height int) ([]byte, error)
 }
 
-// cameraComponentURL is where the driver component listens. A constant, not
-// config: the component is a singleton the engine issues itself, so there is
-// nothing for an operator to point at.
-func cameraComponentURL() string {
-	return fmt.Sprintf("http://%s:%d", component.Camera, component.CameraPort)
-}
+// Compile-time assertion: cameraClient implements CameraDriver
+var _ CameraDriver = (*cameraClient)(nil)
 
-// httpCamera reaches one camera through the driver component, naming it by its
+// cameraClient reaches one camera through the driver component, naming it by its
 // manifest key on each request.
-type httpCamera struct {
+type cameraClient struct {
 	client *cameraapi.ClientWithResponses
 	name   string
 }
-
-var _ CameraDriver = (*httpCamera)(nil)
 
 // OpenCamera binds a driver to the camera registered under name. No network call
 // is made: the component is issued alongside this engine and may still be
@@ -58,12 +57,12 @@ func OpenCamera(baseURL, name string) (CameraDriver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("building capture client: %w", err)
 	}
-	return &httpCamera{client: client, name: name}, nil
+	return &cameraClient{client: client, name: name}, nil
 }
 
 // Capture asks the component for one frame from the bound camera and returns the
 // encoded bytes. Width and height are sent only when set.
-func (c *httpCamera) Capture(ctx context.Context, width, height int) ([]byte, error) {
+func (c *cameraClient) Capture(ctx context.Context, width, height int) ([]byte, error) {
 	params := &cameraapi.CaptureParams{Name: c.name}
 	if width > 0 {
 		params.Width = &width
@@ -86,7 +85,7 @@ func (c *httpCamera) Capture(ctx context.Context, width, height int) ([]byte, er
 
 // Close releases nothing: the driver owns no kernel handle, only an idle HTTP
 // client, and the component's lifetime is the container's.
-func (c *httpCamera) Close() error { return nil }
+func (c *cameraClient) Close() error { return nil }
 
 // captureErrorMessage extracts the component's error message from a non-2xx
 // response, falling back to the HTTP status text.

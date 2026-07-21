@@ -2,7 +2,7 @@
 // Copyright (c) 2026 ForestHub. All rights reserved.
 // For commercial licensing, contact root@foresthub.ai
 
-package transport
+package resource
 
 import (
 	"fmt"
@@ -18,6 +18,25 @@ import (
 // half-open connection cannot wedge the engine.
 const mqttOpTimeout = 10 * time.Second
 
+// MQTTConnection multiplexes one TCP connection across many topics. A network
+// resource, opened from the external resources.
+type MQTTConnection interface {
+	Resource
+	// Publish sends payload to topic.
+	Publish(topic string, payload []byte, qos byte, retain bool) error
+	// Subscribe installs onMessage as the permanent callback for filter,
+	// replacing any prior callback for that same filter; onMessage must be
+	// non-blocking. One filter therefore carries one callback — fan-out to
+	// several listeners belongs above this layer.
+	Subscribe(filter string, qos byte, onMessage func(MQTTMessage)) error
+}
+
+// MQTTMessage is one message delivered by an MQTT subscription.
+type MQTTMessage struct {
+	Topic   string
+	Payload []byte
+}
+
 // pahoTransport is the paho.mqtt.golang-backed MQTTTransport. One instance
 // owns one TCP connection; concurrent Publish/Subscribe are safe per paho.
 type pahoTransport struct {
@@ -28,9 +47,9 @@ type pahoTransport struct {
 }
 
 // OpenMQTT establishes a connection to the broker and returns an
-// MQTTTransport. Connect blocks up to mqttOpTimeout; on failure no resources
+// MQTTConnection. Connect blocks up to mqttOpTimeout; on failure no resources
 // are leaked.
-func OpenMQTT(brokerURL, clientID, username, password string, will *engine.MQTTWill) (MQTTTransport, error) {
+func OpenMQTT(brokerURL, clientID, username, password string, will *engine.MQTTWill) (MQTTConnection, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).
 		SetClientID(clientID).

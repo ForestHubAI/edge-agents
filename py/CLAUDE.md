@@ -24,7 +24,7 @@ app/
     raw.py       built-in tensor passthrough handler.
 examples/        example model repository (a yolo bundle; weights not committed).
 tests/           pytest, weights-free (synthetic tensors/images).
-scripts/smoke.sh end-to-end test (build image, serve example, POST /infer).
+scripts/smoke.sh end-to-end test (build image, serve example, POST an infer path).
 ```
 
 ## Architecture
@@ -44,8 +44,9 @@ Two pipelines (full write-ups in [docs/architecture.md](onnx/docs/architecture.m
   per declared bundle: `load_manifest` → open ONNX session → `resolve_handler` →
   `handler.load`. A bad config or any unloadable declared bundle aborts startup, so a
   misconfigured deployment never serves.
-- **`/infer`:** look up the model (404 if unknown) → merge manifest+request params →
-  `handler.preprocess` → `session.run` → `handler.postprocess` → `InferResult`.
+- **infer** (`POST /models/{model}/infer/{binary,tensors}`, split by input kind): look
+  up the model (404 if unknown) → `handler.preprocess` → `session.run` →
+  `handler.postprocess` → return the task-shaped result directly (no envelope).
 
 `main.py` is model-agnostic; all model-specific logic lives in a handler. See
 [docs/handlers.md](onnx/docs/handlers.md) to add one,

@@ -4,6 +4,7 @@
 package mlapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/oapi-codegen/runtime"
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for ClassificationResultTask.
@@ -68,15 +68,66 @@ func (e Task) Valid() bool {
 	}
 }
 
+// Defines values for TensorDatatype.
+const (
+	BOOL   TensorDatatype = "BOOL"
+	BYTES  TensorDatatype = "BYTES"
+	FP16   TensorDatatype = "FP16"
+	FP32   TensorDatatype = "FP32"
+	FP64   TensorDatatype = "FP64"
+	INT16  TensorDatatype = "INT16"
+	INT32  TensorDatatype = "INT32"
+	INT64  TensorDatatype = "INT64"
+	INT8   TensorDatatype = "INT8"
+	UINT16 TensorDatatype = "UINT16"
+	UINT32 TensorDatatype = "UINT32"
+	UINT64 TensorDatatype = "UINT64"
+	UINT8  TensorDatatype = "UINT8"
+)
+
+// Valid indicates whether the value is a known member of the TensorDatatype enum.
+func (e TensorDatatype) Valid() bool {
+	switch e {
+	case BOOL:
+		return true
+	case BYTES:
+		return true
+	case FP16:
+		return true
+	case FP32:
+		return true
+	case FP64:
+		return true
+	case INT16:
+		return true
+	case INT32:
+		return true
+	case INT64:
+		return true
+	case INT8:
+		return true
+	case UINT16:
+		return true
+	case UINT32:
+		return true
+	case UINT64:
+		return true
+	case UINT8:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TensorResultTask.
 const (
-	Tensor TensorResultTask = "tensor"
+	TensorResultTaskTensor TensorResultTask = "tensor"
 )
 
 // Valid indicates whether the value is a known member of the TensorResultTask enum.
 func (e TensorResultTask) Valid() bool {
 	switch e {
-	case Tensor:
+	case TensorResultTaskTensor:
 		return true
 	default:
 		return false
@@ -150,38 +201,14 @@ type Health struct {
 	Status string `json:"status"`
 }
 
-// InferRequest A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both.
-type InferRequest struct {
-	// Binary Opaque binary input (e.g. an encoded image). Read and decoded by the model's handler.
-	Binary *openapi_types.File `json:"binary,omitempty"`
-
-	// Model Name (id) of the loaded model to run — must match a loaded bundle (a sub-folder of the models repository). See /metadata for valid names.
-	Model string `json:"model"`
-
-	// Params Free-form per-request overrides (e.g. detection thresholds). Merged over the manifest's params by the handler.
-	Params map[string]interface{} `json:"params,omitempty"`
-
-	// Tensors Named numeric tensors as nested arrays, for models whose input is not a binary blob. The handler maps these onto the model's input feeds.
-	Tensors map[string]interface{} `json:"tensors,omitempty"`
-}
-
-// InferResult A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape.
+// InferResult A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model.
 type InferResult struct {
-	// Model Name of the model that produced this result.
-	Model string `json:"model"`
-
-	// Result A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model.
-	Result InferenceResult `json:"result"`
-}
-
-// InferenceResult A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model.
-type InferenceResult struct {
 	union json.RawMessage
 }
 
 // MLConfig The ML component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights.
 type MLConfig struct {
-	// Models Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector.
+	// Models Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the `model` in an inference path.
 	Models map[string]MLModelConfig `json:"models"`
 }
 
@@ -199,7 +226,7 @@ type ModelMetadata struct {
 	// ModelVersion Optional model/bundle version string.
 	ModelVersion string `json:"modelVersion,omitempty"`
 
-	// Name Name (id) of the model — the value to pass as the /infer `model` selector.
+	// Name Name (id) of the model — the value to use as the `model` in an inference path.
 	Name string `json:"name"`
 
 	// Task What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model.
@@ -215,37 +242,73 @@ type RepositoryMetadata struct {
 // Task What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model.
 type Task string
 
+// Tensor One typed tensor in the KServe/OIP v2 representation: an explicit `datatype` and `shape` over a flat, row-major `data` array. Self-describing — a consumer reconstructs the array with no out-of-band shape knowledge — and used for both raw model inputs and raw model outputs.
+type Tensor struct {
+	// Data Elements flattened row-major (C order); length equals the product of `shape`. Numbers for the numeric datatypes.
+	Data []interface{} `json:"data"`
+
+	// Datatype Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...).
+	Datatype TensorDatatype `json:"datatype"`
+
+	// Shape Tensor dimensions, outermost first.
+	Shape []int `json:"shape"`
+}
+
+// TensorDatatype Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...).
+type TensorDatatype string
+
+// TensorInput Named input tensors keyed by the model's input feed names — one `Tensor` per model input. Already-numeric input the caller prepared, mapped straight onto the ONNX inputs with no decoding on the component side.
+type TensorInput map[string]Tensor
+
 // TensorResult Raw model outputs, undecoded. The general escape for a model whose task this contract does not model — the caller owns interpreting these.
 type TensorResult struct {
 	Task TensorResultTask `json:"task"`
 
-	// Tensors Output tensors as nested arrays, keyed by the model's output names.
-	Tensors map[string]interface{} `json:"tensors"`
+	// Tensors Output tensors keyed by the model's output names, one `Tensor` each.
+	Tensors map[string]Tensor `json:"tensors"`
 }
 
 // TensorResultTask defines model for TensorResult.Task.
 type TensorResultTask string
 
-// InferMultipartRequestBody defines body for Infer for multipart/form-data ContentType.
-type InferMultipartRequestBody = InferRequest
+// Model defines model for Model.
+type Model = string
 
-// AsDetectionResult returns the union data inside the InferenceResult as a DetectionResult
-func (t InferenceResult) AsDetectionResult() (DetectionResult, error) {
+// HandlerError A structured error response.
+type HandlerError = Error
+
+// Inference A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model.
+type Inference = InferResult
+
+// TooLarge A structured error response.
+type TooLarge = Error
+
+// UnknownModel A structured error response.
+type UnknownModel = Error
+
+// Unprocessable A structured error response.
+type Unprocessable = Error
+
+// InferTensorsJSONRequestBody defines body for InferTensors for application/json ContentType.
+type InferTensorsJSONRequestBody = TensorInput
+
+// AsDetectionResult returns the union data inside the InferResult as a DetectionResult
+func (t InferResult) AsDetectionResult() (DetectionResult, error) {
 	var body DetectionResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromDetectionResult overwrites any union data inside the InferenceResult as the provided DetectionResult
-func (t *InferenceResult) FromDetectionResult(v DetectionResult) error {
+// FromDetectionResult overwrites any union data inside the InferResult as the provided DetectionResult
+func (t *InferResult) FromDetectionResult(v DetectionResult) error {
 	v.Task = "object-detection"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeDetectionResult performs a merge with any union data inside the InferenceResult, using the provided DetectionResult
-func (t *InferenceResult) MergeDetectionResult(v DetectionResult) error {
+// MergeDetectionResult performs a merge with any union data inside the InferResult, using the provided DetectionResult
+func (t *InferResult) MergeDetectionResult(v DetectionResult) error {
 	v.Task = "object-detection"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -257,23 +320,23 @@ func (t *InferenceResult) MergeDetectionResult(v DetectionResult) error {
 	return err
 }
 
-// AsClassificationResult returns the union data inside the InferenceResult as a ClassificationResult
-func (t InferenceResult) AsClassificationResult() (ClassificationResult, error) {
+// AsClassificationResult returns the union data inside the InferResult as a ClassificationResult
+func (t InferResult) AsClassificationResult() (ClassificationResult, error) {
 	var body ClassificationResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromClassificationResult overwrites any union data inside the InferenceResult as the provided ClassificationResult
-func (t *InferenceResult) FromClassificationResult(v ClassificationResult) error {
+// FromClassificationResult overwrites any union data inside the InferResult as the provided ClassificationResult
+func (t *InferResult) FromClassificationResult(v ClassificationResult) error {
 	v.Task = "image-classification"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeClassificationResult performs a merge with any union data inside the InferenceResult, using the provided ClassificationResult
-func (t *InferenceResult) MergeClassificationResult(v ClassificationResult) error {
+// MergeClassificationResult performs a merge with any union data inside the InferResult, using the provided ClassificationResult
+func (t *InferResult) MergeClassificationResult(v ClassificationResult) error {
 	v.Task = "image-classification"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -285,23 +348,23 @@ func (t *InferenceResult) MergeClassificationResult(v ClassificationResult) erro
 	return err
 }
 
-// AsTensorResult returns the union data inside the InferenceResult as a TensorResult
-func (t InferenceResult) AsTensorResult() (TensorResult, error) {
+// AsTensorResult returns the union data inside the InferResult as a TensorResult
+func (t InferResult) AsTensorResult() (TensorResult, error) {
 	var body TensorResult
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromTensorResult overwrites any union data inside the InferenceResult as the provided TensorResult
-func (t *InferenceResult) FromTensorResult(v TensorResult) error {
+// FromTensorResult overwrites any union data inside the InferResult as the provided TensorResult
+func (t *InferResult) FromTensorResult(v TensorResult) error {
 	v.Task = "tensor"
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeTensorResult performs a merge with any union data inside the InferenceResult, using the provided TensorResult
-func (t *InferenceResult) MergeTensorResult(v TensorResult) error {
+// MergeTensorResult performs a merge with any union data inside the InferResult, using the provided TensorResult
+func (t *InferResult) MergeTensorResult(v TensorResult) error {
 	v.Task = "tensor"
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -313,7 +376,7 @@ func (t *InferenceResult) MergeTensorResult(v TensorResult) error {
 	return err
 }
 
-func (t InferenceResult) Discriminator() (string, error) {
+func (t InferResult) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"task"`
 	}
@@ -321,7 +384,7 @@ func (t InferenceResult) Discriminator() (string, error) {
 	return discriminator.Discriminator, err
 }
 
-func (t InferenceResult) ValueByDiscriminator() (interface{}, error) {
+func (t InferResult) ValueByDiscriminator() (interface{}, error) {
 	discriminator, err := t.Discriminator()
 	if err != nil {
 		return nil, err
@@ -338,12 +401,12 @@ func (t InferenceResult) ValueByDiscriminator() (interface{}, error) {
 	}
 }
 
-func (t InferenceResult) MarshalJSON() ([]byte, error) {
+func (t InferResult) MarshalJSON() ([]byte, error) {
 	b, err := t.union.MarshalJSON()
 	return b, err
 }
 
-func (t *InferenceResult) UnmarshalJSON(b []byte) error {
+func (t *InferResult) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }
@@ -424,11 +487,19 @@ type ClientInterface interface {
 	// Healthz request
 	Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// InferWithBody request with any body
-	InferWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListModels request
+	ListModels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// Metadata request
-	Metadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ModelMetadata request
+	ModelMetadata(ctx context.Context, model Model, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InferBinaryWithBody request with any body
+	InferBinaryWithBody(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InferTensorsWithBody request with any body
+	InferTensorsWithBody(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	InferTensors(ctx context.Context, model Model, body InferTensorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// Readyz request
 	Readyz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -446,8 +517,8 @@ func (c *Client) Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 	return c.Client.Do(req)
 }
 
-func (c *Client) InferWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInferRequestWithBody(c.Server, contentType, body)
+func (c *Client) ListModels(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListModelsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -458,8 +529,44 @@ func (c *Client) InferWithBody(ctx context.Context, contentType string, body io.
 	return c.Client.Do(req)
 }
 
-func (c *Client) Metadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewMetadataRequest(c.Server)
+func (c *Client) ModelMetadata(ctx context.Context, model Model, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewModelMetadataRequest(c.Server, model)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InferBinaryWithBody(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInferBinaryRequestWithBody(c.Server, model, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InferTensorsWithBody(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInferTensorsRequestWithBody(c.Server, model, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InferTensors(ctx context.Context, model Model, body InferTensorsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInferTensorsRequest(c.Server, model, body)
 	if err != nil {
 		return nil, err
 	}
@@ -509,8 +616,8 @@ func NewHealthzRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewInferRequestWithBody generates requests for Infer with any type of body
-func NewInferRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewListModelsRequest generates requests for ListModels
+func NewListModelsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -518,7 +625,75 @@ func NewInferRequestWithBody(server string, contentType string, body io.Reader) 
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/infer")
+	operationPath := fmt.Sprintf("/models")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewModelMetadataRequest generates requests for ModelMetadata
+func NewModelMetadataRequest(server string, model Model) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "model", model, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/models/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInferBinaryRequestWithBody generates requests for InferBinary with any type of body
+func NewInferBinaryRequestWithBody(server string, model Model, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "model", model, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/models/%s/infer/binary", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -538,16 +713,34 @@ func NewInferRequestWithBody(server string, contentType string, body io.Reader) 
 	return req, nil
 }
 
-// NewMetadataRequest generates requests for Metadata
-func NewMetadataRequest(server string) (*http.Request, error) {
+// NewInferTensorsRequest calls the generic InferTensors builder with application/json body
+func NewInferTensorsRequest(server string, model Model, body InferTensorsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInferTensorsRequestWithBody(server, model, "application/json", bodyReader)
+}
+
+// NewInferTensorsRequestWithBody generates requests for InferTensors with any type of body
+func NewInferTensorsRequestWithBody(server string, model Model, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "model", model, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/metadata")
+	operationPath := fmt.Sprintf("/models/%s/infer/tensors", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -557,10 +750,12 @@ func NewMetadataRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -638,11 +833,19 @@ type ClientWithResponsesInterface interface {
 	// HealthzWithResponse request
 	HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResponse, error)
 
-	// InferWithBodyWithResponse request with any body
-	InferWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferResponse, error)
+	// ListModelsWithResponse request
+	ListModelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListModelsResponse, error)
 
-	// MetadataWithResponse request
-	MetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MetadataResponse, error)
+	// ModelMetadataWithResponse request
+	ModelMetadataWithResponse(ctx context.Context, model Model, reqEditors ...RequestEditorFn) (*ModelMetadataResponse, error)
+
+	// InferBinaryWithBodyWithResponse request with any body
+	InferBinaryWithBodyWithResponse(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferBinaryResponse, error)
+
+	// InferTensorsWithBodyWithResponse request with any body
+	InferTensorsWithBodyWithResponse(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferTensorsResponse, error)
+
+	InferTensorsWithResponse(ctx context.Context, model Model, body InferTensorsJSONRequestBody, reqEditors ...RequestEditorFn) (*InferTensorsResponse, error)
 
 	// ReadyzWithResponse request
 	ReadyzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ReadyzResponse, error)
@@ -678,48 +881,14 @@ func (r HealthzResponse) ContentType() string {
 	return ""
 }
 
-type InferResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *InferResult
-	JSON404      *Error
-	JSON413      *Error
-	JSON422      *Error
-	JSON500      *Error
-}
-
-// Status returns HTTPResponse.Status
-func (r InferResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r InferResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r InferResponse) ContentType() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Header.Get("Content-Type")
-	}
-	return ""
-}
-
-type MetadataResponse struct {
+type ListModelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RepositoryMetadata
 }
 
 // Status returns HTTPResponse.Status
-func (r MetadataResponse) Status() string {
+func (r ListModelsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -727,7 +896,7 @@ func (r MetadataResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r MetadataResponse) StatusCode() int {
+func (r ListModelsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -735,7 +904,105 @@ func (r MetadataResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r MetadataResponse) ContentType() string {
+func (r ListModelsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ModelMetadataResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModelMetadata
+	JSON404      *UnknownModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ModelMetadataResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ModelMetadataResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ModelMetadataResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InferBinaryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Inference
+	JSON404      *UnknownModel
+	JSON413      *TooLarge
+	JSON422      *Unprocessable
+	JSON500      *HandlerError
+}
+
+// Status returns HTTPResponse.Status
+func (r InferBinaryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InferBinaryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InferBinaryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InferTensorsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Inference
+	JSON404      *UnknownModel
+	JSON422      *Unprocessable
+	JSON500      *HandlerError
+}
+
+// Status returns HTTPResponse.Status
+func (r InferTensorsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InferTensorsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InferTensorsResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -782,22 +1049,48 @@ func (c *ClientWithResponses) HealthzWithResponse(ctx context.Context, reqEditor
 	return ParseHealthzResponse(rsp)
 }
 
-// InferWithBodyWithResponse request with arbitrary body returning *InferResponse
-func (c *ClientWithResponses) InferWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferResponse, error) {
-	rsp, err := c.InferWithBody(ctx, contentType, body, reqEditors...)
+// ListModelsWithResponse request returning *ListModelsResponse
+func (c *ClientWithResponses) ListModelsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListModelsResponse, error) {
+	rsp, err := c.ListModels(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInferResponse(rsp)
+	return ParseListModelsResponse(rsp)
 }
 
-// MetadataWithResponse request returning *MetadataResponse
-func (c *ClientWithResponses) MetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MetadataResponse, error) {
-	rsp, err := c.Metadata(ctx, reqEditors...)
+// ModelMetadataWithResponse request returning *ModelMetadataResponse
+func (c *ClientWithResponses) ModelMetadataWithResponse(ctx context.Context, model Model, reqEditors ...RequestEditorFn) (*ModelMetadataResponse, error) {
+	rsp, err := c.ModelMetadata(ctx, model, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseMetadataResponse(rsp)
+	return ParseModelMetadataResponse(rsp)
+}
+
+// InferBinaryWithBodyWithResponse request with arbitrary body returning *InferBinaryResponse
+func (c *ClientWithResponses) InferBinaryWithBodyWithResponse(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferBinaryResponse, error) {
+	rsp, err := c.InferBinaryWithBody(ctx, model, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInferBinaryResponse(rsp)
+}
+
+// InferTensorsWithBodyWithResponse request with arbitrary body returning *InferTensorsResponse
+func (c *ClientWithResponses) InferTensorsWithBodyWithResponse(ctx context.Context, model Model, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InferTensorsResponse, error) {
+	rsp, err := c.InferTensorsWithBody(ctx, model, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInferTensorsResponse(rsp)
+}
+
+func (c *ClientWithResponses) InferTensorsWithResponse(ctx context.Context, model Model, body InferTensorsJSONRequestBody, reqEditors ...RequestEditorFn) (*InferTensorsResponse, error) {
+	rsp, err := c.InferTensors(ctx, model, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInferTensorsResponse(rsp)
 }
 
 // ReadyzWithResponse request returning *ReadyzResponse
@@ -835,69 +1128,15 @@ func ParseHealthzResponse(rsp *http.Response) (*HealthzResponse, error) {
 	return response, nil
 }
 
-// ParseInferResponse parses an HTTP response from a InferWithResponse call
-func ParseInferResponse(rsp *http.Response) (*InferResponse, error) {
+// ParseListModelsResponse parses an HTTP response from a ListModelsWithResponse call
+func ParseListModelsResponse(rsp *http.Response) (*ListModelsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &InferResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InferResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON413 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON422 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseMetadataResponse parses an HTTP response from a MetadataWithResponse call
-func ParseMetadataResponse(rsp *http.Response) (*MetadataResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &MetadataResponse{
+	response := &ListModelsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -909,6 +1148,140 @@ func ParseMetadataResponse(rsp *http.Response) (*MetadataResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseModelMetadataResponse parses an HTTP response from a ModelMetadataWithResponse call
+func ParseModelMetadataResponse(rsp *http.Response) (*ModelMetadataResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ModelMetadataResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModelMetadata
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest UnknownModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInferBinaryResponse parses an HTTP response from a InferBinaryWithResponse call
+func ParseInferBinaryResponse(rsp *http.Response) (*InferBinaryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InferBinaryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Inference
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest UnknownModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest TooLarge
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Unprocessable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HandlerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInferTensorsResponse parses an HTTP response from a InferTensorsWithResponse call
+func ParseInferTensorsResponse(rsp *http.Response) (*InferTensorsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InferTensorsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Inference
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest UnknownModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest Unprocessable
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest HandlerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

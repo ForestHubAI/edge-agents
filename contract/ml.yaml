@@ -5,58 +5,87 @@ openapi: 3.0.3
 info:
   title: ForestHub ML Component Contract
   version: 0.1.0
-  description: "Engine<->ML-component inference wire. The component (image fh-onnx, service onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
+  description: "Engine<->ML-component inference wire. The component (image fh-onnx, service onnx) is a model repository — one container loads many model bundles and serves them all; a request selects one by name in the path. Inference splits by input kind: an opaque encoded artifact the component decodes itself (binary), or already-numeric tensors the caller prepared (tensors). The result is task-shaped and generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
 
 paths:
-  /infer:
+  /models:
+    get:
+      operationId: listModels
+      summary: List the loaded models.
+      description: "Every model the repository loaded at startup — the names valid as the `model` in an inference path, each with its handler, task, and optional version."
+      responses:
+        "200":
+          description: The repository's loaded models.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepositoryMetadata"
+
+  /models/{model}:
+    get:
+      operationId: modelMetadata
+      summary: Describe one loaded model.
+      description: "Metadata for the path-named model — its handler, task, and optional version. The task advertises the result shape an inference will return, so a caller can check it without running one."
+      parameters:
+        - $ref: "#/components/parameters/Model"
+      responses:
+        "200":
+          description: The model's metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelMetadata"
+        "404":
+          $ref: "#/components/responses/UnknownModel"
+
+  /models/{model}/infer/binary:
     post:
-      operationId: infer
-      summary: Run inference on one loaded model, selected by name.
-      description: "Selects the loaded model named by `model`, feeds it the supplied input, and returns the handler-produced result. The handler decides how to read the input (binary blob, numeric tensors, or both). An unknown `model` yields 404; an input the handler cannot process yields 422."
+      operationId: inferBinary
+      summary: Run inference from an opaque encoded input (e.g. an image).
+      description: "Feeds the raw request body to the path-named model as an opaque encoded artifact — an image or any blob the model's handler decodes itself. The body is the artifact and nothing else: the model is in the path, so no envelope and no per-request options. An unknown model yields 404; a body the handler cannot decode yields 422; a body over the size limit yields 413."
+      parameters:
+        - $ref: "#/components/parameters/Model"
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/octet-stream:
             schema:
-              $ref: "#/components/schemas/InferRequest"
-            encoding:
-              binary:
-                contentType: application/octet-stream
-              tensors:
-                contentType: application/json
-              params:
-                contentType: application/json
+              type: string
+              format: binary
       responses:
         "200":
-          description: Inference result.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InferResult"
+          $ref: "#/components/responses/Inference"
         "404":
-          description: No model with the requested name is loaded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/UnknownModel"
         "413":
-          description: The request body exceeds the component's size limit.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/TooLarge"
         "422":
-          description: The input could not be processed by the selected model's handler.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/Unprocessable"
         "500":
-          description: The handler failed unexpectedly while running inference.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+          $ref: "#/components/responses/HandlerError"
+
+  /models/{model}/infer/tensors:
+    post:
+      operationId: inferTensors
+      summary: Run inference from named numeric tensors.
+      description: "Feeds already-numeric named tensors to the path-named model — for models whose input the caller prepares directly, with no decoding on the component side. An unknown model yields 404; tensors the handler cannot use yield 422."
+      parameters:
+        - $ref: "#/components/parameters/Model"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TensorInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/Inference"
+        "404":
+          $ref: "#/components/responses/UnknownModel"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/HandlerError"
 
   /healthz:
     get:
@@ -90,20 +119,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /metadata:
-    get:
-      operationId: metadata
-      summary: List the loaded models.
-      description: "Describes every model the repository loaded at startup — the names valid as the /infer `model` selector, plus each one's handler and optional version."
-      responses:
-        "200":
-          description: The repository's loaded models.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RepositoryMetadata"
-
 components:
+  parameters:
+    Model:
+      name: model
+      in: path
+      required: true
+      description: "Name (id) of the loaded model — a loaded bundle (a sub-folder of the models repository). See GET /models for valid names."
+      schema:
+        type: string
+
+  responses:
+    Inference:
+      description: Inference result.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/InferResult"
+    UnknownModel:
+      description: No model with the requested name is loaded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooLarge:
+      description: The request body exceeds the component's size limit.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unprocessable:
+      description: The input could not be processed by the selected model's handler.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    HandlerError:
+      description: The handler failed unexpectedly while running inference.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
     MLConfig:
       type: object
@@ -112,7 +169,7 @@ components:
       properties:
         models:
           type: object
-          description: "Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector."
+          description: "Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the `model` in an inference path."
           additionalProperties:
             $ref: "#/components/schemas/MLModelConfig"
 
@@ -126,46 +183,37 @@ components:
           description: "Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, these, then a request's params."
           additionalProperties: true
 
-    InferRequest:
-      type: object
-      description: "A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both."
-      required: [model]
-      properties:
-        model:
-          type: string
-          description: "Name (id) of the loaded model to run — must match a loaded bundle (a sub-folder of the models repository). See /metadata for valid names."
-        binary:
-          type: string
-          format: binary
-          description: "Opaque binary input (e.g. an encoded image). Read and decoded by the model's handler."
-        tensors:
-          x-go-type-skip-optional-pointer: true
-          type: object
-          description: "Named numeric tensors as nested arrays, for models whose input is not a binary blob. The handler maps these onto the model's input feeds."
-          additionalProperties: true
-        params:
-          x-go-type-skip-optional-pointer: true
-          type: object
-          description: "Free-form per-request overrides (e.g. detection thresholds). Merged over the manifest's params by the handler."
-          additionalProperties: true
-
-    InferResult:
-      type: object
-      description: "A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape."
-      required: [model, result]
-      properties:
-        model:
-          type: string
-          description: Name of the model that produced this result.
-        result:
-          $ref: "#/components/schemas/InferenceResult"
-
     Task:
       type: string
       description: "What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model."
       enum: [object-detection, image-classification, tensor]
 
-    InferenceResult:
+    Tensor:
+      type: object
+      description: "One typed tensor in the KServe/OIP v2 representation: an explicit `datatype` and `shape` over a flat, row-major `data` array. Self-describing — a consumer reconstructs the array with no out-of-band shape knowledge — and used for both raw model inputs and raw model outputs."
+      required: [datatype, shape, data]
+      properties:
+        datatype:
+          type: string
+          description: "Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...)."
+          enum: [BOOL, UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, FP16, FP32, FP64, BYTES]
+        shape:
+          type: array
+          description: "Tensor dimensions, outermost first."
+          items:
+            type: integer
+        data:
+          type: array
+          description: "Elements flattened row-major (C order); length equals the product of `shape`. Numbers for the numeric datatypes."
+          items: {}
+
+    TensorInput:
+      type: object
+      description: "Named input tensors keyed by the model's input feed names — one `Tensor` per model input. Already-numeric input the caller prepared, mapped straight onto the ONNX inputs with no decoding on the component side."
+      additionalProperties:
+        $ref: "#/components/schemas/Tensor"
+
+    InferResult:
       description: "A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model."
       oneOf:
         - $ref: "#/components/schemas/DetectionResult"
@@ -265,8 +313,9 @@ components:
         tensors:
           x-go-type-skip-optional-pointer: true
           type: object
-          description: "Output tensors as nested arrays, keyed by the model's output names."
-          additionalProperties: true
+          description: "Output tensors keyed by the model's output names, one `Tensor` each."
+          additionalProperties:
+            $ref: "#/components/schemas/Tensor"
 
     RepositoryMetadata:
       type: object
@@ -286,7 +335,7 @@ components:
       properties:
         name:
           type: string
-          description: "Name (id) of the model — the value to pass as the /infer `model` selector."
+          description: "Name (id) of the model — the value to use as the `model` in an inference path."
         handler:
           type: string
           description: "Handler driving the model: `builtin:<name>` or `file:handler.py`."

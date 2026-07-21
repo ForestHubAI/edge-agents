@@ -15,6 +15,6 @@ cp examples/models/yolo/model.onnx examples/models/yolo-custom/model.onnx
 ```
 
 Then run the container with `examples/models` mounted (both bundles load) and call
-`POST /infer` with `model=yolo-custom` — the result carries the extra `count` +
+`POST /models/yolo-custom/infer/binary` — the result carries the extra `count` +
 `summary` fields. See the repo's `docs/handlers.md` (Recipe B) for the full
 custom-handler workflow.

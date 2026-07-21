@@ -4,7 +4,7 @@
 
 //go:build linux
 
-package driver
+package resource
 
 import (
 	"testing"

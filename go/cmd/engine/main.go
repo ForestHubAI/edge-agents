@@ -16,9 +16,8 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
 	"github.com/ForestHubAI/edge-agents/go/engine/build"
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 )
@@ -50,25 +49,24 @@ func main() {
 		component.BootFail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
-	// Build the I/O registries main owns for the engine's lifetime: drivers from
-	// the device manifest, MQTT transports from the external resources. Both are
-	// injected into the builder, borrowed by the workflow's channels, and closed
-	// by main at shutdown.
+	// Open every resource main owns for the engine's lifetime as one registry:
+	// device families from the manifest, MQTT from the external resources
+	// (credentials resolved from the mounted secret store first). Injected into
+	// the builder, borrowed by the workflow's channels, closed by main at shutdown.
 	manifest := engine.DeviceManifestToDomain(cfg.Manifest)
-	drivers, err := driver.NewRegistry(&manifest)
-	if err != nil {
-		component.BootFail(err, "initialising driver registry")
-	}
-	// Resolve resource credentials from the mounted secret store
 	secrets, err := component.ReadSecrets()
 	if err != nil {
 		component.BootFail(err, "loading engine secrets")
 	}
 	ext := engine.ExternalResourcesToDomain(cfg.ExternalResources, secrets)
-	transports, err := transport.NewRegistry(ext)
+	resources, err := resource.NewRegistry(&manifest, ext)
 	if err != nil {
-		// A broker unreachable at boot may come back; let the orchestrator retry.
-		component.BootRetry(err, "opening transports")
+		if resource.IsTransient(err) {
+			// A peer not up yet (e.g. a co-deployed broker still starting) may
+			// recover; let the orchestrator retry the boot rather than fail it.
+			component.BootRetry(err, "opening resources")
+		}
+		component.BootFail(err, "opening resources")
 	}
 
 	// Memory subsystem: the Manager owns durable local storage rooted at the
@@ -103,12 +101,11 @@ func main() {
 	// providers from the boot externalResources, and any backendLlm instance
 	// forwards through this backend client (nil = standalone).
 	builder := &build.Builder{
-		Drivers:    drivers,
-		Transports: transports,
-		Backend:    backendClient,
-		Memory:     memoryManager,
-		WebSearch:  webSearchProvider,
-		Retriever:  retriever,
+		Resources: resources,
+		Backend:   backendClient,
+		Memory:    memoryManager,
+		WebSearch: webSearchProvider,
+		Retriever: retriever,
 	}
 
 	// One lifecycle context for the whole process: a termination signal cancels it
@@ -143,11 +140,8 @@ func main() {
 	runErr := runner.Run(ctx)
 
 	cancel() // also stops the heartbeat on the natural-exit path
-	if err := drivers.CloseAll(); err != nil {
-		logging.Logger.Warn().Err(err).Msg("closing driver registry")
-	}
-	if err := transports.CloseAll(); err != nil {
-		logging.Logger.Warn().Err(err).Msg("closing transports")
+	if err := resources.CloseAll(); err != nil {
+		logging.Logger.Warn().Err(err).Msg("closing resource registry")
 	}
 	if runErr != nil && !errors.Is(runErr, context.Canceled) {
 		logging.Logger.Fatal().Err(runErr).Msg("runner exited with error")

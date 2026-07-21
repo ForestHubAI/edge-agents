@@ -9,7 +9,7 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,13 +27,13 @@ func cameraChannel(t *testing.T, id string) workflowapi.Channel {
 
 // cameraDrivers is a registry holding a driver per named manifest camera. Opening
 // one makes no network call, so this needs no server.
-func cameraDrivers(t *testing.T, names ...string) *driver.Registry {
+func cameraDrivers(t *testing.T, names ...string) *resource.Registry {
 	t.Helper()
 	m := engine.DeviceManifest{Cameras: map[string]engine.CameraSource{}}
 	for _, n := range names {
 		m.Cameras[n] = engine.CameraSource{Kind: engine.CameraV4L2}
 	}
-	drvs, err := driver.NewRegistry(&m)
+	drvs, err := resource.NewRegistry(&m, nil)
 	require.NoError(t, err)
 	return drvs
 }
@@ -42,7 +42,7 @@ func TestBuildChannels_CameraResolvesThroughManifest(t *testing.T) {
 	rm := engine.ResourceMapping{"front": {Ref: "cam0"}}
 	chs, err := buildChannels(
 		[]workflowapi.Channel{cameraChannel(t, "front")},
-		rm, cameraDrivers(t, "cam0"), nil, nil,
+		cameraDrivers(t, "cam0"), rm, nil,
 	)
 	require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestBuildChannels_CameraResolvesThroughManifest(t *testing.T) {
 }
 
 func TestBuildChannels_CameraUnboundFails(t *testing.T) {
-	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front")}, nil, cameraDrivers(t, "cam0"), nil, nil)
+	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front")}, cameraDrivers(t, "cam0"), nil, nil)
 	require.Error(t, err)
 }
 
@@ -62,7 +62,7 @@ func TestBuildChannels_CameraRefNotInManifestFails(t *testing.T) {
 	// Bound to a camera the device doesn't have: the same failure shape as a
 	// miswired gpiochip, caught at boot rather than at first capture.
 	rm := engine.ResourceMapping{"front": {Ref: "missing"}}
-	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front")}, rm, cameraDrivers(t, "cam0"), nil, nil)
+	_, err := buildChannels([]workflowapi.Channel{cameraChannel(t, "front")}, cameraDrivers(t, "cam0"), rm, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not registered")
 }
@@ -75,7 +75,7 @@ func TestBuildChannels_CamerasOnOneRefShareTheDriver(t *testing.T) {
 	chs, err := buildChannels([]workflowapi.Channel{
 		cameraChannel(t, "a"),
 		cameraChannel(t, "b"),
-	}, rm, cameraDrivers(t, "cam0"), nil, nil)
+	}, cameraDrivers(t, "cam0"), rm, nil)
 	require.NoError(t, err)
 
 	a, err := chs.camera("a")

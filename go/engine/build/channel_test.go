@@ -50,4 +50,3 @@ func TestIndexFor_NilIndexFails(t *testing.T) {
 	_, err := indexFor(engine.ResourceAddress{Ref: "res-1"}, "ch-1")
 	require.Error(t, err)
 }
-

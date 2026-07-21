@@ -26,11 +26,10 @@ def _content_length(scope: Scope) -> int | None:
 class MaxBodySizeMiddleware:
     """Reject oversized request bodies at the ASGI edge.
 
-    Starlette buffers a whole multipart body (spilling large file parts to a temp
-    file) before the route runs, so an in-handler size check happens too late to
-    prevent the buffering. This rejects a request whose Content-Length exceeds the
-    cap up front, before the body is read. A request that arrives without a
-    Content-Length still faces the in-handler read cap as a backstop.
+    Starlette buffers the whole request body before the route runs, so an in-handler
+    size check happens too late to prevent the buffering. This rejects a request whose
+    Content-Length exceeds the cap up front, before the body is read. A request that
+    arrives without a Content-Length still faces the in-handler read cap as a backstop.
     """
 
     def __init__(self, app: ASGIApp, max_bytes: int) -> None:

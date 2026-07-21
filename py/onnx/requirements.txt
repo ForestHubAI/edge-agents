@@ -4,12 +4,10 @@
 #   onnxruntime  MIT        fastapi   MIT       uvicorn          BSD-3
 #   numpy        BSD-3      scipy     BSD-3     scikit-learn     BSD-3
 #   opencv-python-headless  Apache-2.0          pyyaml           MIT
-#   pydantic     MIT        python-multipart    Apache-2.0
-#   Pillow       MIT-CMU
+#   pydantic     MIT        Pillow              MIT-CMU
 onnxruntime==1.27.0
 fastapi==0.138.1
 uvicorn[standard]==0.49.0
-python-multipart==0.0.32
 numpy==2.5.0
 opencv-python-headless==4.13.0.92
 scipy==1.18.0

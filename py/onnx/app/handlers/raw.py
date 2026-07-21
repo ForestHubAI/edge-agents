@@ -5,10 +5,11 @@
 """Built-in passthrough handler (named tensors in, named tensors out).
 
 For models that need no pre/post-processing: the request supplies the model's
-input tensors by name (as nested numeric arrays), they are fed straight into the
-session with the dtype the model declares, and every output tensor is returned by
-name as a nested array. This is the generic fit for classical ML (decision tree,
-SVM, random forest exported via skl2onnx), time-series and embedding models.
+input tensors by name as typed ``Tensor`` values (KServe/OIP — ``datatype`` +
+``shape`` over a flat ``data`` array), each is reshaped and fed into the session
+with the dtype the model declares, and every output tensor is returned by name as a
+typed ``Tensor``. This is the generic fit for classical ML (decision tree, SVM,
+random forest exported via skl2onnx), time-series and embedding models.
 
 Task: ``tensor`` — the contract does not model these outputs, so they are returned
 raw, keyed by the model's output names, and the caller owns interpreting them.
@@ -20,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..api.models import Task, TensorResult
+from ..api.models import Datatype, Task, Tensor, TensorResult
 from .base import Feed, Handler
 from .registry import register_builtin
 
@@ -49,6 +50,23 @@ _DTYPES = {
     "tensor(bool)": np.bool_,
 }
 
+# numpy dtype kind+itemsize -> KServe/OIP datatype, for typing output tensors on the
+# wire. Keyed by numpy's dtype name so an output's dtype maps to its contract spelling.
+_OIP_DATATYPES = {
+    "bool": Datatype.BOOL,
+    "uint8": Datatype.UINT8,
+    "uint16": Datatype.UINT16,
+    "uint32": Datatype.UINT32,
+    "uint64": Datatype.UINT64,
+    "int8": Datatype.INT8,
+    "int16": Datatype.INT16,
+    "int32": Datatype.INT32,
+    "int64": Datatype.INT64,
+    "float16": Datatype.FP16,
+    "float32": Datatype.FP32,
+    "float64": Datatype.FP64,
+}
+
 
 @register_builtin("raw")
 class RawHandler(Handler):
@@ -63,7 +81,7 @@ class RawHandler(Handler):
     def preprocess(
         self,
         binary: bytes | None,
-        tensors: dict[str, Any] | None,
+        tensors: dict[str, Tensor] | None,
         params: dict[str, Any],
     ) -> tuple[Feed, Any]:
         if not tensors:
@@ -72,7 +90,16 @@ class RawHandler(Handler):
         if unknown:
             known = ", ".join(sorted(self._input_dtypes)) or "none"
             raise ValueError(f"unknown input tensors {sorted(unknown)} (model inputs: {known})")
-        feed = {name: np.asarray(value, dtype=self._input_dtypes[name]) for name, value in tensors.items()}
+        # Reshape the flat, row-major data to its declared shape, then cast to the
+        # model's own input dtype (authoritative — the Tensor's datatype is
+        # self-describing metadata). A data/shape length mismatch raises -> 422.
+        try:
+            feed = {
+                name: np.asarray(t.data, dtype=self._input_dtypes[name]).reshape(t.shape)
+                for name, t in tensors.items()
+            }
+        except ValueError as e:
+            raise ValueError(f"tensor does not match its declared shape: {e}") from e
         return feed, None
 
     def postprocess(
@@ -83,5 +110,14 @@ class RawHandler(Handler):
     ) -> TensorResult:
         return TensorResult(
             task="tensor",
-            tensors={name: np.asarray(out).tolist() for name, out in zip(self._output_names, outputs)},
+            tensors={name: _to_tensor(out) for name, out in zip(self._output_names, outputs)},
         )
+
+
+def _to_tensor(out: np.ndarray) -> Tensor:
+    """Encode a numpy output as a typed, self-describing wire Tensor."""
+    arr = np.asarray(out)
+    datatype = _OIP_DATATYPES.get(arr.dtype.name)
+    if datatype is None:
+        raise ValueError(f"model produced an unsupported output dtype: {arr.dtype.name}")
+    return Tensor(datatype=datatype, shape=list(arr.shape), data=arr.flatten().tolist())

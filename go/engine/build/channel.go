@@ -11,8 +11,7 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine"
 
 	"github.com/ForestHubAI/edge-agents/go/engine/channel"
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 	"github.com/ForestHubAI/edge-agents/go/logging"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
 )
@@ -36,13 +35,13 @@ type channels struct {
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
 // The workflow itself is mapping-free; every channel's address comes from the
-// flat resource mapping dm (channel id → platform resource id). Hardware channels
-// resolve that id through drvs (driver instance in the boot device manifest);
-// MQTT channels resolve it through ext + transports (external resource id →
-// MQTT config + open transport). Hard-fails when a channel has no mapping entry,
-// or an MQTT channel references a config externalResources doesn't carry —
-// silent degradation hides config bugs.
-func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping, drvs *driver.Registry, transports *transport.Registry, ext *engine.ExternalResources) (*channels, error) {
+// flat resource mapping dm (channel id → platform resource id). Every channel
+// resolves that id through the one resource registry: hardware families keyed by
+// their manifest id, MQTT by its external resource id (plus ext for the channel's
+// prefixes). Hard-fails when a channel has no mapping entry, or an MQTT channel
+// references a config externalResources doesn't carry — silent degradation hides
+// config bugs.
+func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Registry, rm engine.ResourceMapping, ext *engine.ExternalResources) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -69,14 +68,14 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.GPIO(addr.Ref)
+			d, err := resources.GPIO(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
 			ch.gpioInputs[c.Id] = &channel.GPIOInput{
 				Driver:     d,
 				Line:       line,
-				Bias:       driver.Bias(c.Bias),
+				Bias:       resource.Bias(c.Bias),
 				DebounceMs: c.DebounceMs,
 			}
 		case workflowapi.GPIOOUTChannel:
@@ -88,7 +87,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.GPIO(addr.Ref)
+			d, err := resources.GPIO(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -105,7 +104,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.ADC(addr.Ref)
+			d, err := resources.ADC(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -122,7 +121,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.DAC(addr.Ref)
+			d, err := resources.DAC(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -139,7 +138,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.PWM(addr.Ref)
+			d, err := resources.PWM(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -153,7 +152,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.Serial(addr.Ref)
+			d, err := resources.Serial(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -163,7 +162,7 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if err != nil {
 				return nil, err
 			}
-			d, err := drvs.Camera(addr.Ref)
+			d, err := resources.Camera(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("error getting driver with ID %s for channel %s: %w", addr.Ref, c.Id, err)
 			}
@@ -180,10 +179,10 @@ func buildChannels(apiChannels []workflowapi.Channel, rm engine.ResourceMapping,
 			if !ok {
 				return nil, fmt.Errorf("channel %s: external resource %q not in externalResources", c.Id, addr.Ref)
 			}
-			if transports == nil {
-				return nil, fmt.Errorf("channel %s: no transport registry", c.Id)
+			if resources == nil {
+				return nil, fmt.Errorf("channel %s: no resource registry", c.Id)
 			}
-			t, err := transports.MQTT(addr.Ref)
+			t, err := resources.MQTT(addr.Ref)
 			if err != nil {
 				return nil, fmt.Errorf("channel %s: %w", c.Id, err)
 			}

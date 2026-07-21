@@ -10,19 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // fakeMQTT records the installed callback per filter, mirroring paho's
 // route table: a second install on one filter replaces the first.
 type fakeMQTT struct {
-	callbacks map[string]func(transport.MQTTMessage)
+	callbacks map[string]func(resource.MQTTMessage)
 	installs  int
 	published []string
 }
 
 func newFakeMQTT() *fakeMQTT {
-	return &fakeMQTT{callbacks: map[string]func(transport.MQTTMessage){}}
+	return &fakeMQTT{callbacks: map[string]func(resource.MQTTMessage){}}
 }
 
 func (f *fakeMQTT) Close() error { return nil }
@@ -32,17 +32,17 @@ func (f *fakeMQTT) Publish(topic string, _ []byte, _ byte, _ bool) error {
 	return nil
 }
 
-func (f *fakeMQTT) Subscribe(filter string, _ byte, onMessage func(transport.MQTTMessage)) error {
+func (f *fakeMQTT) Subscribe(filter string, _ byte, onMessage func(resource.MQTTMessage)) error {
 	f.callbacks[filter] = onMessage
 	f.installs++
 	return nil
 }
 
 func (f *fakeMQTT) deliver(filter string, payload string) {
-	f.callbacks[filter](transport.MQTTMessage{Topic: filter, Payload: []byte(payload)})
+	f.callbacks[filter](resource.MQTTMessage{Topic: filter, Payload: []byte(payload)})
 }
 
-var _ transport.MQTTTransport = (*fakeMQTT)(nil)
+var _ resource.MQTTConnection = (*fakeMQTT)(nil)
 
 func TestMQTTSetup_FansOutOneSubscriptionToEverySubscriber(t *testing.T) {
 	// The transport holds one callback per filter, so N triggers on one channel

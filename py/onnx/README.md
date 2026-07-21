@@ -64,16 +64,21 @@ result. The `handler` field selects one:
 
 ## API
 
-| Endpoint        | Purpose                                                        |
-|-----------------|----------------------------------------------------------------|
-| `GET /healthz`  | liveness — always `200`                                        |
-| `GET /readyz`   | readiness — `200` once the repository is loaded, else `503`    |
-| `GET /metadata` | list the loaded models (name, handler)                         |
-| `POST /infer`   | run a model: `multipart/form-data` with `model` + `binary` and/or `tensors` (+ optional `params`) |
+| Endpoint                              | Purpose                                                        |
+|---------------------------------------|----------------------------------------------------------------|
+| `GET /healthz`                        | liveness — always `200`                                        |
+| `GET /readyz`                         | readiness — `200` once the repository is loaded, else `503`    |
+| `GET /models`                         | list the loaded models (name, handler, task, version)          |
+| `GET /models/{model}`                 | describe one loaded model                                      |
+| `POST /models/{model}/infer/binary`   | run a model on an opaque encoded input — the raw request body (`application/octet-stream`), e.g. a JPEG |
+| `POST /models/{model}/infer/tensors`  | run a model on already-numeric named tensors — a JSON body of typed `Tensor`s |
 
-`POST /infer` returns `{ "model": "...", "result": { ... } }`. The `result` shape is
-defined by the model's handler, not by this service — e.g. the YOLO handler
-returns `{ "detections": [ { "label", "score", "box": { x, y, w, h } } ] }`.
+Both `infer` endpoints return the **task-shaped result directly** (no envelope),
+discriminated by `task`. The shape is defined by the model's task, not by the caller —
+e.g. an object-detection model returns
+`{ "task": "object-detection", "detections": [ { "label", "score", "box": { xmin, ymin, xmax, ymax } } ] }`.
+A `tensors` request body and a `tensor`-task result both use the KServe/OIP `Tensor`
+shape — `{ "datatype", "shape", "data" }` — keyed by the model's input/output names.
 
 ## Build & run
 

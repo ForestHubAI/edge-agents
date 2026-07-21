@@ -3,8 +3,8 @@
 // For commercial licensing, contact root@foresthub.ai
 
 // Package build holds the engine's workflow-graph builder, which assembles a Runner from a workflow spec,
-// resource mapping, and external resources. It resolves the workflow's requirements against the injected,
-// drivers / transports / clients to reach external and device resources.
+// resource mapping, and external resources. It resolves the workflow's requirements against the injected
+// resource registry and clients to reach device and external resources.
 package build
 
 import (
@@ -15,9 +15,8 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/backend"
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
 	"github.com/ForestHubAI/edge-agents/go/engine/memory"
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 	"github.com/ForestHubAI/edge-agents/go/engine/websearch"
 	"github.com/ForestHubAI/edge-agents/go/llmproxy"
 )
@@ -27,18 +26,17 @@ import (
 // provider forwards to; Build resolves the boot externalResources into the
 // llmproxy client scoped to the Runner.
 type Builder struct {
-	Drivers    *driver.Registry
-	Transports *transport.Registry
-	Backend    *backend.Client
-	Memory     *memory.Manager
-	Retriever  engine.Retriever
-	WebSearch  websearch.Provider // optional; nil disables WebSearchTool nodes
+	Resources *resource.Registry
+	Backend   *backend.Client
+	Memory    *memory.Manager
+	Retriever engine.Retriever
+	WebSearch websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
-// Build constructs a Runner for the given workflow, resource mapping (dm), and
-// external resources (ext); ext may be nil. Refreshes the memory snapshot before
-// assembling nodes so agent nodes see the latest declared files.
+// Build constructs a Runner for the given workflow, resource mapping, and
+// external resources (may be nil).
 func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
+	// Refresh the memory before assembling nodes so agent nodes see the latest declared files.
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
 		if err != nil {
@@ -48,7 +46,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 			return nil, fmt.Errorf("reconciling memory: %w", err)
 		}
 	}
-	// Compose the LLM client from the boot externalResources: catalog providers
+	// Compose the LLM client from externalResources: catalog providers
 	// plus any custom-model self-hosted endpoints. The client is scoped to this
 	// Runner and GC'd on shutdown.
 	providers, err := buildProviders(wf, rm, ext, b.Backend)
@@ -63,87 +61,10 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
 
-	runner, err := buildRunner(ctx, wf, rm, ext, b.Transports, b.Drivers, llmClient, b.Memory, b.Retriever, b.WebSearch)
-	if err != nil {
-		return nil, err
-	}
-	return runner, nil
-}
-
-// declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
-// skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
-// nodes). These are the canonical set of files the memory Manager restores.
-func declaredMemoryFiles(wf *workflowapi.Workflow) ([]workflowapi.MemoryFile, error) {
-	var out []workflowapi.MemoryFile
-	for i, m := range wf.Memory {
-		disc, err := m.Discriminator()
-		if err != nil {
-			return nil, fmt.Errorf("memory[%d]: %w", i, err)
-		}
-		if disc != string(workflowapi.MemoryFileTypeMemoryFile) {
-			continue
-		}
-		mf, err := m.AsMemoryFile()
-		if err != nil {
-			return nil, fmt.Errorf("memory[%d]: %w", i, err)
-		}
-		out = append(out, mf)
-	}
-	return out, nil
-}
-
-// buildCollections resolves each declared VectorDatabase to its collection id
-// through the resource mapping, skipping other memory kinds. Hard-fails on a
-// missing mapping entry, exactly as buildChannels does for hardware/MQTT channels.
-func buildCollections(wf *workflowapi.Workflow, rm engine.ResourceMapping) (map[string]string, error) {
-	out := make(map[string]string)
-	for i, m := range wf.Memory {
-		disc, err := m.Discriminator()
-		if err != nil {
-			return nil, fmt.Errorf("memory[%d]: %w", i, err)
-		}
-		if disc != string(workflowapi.VectorDatabaseTypeVectorDatabase) {
-			continue
-		}
-		vd, err := m.AsVectorDatabase()
-		if err != nil {
-			return nil, fmt.Errorf("memory[%d]: %w", i, err)
-		}
-		b, err := addressFor(rm, vd.Id)
-		if err != nil {
-			return nil, err
-		}
-		out[vd.Id] = b.Ref
-	}
-	return out, nil
-}
-
-// buildContext holds the inputs shared across every graph build.
-type buildContext struct {
-	ctx         context.Context
-	rm          engine.ResourceMapping      // resource mapping; agent nodes resolve their model id to its server id here
-	channels    *channels                   // typed channel registry; nodes look up their linked channel here
-	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
-	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
-	mainScope   *engine.Scope
-	ml          map[string]*mlEndpoint      // resolved ML model id → inference endpoint; MLInference nodes look up their endpoint here
-	// clients for building nodes that rely on external services
-	llm       engine.LlmClient
-	memory    *memory.Manager
-	retriever engine.Retriever
-	webSearch websearch.Provider
-}
-
-// buildRunner assembles a Runner from workflow, configuration and clients
-func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources, transports *transport.Registry, drivers *driver.Registry, llm engine.LlmClient, mem *memory.Manager, ret engine.Retriever, webSearch websearch.Provider) (*engine.Runner, error) {
-	// Create main scope
-	ms, err := engine.NewMainScope(wf.DeclaredVariables)
-	if err != nil {
-		return nil, fmt.Errorf("creating main scope: %w", err)
-	}
+	// TODO: maybe group resolves into sub function
 
 	// Build channels first as they orchestrate hardware resources
-	chs, err := buildChannels(wf.Channels, rm, drivers, transports, ext)
+	chs, err := buildChannels(wf.Channels, b.Resources, rm, ext)
 	if err != nil {
 		return nil, fmt.Errorf("channels: %w", err)
 	}
@@ -160,6 +81,12 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 		return nil, fmt.Errorf("ml inference: %w", err)
 	}
 
+	// Create main scope
+	ms, err := engine.NewMainScope(wf.DeclaredVariables)
+	if err != nil {
+		return nil, fmt.Errorf("creating main scope: %w", err)
+	}
+
 	// Forward declare functions so FunctionCall nodes can resolve them during build()
 	functions := make(map[string]*engine.Function, len(wf.Functions))
 	for i := range wf.Functions {
@@ -167,7 +94,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, llm: llm, memory: mem, retriever: ret, webSearch: webSearch}
+	bc := &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, llm: llmClient, memory: b.Memory, retriever: b.Retriever, webSearch: b.WebSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))
@@ -230,6 +157,7 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 		}
 	}
 
+	// Assemble the Runner and return
 	r := &engine.Runner{
 		Scope:           ms,
 		Nodes:           mainGraph.executables,
@@ -237,4 +165,68 @@ func buildRunner(ctx context.Context, wf *workflowapi.Workflow, rm engine.Resour
 		EntryTransition: mainGraph.entryTr,
 	}
 	return r, nil
+}
+
+// declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
+// skipping other memory kinds (e.g. VectorDatabase, consumed by Retriever
+// nodes). These are the canonical set of files the memory Manager restores.
+func declaredMemoryFiles(wf *workflowapi.Workflow) ([]workflowapi.MemoryFile, error) {
+	var out []workflowapi.MemoryFile
+	for i, m := range wf.Memory {
+		disc, err := m.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		if disc != string(workflowapi.MemoryFileTypeMemoryFile) {
+			continue
+		}
+		mf, err := m.AsMemoryFile()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		out = append(out, mf)
+	}
+	return out, nil
+}
+
+// buildCollections resolves each declared VectorDatabase to its collection id
+// through the resource mapping, skipping other memory kinds. Hard-fails on a
+// missing mapping entry, exactly as buildChannels does for hardware/MQTT channels.
+func buildCollections(wf *workflowapi.Workflow, rm engine.ResourceMapping) (map[string]string, error) {
+	out := make(map[string]string)
+	for i, m := range wf.Memory {
+		disc, err := m.Discriminator()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		if disc != string(workflowapi.VectorDatabaseTypeVectorDatabase) {
+			continue
+		}
+		vd, err := m.AsVectorDatabase()
+		if err != nil {
+			return nil, fmt.Errorf("memory[%d]: %w", i, err)
+		}
+		b, err := addressFor(rm, vd.Id)
+		if err != nil {
+			return nil, err
+		}
+		out[vd.Id] = b.Ref
+	}
+	return out, nil
+}
+
+// buildContext holds the inputs shared across every graph build.
+type buildContext struct {
+	ctx         context.Context
+	rm          engine.ResourceMapping      // resource mapping; agent nodes resolve their model id to its server id here
+	channels    *channels                   // typed channel registry; nodes look up their linked channel here
+	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
+	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
+	mainScope   *engine.Scope
+	ml          map[string]engine.MLClient // resolved ML model id → inference client; MLInference nodes look up their client here
+	// clients for building nodes that rely on external services
+	llm       engine.LlmClient
+	memory    *memory.Manager
+	retriever engine.Retriever
+	webSearch websearch.Provider
 }

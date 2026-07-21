@@ -21,7 +21,7 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["app*"]
 
-# Regenerate the contract bindings:  cd py/ml-inference && datamodel-codegen
+# Regenerate the contract bindings:  cd py/onnx && datamodel-codegen
 # (never hand-edit app/api/models.py — edit contract/ml.yaml and rerun)
 [tool.datamodel-codegen]
 input = "../../contract/ml.yaml"

@@ -7,14 +7,14 @@ package channel
 import (
 	"context"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // UART is a serial port channel wrapping a SerialDriver and the
 // fanout list of OnSerialReceive subscribers.
 type UART struct {
 	Broadcaster[string]
-	Driver driver.SerialDriver
+	Driver resource.SerialDriver
 }
 
 // Setup wires broadcast as the driver's permanent line callback when at

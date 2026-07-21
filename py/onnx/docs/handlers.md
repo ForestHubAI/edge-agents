@@ -20,20 +20,23 @@ class Handler(ABC):
   manifest and the bundle directory. Cache here what preprocessing needs — input
   name/shape, labels, dtypes. Default is a no-op.
 - **`preprocess`** builds the ORT `feed` (`{input_name: ndarray}`) from the request's
-  `binary` and/or `tensors`. It returns `(feed, context)`; `context` is handler-private
+  `binary` **or** `tensors`. It returns `(feed, context)`; `context` is handler-private
   state handed to `postprocess` (e.g. the image geometry needed to map results back).
 - **`infer`** runs the model on the `feed` and returns the raw outputs. The default is
   a single `session.run` — the right seam for one-graph models. Override it to own the
   run loop: a multi-session pipeline (a separate encoder/decoder graph opened in
   `load`) or an autoregressive model that calls the session repeatedly. `main.py` is
   unchanged either way.
-- **`postprocess`** turns the raw ORT `outputs` into the structured `result` dict.
-- **`params`** is the manifest params merged with the request params (request wins),
-  so per-request overrides (thresholds, …) reach both methods.
+- **`postprocess`** turns the raw ORT `outputs` into the task-shaped result model.
+- **`params`** is the bundle manifest's params (with any deployment overrides already
+  merged at boot). There is no per-request override on the wire — retuning is a
+  redeploy.
 
-Input is generic: a model uses `binary` (e.g. an image), `tensors` (named numeric
-arrays), or both — whichever its handler expects. Raise `ValueError` for bad input;
-`main.py` maps it to HTTP 422.
+Input arrives one of two ways, per endpoint: `binary` — an opaque encoded artifact the
+handler decodes (e.g. an image) — or `tensors` — a `{name: Tensor}` map of already-numeric
+input the caller prepared (each `Tensor` is `datatype` + `shape` + flat `data`). A handler
+consumes whichever its task expects; the other is `None`. Raise `ValueError` for bad input
+(wrong kind, undecodable, shape mismatch); `main.py` maps it to HTTP 422.
 
 ## Resolution (`registry.py`)
 
@@ -64,9 +67,9 @@ aborts startup.
 - **`postprocess`** reads the raw `(1, 4+classes, anchors)` output, filters by
   `confThreshold`, runs NMS (`cv2.dnn.NMSBoxes` at `nmsThreshold`), maps class id →
   label, and back-projects each box through the letterbox into original-image pixels.
-- **Result:** `{ "detections": [ { label, score, box: { x, y, w, h } } ] }`.
+- **Result:** `{ "task": "object-detection", "detections": [ { label, score, box: { xmin, ymin, xmax, ymax } } ] }`.
 
-The two thresholds default to `0.25` / `0.45` and are overridable via `params`.
+The two thresholds default to `0.25` / `0.45` and are set via the manifest `params`.
 
 ## Built-in: `raw` (tensor passthrough)
 
@@ -75,11 +78,13 @@ The two thresholds default to `0.25` / `0.45` and are overridable via `params`.
 they go straight in, every output comes straight back.
 
 - **`load`** caches the model's input dtypes and output names.
-- **`preprocess`** casts each named tensor in `tensors` to the model's declared dtype
-  (so Python ints/floats don't get fed as `int64`/`float64` and rejected by ORT) and
-  feeds them by name. Missing `tensors`, or an unknown tensor name → `ValueError`.
-- **`postprocess`** maps each output array to its name.
-- **Result:** `{ "outputs": { <output-name>: <nested array> } }`.
+- **`preprocess`** reshapes each named `Tensor`'s flat `data` to its `shape` and casts to
+  the model's declared dtype (so Python ints/floats don't get fed as `int64`/`float64`
+  and rejected by ORT), feeding them by name. Missing `tensors`, an unknown tensor name,
+  or a data/shape mismatch → `ValueError`.
+- **`postprocess`** encodes each output array as a typed `Tensor` (`datatype` + `shape` +
+  flat `data`) keyed by its output name.
+- **Result:** `{ "task": "tensor", "tensors": { <output-name>: Tensor } }`.
 
 ## Recipe A — add a built-in handler
 

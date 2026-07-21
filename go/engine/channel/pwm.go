@@ -7,12 +7,12 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // PWM is a PWM output channel.
 type PWM struct {
-	Driver    driver.PWMDriver
+	Driver    resource.PWMDriver
 	Channel   int
 	Frequency int // Pulse cycles per second (Hz) for this channel
 }

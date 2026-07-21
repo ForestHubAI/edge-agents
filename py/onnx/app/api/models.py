@@ -20,29 +20,6 @@ class MLModelConfig(BaseModel):
     """
 
 
-class InferRequest(BaseModel):
-    """
-    A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both.
-    """
-
-    model: str
-    """
-    Name (id) of the loaded model to run — must match a loaded bundle (a sub-folder of the models repository). See /metadata for valid names.
-    """
-    binary: bytes | None = None
-    """
-    Opaque binary input (e.g. an encoded image). Read and decoded by the model's handler.
-    """
-    tensors: dict[str, Any] | None = None
-    """
-    Named numeric tensors as nested arrays, for models whose input is not a binary blob. The handler maps these onto the model's input feeds.
-    """
-    params: dict[str, Any] | None = None
-    """
-    Free-form per-request overrides (e.g. detection thresholds). Merged over the manifest's params by the handler.
-    """
-
-
 class Task(StrEnum):
     """
     What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model.
@@ -51,6 +28,53 @@ class Task(StrEnum):
     object_detection = 'object-detection'
     image_classification = 'image-classification'
     tensor = 'tensor'
+
+
+class Datatype(StrEnum):
+    """
+    Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...).
+    """
+
+    BOOL = 'BOOL'
+    UINT8 = 'UINT8'
+    UINT16 = 'UINT16'
+    UINT32 = 'UINT32'
+    UINT64 = 'UINT64'
+    INT8 = 'INT8'
+    INT16 = 'INT16'
+    INT32 = 'INT32'
+    INT64 = 'INT64'
+    FP16 = 'FP16'
+    FP32 = 'FP32'
+    FP64 = 'FP64'
+    BYTES = 'BYTES'
+
+
+class Tensor(BaseModel):
+    """
+    One typed tensor in the KServe/OIP v2 representation: an explicit `datatype` and `shape` over a flat, row-major `data` array. Self-describing — a consumer reconstructs the array with no out-of-band shape knowledge — and used for both raw model inputs and raw model outputs.
+    """
+
+    datatype: Datatype
+    """
+    Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...).
+    """
+    shape: list[int]
+    """
+    Tensor dimensions, outermost first.
+    """
+    data: list[Any]
+    """
+    Elements flattened row-major (C order); length equals the product of `shape`. Numbers for the numeric datatypes.
+    """
+
+
+class TensorInput(RootModel[dict[str, Tensor]]):
+    """
+    Named input tensors keyed by the model's input feed names — one `Tensor` per model input. Already-numeric input the caller prepared, mapped straight onto the ONNX inputs with no decoding on the component side.
+    """
+
+    root: dict[str, Tensor]
 
 
 class Task1(StrEnum):
@@ -101,9 +125,9 @@ class TensorResult(BaseModel):
     """
 
     task: Literal['tensor']
-    tensors: dict[str, Any]
+    tensors: dict[str, Tensor]
     """
-    Output tensors as nested arrays, keyed by the model's output names.
+    Output tensors keyed by the model's output names, one `Tensor` each.
     """
 
 
@@ -114,7 +138,7 @@ class ModelMetadata(BaseModel):
 
     name: str
     """
-    Name (id) of the model — the value to pass as the /infer `model` selector.
+    Name (id) of the model — the value to use as the `model` in an inference path.
     """
     handler: str
     """
@@ -156,7 +180,7 @@ class MLConfig(BaseModel):
 
     models: dict[str, MLModelConfig]
     """
-    Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector.
+    Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the `model` in an inference path.
     """
 
 
@@ -215,22 +239,10 @@ class DetectionResult(BaseModel):
     """
 
 
-class InferenceResult(RootModel[DetectionResult | ClassificationResult | TensorResult]):
+class InferResult(RootModel[DetectionResult | ClassificationResult | TensorResult]):
     root: DetectionResult | ClassificationResult | TensorResult = Field(
         ..., discriminator='task'
     )
     """
     A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model.
     """
-
-
-class InferResult(BaseModel):
-    """
-    A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape.
-    """
-
-    model: str
-    """
-    Name of the model that produced this result.
-    """
-    result: InferenceResult

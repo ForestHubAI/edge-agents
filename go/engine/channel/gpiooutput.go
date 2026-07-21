@@ -7,12 +7,12 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // GPIOOutput is a digital output pin.
 type GPIOOutput struct {
-	Driver driver.GPIODriver
+	Driver resource.GPIODriver
 	Line   int
 }
 

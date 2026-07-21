@@ -24,13 +24,14 @@ A handler implements:
 
 Every handler declares a ``task``. That is what the result's shape is normalized
 on — two object-detection handlers return the same ``DetectionResult`` however
-differently their models are built — and it is what ``/metadata`` advertises, so a
-caller learns the shape without running an inference. A handler whose output the
+differently their models are built — and it is what the model-metadata endpoint
+advertises, so a caller learns the shape without running an inference. A handler whose output the
 contract does not model uses ``tensor`` and returns raw outputs.
 
-``params`` is the manifest params merged with the request params (request wins).
-Input is generic: a model uses ``binary`` (e.g. an image), ``tensors`` (named
-numeric arrays), or both — whichever its handler expects.
+``params`` is the bundle manifest's params (with any deployment overrides already
+merged in). Input arrives one of two ways: ``binary`` — an opaque encoded artifact
+the handler decodes (e.g. an image) — or ``tensors`` — named typed ``Tensor`` inputs
+the caller already prepared. A handler consumes whichever its task expects.
 """
 
 from __future__ import annotations
@@ -41,10 +42,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
-from ..api.models import ClassificationResult, DetectionResult, Task, TensorResult
+from ..api.models import ClassificationResult, DetectionResult, Task, Tensor, TensorResult
 
-# The concrete task-shaped result a handler returns. The contract's InferenceResult
-# is the RootModel wrapper over these; a handler returns the variant for its task.
+# The concrete task-shaped result a handler returns. The contract's InferResult
+# is the RootModel union over these; a handler returns the variant for its task.
 HandlerResult = DetectionResult | ClassificationResult | TensorResult
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ class Handler(ABC):
     """Per-model-type pre/post-processing. See the module docstring for the interface."""
 
     #: The task this handler implements, and therefore the result variant its
-    #: postprocess returns. Advertised on /metadata; every subclass must set it.
+    #: postprocess returns. Advertised on the model-metadata endpoint; every subclass must set it.
     task: ClassVar[Task]
 
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
@@ -70,7 +71,7 @@ class Handler(ABC):
     def preprocess(
         self,
         binary: bytes | None,
-        tensors: dict[str, Any] | None,
+        tensors: dict[str, Tensor] | None,
         params: dict[str, Any],
     ) -> tuple[Feed, Any]:
         """Build the ORT feed; return ``(feed, context)`` where context feeds postprocess."""

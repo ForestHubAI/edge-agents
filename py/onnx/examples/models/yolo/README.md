@@ -9,8 +9,10 @@ yolo export model=yolov8n.pt format=onnx imgsz=640
 mv yolov8n.onnx model.onnx
 ```
 
-Export **without** `nms=True`: the `builtin:yolo` handler runs NMS itself (so the
-thresholds stay tunable per request), and expects the model's raw detection output.
+Export **without** `nms=True`: the `builtin:yolo` handler runs NMS itself (with the
+thresholds set in the bundle's manifest `params`), and expects the model's raw
+detection output.
 
-The folder name (`yolo`) is the model id you pass as `/infer`'s `model` field.
-Add more models by adding sibling folders under `examples/models/`.
+The folder name (`yolo`) is the model id — the `model` in the inference path,
+`POST /models/yolo/infer/binary`. Add more models by adding sibling folders under
+`examples/models/`.

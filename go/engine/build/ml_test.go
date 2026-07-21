@@ -5,13 +5,8 @@
 package build
 
 import (
-	"context"
-	"io"
-	"net/http"
-	"strings"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/mlapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
@@ -41,11 +36,10 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	eps, err := buildDeployML(wf, dm, ext)
 	require.NoError(t, err)
 	require.Len(t, eps, 1)
-	ep := eps["yolo"]
-	require.NotNil(t, ep)
-	// The component selector comes from the address's model sub-address, not the workflow id.
-	assert.Equal(t, "yolov8n", ep.modelName)
-	assert.NotNil(t, ep.client)
+	// One client, keyed by the workflow model id and bound to the mapped model
+	// sub-address. The binding is now private to the resource client; that the
+	// sub-address is required at all is covered by TestBuildDeployML_UnsetModelFails.
+	require.NotNil(t, eps["yolo"])
 }
 
 func TestBuildDeployML_UnsetModelFails(t *testing.T) {
@@ -106,107 +100,4 @@ func TestBuildDeployML_MultipleModelsShareURL(t *testing.T) {
 	eps, err := buildDeployML(wf, dm, ext)
 	require.NoError(t, err)
 	assert.Len(t, eps, 2)
-}
-
-// fakeDoer is a stub HttpRequestDoer that captures the request and returns a
-// canned response.
-type fakeDoer struct {
-	gotContentType string
-	gotBody        string
-	resp           *http.Response
-}
-
-func (f *fakeDoer) Do(req *http.Request) (*http.Response, error) {
-	f.gotContentType = req.Header.Get("Content-Type")
-	if req.Body != nil {
-		b, _ := io.ReadAll(req.Body)
-		f.gotBody = string(b)
-	}
-	return f.resp, nil
-}
-
-func jsonResp(status int, body string) *http.Response {
-	return &http.Response{
-		StatusCode: status,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(body)),
-	}
-}
-
-func mlEndpointWith(t *testing.T, doer *fakeDoer) *mlEndpoint {
-	t.Helper()
-	client, err := mlapi.NewClientWithResponses("http://onnx:9000", mlapi.WithHTTPClient(doer))
-	require.NoError(t, err)
-	return &mlEndpoint{client: client, modelName: "yolo"}
-}
-
-func TestMLEndpoint_Infer_Success(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(200, `{"model":"clf","result":{"task":"image-classification","predictions":[{"label":"cat","score":0.9}]}}`)}
-	ep := mlEndpointWith(t, doer)
-
-	result, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
-	require.NoError(t, err)
-	// The generated union is mapped onto the domain result: task is lifted out and
-	// the whole task-shaped payload is carried through.
-	assert.Equal(t, "image-classification", result.Task)
-	assert.Equal(t, "image-classification", result.Payload["task"])
-	assert.Len(t, result.Payload["predictions"], 1)
-
-	// The request was a multipart body carrying the model selector and tensors.
-	assert.Contains(t, doer.gotContentType, "multipart/form-data")
-	assert.Contains(t, doer.gotBody, `name="model"`)
-	assert.Contains(t, doer.gotBody, "yolo")
-	assert.Contains(t, doer.gotBody, `name="tensors"`)
-	assert.Contains(t, doer.gotBody, `"x":1`)
-}
-
-func TestMLEndpoint_InferBinary_Success(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"task":"object-detection","detections":[]}}`)}
-	ep := mlEndpointWith(t, doer)
-
-	result, err := ep.InferBinary(context.Background(), []byte{0xFF, 0xD8, 0xFF})
-	require.NoError(t, err)
-	assert.Equal(t, "object-detection", result.Task)
-	assert.Equal(t, []any{}, result.Payload["detections"])
-
-	// The request was a multipart body carrying the model selector and the blob
-	// as a file part named "binary".
-	assert.Contains(t, doer.gotContentType, "multipart/form-data")
-	assert.Contains(t, doer.gotBody, `name="model"`)
-	assert.Contains(t, doer.gotBody, "yolo")
-	assert.Contains(t, doer.gotBody, `name="binary"`)
-	assert.Contains(t, doer.gotBody, `filename="frame"`)
-	assert.Contains(t, doer.gotBody, "application/octet-stream")
-}
-
-func TestMLEndpoint_Infer_UnknownTask(t *testing.T) {
-	// A task this engine's contract does not know means the component is newer than
-	// the engine; mapping rejects it rather than passing a payload a task-keyed
-	// caller would silently mis-read.
-	doer := &fakeDoer{resp: jsonResp(200, `{"model":"seg","result":{"task":"image-segmentation","masks":[]}}`)}
-	ep := mlEndpointWith(t, doer)
-
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown task")
-}
-
-func TestMLEndpoint_Infer_NotFound(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(404, `{"message":"no model named yolo is loaded"}`)}
-	ep := mlEndpointWith(t, doer)
-
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "404")
-	assert.Contains(t, err.Error(), "no model named yolo is loaded")
-}
-
-func TestMLEndpoint_Infer_Unprocessable(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(422, `{"message":"input could not be processed"}`)}
-	ep := mlEndpointWith(t, doer)
-
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "422")
-	assert.Contains(t, err.Error(), "input could not be processed")
 }

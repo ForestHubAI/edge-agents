@@ -9,8 +9,8 @@ bundle selects, see [handlers.md](./handlers.md).
 
 At startup the component loads the bundles its boot config declares (`repository.py`),
 from a mounted directory of sub-folders. The folder name is the model **id** — the
-value a request passes as `/infer`'s `model`, and the key the boot config declares it
-under. The mount is read-only, at the contracted workspace path
+`model` in a request's inference path (`/models/{model}/infer/...`), and the key the
+boot config declares it under. The mount is read-only, at the contracted workspace path
 `/var/lib/foresthub/workspace`.
 
 The declaration is **authoritative**: a declared bundle that is missing or broken
@@ -56,7 +56,7 @@ params:                     # free-form; interpreted by the handler
 | `schemaVersion` | Manifest **format** version this build understands (see below). |
 | `handler` | Which handler drives the model — `builtin:<name>` or `file:<py>`. |
 | `model` | The ONNX file path inside the bundle. |
-| `params` | Free-form bag of handler-specific settings (input size, labels, thresholds, …). Merged under per-request `params` at inference time. |
+| `params` | Free-form bag of handler-specific settings (input size, labels, thresholds, …). Deployment overrides from the boot config merge on top; there is no per-request override. |
 
 An invalid manifest (missing file, bad YAML, unknown `schemaVersion`, missing required
 field) raises `ManifestError` and aborts startup — never a silent default.
@@ -87,9 +87,9 @@ free-form.
    …). Weights are **not** committed to git — they are mounted/placed at deploy time.
 4. **Write `manifest.yaml`** — `schemaVersion: 1`, `handler`, `model`, and the
    `params` the chosen handler reads.
-5. **Verify it loads.** Mount the repository and check `GET /metadata` lists the model,
-   then `POST /infer` with `model: <id>`. `scripts/smoke.sh` does this end-to-end for
-   the example.
+5. **Verify it loads.** Mount the repository and check `GET /models` lists the model,
+   then `POST /models/<id>/infer/binary` (or `.../infer/tensors`). `scripts/smoke.sh`
+   does this end-to-end for the example.
 
 ## Exporting an ONNX model
 

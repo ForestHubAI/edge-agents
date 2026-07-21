@@ -7,7 +7,7 @@ package channel
 import (
 	"fmt"
 
-	"github.com/ForestHubAI/edge-agents/go/engine/transport"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // subscribeQoS is the QoS every subscription uses: the workflow declares a QoS
@@ -17,8 +17,8 @@ const subscribeQoS byte = 0
 // MQTT is a workflow-level MQTT channel: a topic endpoint on a bound broker,
 // plus the fanout list of OnMqttMessage subscribers.
 type MQTT struct {
-	Broadcaster[transport.MQTTMessage]
-	Transport       transport.MQTTTransport
+	Broadcaster[resource.MQTTMessage]
+	Transport       resource.MQTTConnection
 	Topic           string // the channel's topic (publish target / subscribe filter)
 	PublishPrefix   string // prepended on every Publish; "" = pass-through
 	SubscribePrefix string // prepended on every Subscribe; "" = pass-through

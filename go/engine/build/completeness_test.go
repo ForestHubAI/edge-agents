@@ -151,7 +151,7 @@ func TestBuildChannelsHandlesEveryContractChannel(t *testing.T) {
 				json.Unmarshal(fmt.Appendf(nil, `{"id":"c1","type":%q,"label":"c1"}`, typ), &c),
 				"constructing a %q channel", typ)
 
-			_, err := buildChannels([]workflowapi.Channel{c}, nil, nil, nil, nil)
+			_, err := buildChannels([]workflowapi.Channel{c}, nil, nil, nil)
 			if err == nil {
 				return // handled cleanly (a camera, for instance, is a no-op here)
 			}

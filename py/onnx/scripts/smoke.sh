@@ -8,8 +8,8 @@ set -euo pipefail
 
 SERVICE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODELS_DIR="$SERVICE_DIR/examples/models"
-IMAGE="ml-inference:smoke"
-CONTAINER="ml-inference-smoke"
+IMAGE="fh-onnx:smoke"
+CONTAINER="fh-onnx-smoke"
 PORT="8000"
 BASE="http://localhost:$PORT"
 TEST_IMAGE="$SERVICE_DIR/examples/bus.jpg"
@@ -47,24 +47,25 @@ done
 echo "==> /healthz"
 curl -fsS "$BASE/healthz" >/dev/null || fail "/healthz not 200"
 
-echo "==> /metadata lists the yolo model"
-curl -fsS "$BASE/metadata" | python3 -c '
+echo "==> /models lists the yolo model"
+curl -fsS "$BASE/models" | python3 -c '
 import json, sys
 models = json.load(sys.stdin)["models"]
 m = next((m for m in models if m["name"] == "yolo"), None)
-assert m, "yolo not listed in /metadata"
+assert m, "yolo not listed in /models"
 assert m["handler"] == "builtin:yolo", m
-' || fail "/metadata did not list yolo"
+' || fail "/models did not list yolo"
 
 [ -f "$TEST_IMAGE" ] || { echo "==> fetching test image"; curl -fsSL "$TEST_IMAGE_URL" -o "$TEST_IMAGE"; }
 
-echo "==> /infer model=yolo"
-curl -fsS -X POST "$BASE/infer" -F "model=yolo" -F "binary=@$TEST_IMAGE" | python3 -c '
+echo "==> POST /models/yolo/infer/binary"
+curl -fsS -X POST "$BASE/models/yolo/infer/binary" \
+  -H "Content-Type: application/octet-stream" --data-binary "@$TEST_IMAGE" | python3 -c '
 import json, sys
-dets = json.load(sys.stdin)["result"]["detections"]
+dets = json.load(sys.stdin)["detections"]
 assert dets, "no detections returned"
 top = max(dets, key=lambda d: d["score"])
 print("   %d detection(s), top: %s @ %.2f" % (len(dets), top["label"], top["score"]))
-' || fail "/infer returned no detections"
+' || fail "infer returned no detections"
 
 echo "PASS"

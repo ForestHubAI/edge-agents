@@ -5,14 +5,14 @@
 package channel
 
 import (
-	"github.com/ForestHubAI/edge-agents/go/engine/driver"
+	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
 // DAC is a true analog output channel — sets a real voltage, in contrast
 // with PWM which produces a switched square wave. Channels do not need
 // per-channel acquisition, so Setup is a no-op.
 type DAC struct {
-	Driver  driver.DACDriver
+	Driver  resource.DACDriver
 	Channel int
 }
 
