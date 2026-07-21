@@ -10,6 +10,7 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/channel"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
 
@@ -29,24 +30,24 @@ const cameraCaptureOutID = "output"
 type CameraCapture struct {
 	engine.LinearNode
 	binding workflowapi.OutputBinding
-	client  engine.CaptureClient
+	camera  *channel.Camera
 	width   int
 	height  int
 }
 
-// NewCameraCapture builds a CameraCapture bound to one camera's capture client.
-func NewCameraCapture(id string, binding workflowapi.OutputBinding, client engine.CaptureClient, width, height int) *CameraCapture {
+// NewCameraCapture builds a CameraCapture bound to one camera channel.
+func NewCameraCapture(id string, binding workflowapi.OutputBinding, camera *channel.Camera, width, height int) *CameraCapture {
 	return &CameraCapture{
 		LinearNode: engine.NewLinearNode(id),
 		binding:    binding,
-		client:     client,
+		camera:     camera,
 		width:      width,
 		height:     height,
 	}
 }
 
 func (c *CameraCapture) Execute(ctx context.Context, scope *engine.Scope) (string, error) {
-	frame, err := c.client.Capture(ctx, c.width, c.height)
+	frame, err := c.camera.CaptureFrame(ctx, c.width, c.height)
 	if err != nil {
 		return "", fmt.Errorf("cameraCapture %s: %w", c.ID(), err)
 	}

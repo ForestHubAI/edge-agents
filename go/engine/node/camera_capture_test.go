@@ -11,25 +11,31 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
+	"github.com/ForestHubAI/edge-agents/go/engine/channel"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// stubCaptureClient is a fake engine.CaptureClient that returns a canned
+// stubCameraDriver is a fake resource.CameraDriver that returns a canned
 // frame/error and records the size it was asked for.
-type stubCaptureClient struct {
+type stubCameraDriver struct {
 	frame  []byte
 	err    error
 	width  int
 	height int
 }
 
-func (s *stubCaptureClient) Capture(_ context.Context, width, height int) ([]byte, error) {
+func (s *stubCameraDriver) CaptureFrame(_ context.Context, width, height int) ([]byte, error) {
 	s.width, s.height = width, height
 	return s.frame, s.err
 }
+
+func (s *stubCameraDriver) Close() error { return nil }
+
+// cameraChannel wraps a stub driver in the channel a CameraCapture node holds.
+func cameraChannel(d *stubCameraDriver) *channel.Camera { return &channel.Camera{Driver: d} }
 
 func TestCameraCapture_Execute(t *testing.T) {
 	emit := workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}
@@ -39,7 +45,7 @@ func TestCameraCapture_Execute(t *testing.T) {
 		require.NoError(t, err)
 
 		frame := []byte{0xFF, 0xD8, 0xFF}
-		n := NewCameraCapture("cam1", emit, &stubCaptureClient{frame: frame}, 0, 0)
+		n := NewCameraCapture("cam1", emit, cameraChannel(&stubCameraDriver{frame: frame}), 0, 0)
 
 		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
@@ -54,7 +60,7 @@ func TestCameraCapture_Execute(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
 
-		n := NewCameraCapture("camErr", emit, &stubCaptureClient{err: errors.New("component returned 404: no camera")}, 0, 0)
+		n := NewCameraCapture("camErr", emit, cameraChannel(&stubCameraDriver{err: errors.New("component returned 404: no camera")}), 0, 0)
 
 		_, err = n.Execute(context.Background(), s)
 		require.Error(t, err)
@@ -66,8 +72,8 @@ func TestCameraCapture_Execute(t *testing.T) {
 		s, err := engine.NewMainScope(nil)
 		require.NoError(t, err)
 
-		stub := &stubCaptureClient{frame: []byte{0xFF, 0xD8, 0xFF}}
-		n := NewCameraCapture("cam1", emit, stub, 640, 480)
+		stub := &stubCameraDriver{frame: []byte{0xFF, 0xD8, 0xFF}}
+		n := NewCameraCapture("cam1", emit, cameraChannel(stub), 640, 480)
 
 		_, err = n.Execute(context.Background(), s)
 		require.NoError(t, err)
@@ -80,12 +86,12 @@ func TestCameraCapture_Execute(t *testing.T) {
 
 func TestCameraCapture_Outputs(t *testing.T) {
 	t.Run("emit binding materializes the image slot", func(t *testing.T) {
-		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}, &stubCaptureClient{}, 0, 0)
+		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}, cameraChannel(&stubCameraDriver{}), 0, 0)
 		assert.Equal(t, map[string]workflowapi.DataType{cameraCaptureOutID: workflowapi.Image}, n.Outputs())
 	})
 
 	t.Run("assign binding materializes no slot", func(t *testing.T) {
-		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeAssign}, &stubCaptureClient{}, 0, 0)
+		n := NewCameraCapture("cam1", workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeAssign}, cameraChannel(&stubCameraDriver{}), 0, 0)
 		assert.Empty(t, n.Outputs())
 	})
 }

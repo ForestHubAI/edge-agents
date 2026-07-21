@@ -35,7 +35,7 @@ func cameraComponentURL() string {
 // bound to it, and each channel may ask for its own size.
 type CameraDriver interface {
 	Resource
-	Capture(ctx context.Context, width, height int) ([]byte, error)
+	CaptureFrame(ctx context.Context, width, height int) ([]byte, error)
 }
 
 // Compile-time assertion: cameraClient implements CameraDriver
@@ -60,9 +60,9 @@ func OpenCamera(baseURL, name string) (CameraDriver, error) {
 	return &cameraClient{client: client, name: name}, nil
 }
 
-// Capture asks the component for one frame from the bound camera and returns the
+// CaptureFrame asks the component for one frame from the bound camera and returns the
 // encoded bytes. Width and height are sent only when set.
-func (c *cameraClient) Capture(ctx context.Context, width, height int) ([]byte, error) {
+func (c *cameraClient) CaptureFrame(ctx context.Context, width, height int) ([]byte, error) {
 	params := &cameraapi.CaptureParams{Name: c.name}
 	if width > 0 {
 		params.Width = &width

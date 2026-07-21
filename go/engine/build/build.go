@@ -33,9 +33,106 @@ type Builder struct {
 	WebSearch websearch.Provider // optional; nil disables WebSearchTool nodes
 }
 
+// buildContext is the narrowed, resolved surface embedded into every graph, so sub-builders reach the
+// resolved channels/llm/collections and never the backend client or driver registry.
+type buildContext struct {
+	ctx         context.Context
+	rm          engine.ResourceMapping      // resource mapping; agent nodes resolve their model id to its server id here
+	channels    *channels                   // typed channel registry; nodes look up their linked channel here
+	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
+	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
+	mainScope   *engine.Scope
+	ml          map[string]mlBinding // resolved ML model id → (client, model name); MLInference nodes look up their binding here
+	// clients for building nodes that rely on external services
+	llm       engine.LlmClient
+	memory    *memory.Manager
+	retriever engine.Retriever
+	webSearch websearch.Provider
+}
+
 // Build constructs a Runner for the given workflow, resource mapping, and
 // resource bundle (may be nil).
 func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, res *engine.Resources) (*engine.Runner, error) {
+	bc, err := b.resolve(ctx, wf, rm, res)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build each function body in its own builder.
+	functionGraphs := make([]*graph, 0, len(wf.Functions))
+	for i := range wf.Functions {
+		f := wf.Functions[i]
+		b := newGraph(bc)
+		if err := b.build(f.Nodes, f.Edges); err != nil {
+			return nil, fmt.Errorf("function %s: %w", f.FunctionInfo.Name, err)
+		}
+		if len(b.triggers) > 0 {
+			return nil, fmt.Errorf("function %s: runtime triggers not allowed in function body", f.FunctionInfo.Name)
+		}
+		if b.entryTr.TargetID == engine.StateIdle {
+			return nil, fmt.Errorf("function %s: missing OnFunctionCall trigger (no entry edge)", f.FunctionInfo.Name)
+		}
+		// Set built data on the Function object
+		target := bc.functions[f.FunctionInfo.Id]
+		target.EntryTransition = b.entryTr
+		target.Executables = b.executables
+		target.DeclaredVars = f.DeclaredVariables
+		target.OutputAssignments = f.OutputAssignments
+		functionGraphs = append(functionGraphs, b)
+	}
+
+	// Build the main graph. The entry node and any startup-edge side effect are
+	// captured on mainGraph.entryTr.
+	mainGraph := newGraph(bc)
+	if err := mainGraph.build(wf.Nodes, wf.Edges); err != nil {
+		return nil, err
+	}
+
+	// All graphs are built; all hardware resources registered. Configure the
+	// underlying hardware once via every channel's Setup.
+	if err := bc.channels.SetupAll(); err != nil {
+		return nil, fmt.Errorf("channels setup: %w", err)
+	}
+
+	// Per-graph node setup. Order across graphs is irrelevant
+	for i, g := range functionGraphs {
+		if err := g.setupNodes(); err != nil {
+			return nil, fmt.Errorf("function %s: %w", wf.Functions[i].FunctionInfo.Name, err)
+		}
+	}
+	if err := mainGraph.setupNodes(); err != nil {
+		return nil, err
+	}
+
+	// Pre-populate the main scope with zero values for each node's declared
+	// output slots so downstream expressions can resolve references before
+	// the producing node has fired. Tools are intentionally excluded.
+	// Function graphs will do the same once Function sets up its own scope at runtime.
+	for _, a := range mainGraph.executables {
+		if em, ok := a.(engine.Emitter); ok {
+			engine.RegisterNodeOutputs(bc.mainScope, em)
+		}
+	}
+	for _, t := range mainGraph.triggers {
+		if em, ok := t.(engine.Emitter); ok {
+			engine.RegisterNodeOutputs(bc.mainScope, em)
+		}
+	}
+
+	// Assemble the Runner and return
+	r := &engine.Runner{
+		Scope:           bc.mainScope,
+		Nodes:           mainGraph.executables,
+		Triggers:        mainGraph.triggers,
+		EntryTransition: mainGraph.entryTr,
+	}
+	return r, nil
+}
+
+// resolve reconciles the engine's memory and resolves the workflow's declared
+// dependencies (LLM providers, channels, collections, ML bindings) into a
+// buildContext.
+func (b *Builder) resolve(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, res *engine.Resources) (*buildContext, error) {
 	// Refresh the memory before assembling nodes so agent nodes see the latest declared files.
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
@@ -60,8 +157,6 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 	if err := validateModelsResolvable(wf, rm, llmClient); err != nil {
 		return nil, fmt.Errorf("resolving referenced models: %w", err)
 	}
-
-	// TODO: maybe group resolves into sub function
 
 	// Build channels first as they orchestrate hardware resources
 	chs, err := buildChannels(wf.Channels, b.Resources, rm, res)
@@ -94,77 +189,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlBindings, llm: llmClient, memory: b.Memory, retriever: b.Retriever, webSearch: b.WebSearch}
-
-	// Build each function body in its own builder.
-	functionGraphs := make([]*graph, 0, len(wf.Functions))
-	for i := range wf.Functions {
-		f := wf.Functions[i]
-		b := newGraph(bc)
-		if err := b.build(f.Nodes, f.Edges); err != nil {
-			return nil, fmt.Errorf("function %s: %w", f.FunctionInfo.Name, err)
-		}
-		if len(b.triggers) > 0 {
-			return nil, fmt.Errorf("function %s: runtime triggers not allowed in function body", f.FunctionInfo.Name)
-		}
-		if b.entryTr.TargetID == engine.StateIdle {
-			return nil, fmt.Errorf("function %s: missing OnFunctionCall trigger (no entry edge)", f.FunctionInfo.Name)
-		}
-		// Set built data on the Function object
-		target := functions[f.FunctionInfo.Id]
-		target.EntryTransition = b.entryTr
-		target.Executables = b.executables
-		target.DeclaredVars = f.DeclaredVariables
-		target.OutputAssignments = f.OutputAssignments
-		functionGraphs = append(functionGraphs, b)
-	}
-
-	// Build the main graph. The entry node and any startup-edge side effect are
-	// captured on mainGraph.entryTr.
-	mainGraph := newGraph(bc)
-	if err := mainGraph.build(wf.Nodes, wf.Edges); err != nil {
-		return nil, err
-	}
-
-	// All graphs are built; all hardware resources registered. Configure the
-	// underlying hardware once via every channel's Setup.
-	if err := chs.SetupAll(); err != nil {
-		return nil, fmt.Errorf("channels setup: %w", err)
-	}
-
-	// Per-graph node setup. Order across graphs is irrelevant
-	for i, g := range functionGraphs {
-		if err := g.setupNodes(); err != nil {
-			return nil, fmt.Errorf("function %s: %w", wf.Functions[i].FunctionInfo.Name, err)
-		}
-	}
-	if err := mainGraph.setupNodes(); err != nil {
-		return nil, err
-	}
-
-	// Pre-populate the main scope with zero values for each node's declared
-	// output slots so downstream expressions can resolve references before
-	// the producing node has fired. Tools are intentionally excluded.
-	// Function graphs will do the same once Function sets up its own scope at runtime.
-	for _, a := range mainGraph.executables {
-		if em, ok := a.(engine.Emitter); ok {
-			engine.RegisterNodeOutputs(ms, em)
-		}
-	}
-	for _, t := range mainGraph.triggers {
-		if em, ok := t.(engine.Emitter); ok {
-			engine.RegisterNodeOutputs(ms, em)
-		}
-	}
-
-	// Assemble the Runner and return
-	r := &engine.Runner{
-		Scope:           ms,
-		Nodes:           mainGraph.executables,
-		Triggers:        mainGraph.triggers,
-		EntryTransition: mainGraph.entryTr,
-	}
-	return r, nil
+	return &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlBindings, llm: llmClient, memory: b.Memory, retriever: b.Retriever, webSearch: b.WebSearch}, nil
 }
 
 // declaredMemoryFiles extracts the MemoryFile declarations from a workflow,
@@ -213,20 +238,4 @@ func buildCollections(wf *workflowapi.Workflow, rm engine.ResourceMapping) (map[
 		out[vd.Id] = b.Ref
 	}
 	return out, nil
-}
-
-// buildContext holds the inputs shared across every graph build.
-type buildContext struct {
-	ctx         context.Context
-	rm          engine.ResourceMapping      // resource mapping; agent nodes resolve their model id to its server id here
-	channels    *channels                   // typed channel registry; nodes look up their linked channel here
-	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
-	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
-	mainScope   *engine.Scope
-	ml          map[string]mlBinding // resolved ML model id → (client, model name); MLInference nodes look up their binding here
-	// clients for building nodes that rely on external services
-	llm       engine.LlmClient
-	memory    *memory.Manager
-	retriever engine.Retriever
-	webSearch websearch.Provider
 }

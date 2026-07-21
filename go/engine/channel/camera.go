@@ -21,8 +21,8 @@ type Camera struct {
 // Setup is a no-op: a camera is configured by its manifest entry, not per channel.
 func (*Camera) Setup() error { return nil }
 
-// Capture reads one frame at the caller's size. Satisfies engine.CaptureClient,
+// CaptureFrame reads one frame at the caller's size. Satisfies engine.CameraClient,
 // which CameraCapture nodes hold.
-func (v *Camera) Capture(ctx context.Context, width, height int) ([]byte, error) {
-	return v.Driver.Capture(ctx, width, height)
+func (v *Camera) CaptureFrame(ctx context.Context, width, height int) ([]byte, error) {
+	return v.Driver.CaptureFrame(ctx, width, height)
 }

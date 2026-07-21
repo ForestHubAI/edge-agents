@@ -62,11 +62,3 @@ type InferenceResult struct {
 	Task    string
 	Payload map[string]any
 }
-
-// CaptureClient is the external service for on-demand frame capture from a camera. Width and
-// height are per-call: one camera serves every node bound to it and each asks for
-// its own size, so a size is an argument to a capture, never a property of the
-// camera. Zero means "no hint".
-type CaptureClient interface {
-	Capture(ctx context.Context, width, height int) ([]byte, error)
-}
