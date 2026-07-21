@@ -140,7 +140,7 @@ type CameraSource struct {
 // a gpiochip.
 type ExternalResources struct {
 	MQTTs     map[string]MQTTConfig
-	Providers map[string]LLMProviderConfig
+	Providers map[string]LLMConfig
 	ML        map[string]MLConfig
 }
 
@@ -166,11 +166,11 @@ const (
 	LLMSelfHosted LLMProviderKind = "selfhostedLlm"
 )
 
-// LLMProviderConfig is one resolved provider instance the engine registers into
+// LLMConfig is one resolved provider instance the engine registers into
 // its llmproxy. Kind selects the transport; the other fields are kind-specific:
 // localLlm/backendLlm carry Provider (the catalog adapter id); localLlm and
 // selfhostedLlm carry APIKey; selfhostedLlm carries URL.
-type LLMProviderConfig struct {
+type LLMConfig struct {
 	Kind     LLMProviderKind
 	Provider string
 	URL      string

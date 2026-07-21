@@ -12,15 +12,15 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for LLMProviderConfigType.
+// Defines values for LLMConfigType.
 const (
-	BackendLlm    LLMProviderConfigType = "backendLlm"
-	LocalLlm      LLMProviderConfigType = "localLlm"
-	SelfhostedLlm LLMProviderConfigType = "selfhostedLlm"
+	BackendLlm    LLMConfigType = "backendLlm"
+	LocalLlm      LLMConfigType = "localLlm"
+	SelfhostedLlm LLMConfigType = "selfhostedLlm"
 )
 
-// Valid indicates whether the value is a known member of the LLMProviderConfigType enum.
-func (e LLMProviderConfigType) Valid() bool {
+// Valid indicates whether the value is a known member of the LLMConfigType enum.
+func (e LLMConfigType) Valid() bool {
 	switch e {
 	case BackendLlm:
 		return true
@@ -114,18 +114,18 @@ type GPIOConfig struct {
 	Chip string `json:"chip"`
 }
 
-// LLMProviderConfig One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing.
-type LLMProviderConfig struct {
+// LLMConfig One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing.
+type LLMConfig struct {
 	// Provider localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai).
-	Provider *string               `json:"provider,omitempty"`
-	Type     LLMProviderConfigType `json:"type"`
+	Provider *string       `json:"provider,omitempty"`
+	Type     LLMConfigType `json:"type"`
 
 	// Url selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
 	Url *string `json:"url,omitempty"`
 }
 
-// LLMProviderConfigType defines model for LLMProviderConfig.Type.
-type LLMProviderConfigType string
+// LLMConfigType defines model for LLMConfig.Type.
+type LLMConfigType string
 
 // MLConfig Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
 type MLConfig struct {
@@ -242,22 +242,22 @@ func (t *ExternalResourceConfig) MergeMQTTConfig(v MQTTConfig) error {
 	return err
 }
 
-// AsLLMProviderConfig returns the union data inside the ExternalResourceConfig as a LLMProviderConfig
-func (t ExternalResourceConfig) AsLLMProviderConfig() (LLMProviderConfig, error) {
-	var body LLMProviderConfig
+// AsLLMConfig returns the union data inside the ExternalResourceConfig as a LLMConfig
+func (t ExternalResourceConfig) AsLLMConfig() (LLMConfig, error) {
+	var body LLMConfig
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromLLMProviderConfig overwrites any union data inside the ExternalResourceConfig as the provided LLMProviderConfig
-func (t *ExternalResourceConfig) FromLLMProviderConfig(v LLMProviderConfig) error {
+// FromLLMConfig overwrites any union data inside the ExternalResourceConfig as the provided LLMConfig
+func (t *ExternalResourceConfig) FromLLMConfig(v LLMConfig) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeLLMProviderConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided LLMProviderConfig
-func (t *ExternalResourceConfig) MergeLLMProviderConfig(v LLMProviderConfig) error {
+// MergeLLMConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided LLMConfig
+func (t *ExternalResourceConfig) MergeLLMConfig(v LLMConfig) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -309,15 +309,15 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 	}
 	switch discriminator {
 	case "backendLlm":
-		return t.AsLLMProviderConfig()
+		return t.AsLLMConfig()
 	case "localLlm":
-		return t.AsLLMProviderConfig()
+		return t.AsLLMConfig()
 	case "ml":
 		return t.AsMLConfig()
 	case "mqtt":
 		return t.AsMQTTConfig()
 	case "selfhostedLlm":
-		return t.AsLLMProviderConfig()
+		return t.AsLLMConfig()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

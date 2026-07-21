@@ -58,8 +58,8 @@ func chatClient(modelIDs ...string) *llmproxy.Client {
 	return c
 }
 
-func selfHosted(url string) engine.LLMProviderConfig {
-	return engine.LLMProviderConfig{Kind: engine.LLMSelfHosted, URL: url}
+func selfHosted(url string) engine.LLMConfig {
+	return engine.LLMConfig{Kind: engine.LLMSelfHosted, URL: url}
 }
 
 func TestBuildProviders_ResolvesChatModel(t *testing.T) {
@@ -67,7 +67,7 @@ func TestBuildProviders_ResolvesChatModel(t *testing.T) {
 	// The address's model differs from the workflow id: the provider registers under
 	// the server id, not the workflow id.
 	dm := engine.ResourceMapping{"my-llama": {Ref: "prov-1", Model: pointer.Ptr("server-llama")}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"prov-1": {Kind: engine.LLMSelfHosted, URL: "http://llm:8000", APIKey: "k"},
 	}}
 
@@ -93,7 +93,7 @@ func TestBuildProviders_DuplicateServerModelFails(t *testing.T) {
 		"a": {Ref: "p1", Model: pointer.Ptr("llama-3")},
 		"b": {Ref: "p2", Model: pointer.Ptr("llama-3")},
 	}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"p1": selfHosted("http://a:8000"),
 		"p2": selfHosted("http://b:8000"),
 	}}
@@ -120,7 +120,7 @@ func TestBuildProviders_NoModels(t *testing.T) {
 func TestBuildProviders_BoundButNoConfig(t *testing.T) {
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"m": {Ref: "missing"}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{}}
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{}}
 
 	_, err := buildProviders(wf, dm, ext, nil)
 	require.Error(t, err)
@@ -131,7 +131,7 @@ func TestBuildProviders_DeclaredModelOnNonSelfHostedFails(t *testing.T) {
 	// A declared (custom) model must bind to a self-hosted provider, not a catalog one.
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "m", llmapi.Chat)}}
 	dm := engine.ResourceMapping{"m": {Ref: "p"}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"p": {Kind: engine.LLMLocal, Provider: "Anthropic"},
 	}}
 
@@ -143,7 +143,7 @@ func TestBuildProviders_DeclaredModelOnNonSelfHostedFails(t *testing.T) {
 func TestBuildProviders_EmbeddingUnsupported(t *testing.T) {
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{llmModel(t, "embed", llmapi.Embedding)}}
 	dm := engine.ResourceMapping{"embed": {Ref: "p"}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{"p": selfHosted("http://e:8000")}}
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{"p": selfHosted("http://e:8000")}}
 
 	_, err := buildProviders(wf, dm, ext, nil)
 	require.Error(t, err)
@@ -156,7 +156,7 @@ func TestBuildProviders_MultipleModelsOneProvider(t *testing.T) {
 		llmModel(t, "b", llmapi.Chat),
 	}}
 	dm := engine.ResourceMapping{"a": {Ref: "p1", Model: pointer.Ptr("a")}, "b": {Ref: "p2", Model: pointer.Ptr("b")}}
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"p1": selfHosted("http://a:8000"),
 		"p2": selfHosted("http://b:8000"),
 	}}
@@ -170,7 +170,7 @@ func TestBuildProviders_MultipleModelsOneProvider(t *testing.T) {
 func TestBuildProviders_LocalCatalogProvider(t *testing.T) {
 	// A localLlm instance builds the named catalog adapter; no declared model,
 	// no mapping — the adapter's static catalog models route by id.
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"anthropic": {Kind: engine.LLMLocal, Provider: "Anthropic", APIKey: "sk-ant"},
 	}}
 
@@ -182,7 +182,7 @@ func TestBuildProviders_LocalCatalogProvider(t *testing.T) {
 }
 
 func TestBuildProviders_UnknownLocalProviderFails(t *testing.T) {
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"x": {Kind: engine.LLMLocal, Provider: "Bogus", APIKey: "k"},
 	}}
 	_, err := buildProviders(&workflowapi.Workflow{}, nil, ext, nil)
@@ -192,7 +192,7 @@ func TestBuildProviders_UnknownLocalProviderFails(t *testing.T) {
 
 func TestBuildProviders_BackendWithoutClientFails(t *testing.T) {
 	// backendLlm needs a backend client; standalone (nil) is a config error.
-	ext := &engine.ExternalResources{Providers: map[string]engine.LLMProviderConfig{
+	ext := &engine.ExternalResources{Providers: map[string]engine.LLMConfig{
 		"anthropic": {Kind: engine.LLMBackend, Provider: "Anthropic"},
 	}}
 	_, err := buildProviders(&workflowapi.Workflow{}, nil, ext, nil)

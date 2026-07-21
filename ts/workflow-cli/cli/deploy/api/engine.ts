@@ -32,9 +32,9 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMConfig"] | components["schemas"]["MLConfig"];
         /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
-        LLMProviderConfig: {
+        LLMConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}

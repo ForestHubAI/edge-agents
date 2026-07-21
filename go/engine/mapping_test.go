@@ -23,12 +23,12 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		ClientID:  pointer.Ptr("client-1"),
 	}))
 	var selfHosted engineapi.ExternalResourceConfig
-	require.NoError(t, selfHosted.FromLLMProviderConfig(engineapi.LLMProviderConfig{
+	require.NoError(t, selfHosted.FromLLMConfig(engineapi.LLMConfig{
 		Type: engineapi.SelfhostedLlm,
 		Url:  pointer.Ptr("http://llm:8000"),
 	}))
 	var local engineapi.ExternalResourceConfig
-	require.NoError(t, local.FromLLMProviderConfig(engineapi.LLMProviderConfig{
+	require.NoError(t, local.FromLLMConfig(engineapi.LLMConfig{
 		Type:     engineapi.LocalLlm,
 		Provider: pointer.Ptr("Anthropic"),
 	}))

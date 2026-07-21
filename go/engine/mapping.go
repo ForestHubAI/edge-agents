@@ -27,9 +27,9 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets componen
 		return nil
 	}
 	out := &ExternalResources{
-		MQTTs:       make(map[string]MQTTConfig),
-		Providers:   make(map[string]LLMProviderConfig),
-		ML: make(map[string]MLConfig),
+		MQTTs:     make(map[string]MQTTConfig),
+		Providers: make(map[string]LLMConfig),
+		ML:        make(map[string]MLConfig),
 	}
 	for id, rc := range *in {
 		disc, err := rc.Discriminator()
@@ -60,11 +60,11 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets componen
 			}
 			out.MQTTs[id] = mc
 		case string(engineapi.LocalLlm), string(engineapi.BackendLlm), string(engineapi.SelfhostedLlm):
-			c, err := rc.AsLLMProviderConfig()
+			c, err := rc.AsLLMConfig()
 			if err != nil {
 				continue
 			}
-			out.Providers[id] = LLMProviderConfig{
+			out.Providers[id] = LLMConfig{
 				Kind:     LLMProviderKind(c.Type),
 				Provider: pointer.Val(c.Provider),
 				URL:      pointer.Val(c.Url),

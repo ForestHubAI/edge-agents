@@ -90,7 +90,7 @@ type HealthCheck struct {
 	// Retries Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default.
 	Retries *int `json:"retries,omitempty"`
 
-	// StartPeriod Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".
+	// StartPeriod Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".
 	StartPeriod *string `json:"startPeriod,omitempty"`
 
 	// Test The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely.
