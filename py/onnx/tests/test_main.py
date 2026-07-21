@@ -17,6 +17,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from app.api.models import Task, TensorResult
 from app.handlers.base import Handler
 from app.main import app
 from app.manifest import Manifest
@@ -25,6 +26,8 @@ from app.repository import LoadedModel
 
 class _StubHandler(Handler):
     """Records what it was fed and returns a canned result; optionally raises."""
+
+    task = Task.tensor
 
     def __init__(self, raise_message: str | None = None):
         self.raise_message = raise_message
@@ -42,7 +45,7 @@ class _StubHandler(Handler):
         return []
 
     def postprocess(self, outputs, context, params):
-        return {"ok": True}
+        return TensorResult(task="tensor", tensors={"y": [1]})
 
 
 def _install_model(handler: Handler, name: str = "m") -> None:
@@ -93,6 +96,7 @@ def test_metadata_lists_models(client):
     model = r.json()["models"][0]
     assert model["name"] == "m"
     assert model["handler"] == "builtin:stub"
+    assert model["task"] == "tensor"
     assert model["modelVersion"] == "1.2"
 
 
@@ -109,7 +113,7 @@ def test_infer_dispatches_tensors(client):
     _install_model(handler)
     r = client.post("/infer", data={"model": "m", "tensors": json.dumps({"x": [1, 2]})})
     assert r.status_code == 200
-    assert r.json() == {"model": "m", "result": {"ok": True}}
+    assert r.json() == {"model": "m", "result": {"task": "tensor", "tensors": {"y": [1]}}}
     assert handler.got_tensors == {"x": [1, 2]}
     assert handler.got_binary is None
 
@@ -157,11 +161,13 @@ def test_infer_missing_model_field_is_422_with_message(client):
 class _BoomHandler(Handler):
     """Raises a non-ValueError to exercise the unexpected-failure path."""
 
+    task = Task.tensor
+
     def preprocess(self, binary, tensors, params):
         raise RuntimeError("kaboom")
 
     def postprocess(self, outputs, context, params):  # pragma: no cover - never reached
-        return {}
+        return TensorResult(task="tensor", tensors={})
 
 
 def test_infer_unexpected_error_is_500_with_message(client):

@@ -289,7 +289,7 @@ The network/service environment the device does not own.
 | `Providers`   | `{url, bearer?}` — an endpoint the llmproxy doesn't ship                | `selfhostedLlm` |
 | `Providers`   | `{provider}` — a built-in catalog provider served with an API key       | `localLlm`      |
 | `Providers`   | `{provider}` — the same catalog provider proxied to the backend, no key | `backendLlm`    |
-| `MLInference` | `{url}`                                                                 | `ml-inference`  |
+| `MLInference` | `{url}`                                                                 | `onnx`  |
 
 `ExternalResourceConfig` is a tagged union discriminated by `type`; new external-resource
 kinds extend that `oneOf`. Only `selfhostedLlm` carries a `url`; only `localLlm` /
@@ -400,7 +400,7 @@ all nodes are built, applying each channel's accumulated requirements to its dri
 | declared model bound to a non-self-hosted provider    | `selfHostedEndpoints`         |
 | unknown catalog provider id (`localLlm`/`backendLlm`) | `buildProviders`              |
 | `backendLlm` provider but no backend configured       | `buildProviders`              |
-| ML model unbound / `ref` has no ml-inference config   | `buildDeployML` (`ml.go`)     |
+| ML model unbound / `ref` has no ml config   | `buildDeployML` (`ml.go`)     |
 | agent node references an unservable model             | `validateModelsResolvable`    |
 | `VectorDatabase` id has no mapping entry              | `buildCollections`            |
 

@@ -10,7 +10,7 @@ Two different things arrive at startup and must not be confused:
   in `<name>.env`, available at exec with no I/O.
 * **Boot config** — `config.json` at the contracted path. Deployment-scoped, written by
   the renderer, regenerated every deploy. It says which model bundles this component is
-  issued; see `MLInferenceConfig` in `contract/mlinference.yaml`.
+  issued; see `MLConfig` in `contract/ml.yaml`.
 
 The in-container paths are *constants, not configuration*: they are the renderer's
 bind-mount targets, so a component that reads anywhere else reads an empty location.
@@ -23,7 +23,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from .api.models import MLInferenceConfig
+from .api.models import MLConfig
 
 # The component contract's fixed in-container paths (see
 # contract/component-constants.json and its Go/TS twins). The boot config is mounted
@@ -42,7 +42,7 @@ class ConfigError(Exception):
     """Raised when the boot config is missing or invalid."""
 
 
-def load_boot_config(path: str | Path = CONFIG_FILE) -> MLInferenceConfig:
+def load_boot_config(path: str | Path = CONFIG_FILE) -> MLConfig:
     """Read and validate `config.json`, failing fast on any error.
 
     The `path` argument exists for tests; production always reads the contracted
@@ -56,7 +56,7 @@ def load_boot_config(path: str | Path = CONFIG_FILE) -> MLInferenceConfig:
     except json.JSONDecodeError as e:
         raise ConfigError(f"{file} is not valid JSON: {e}") from e
     try:
-        config = MLInferenceConfig.model_validate(data)
+        config = MLConfig.model_validate(data)
     except ValidationError as e:
         raise ConfigError(f"invalid boot config in {file}: {e}") from e
     # A component issued no models can serve nothing — every /infer would 404. Fail

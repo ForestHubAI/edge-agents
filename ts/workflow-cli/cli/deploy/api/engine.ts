@@ -24,7 +24,7 @@ export interface components {
             ref: string;
             /** @description Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only. */
             index?: number;
-            /** @description Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings. */
+            /** @description Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings. */
             model?: string;
         };
         /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id. */
@@ -32,7 +32,7 @@ export interface components {
             [key: string]: components["schemas"]["ExternalResourceConfig"];
         };
         /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLInferenceConfig"];
+        ExternalResourceConfig: components["schemas"]["MQTTConfig"] | components["schemas"]["LLMProviderConfig"] | components["schemas"]["MLConfig"];
         /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing. */
         LLMProviderConfig: {
             /**
@@ -45,14 +45,14 @@ export interface components {
             /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
             url?: string;
         };
-        /** @description Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
-        MLInferenceConfig: {
+        /** @description Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
+        MLConfig: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            type: "ml-inference";
-            /** @description Base URL of the inference component (http:// or https://). */
+            type: "ml";
+            /** @description Base URL of the ML component (http:// or https://). */
             url: string;
         };
         /** @description Resolved connection metadata for an MQTT broker. */

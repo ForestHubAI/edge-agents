@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ForestHub llama-server component — thin config-bridge entrypoint.
+# ForestHub llama component — thin config-bridge entrypoint.
 #
 # llama-swap needs a YAML config mapping each model id to a launch command; the
 # ForestHub boot config arrives as JSON at a fixed path (the component-contract

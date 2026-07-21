@@ -8,7 +8,7 @@ The whole models repository is loaded once during startup (fail-fast — an empt
 or broken repository aborts the process). Each request to `/infer` selects one
 loaded model by name and drives its handler: preprocess -> infer ->
 postprocess. Responses use the contract-generated Pydantic models, so the wire
-shape stays locked to `contract/mlinference.yaml`.
+shape stays locked to `contract/ml.yaml`.
 """
 
 from __future__ import annotations
@@ -111,6 +111,7 @@ async def metadata() -> RepositoryMetadata:
             ModelMetadata(
                 name=lm.name,
                 handler=lm.manifest.handler,
+                task=lm.handler.task,
                 modelVersion=_model_version(lm),
             )
             for lm in _models(app).values()

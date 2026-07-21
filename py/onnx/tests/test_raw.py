@@ -53,7 +53,8 @@ def test_postprocess_maps_outputs_by_name():
     handler = _loaded_handler()
     feed, _ = handler.preprocess(None, {"x": [[1.0, 2.0, 3.0]]}, {})
     result = handler.postprocess(_FakeSession().run(None, feed), None, {})
-    assert result == {"outputs": {"y": [[2.0, 4.0, 6.0]]}}
+    assert result.task == "tensor"
+    assert result.tensors == {"y": [[2.0, 4.0, 6.0]]}
 
 
 def test_missing_tensors_raises():

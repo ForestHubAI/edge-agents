@@ -33,7 +33,7 @@ seams (LLM, RAG); the component-backed seams are wired by the build layer from
 | ------------------- | ----------------------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------- |
 | `LlmClient`         | `Chat`                        | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
 | `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
-| `MLInferenceClient` | `InferTensors`, `InferBinary` | Required **only if** an ML inference node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
+| `MLClient` | `InferTensors`, `InferBinary` | Required **only if** an ML node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
 | `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | `channel.Camera` over a `driver.CameraDriver`, resolved from the `DeviceManifest` (backend-independent) | — same (not backend-routed)  |
 
 Three capabilities deliberately are **not** ports:
@@ -78,16 +78,16 @@ yet**.
   `llmproxy` + similarity search + ingestion) will live in its own package
   (e.g. `engine/rag/pgvector`), not bundled with the trivial seams.
 
-## MLInferenceClient — required only when used
+## MLClient — required only when used
 
 `InferTensors` and `InferBinary` are the ML inference seams: both hit one
 component `/infer` endpoint, differing only in how the input is encoded (named
 numeric tensors, or an opaque binary blob such as an encoded image). The
-adapter is `build.mlEndpoint`, a generated `mlinferenceapi` client bound to one
+adapter is `build.mlEndpoint`, a generated `mlapi` client bound to one
 model name.
 
 - **Resolution:** `build/ml.go` resolves each declared ML model against the
-  deploy's `ExternalResources` (`ml-inference` arm → component URL). Many models
+  deploy's `ExternalResources` (`onnx` arm → component URL). Many models
   may share one component — the model name is sent per request.
 - **Missing:** an `MLInference` node whose model is unbound or unconfigured
   **fails the build**. Backend-independent — the component is its own container.

@@ -1,6 +1,6 @@
 # Component contract: how a container behaves on a device
 
-Every ForestHub component — the engine, camera, ml-inference, llama-server, and any
+Every ForestHub component — the engine, camera, onnx, llama, and any
 custom container you co-deploy — runs as one Docker container on the device and obeys
 the same small runtime contract: **how it is named, where it reads config and secrets,
 where it keeps durable data, how it reports a fatal boot failure, and where its logs
@@ -14,7 +14,7 @@ enforced twins in every language:
 | -------- | ----------------------------------------------------------------------------------------- | ------------------------- |
 | Go       | [`go/component/constants.go`](../go/component/constants.go)                               | `constants_test.go`       |
 | TS       | [`ts/workflow-core/src/deploy/constants.ts`](../ts/workflow-core/src/deploy/constants.ts) | `constants.test.ts`       |
-| Python   | [`py/ml-inference/app/config.py`](../py/ml-inference/app/config.py)                       | `tests/test_constants.py` |
+| Python   | [`py/onnx/app/config.py`](../py/onnx/app/config.py)                       | `tests/test_constants.py` |
 
 Changing a value means editing the JSON **and** all three twins in lockstep; the
 per-language tests fail if they drift.
@@ -31,7 +31,7 @@ renderer assigns. That single string is how the control plane addresses it, how 
 components reach it over the network, and the tag its logs are correlated by. There is
 no separate identity record.
 The first-party components each have a fixed, canonical name.
-Each is a **singleton** — one container. llama-server hosts _many_ on-device models in
+Each is a **singleton** — one container. llama hosts _many_ on-device models in
 that one container: llama-swap fronts them behind a single endpoint and the engine
 selects a model by id per request. So its name is fixed like the rest, not one container
 per model. Custom components pick their own unique name (see
@@ -47,15 +47,15 @@ A serving component listens on a fixed **internal (container) port** — the por
 image binds, baked into its entrypoint. This value lives in
 [`component-constants.json`](../contract/component-constants.json) alongside the name
 (the two halves of one address), drift-guarded per language like the constants above —
-Go and TS carry it as a constant, and on the Python side the ml-inference image's
+Go and TS carry it as a constant, and on the Python side the onnx image's
 Dockerfile is checked against the JSON:
 
 | Component    | Name           |           Internal port           |
 | ------------ | -------------- | :-------------------------------: |
 | Engine       | `engine`       | _(none — serves no inbound HTTP)_ |
-| llama-server | `llama-server` |              `8080`               |
+| llama        | `llama`        |              `8080`               |
 | camera       | `camera`       |              `8081`               |
-| ML inference | `ml-inference` |              `8082`               |
+| onnx         | `onnx`         |              `8082`               |
 
 How that port is reached depends on **where the caller sits**, and the two cases are
 not the same port:
@@ -64,7 +64,7 @@ not the same port:
   bridge network, where every container port is already mutually reachable and Docker
   resolves the container name as a hostname. A sibling — the engine reaching an
   on-device component — dials **`http://<name>:<internal-port>`** directly, e.g.
-  `http://ml-inference:8082`. **No `ports:` publishing is involved**; the internal port
+  `http://onnx:8082`. **No `ports:` publishing is involved**; the internal port
   is reachable as-is over the private network.
 
 - **Across devices.** Container names and the internal network do not exist off the
@@ -76,7 +76,7 @@ not the same port:
   container; the process, which only ever bound `b`, answers.
 
 ```
-same device:     engine ──▶ http://ml-inference:8082        (b, over the bridge network)
+same device:     engine ──▶ http://onnx:8082        (b, over the bridge network)
 across devices:  engine ──▶ http://10.0.0.5:19000  ──NAT──▶ :8082   (a ▶ b, via DeployComponent.ports "19000:8082")
 ```
 
@@ -95,7 +95,7 @@ component reached only over the internal network publishes none — the empty ca
 the common one for a same-deployment component.
 
 > Publishing changes the **trust boundary**. On the internal network a component's
-> caller is a sibling container the deployment placed there; the `camera`/`ml-inference`
+> caller is a sibling container the deployment placed there; the `camera`/`onnx`
 > configs are contracted as credential-free "trusted in-deployment endpoints" on that
 > basis. Once a port is published to the LAN, any host on the network can reach it —
 > cross-device exposure needs its own authentication, which those configs do not carry
@@ -157,8 +157,8 @@ plain domain type documented in that language.
 | ------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Engine       | `EngineConfig` — [`contract/engine.yaml`](../contract/engine.yaml)                                    | contracted (backend produces it)                                                                                     |
 | Camera       | `CameraConfig` — [`contract/camera.yaml`](../contract/camera.yaml)                                    | contracted (the renderer writes it, Go reads it)                                                                     |
-| llama-server | a models list in `config.json`, fronted by llama-swap                                                 | image-owned — the entrypoint defines and reads the shape (a bash consumer, no codegen), like ml-inference's manifest |
-| ML inference | `MLInferenceConfig` — [`contract/mlinference.yaml`](../contract/mlinference.yaml)                       | contracted (the renderer writes it, Python reads it)                                                                 |
+| llama        | a models list in `config.json`, fronted by llama-swap                                                 | image-owned — the entrypoint defines and reads the shape (a bash consumer, no codegen), like onnx's manifest |
+| onnx         | `MLConfig` — [`contract/ml.yaml`](../contract/ml.yaml)                       | contracted (the renderer writes it, Python reads it)                                                                 |
 
 A missing or malformed `config.json` on a component that requires it is a **permanent**
 boot failure — exit `ExitConfigError` (below), not a retry.
@@ -199,7 +199,7 @@ than exiting by hand:
 - `boot.Retry(err, msg)` — a transient failure. Exits `1`; the orchestrator may restart.
 
 Both emit the failure line to stdout before exiting. Non-Go components mirror the same
-numbers: ml-inference exits `78` (`EXIT_BAD_CONFIG`) on an empty or broken model
+numbers: onnx exits `78` (`EXIT_BAD_CONFIG`) on an empty or broken model
 repository; a wrapped custom component exits `78` on a permanent config error (see
 [`components/README.md`](../components/README.md)).
 

@@ -1,12 +1,12 @@
 # Custom components
 
-`fh-workflow deploy` runs the engine (and a llama-server hosting your on-device
+`fh-workflow deploy` runs the engine (and a `llama` component hosting your on-device
 models) for you. A **custom component** is any extra container you co-deploy alongside them —
 a dashboard, an MQTT broker, a metrics exporter — that the workflow graph does not
 summon. You author it; the wizard merges it in and renders it exactly like the
 first-party components.
 
-> **Not every container here is one of these.** A *driver component* — camera today —
+> **Not every container here is one of these.** A _driver component_ — camera today —
 > is engine-private: the engine issues it, derives its config from the device
 > manifest, and reaches it at a constant address. It is not independently deployable,
 > not something you point at, and not authored this way. See "Two kinds of component"
@@ -15,10 +15,10 @@ first-party components.
 You hand the wizard a **folder**, via `--component <dir>` (repeatable) or the
 interactive prompt. It reads at most **two files** from that folder:
 
-| File | Required | Role |
-| --- | :--: | --- |
-| `component.json` | yes | A `DeployComponent` (see `contract/deployment.yaml`), merged verbatim into the spec. Validated against the contract — unknown or misspelled keys are rejected. |
-| `<name>.env.example` | no | Env template for the operator's values. The wizard turns it into `<name>.env` in the bundle. |
+| File                 | Required | Role                                                                                                                                                           |
+| -------------------- | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `component.json`     |   yes    | A `DeployComponent` (see `contract/deployment.yaml`), merged verbatim into the spec. Validated against the contract — unknown or misspelled keys are rejected. |
+| `<name>.env.example` |    no    | Env template for the operator's values. The wizard turns it into `<name>.env` in the bundle.                                                                   |
 
 Nothing else in the folder is read. Building the image is **your** job, offline —
 the wizard never builds anything (just as the engine image is built by hand).
@@ -29,7 +29,7 @@ codes, and stdout logging. That contract is [`docs/component-contract.md`](../do
 this guide is the authoring side of it.
 
 This folder holds two worked examples at opposite ends of the effort spectrum:
-[`grafana/`](./grafana) (no image build) and [`llama-server/`](./llama-server)
+[`grafana/`](./grafana) (no image build) and [`llama/`](./llama)
 (a thin wrapper image). Both are walked through under
 [Worked examples](#worked-examples) below.
 
@@ -38,7 +38,7 @@ This folder holds two worked examples at opposite ends of the effort spectrum:
 Pick whichever your image already supports — they are not exclusive:
 
 1. **`command`** — CLI flags, frozen in the spec (`"command": ["--port", "8080"]`).
-   Best for servers configured entirely by flags (llama-server, many exporters).
+   Best for servers configured entirely by flags (llama, many exporters).
 2. **env** — a `<name>.env.example` of `KEY=value` lines. Best for images that read
    their settings from environment variables (Grafana's `GF_*`, Postgres's `POSTGRES_*`).
 3. **native JSON `config`** — a `config` object, rendered to a JSON file and
@@ -106,29 +106,29 @@ The wizard merges grafana beside the engine, prompts for the empty admin passwor
 a terminal), and writes `grafana.env` (mode 0600) into the bundle. Then follow the
 bundle's own README to build/transfer/run.
 
-### `llama-server/` — the build-your-own-image case
+### `llama/` — the build-your-own-image case
 
-The counterpart to grafana. `llama-server` fronts many local models on one endpoint
-with [llama-swap](https://github.com/mostlygeek/llama-swap), and llama-swap reads a
+The counterpart to grafana. The `llama` component fronts many local models on one
+endpoint with [llama-swap](https://github.com/mostlygeek/llama-swap), and llama-swap reads a
 **YAML** config while ForestHub hands a component its boot config as **JSON** at
 `/etc/foresthub/config.json`. That mismatch is exactly the "speaks neither flags, env,
 nor JSON" case above, so it ships a thin wrapper image.
 
-`llama.cpp`'s `llama-server` hosts a **single model per process**; llama-swap wraps N
+`llama.cpp`'s server hosts a **single model per process**; llama-swap wraps N
 of them behind one OpenAI-compatible endpoint (`:8080`), starting and idle-evicting a
-`llama-server` per model on demand. The engine picks a model by its `id` in the
+server per model on demand. The engine picks a model by its `id` in the
 request — one component, one port, many models, no per-model fan-out.
 
 Two files carry it:
 
-| File | Role |
-| --- | --- |
-| `Dockerfile` | `FROM` the stock llama-swap image (bundles both binaries) + `jq` + the entrypoint. No compile. |
-| `entrypoint.sh` | The config bridge: `/etc/foresthub/config.json` (JSON) → llama-swap YAML → `exec llama-swap`. |
+| File            | Role                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------- |
+| `Dockerfile`    | `FROM` the stock llama-swap image (bundles both binaries) + `jq` + the entrypoint. No compile. |
+| `entrypoint.sh` | The config bridge: `/etc/foresthub/config.json` (JSON) → llama-swap YAML → `exec llama-swap`.  |
 
 The bridge: the backend renders the model set to the component's `config.json` (a
 models list); the operator stages the `.gguf` files under the component `Workspace`
-(`/var/lib/foresthub/workspace`); [`entrypoint.sh`](./llama-server/entrypoint.sh) reads
+(`/var/lib/foresthub/workspace`); [`entrypoint.sh`](./llama/entrypoint.sh) reads
 that JSON with `jq`, emits a llama-swap YAML (one `cmd:` per model on llama-swap's
 assigned `${PORT}`), validates each model file exists, then `exec`s llama-swap. A
 malformed config or missing model file exits **78** — permanent, not retried; llama-swap
@@ -139,8 +139,12 @@ The `config.json` shape the entrypoint reads:
 ```json
 {
   "models": [
-    { "id": "qwen", "file": "qwen2.5-3b-instruct-q4.gguf", "args": ["--ctx-size", "4096"] },
-    { "id": "phi",  "file": "phi-3.5-mini-q4.gguf" }
+    {
+      "id": "qwen",
+      "file": "qwen2.5-3b-instruct-q4.gguf",
+      "args": ["--ctx-size", "4096"]
+    },
+    { "id": "phi", "file": "phi-3.5-mini-q4.gguf" }
   ]
 }
 ```
@@ -153,23 +157,23 @@ Built by hand or CI, never by the wizard. From the folder:
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t ghcr.io/foresthubai/llama-server:1.0.0 --push .
+  -t ghcr.io/foresthubai/llama:1.0.0 --push .
 ```
 
 In CI this is
-[`.github/workflows/release-llama-server.yml`](../.github/workflows/release-llama-server.yml)
+[`.github/workflows/release-llama.yml`](../.github/workflows/release-llama.yml)
 (`workflow_dispatch`, semver input, refuses to clobber an existing tag). Treat semver
 tags as immutable, and pin the moving base (`:cpu`, or `:cuda`/`:vulkan`) by digest in
 the `Dockerfile` for reproducible rebuilds.
 
-Unlike grafana, llama-server is a **first-party** component: the backend resolves it
+Unlike grafana, llama is a **first-party** component: the backend resolves it
 and pins the published tag (like the engine image) rather than an operator handing it
 to the wizard. The image-build mechanics generalize to any non-Go component regardless
 of how it is deployed.
 
 ## Rules worth internalizing
 
-- **`name` must be unique** across the deployment (engine, every llama-server component, and
+- **`name` must be unique** across the deployment (engine, every llama component, and
   your other customs). It is the compose service name; a duplicate is a hard error.
   The same `image` under two different names is fine (e.g. two dashboards).
 - **`pull` controls image fetching.** Omit it for a stock registry image — it

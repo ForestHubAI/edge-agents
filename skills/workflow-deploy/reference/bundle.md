@@ -9,24 +9,24 @@ accurately and point to the generated `README.md` for the authoritative copy.
 
 Always written:
 
-| File                   | Purpose                                                                | Mode |
-| ---------------------- | --------------------------------------------------------------------- | ---- |
-| `engine-config.json`   | the engine's single boot config — workflow + device manifest + resource mapping + external resources, all in one blob | 644 |
-| `docker-compose.yml`   | the deployment template (engine + any model components + custom components) | 644 |
-| `engine.env`           | operator config — provider keys, web-search key, log level            | **600 (secret)** |
-| `deployment-spec.json` | the full resolved deployment record (secret-free)                     | 644 |
-| `README.md`            | the operator's build/transfer/run guide                               | 644 |
-| `workspaces/engine/`   | the engine's durable memory dir — bind-mounted **read-write** at `/var/lib/foresthub/workspace`, persisted across deploys | dir |
+| File                   | Purpose                                                                                                                   | Mode             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `engine-config.json`   | the engine's single boot config — workflow + device manifest + resource mapping + external resources, all in one blob     | 644              |
+| `docker-compose.yml`   | the deployment template (engine + any model components + custom components)                                               | 644              |
+| `engine.env`           | operator config — provider keys, web-search key, log level                                                                | **600 (secret)** |
+| `deployment-spec.json` | the full resolved deployment record (secret-free)                                                                         | 644              |
+| `README.md`            | the operator's build/transfer/run guide                                                                                   | 644              |
+| `workspaces/engine/`   | the engine's durable memory dir — bind-mounted **read-write** at `/var/lib/foresthub/workspace`, persisted across deploys | dir              |
 
 Written only when the workflow / setup needs them:
 
-| File / dir            | When                                                | Mode |
-| --------------------- | --------------------------------------------------- | ---- |
-| `engine-secrets.json` | any MQTT password or network-model API key resolves — the resource-credential doc, mounted read-only at `/etc/foresthub/secrets.json` | **600 (secret)** |
-| `<name>-config.json`  | a component carries a `config` blob — `llama-server` (any device LLM), `camera` (the generated ref→source map, a projection of the device manifest), or a custom component whose `component.json` declares one; bind-mounted read-only at `/etc/foresthub/config.json` | 644 |
-| `workspaces/llama-server/` | any **device** LLM model — the shared GGUF dir, mounted read-only at `/var/lib/foresthub/workspace`  | dir — operator drops the `.gguf`s here |
-| `workspaces/ml-inference/<model>/` | any **device** ML model — one sub-folder per model in the shared repository, mounted read-only | dir — operator drops `model.onnx` + `manifest.yaml` |
-| `<name>.env`          | a custom component that ships a `<name>.env.example`| **600 (secret-bearing)** |
+| File / dir                 | When                                                                                                                                                                                                                                                            | Mode                                                |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `engine-secrets.json`      | any MQTT password or network-model API key resolves — the resource-credential doc, mounted read-only at `/etc/foresthub/secrets.json`                                                                                                                           | **600 (secret)**                                    |
+| `<name>-config.json`       | a component carries a `config` blob — `llama` (any device LLM), `camera` (the generated ref→source map, a projection of the device manifest), or a custom component whose `component.json` declares one; bind-mounted read-only at `/etc/foresthub/config.json` | 644                                                 |
+| `workspaces/llama/`        | any **device** LLM model — the shared GGUF dir, mounted read-only at `/var/lib/foresthub/workspace`                                                                                                                                                             | dir — operator drops the `.gguf`s here              |
+| `workspaces/onnx/<model>/` | any **device** ML model — one sub-folder per model in the shared repository, mounted read-only                                                                                                                                                                  | dir — operator drops `model.onnx` + `manifest.yaml` |
+| `<name>.env`               | a custom component that ships a `<name>.env.example`                                                                                                                                                                                                            | **600 (secret-bearing)**                            |
 
 Every on-device component's host state lives under `workspaces/<container>/`, mounted onto
 the fixed in-container path — see [`docs/deployment-pipeline.md`](../../../docs/deployment-pipeline.md)
@@ -44,31 +44,31 @@ secrets live in `engine.env` (the engine's own provider/web-search keys), in `en
 `/etc/foresthub/secrets.json`), and in any custom component's `<name>.env`. **Never `cat` the `600`
 files** — inspect them by `ls -l` only. They hold the sentinel placeholders the operator must replace.
 
-## On-device models — the llama-server component
+## On-device models — the llama component
 
 Any custom model with `location: "device"` makes the bundle self-host it. **All** on-device LLMs
-share **one** `llama-server` service (image `ghcr.io/foresthubai/llama-server:<version>`, a
+share **one** `llama` service (image `ghcr.io/foresthubai/llama:<version>`, a
 llama-swap wrapper — pulled from the registry, `pull_policy` unset, unlike the locally-built
 engine/ml/camera images). llama-swap fronts every model behind one endpoint and the engine selects
 one by id per request, so there is **one container, not one per model**. The engine reaches it over
-the compose network at `http://llama-server:8080`. There is deliberately **no `depends_on` and no
+the compose network at `http://llama:8080`. There is deliberately **no `depends_on` and no
 healthcheck** — the engine connects at runtime and retries until the component is up, so there is no
 start-ordering between them.
 
 The component has two halves in the bundle:
 
-- **The models list** rides as the component's `config` blob, written to `llama-server-config.json`
+- **The models list** rides as the component's `config` blob, written to `llama-config.json`
   and bind-mounted read-only at `/etc/foresthub/config.json`. Each entry is `{ id, file, args }`;
   the context window is frozen into `args` (`--ctx-size`, default 4096) at deploy time — retuning it
   is a re-deploy, not an env edit. The entrypoint translates this JSON into a llama-swap config at boot.
 - **The GGUF weights** are **not** in the bundle — they are large, so the operator drops each `.gguf`
-  into `./workspaces/llama-server/` (bind-mounted read-only at `/var/lib/foresthub/workspace`) and
+  into `./workspaces/llama/` (bind-mounted read-only at `/var/lib/foresthub/workspace`) and
   `scp`s the `workspaces/` tree separately (the README has the line). The `file` in each config entry
   is a bare filename the entrypoint resolves under that dir; a missing weight is a **permanent** boot
   failure (exit 78).
 
 On-device **ML** models and **cameras** follow the same shape — one shared component
-(`ml-inference` / `camera`), host state under `workspaces/<container>/` — see the file table above.
+(`onnx` / `camera`), host state under `workspaces/<container>/` — see the file table above.
 
 A `location: "network"` model is the opposite: it points at an endpoint the operator **already runs**
 elsewhere; the bundle starts nothing for it and just records the URL (+ optional key).

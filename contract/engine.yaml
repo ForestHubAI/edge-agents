@@ -43,7 +43,7 @@ components:
           description: Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
         model:
           type: string
-          description: Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
+          description: Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 
     ExternalResources:
       type: object
@@ -56,7 +56,7 @@ components:
       oneOf:
         - $ref: "#/components/schemas/MQTTConfig"
         - $ref: "#/components/schemas/LLMProviderConfig"
-        - $ref: "#/components/schemas/MLInferenceConfig"
+        - $ref: "#/components/schemas/MLConfig"
       discriminator:
         propertyName: type
         mapping:
@@ -64,7 +64,7 @@ components:
           localLlm: "#/components/schemas/LLMProviderConfig"
           backendLlm: "#/components/schemas/LLMProviderConfig"
           selfhostedLlm: "#/components/schemas/LLMProviderConfig"
-          ml-inference: "#/components/schemas/MLInferenceConfig"
+          ml: "#/components/schemas/MLConfig"
 
     LLMProviderConfig:
       type: object
@@ -81,17 +81,17 @@ components:
           type: string
           description: selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
 
-    MLInferenceConfig:
+    MLConfig:
       type: object
-      description: "Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential."
+      description: "Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential."
       required: [type, url]
       properties:
         type:
           type: string
-          enum: [ml-inference]
+          enum: [ml]
         url:
           type: string
-          description: Base URL of the inference component (http:// or https://).
+          description: Base URL of the ML component (http:// or https://).
 
     MQTTConfig:
       type: object

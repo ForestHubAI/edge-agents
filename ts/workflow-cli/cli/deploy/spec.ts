@@ -11,15 +11,35 @@
 // Every produced field is typed against the generated deployment contract, so a
 // contract change stops this compiling — the drift guard for the spec.
 
-import type { CameraSchemas, DeploymentSchemas, EngineSchemas, MLInferenceSchemas } from "./api";
+import type { CameraSchemas, DeploymentSchemas, EngineSchemas, MLSchemas } from "./api";
 import type { Workflow } from "@foresthubai/workflow-core/workflow";
 import { serialize } from "@foresthubai/workflow-core/workflow";
 import type { ModelInfo } from "@foresthubai/workflow-core/model";
 import type { CameraBinding, DeploymentInputs, HardwareBinding } from "./inputs";
 import type { BoundOf, DeployRequirements, HardwareFamily, NonCameraHardware } from "./requirements";
-import { deriveRequirements, isAddressable, hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings, ragBindings } from "./requirements";
+import {
+  deriveRequirements,
+  isAddressable,
+  hardwareBindings,
+  cameraBindings,
+  mqttBindings,
+  llmBindings,
+  mlBindings,
+  ragBindings,
+} from "./requirements";
 import type { Requirement } from "@foresthubai/workflow-core/deploy";
-import { bindingConflicts, COMPONENT_CONFIG_PATH, COMPONENT_WORKSPACE_PATH, ENGINE_COMPONENT_NAME, CAMERA_COMPONENT_NAME, ML_COMPONENT_NAME, LLAMA_COMPONENT_NAME, LLAMA_COMPONENT_PORT, CAMERA_COMPONENT_PORT, ML_COMPONENT_PORT } from "@foresthubai/workflow-core/deploy";
+import {
+  bindingConflicts,
+  COMPONENT_CONFIG_PATH,
+  COMPONENT_WORKSPACE_PATH,
+  ENGINE_COMPONENT_NAME,
+  CAMERA_COMPONENT_NAME,
+  ONNX_COMPONENT_NAME,
+  LLAMA_COMPONENT_NAME,
+  LLAMA_COMPONENT_PORT,
+  CAMERA_COMPONENT_PORT,
+  ONNX_COMPONENT_PORT,
+} from "@foresthubai/workflow-core/deploy";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 type DeployComponent = DeploymentSchemas["DeployComponent"];
@@ -27,8 +47,8 @@ type DeployComponent = DeploymentSchemas["DeployComponent"];
 // the spec carries it as an opaque blob in DeployComponent.config.
 type EngineConfig = EngineSchemas["EngineConfig"];
 
-// One model in the llama-server config.json (its models list). Produced here and read
-// by the image entrypoint (components/llama-server/entrypoint.sh) — deliberately NOT a
+// One model in the llama config.json (its models list). Produced here and read
+// by the image entrypoint (components/llama/entrypoint.sh) — deliberately NOT a
 // contract type: its only consumer is that bash entrypoint, which owns the shape and
 // hand-parses it. Keep in sync with the entrypoint.
 interface LlamaModel {
@@ -50,14 +70,14 @@ function workspaceDir(container: string): string {
 
 // Deploy-time metadata the resolver cannot derive from the workflow: identity,
 // lifecycle, and the full image reference each component runs (frozen here so the
-// renderer emits a coordinate rather than assembling one). llamaServerImage is
+// renderer emits a coordinate rather than assembling one). llamaImage is
 // used only when the workflow has an on-device model.
 export interface DeploymentSpecMeta {
   id: string;
   createdAt?: string;
   engineImage: string;
-  llamaServerImage: string;
-  mlComponentImage: string;
+  llamaImage: string;
+  onnxComponentImage: string;
   cameraComponentImage: string;
 }
 
@@ -160,7 +180,7 @@ function urlHost(url: string): string {
   }
 }
 
-// Compose/container service name for the shared llama-server component. Like the
+// Compose/container service name for the shared llama component. Like the
 // inference component, one container fronts a set of on-device models (llama-swap) and
 // selects one by id per request — so this is a fixed name, its canonical identity, not
 // derived from any model id. Every on-device model's provider URL points at it.
@@ -168,13 +188,12 @@ export function llamaComponentServiceName(): string {
   return LLAMA_COMPONENT_NAME;
 }
 
-// Compose/container service name for the shared inference component. Unlike the
-// llama component (one per model), a single inference component hosts a repository
-// of ML models and selects one by name per request — so this is a fixed name, its
-// canonical identity, not derived from any model id. Every on-device ML model's
-// provider URL points at it.
-export function mlComponentServiceName(): string {
-  return ML_COMPONENT_NAME;
+// Compose/container service name for the shared ML component (image fh-onnx). A
+// single component hosts a repository of ML models and selects one by name per
+// request — so this is a fixed name, its canonical identity, not derived from any
+// model id. Every on-device ML model's provider URL points at it.
+export function onnxComponentServiceName(): string {
+  return ONNX_COMPONENT_NAME;
 }
 
 // Compose/container service name for the shared capture component. Like the
@@ -191,8 +210,8 @@ export function cameraComponentServiceName(): string {
 export function ggufNameError(name: string | undefined): string | null {
   const t = (name ?? "").trim();
   if (!t) return "a model filename is required";
-  if (!t.toLowerCase().endsWith(".gguf")) return "must be a .gguf file (llama-server only loads GGUF)";
-  if (t.includes("/")) return "just the filename, not a path — the file goes in the llama-server workspace dir (./workspaces/llama-server/)";
+  if (!t.toLowerCase().endsWith(".gguf")) return "must be a .gguf file (llama server only loads GGUF)";
+  if (t.includes("/")) return "just the filename, not a path — the file goes in the llama workspace dir (./workspaces/llama/)";
   return null;
 }
 
@@ -523,7 +542,7 @@ export function buildDeploymentSpec(
   }
 
   // Custom LLM models: each maps to a selfhosted provider. Every on-device model is
-  // served by ONE shared llama-server that fronts them with llama-swap and selects one
+  // served by ONE shared llama server that fronts them with llama-swap and selects one
   // by id per request — so they all point at the same service URL and only a single
   // component is emitted (mirrors the inference component). A network model points at
   // the operator's endpoint — deduped by url+key, so several models on one endpoint
@@ -538,7 +557,7 @@ export function buildDeploymentSpec(
     // The ref identifies the ENDPOINT, not the model: the model sub-address is what
     // picks the model within it, so every model on one endpoint dedups onto ONE ref
     // (like GPIO lines on one chip carry their line in the binding's index). On-device
-    // models all front the one llama-server, so they collapse onto a single provider.
+    // models all front the one llama server, so they collapse onto a single provider.
     const url = b.location === "device" ? `http://${llamaComponentServiceName()}:${LLAMA_COMPONENT_PORT}` : b.url;
     const apiKey = b.location === "device" ? undefined : b.apiKey;
     const hint = b.location === "device" ? llamaComponentServiceName() : `provider-${urlHost(b.url)}`;
@@ -556,16 +575,16 @@ export function buildDeploymentSpec(
       llamaModels.push({ id: m.id, file: b.modelFile, args: ["--ctx-size", String(b.ctxSize ?? 4096)] });
     }
   }
-  // One shared llama-server for all on-device models (not one per model). Its config.json
+  // One shared llama server for all on-device models (not one per model). Its config.json
   // (the models list) rides as the component config blob, mounted read-only at the
   // standard config path the entrypoint reads; the GGUF weights sit in the component
-  // workspace the operator fills, mounted read-only. No pull override: llama-server is a
+  // workspace the operator fills, mounted read-only. No pull override: llama server is a
   // published image, pulled from its registry (unlike the locally-built engine/ml/camera).
   if (llamaModels.length > 0) {
     const service = llamaComponentServiceName();
     llamaComponents.push({
       name: service,
-      image: meta.llamaServerImage,
+      image: meta.llamaImage,
       config: { models: llamaModels },
       volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
     });
@@ -599,7 +618,7 @@ export function buildDeploymentSpec(
   // The bundle ids the on-device component must load, keyed by repository sub-folder
   // name (the binding's `model`, not the workflow's model id — the component selects
   // on the former).
-  const mlDeviceModels: MLInferenceSchemas["MLInferenceConfig"]["models"] = {};
+  const mlDeviceModels: MLSchemas["MLConfig"]["models"] = {};
   for (const m of mlBindings(req)) {
     const b = inputs.mlModels[m.id];
     if (!b) throw new Error(`unbound model ${m.id}`); // unreachable after assertDeployable
@@ -608,10 +627,10 @@ export function buildDeploymentSpec(
     // onto ONE ref (like GPIO lines on one chip carry their line in the binding's
     // index). All on-device models collapse onto the single shared component.
     // Credential-free, so nothing else enters the dedup key.
-    const url = b.location === "device" ? `http://${mlComponentServiceName()}:${ML_COMPONENT_PORT}` : b.url;
-    const hint = b.location === "device" ? mlComponentServiceName() : `ml-${urlHost(b.url)}`;
-    const ref = refs.alloc(`ml-inference:${url}`, hint);
-    externalResources[ref] = { type: "ml-inference", url };
+    const url = b.location === "device" ? `http://${onnxComponentServiceName()}:${ONNX_COMPONENT_PORT}` : b.url;
+    const hint = b.location === "device" ? onnxComponentServiceName() : `ml-${urlHost(b.url)}`;
+    const ref = refs.alloc(`ml:${url}`, hint);
+    externalResources[ref] = { type: "ml", url };
     mapping[m.id] = { ref, model: b.model };
     // No collision is possible here: bindingConflictErrors below rejects two workflow
     // models bound to the same (ref, model), so each bundle is claimed exactly once.
@@ -625,11 +644,11 @@ export function buildDeploymentSpec(
   // not issued. Carried as the component's config blob like every other component's,
   // so the renderer writes and mounts it by the standard convention.
   if (Object.keys(mlDeviceModels).length > 0) {
-    const service = mlComponentServiceName();
-    const config: MLInferenceSchemas["MLInferenceConfig"] = { models: mlDeviceModels };
+    const service = onnxComponentServiceName();
+    const config: MLSchemas["MLConfig"] = { models: mlDeviceModels };
     mlComponents.push({
       name: service,
-      image: meta.mlComponentImage,
+      image: meta.onnxComponentImage,
       pull: "never", // built locally before deploy, in no registry
       volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
       config,

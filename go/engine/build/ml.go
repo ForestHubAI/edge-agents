@@ -14,7 +14,7 @@ import (
 	"net/textproto"
 	"time"
 
-	"github.com/ForestHubAI/edge-agents/go/api/mlinferenceapi"
+	"github.com/ForestHubAI/edge-agents/go/api/mlapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 )
@@ -25,49 +25,74 @@ import (
 const mlClientTimeout = 120 * time.Second
 
 // mlEndpoint is the HTTP adapter for one declared ML model: it implements
-// engine.MLInferenceClient over the generated component client, binding the model
+// engine.MLClient over the generated component client, binding the model
 // name so callers pass only the input.
 type mlEndpoint struct {
-	client    *mlinferenceapi.ClientWithResponses
+	client    *mlapi.ClientWithResponses
 	modelName string
 }
 
-var _ engine.MLInferenceClient = (*mlEndpoint)(nil)
+var _ engine.MLClient = (*mlEndpoint)(nil)
 
 // InferTensors sends the tensors to the component as a multipart /infer request
-// and returns the handler-produced result object.
-func (e *mlEndpoint) InferTensors(ctx context.Context, tensors map[string]any) (map[string]any, error) {
+// and returns the model's task-shaped result.
+func (e *mlEndpoint) InferTensors(ctx context.Context, tensors map[string]any) (engine.InferenceResult, error) {
 	contentType, body, err := buildTensorsBody(e.modelName, tensors)
 	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
+		return engine.InferenceResult{}, fmt.Errorf("building request: %w", err)
 	}
 	return e.infer(ctx, contentType, body)
 }
 
 // InferBinary sends an opaque binary blob (e.g. an encoded image) to the component
-// as a multipart /infer request and returns the handler-produced result object.
-func (e *mlEndpoint) InferBinary(ctx context.Context, data []byte) (map[string]any, error) {
+// as a multipart /infer request and returns the model's task-shaped result.
+func (e *mlEndpoint) InferBinary(ctx context.Context, data []byte) (engine.InferenceResult, error) {
 	contentType, body, err := buildBinaryBody(e.modelName, data)
 	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
+		return engine.InferenceResult{}, fmt.Errorf("building request: %w", err)
 	}
 	return e.infer(ctx, contentType, body)
 }
 
-// infer posts an already-encoded multipart body to the component and unwraps the
-// result, shared by the tensors and binary arms.
-func (e *mlEndpoint) infer(ctx context.Context, contentType string, body *bytes.Buffer) (map[string]any, error) {
+// infer posts an already-encoded multipart body to the component and maps the
+// response onto the domain result, shared by the tensors and binary arms.
+func (e *mlEndpoint) infer(ctx context.Context, contentType string, body *bytes.Buffer) (engine.InferenceResult, error) {
 	resp, err := e.client.InferWithBodyWithResponse(ctx, contentType, body)
 	if err != nil {
-		return nil, fmt.Errorf("calling component: %w", err)
+		return engine.InferenceResult{}, fmt.Errorf("calling component: %w", err)
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("component returned %d: %s", resp.StatusCode(), inferErrorMessage(resp))
+		return engine.InferenceResult{}, fmt.Errorf("component returned %d: %s", resp.StatusCode(), inferErrorMessage(resp))
 	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("component returned 200 with no result body")
+		return engine.InferenceResult{}, fmt.Errorf("component returned 200 with no result body")
 	}
-	return resp.JSON200.Result, nil
+	return toDomainResult(resp.JSON200.Result)
+}
+
+// toDomainResult maps the generated union onto the domain result, keeping the api
+// type out of the engine. An unrecognised task means the component is newer than
+// this engine — reported rather than passed through, since a caller keying off the
+// task would silently mis-read the payload.
+func toDomainResult(r mlapi.InferenceResult) (engine.InferenceResult, error) {
+	task, err := r.Discriminator()
+	if err != nil {
+		return engine.InferenceResult{}, fmt.Errorf("reading result task: %w", err)
+	}
+	switch mlapi.Task(task) {
+	case mlapi.TaskObjectDetection, mlapi.TaskImageClassification, mlapi.TaskTensor:
+	default:
+		return engine.InferenceResult{}, fmt.Errorf("component returned unknown task %q", task)
+	}
+	raw, err := r.MarshalJSON()
+	if err != nil {
+		return engine.InferenceResult{}, fmt.Errorf("reading result payload: %w", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return engine.InferenceResult{}, fmt.Errorf("decoding result payload: %w", err)
+	}
+	return engine.InferenceResult{Task: task, Payload: payload}, nil
 }
 
 // buildTensorsBody assembles the /infer multipart body: the model selector plus
@@ -121,7 +146,7 @@ func buildBinaryBody(modelName string, data []byte) (string, *bytes.Buffer, erro
 
 // inferErrorMessage extracts the component's error message from a non-2xx
 // response, falling back to the HTTP status text.
-func inferErrorMessage(resp *mlinferenceapi.InferResponse) string {
+func inferErrorMessage(resp *mlapi.InferResponse) string {
 	switch {
 	case resp.JSON404 != nil:
 		return resp.JSON404.Message
@@ -160,14 +185,14 @@ func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *eng
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("model %q: declared but not bound by the deployment mapping", m.Id)
 		}
-		var cfg engine.MLInferenceConfig
+		var cfg engine.MLConfig
 		if ext != nil {
-			cfg, ok = ext.MLInference[b.Ref]
+			cfg, ok = ext.ML[b.Ref]
 		}
 		if !ok {
 			return nil, fmt.Errorf("model %q: bound to %q but no ml inference config in deploy externalResources", m.Id, b.Ref)
 		}
-		client, err := mlinferenceapi.NewClientWithResponses(cfg.URL, mlinferenceapi.WithHTTPClient(&http.Client{Timeout: mlClientTimeout}))
+		client, err := mlapi.NewClientWithResponses(cfg.URL, mlapi.WithHTTPClient(&http.Client{Timeout: mlClientTimeout}))
 		if err != nil {
 			return nil, fmt.Errorf("model %q: building inference client: %w", m.Id, err)
 		}

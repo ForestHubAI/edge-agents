@@ -20,7 +20,13 @@ A handler implements:
   is a single forward pass; override it to own the run loop (multi-session
   pipelines, autoregressive/generative models).
 - ``postprocess(outputs, context, params) -> result``: turn ORT outputs into the
-  structured result object.
+  contract's task-shaped result model.
+
+Every handler declares a ``task``. That is what the result's shape is normalized
+on — two object-detection handlers return the same ``DetectionResult`` however
+differently their models are built — and it is what ``/metadata`` advertises, so a
+caller learns the shape without running an inference. A handler whose output the
+contract does not model uses ``tensor`` and returns raw outputs.
 
 ``params`` is the manifest params merged with the request params (request wins).
 Input is generic: a model uses ``binary`` (e.g. an image), ``tensors`` (named
@@ -31,9 +37,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
+
+from ..api.models import ClassificationResult, DetectionResult, Task, TensorResult
+
+# The concrete task-shaped result a handler returns. The contract's InferenceResult
+# is the RootModel wrapper over these; a handler returns the variant for its task.
+HandlerResult = DetectionResult | ClassificationResult | TensorResult
 
 if TYPE_CHECKING:
     from onnxruntime import InferenceSession
@@ -46,6 +58,10 @@ Feed = dict[str, np.ndarray]
 
 class Handler(ABC):
     """Per-model-type pre/post-processing. See the module docstring for the interface."""
+
+    #: The task this handler implements, and therefore the result variant its
+    #: postprocess returns. Advertised on /metadata; every subclass must set it.
+    task: ClassVar[Task]
 
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         """One-time setup at startup. Override to cache labels, input shape, etc."""
@@ -76,5 +92,5 @@ class Handler(ABC):
         outputs: list[np.ndarray],
         context: Any,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Turn ORT outputs into the structured ``result`` object."""
+    ) -> HandlerResult:
+        """Turn ORT outputs into this handler's task-shaped result model."""

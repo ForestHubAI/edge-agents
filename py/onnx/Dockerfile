@@ -27,6 +27,6 @@ RUN useradd --system --uid 65532 fh-onnx \
 USER fh-onnx
 
 # Port must equal component-constants.json components.mlInference.port (drift-guarded
-# by tests/test_constants.py) — the on-device resolver builds http://ml-inference:<port>.
+# by tests/test_constants.py) — the on-device resolver builds http://onnx:<port>.
 EXPOSE 8082
 ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8082"]

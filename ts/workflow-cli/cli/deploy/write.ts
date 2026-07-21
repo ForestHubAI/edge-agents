@@ -11,7 +11,7 @@ import path from "node:path";
 import { composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas } from "./api";
-import { mlComponentServiceName } from "./spec";
+import { onnxComponentServiceName } from "./spec";
 import type { ComponentSecrets } from "./spec";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
@@ -95,7 +95,7 @@ export async function writeOutput(
 
   // Each on-device ML model's repository sub-folder — named by model, not a bind
   // mount, so the loop above misses it. The operator drops model.onnx here.
-  const mlRepoDir = path.join("workspaces", mlComponentServiceName());
+  const mlRepoDir = path.join("workspaces", onnxComponentServiceName());
   for (const b of Object.values(cfg.mlModels)) {
     if (b.location === "device") await fs.mkdir(path.join(dir, mlRepoDir, b.model), { recursive: true });
   }

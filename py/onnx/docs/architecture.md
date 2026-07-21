@@ -10,7 +10,7 @@ service code never mentions YOLO, NMS, or images.
 ## Three layers
 
 ```
-        contract/mlinference.yaml          OpenAPI 3.0.3 — the wire (source of truth)
+        contract/ml.yaml          OpenAPI 3.0.3 — the wire (source of truth)
                  │  datamodel-codegen
                  ▼
         app/api/models.py                  GENERATED Pydantic models (InferRequest,
@@ -123,4 +123,4 @@ across every model family. See [handlers.md](./handlers.md).
 | Handler resolution (`builtin:` / `file:`) + registry | `app/handlers/registry.py` |
 | Built-in handlers | `app/handlers/yolo.py`, `app/handlers/raw.py` |
 | Generated wire models (never hand-edit) | `app/api/models.py` |
-| Wire contract (source of truth) | `contract/mlinference.yaml` |
+| Wire contract (source of truth) | `contract/ml.yaml` |

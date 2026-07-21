@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: py/ml-inference
+        working-directory: py/onnx
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
@@ -107,14 +107,14 @@ jobs:
             exit 1
           fi
       - name: Install Python codegen tool
-        working-directory: py/ml-inference
+        working-directory: py/onnx
         run: pip install -e ".[dev]"
       - name: Regenerate Python bindings
-        working-directory: py/ml-inference
+        working-directory: py/onnx
         run: datamodel-codegen
       - name: Check Python bindings in sync
         run: |
-          if ! git diff --exit-code -- 'py/ml-inference/app/api/models.py'; then
-            echo "::error::Python bindings are out of sync with contract/. Run 'datamodel-codegen' in py/ml-inference/ and commit the result."
+          if ! git diff --exit-code -- 'py/onnx/app/api/models.py'; then
+            echo "::error::Python bindings are out of sync with contract/. Run 'datamodel-codegen' in py/onnx/ and commit the result."
             exit 1
           fi

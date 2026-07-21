@@ -10,7 +10,8 @@ session with the dtype the model declares, and every output tensor is returned b
 name as a nested array. This is the generic fit for classical ML (decision tree,
 SVM, random forest exported via skl2onnx), time-series and embedding models.
 
-Result shape: ``{"outputs": {<output-name>: <nested-array>, ...}}``.
+Task: ``tensor`` — the contract does not model these outputs, so they are returned
+raw, keyed by the model's output names, and the caller owns interpreting them.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..api.models import Task, TensorResult
 from .base import Feed, Handler
 from .registry import register_builtin
 
@@ -52,6 +54,8 @@ _DTYPES = {
 class RawHandler(Handler):
     """Feed named input tensors straight through and return named outputs."""
 
+    task = Task.tensor
+
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         self._input_dtypes = {i.name: _DTYPES.get(i.type) for i in session.get_inputs()}
         self._output_names = [o.name for o in session.get_outputs()]
@@ -76,5 +80,8 @@ class RawHandler(Handler):
         outputs: list[np.ndarray],
         context: Any,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
-        return {"outputs": {name: np.asarray(out).tolist() for name, out in zip(self._output_names, outputs)}}
+    ) -> TensorResult:
+        return TensorResult(
+            task="tensor",
+            tensors={name: np.asarray(out).tolist() for name, out in zip(self._output_names, outputs)},
+        )

@@ -96,7 +96,7 @@ For a task that ships with the image (no per-bundle code).
 4. A bundle then selects it with `handler: builtin:<name>` in its `manifest.yaml`.
 
 If the new result shape should be a first-class part of the wire, extend
-`contract/mlinference.yaml` and regenerate — but `result` is a free-form object, so a
+`contract/ml.yaml` and regenerate — but `result` is a free-form object, so a
 new shape needs no contract change to work.
 
 ## Recipe B — a custom `file:handler.py` (operator-trusted)

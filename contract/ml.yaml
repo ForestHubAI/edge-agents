@@ -3,9 +3,9 @@
 
 openapi: 3.0.3
 info:
-  title: ForestHub ML Inference Component Contract
+  title: ForestHub ML Component Contract
   version: 0.1.0
-  description: "Engine<->component inference wire. The component (fh-onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
+  description: "Engine<->ML-component inference wire. The component (image fh-onnx, service onnx) is a model repository — one container loads many model bundles and serves them all; each /infer request names which model to run. Input and result are generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
 
 paths:
   /infer:
@@ -105,9 +105,9 @@ paths:
 
 components:
   schemas:
-    MLInferenceConfig:
+    MLConfig:
       type: object
-      description: "The ml-inference component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights."
+      description: "The ML component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights."
       required: [models]
       properties:
         models:
@@ -151,15 +151,121 @@ components:
 
     InferResult:
       type: object
-      description: "A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's handler, not by this contract."
+      description: "A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape."
       required: [model, result]
       properties:
         model:
           type: string
           description: Name of the model that produced this result.
         result:
+          $ref: "#/components/schemas/InferenceResult"
+
+    Task:
+      type: string
+      description: "What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model."
+      enum: [object-detection, image-classification, tensor]
+
+    InferenceResult:
+      description: "A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model."
+      oneOf:
+        - $ref: "#/components/schemas/DetectionResult"
+        - $ref: "#/components/schemas/ClassificationResult"
+        - $ref: "#/components/schemas/TensorResult"
+      discriminator:
+        propertyName: task
+        mapping:
+          object-detection: "#/components/schemas/DetectionResult"
+          image-classification: "#/components/schemas/ClassificationResult"
+          tensor: "#/components/schemas/TensorResult"
+
+    DetectionResult:
+      type: object
+      description: "Objects located in the input image. Already filtered and de-duplicated by the model's decoder — a consumer renders or counts these, it does not post-process them further."
+      required: [task, detections]
+      properties:
+        task:
+          type: string
+          enum: [object-detection]
+        detections:
+          type: array
+          description: "The surviving detections, ordered by descending score."
+          items:
+            $ref: "#/components/schemas/Detection"
+
+    Detection:
+      type: object
+      description: One located object.
+      required: [label, score, box]
+      properties:
+        label:
+          type: string
+          description: "Human-readable class name, resolved through the model's label map."
+        score:
+          type: number
+          description: Confidence in [0, 1].
+        classId:
+          x-go-type-skip-optional-pointer: true
+          type: integer
+          description: "Raw class index the model emitted, before label resolution. Absent when the decoder has no meaningful index."
+        box:
+          $ref: "#/components/schemas/Box"
+
+    Box:
+      type: object
+      description: "An axis-aligned box in ORIGINAL input-image pixel coordinates — the decoder projects out of whatever letterboxed or rescaled space the model worked in, so a consumer never needs the preprocessing geometry."
+      required: [xmin, ymin, xmax, ymax]
+      properties:
+        xmin:
+          type: number
+        ymin:
+          type: number
+        xmax:
+          type: number
+        ymax:
+          type: number
+
+    ClassificationResult:
+      type: object
+      description: What the input image depicts, as ranked candidate classes.
+      required: [task, predictions]
+      properties:
+        task:
+          type: string
+          enum: [image-classification]
+        predictions:
+          type: array
+          description: "Candidate classes, ordered by descending score."
+          items:
+            $ref: "#/components/schemas/Classification"
+
+    Classification:
+      type: object
+      description: One candidate class for the whole input.
+      required: [label, score]
+      properties:
+        label:
+          type: string
+          description: "Human-readable class name, resolved through the model's label map."
+        score:
+          type: number
+          description: Confidence in [0, 1].
+        classId:
+          x-go-type-skip-optional-pointer: true
+          type: integer
+          description: "Raw class index the model emitted, before label resolution."
+
+    TensorResult:
+      type: object
+      description: "Raw model outputs, undecoded. The general escape for a model whose task this contract does not model — the caller owns interpreting these."
+      required: [task, tensors]
+      properties:
+        task:
+          type: string
+          enum: [tensor]
+        tensors:
+          x-go-type-skip-optional-pointer: true
           type: object
-          description: "Handler-produced structured result. Shape depends on the model's handler; opaque to this contract."
+          description: "Output tensors as nested arrays, keyed by the model's output names."
           additionalProperties: true
 
     RepositoryMetadata:
@@ -176,7 +282,7 @@ components:
     ModelMetadata:
       type: object
       description: Descriptive metadata for one loaded model.
-      required: [name, handler]
+      required: [name, handler, task]
       properties:
         name:
           type: string
@@ -184,6 +290,8 @@ components:
         handler:
           type: string
           description: "Handler driving the model: `builtin:<name>` or `file:handler.py`."
+        task:
+          $ref: "#/components/schemas/Task"
         modelVersion:
           x-go-type-skip-optional-pointer: true
           type: string

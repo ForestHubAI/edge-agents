@@ -41,12 +41,24 @@ type Retriever interface {
 	QueryRAG(ctx context.Context, params RAGQueryParams) ([]RAGQueryResult, error)
 }
 
-// MLInferenceClient is the external service for ML model inference. Both methods
-// hit the same component endpoint; they differ only in how the input is encoded —
-// named numeric tensors, or an opaque binary blob (e.g. an encoded image).
-type MLInferenceClient interface {
-	InferTensors(ctx context.Context, tensors map[string]any) (map[string]any, error)
-	InferBinary(ctx context.Context, data []byte) (map[string]any, error)
+// MLClient is the external service for ML model inference. Both methods hit the
+// same component endpoint; they differ only in how the input is encoded — named
+// numeric tensors, or an opaque binary blob (e.g. an encoded image).
+type MLClient interface {
+	InferTensors(ctx context.Context, tensors map[string]any) (InferenceResult, error)
+	InferBinary(ctx context.Context, data []byte) (InferenceResult, error)
+}
+
+// InferenceResult is one model's task-shaped output. Task names the shape Payload
+// is in ("object-detection", "image-classification", "tensor"), so a consumer that
+// recognises the task knows how to read the payload without knowing the model.
+//
+// Payload stays untyped because the only consumer today serialises it whole; decoding
+// it into per-task domain structs belongs with the first node that reads a field out
+// of it, not here.
+type InferenceResult struct {
+	Task    string
+	Payload map[string]any
 }
 
 // CaptureClient is the external service for on-demand frame capture from a camera. Width and

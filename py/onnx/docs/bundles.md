@@ -122,12 +122,12 @@ yolo export model=yolov8n.pt format=onnx imgsz=640    # nms defaults to False â€
 
 ```yaml
 services:
-  ml-inference:
-    image: ml-inference:latest
+  onnx:
+    image: fh-onnx:latest
     pull_policy: never                 # built locally; never published
     volumes:
       - ./models:/var/lib/foresthub/workspace:ro
 ```
 
 The image ships no models â€” the repository is always mounted. See
-`py/ml-inference/README.md` for the full run instructions.
+`py/onnx/README.md` for the full run instructions.

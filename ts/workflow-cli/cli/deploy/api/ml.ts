@@ -88,8 +88,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description The ml-inference component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights. */
-        MLInferenceConfig: {
+        /** @description The ML component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights. */
+        MLConfig: {
             /** @description Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector. */
             models: {
                 [key: string]: components["schemas"]["MLModelConfig"];
@@ -120,12 +120,74 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description A generic inference result. `result` is the handler-produced structured object; its shape is defined by the model's handler, not by this contract. */
+        /** @description A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape. */
         InferResult: {
             /** @description Name of the model that produced this result. */
             model: string;
-            /** @description Handler-produced structured result. Shape depends on the model's handler; opaque to this contract. */
-            result: {
+            result: components["schemas"]["InferenceResult"];
+        };
+        /**
+         * @description What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model.
+         * @enum {string}
+         */
+        Task: "object-detection" | "image-classification" | "tensor";
+        /** @description A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model. */
+        InferenceResult: components["schemas"]["DetectionResult"] | components["schemas"]["ClassificationResult"] | components["schemas"]["TensorResult"];
+        /** @description Objects located in the input image. Already filtered and de-duplicated by the model's decoder — a consumer renders or counts these, it does not post-process them further. */
+        DetectionResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            task: "object-detection";
+            /** @description The surviving detections, ordered by descending score. */
+            detections: components["schemas"]["Detection"][];
+        };
+        /** @description One located object. */
+        Detection: {
+            /** @description Human-readable class name, resolved through the model's label map. */
+            label: string;
+            /** @description Confidence in [0, 1]. */
+            score: number;
+            /** @description Raw class index the model emitted, before label resolution. Absent when the decoder has no meaningful index. */
+            classId?: number;
+            box: components["schemas"]["Box"];
+        };
+        /** @description An axis-aligned box in ORIGINAL input-image pixel coordinates — the decoder projects out of whatever letterboxed or rescaled space the model worked in, so a consumer never needs the preprocessing geometry. */
+        Box: {
+            xmin: number;
+            ymin: number;
+            xmax: number;
+            ymax: number;
+        };
+        /** @description What the input image depicts, as ranked candidate classes. */
+        ClassificationResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            task: "image-classification";
+            /** @description Candidate classes, ordered by descending score. */
+            predictions: components["schemas"]["Classification"][];
+        };
+        /** @description One candidate class for the whole input. */
+        Classification: {
+            /** @description Human-readable class name, resolved through the model's label map. */
+            label: string;
+            /** @description Confidence in [0, 1]. */
+            score: number;
+            /** @description Raw class index the model emitted, before label resolution. */
+            classId?: number;
+        };
+        /** @description Raw model outputs, undecoded. The general escape for a model whose task this contract does not model — the caller owns interpreting these. */
+        TensorResult: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            task: "tensor";
+            /** @description Output tensors as nested arrays, keyed by the model's output names. */
+            tensors: {
                 [key: string]: unknown;
             };
         };
@@ -140,6 +202,7 @@ export interface components {
             name: string;
             /** @description Handler driving the model: `builtin:<name>` or `file:handler.py`. */
             handler: string;
+            task: components["schemas"]["Task"];
             /** @description Optional model/bundle version string. */
             modelVersion?: string;
         };

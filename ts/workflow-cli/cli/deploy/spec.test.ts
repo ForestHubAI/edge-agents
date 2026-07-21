@@ -3,7 +3,13 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import { describe, it, expect } from "vitest";
-import { buildDeploymentSpec, assertDeployable, llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
+import {
+  buildDeploymentSpec,
+  assertDeployable,
+  llamaComponentServiceName,
+  onnxComponentServiceName,
+  cameraComponentServiceName,
+} from "./spec";
 import type { DeploymentInputs } from "./inputs";
 import { deriveRequirements } from "./requirements";
 import { ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
@@ -38,7 +44,14 @@ function agent(id: string, model: string): Node {
     id,
     type: "Agent",
     position: { x: 0, y: 0 },
-    arguments: { name: id, model, instructions: "", outputDeclarations: [], memoryRefs: [], answer: { active: true, mode: "emit", name: "answer" } },
+    arguments: {
+      name: id,
+      model,
+      instructions: "",
+      outputDeclarations: [],
+      memoryRefs: [],
+      answer: { active: true, mode: "emit", name: "answer" },
+    },
   } as unknown as Node;
 }
 
@@ -89,8 +102,8 @@ const fullInputs: DeploymentInputs = {
 const meta = {
   id: "dep-1",
   engineImage: "engine:0.4.2",
-  llamaServerImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
-  mlComponentImage: "ml-inference:latest",
+  llamaImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
+  onnxComponentImage: "onnx:latest",
   cameraComponentImage: "camera:latest",
 };
 
@@ -172,7 +185,7 @@ describe("buildDeploymentSpec", () => {
     expect(engine.user).toBe("0:0");
   });
 
-  it("emits a shared llama-server component and points the engine's provider at it", () => {
+  it("emits a shared llama component and points the engine's provider at it", () => {
     const { spec } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
     const llama = llamaOf(spec)!;
     expect(llama).toMatchObject({
@@ -236,7 +249,11 @@ describe("buildDeploymentSpec", () => {
       memory: {},
       models: {},
     };
-    const { spec } = buildDeploymentSpec(wf, { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta);
+    const { spec } = buildDeploymentSpec(
+      wf,
+      { hardware: { led: { chipOrDevice: "/dev/gpiochip0", index: 1 } }, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} },
+      meta,
+    );
     const engine = engineOf(spec);
     expect(engine.privileged).toBeUndefined();
     expect(spec.components).toHaveLength(1); // engine only, no component
@@ -324,7 +341,14 @@ describe("buildDeploymentSpec catalog providers", () => {
   };
 
   it("emits one localLlm instance per provider (deduped), no model mapping, pulls the key out", () => {
-    const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, providers: { anthropic: { routing: "local", apiKey: "sk-x" } } };
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: {},
+      cameras: {},
+      providers: { anthropic: { routing: "local", apiKey: "sk-x" } },
+    };
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const config = engineConfigOf(spec);
     const ext = config.externalResources!;
@@ -341,7 +365,14 @@ describe("buildDeploymentSpec catalog providers", () => {
   });
 
   it("backendLlm carries the provider, no key and no secret", () => {
-    const inputs: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, providers: { anthropic: { routing: "backend" } } };
+    const inputs: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: {},
+      cameras: {},
+      providers: { anthropic: { routing: "backend" } },
+    };
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const ext = engineConfigOf(spec).externalResources!;
     expect(Object.values(ext)).toContainEqual({ type: "backendLlm", provider: "anthropic" });
@@ -349,14 +380,25 @@ describe("buildDeploymentSpec catalog providers", () => {
   });
 
   it("rejects an unbound provider and a local provider missing its key", () => {
-    expect(() => buildDeploymentSpec(wf, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta, [], catalog)).toThrow(/provider "anthropic": routing/);
-    const noKey: DeploymentInputs = { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, providers: { anthropic: { routing: "local" } } };
+    expect(() => buildDeploymentSpec(wf, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta, [], catalog)).toThrow(
+      /provider "anthropic": routing/,
+    );
+    const noKey: DeploymentInputs = {
+      hardware: {},
+      mqtt: {},
+      llmModels: {},
+      mlModels: {},
+      cameras: {},
+      providers: { anthropic: { routing: "local" } },
+    };
     expect(() => buildDeploymentSpec(wf, noKey, meta, [], catalog)).toThrow(/provider "anthropic": API key/);
   });
 
   it("refuses a referenced model absent from the catalog", () => {
     const stray: Workflow = { ...wf, canvases: { [MAIN_CANVAS_ID]: { nodes: [agent("a1", "gpt-5-mystery")], edges: [], variables: {} } } };
-    expect(() => buildDeploymentSpec(stray, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta, [], catalog)).toThrow(/not in the model catalog/);
+    expect(() =>
+      buildDeploymentSpec(stray, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta, [], catalog),
+    ).toThrow(/not in the model catalog/);
   });
 });
 
@@ -404,7 +446,9 @@ describe("buildDeploymentSpec custom components", () => {
 describe("assertDeployable", () => {
   it("throws listing every unbound resource", () => {
     const req = deriveRequirements(fullWorkflow());
-    expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} })).toThrow(/device path[\s\S]*broker URL[\s\S]*model/);
+    expect(() => assertDeployable(req, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} })).toThrow(
+      /device path[\s\S]*broker URL[\s\S]*model/,
+    );
   });
 
   it("rejects a non-GGUF on-device model file", () => {
@@ -437,21 +481,21 @@ describe("buildDeploymentSpec ML inference component", () => {
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
 
     // Exactly one component for both models — not one per model.
-    const components = spec.components.filter((c) => c.name === mlComponentServiceName());
+    const components = spec.components.filter((c) => c.name === onnxComponentServiceName());
     expect(components).toHaveLength(1);
     expect(components[0]).toMatchObject({
-      image: "ml-inference:latest",
+      image: "onnx:latest",
       pull: "never",
-      volumes: [`./workspaces/${mlComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
+      volumes: [`./workspaces/${onnxComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
     });
 
     // ONE endpoint entry for both models, not one per model: the ref identifies the
     // component and each model is picked by its sub-address within it.
     const ext = engineConfigOf(spec).externalResources!;
-    const mlEntries = Object.entries(ext).filter(([, r]) => r.type === "ml-inference");
+    const mlEntries = Object.entries(ext).filter(([, r]) => r.type === "ml");
     expect(mlEntries).toHaveLength(1);
     const [ref, conn] = mlEntries[0]!;
-    expect(conn).toEqual({ type: "ml-inference", url: `http://${mlComponentServiceName()}:8082` });
+    expect(conn).toEqual({ type: "ml", url: `http://${onnxComponentServiceName()}:8082` });
     // Each model is mapped at that one ref, carrying its component model name.
     const mapping = engineConfigOf(spec).mapping!;
     expect(mapping.detector).toEqual({ ref, model: "yolov8n" });
@@ -472,7 +516,7 @@ describe("buildDeploymentSpec ML inference component", () => {
       cameras: {},
     };
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
-    const component = spec.components.find((c) => c.name === mlComponentServiceName())!;
+    const component = spec.components.find((c) => c.name === onnxComponentServiceName())!;
     expect(component.config).toEqual({ models: { yolov8n: { params: { confThreshold: 0.5 } } } });
   });
 
@@ -502,9 +546,9 @@ describe("buildDeploymentSpec ML inference component", () => {
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
     const cfg = engineConfigOf(spec);
-    const mlRes = Object.values(cfg.externalResources!).find((r) => r.type === "ml-inference");
+    const mlRes = Object.values(cfg.externalResources!).find((r) => r.type === "ml");
     // The endpoint config carries no model — the selector rides on the binding.
-    expect(mlRes).toEqual({ type: "ml-inference", url: "http://onnx.remote:8000" });
+    expect(mlRes).toEqual({ type: "ml", url: "http://onnx.remote:8000" });
     expect(cfg.mapping!.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
   });
 });

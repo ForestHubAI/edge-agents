@@ -7,8 +7,8 @@
   "exitCodes": { "badConfig": 78 },
   "components": {
     "engine": { "name": "engine" },
-    "llama": { "name": "llama-server", "port": 8080 },
+    "llama": { "name": "llama", "port": 8080 },
     "camera": { "name": "camera", "port": 8081 },
-    "mlInference": { "name": "ml-inference", "port": 8082 }
+    "onnx": { "name": "onnx", "port": 8082 }
   }
 }

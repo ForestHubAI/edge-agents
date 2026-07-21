@@ -15,7 +15,7 @@ contract/        SOURCE OF TRUTH. Language-neutral OpenAPI 3.0.3 schemas.
   llmproxy.yaml    LLM-proxy request/response types.
   debug.yaml       engine<->editor debug-adapter protocol ($refs workflow.yaml).
   deployment.yaml  deploy bundle/manifest wire ($refs workflow.yaml).
-  mlinference.yaml ML inference component wire (/infer + health/ready/metadata).
+  ml.yaml        ML component wire (/infer + health/ready/metadata).
   camera.yaml      camera component wire (/capture + health/ready/metadata).
 
 go/              Go module — go.mod lives HERE, not at repo root, so `go get`
@@ -26,13 +26,13 @@ ts/              npm workspace: workflow-core (headless model), workflow-builder
                  (React canvas), workflow-cli (fh-workflow CLI + reference SPA).
                  See ts/CLAUDE.md.
 
-py/              Python service: ml-inference (fh-onnx) — generic ONNX inference
+py/              Python service: onnx (image fh-onnx) — generic ONNX inference
                  component, FastAPI + onnxruntime, model-repository pattern.
-                 Pydantic models codegen from contract/mlinference.yaml.
-                 See py/ml-inference/README.md.
+                 Pydantic models codegen from contract/ml.yaml.
+                 See py/onnx/README.md.
 
 components/      Custom-component authoring guide + two worked examples
-                 (grafana: no-build/env-only; llama-server: thin wrapper image).
+                 (grafana: no-build/env-only; llama: thin wrapper image).
                  Extra containers co-deployed beside the engine. See components/README.md.
 ```
 
@@ -42,21 +42,21 @@ Both run as their own container under the same runtime contract
 (`docs/component-contract.md`), but they are not interchangeable — the difference is
 **who issues them**:
 
-- **Service components** (ml-inference, llama-server, grafana, anything custom) are
+- **Service components** (onnx, llama, grafana, anything custom) are
   independently deployable. The operator composes them explicitly and supplies their
   URL; an `ExternalResources` entry points at one. Deployment is explicit composition
   — nothing auto-spawns.
 - **Driver components** (camera) are **engine-private**. The engine is their sole
   issuer and sole caller: their config is derived from the device manifest, their
   address is a constant, and nothing in `ExternalResources` may point at one. The
-  operator never selects or configures them — they select the *hardware*, and the
+  operator never selects or configures them — they select the _hardware_, and the
   component follows.
 
 The criterion for a driver component is: **device-owned hardware whose driver cannot
 live in the engine image.** Camera qualifies because the capture stack (GStreamer,
 libcamera, vendor userland) would bloat every engine image for a feature most
 workflows never use. Its out-of-process-ness is a packaging fact and must stay
-invisible above Layer 3 — it must never decide how the resource is *classified*.
+invisible above Layer 3 — it must never decide how the resource is _classified_.
 Audio capture or a vendor SDK driver would join the same category.
 
 Invariant that makes hardware claims safe: **one engine per device; its driver
@@ -73,8 +73,8 @@ single `contract/` with codegen on every side.
     (oapi-codegen; directives in `go/api/generate.go`).
   - TS: `cd ts && npm run generate` → `ts/workflow-core/src/api/workflow.ts`
     (openapi-typescript, from `contract/workflow.yaml`).
-  - Python: `cd py/ml-inference && datamodel-codegen` → `app/api/models.py`
-    (datamodel-code-generator, from `contract/mlinference.yaml`).
+  - Python: `cd py/onnx && datamodel-codegen` → `app/api/models.py`
+    (datamodel-code-generator, from `contract/ml.yaml`).
 - A contract change is a three-step edit: **(1)** edit `contract/*.yaml`,
   **(2)** regenerate Go, **(3)** regenerate TS — then reconcile the hand-written
   domain/handler code each side. Updating only one side is how the two languages
@@ -84,7 +84,7 @@ single `contract/` with codegen on every side.
 
 ## Domain-first: reach for the contract only at a seam
 
-The rule above says *how* to cross a seam; this one says *when*. Components and
+The rule above says _how_ to cross a seam; this one says _when_. Components and
 libraries work in **self-contained, internal domain types** (`engine/`, `camera/`,
 `llmproxy/`, `workflow-core`'s domain layer). You add a `contract/` api-type — with
 codegen and a component-local mapping bridge — **only where a shape crosses a seam**:
@@ -97,7 +97,7 @@ plain domain type.
   boot config, the Go component reads it — a cross-language seam, so its shape is
   contracted).
 - **What is not:** a type only one implementation ever touches. A component's config
-  authored by humans and read by one language (ml-inference's `manifest.yaml`, owned
+  authored by humans and read by one language (onnx's `manifest.yaml`, owned
   by its Python `Manifest`) stays a domain type — documented in that language, not
   the contract.
 - **The pattern at a seam:** the generated api type is the wire shape; the domain
@@ -107,7 +107,7 @@ plain domain type.
   leak into domain logic — map it first.
 - **A seam type belongs to whoever implements it, not whoever stores it.** The camera
   kinds live in `camera.yaml` and `engine.yaml` `$ref`s them, even though the device
-  manifest is what holds camera *instances*: fh-camera decides what a `v4l2` or
+  manifest is what holds camera _instances_: fh-camera decides what a `v4l2` or
   `rtsp` camera means, so the engine imports the camera contract and not the reverse.
   Authority over the data is not ownership of the type.
 

@@ -33,8 +33,8 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 		Provider: pointer.Ptr("Anthropic"),
 	}))
 	var ml engineapi.ExternalResourceConfig
-	require.NoError(t, ml.FromMLInferenceConfig(engineapi.MLInferenceConfig{
-		Type: engineapi.MlInference,
+	require.NoError(t, ml.FromMLConfig(engineapi.MLConfig{
+		Type: engineapi.Ml,
 		Url:  "http://onnx:8000",
 	}))
 	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml}
@@ -63,8 +63,8 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
 
 	// Credential-free component arms route by discriminator too.
-	require.Len(t, out.MLInference, 1)
-	assert.Equal(t, "http://onnx:8000", out.MLInference["ml-1"].URL)
+	require.Len(t, out.ML, 1)
+	assert.Equal(t, "http://onnx:8000", out.ML["ml-1"].URL)
 }
 
 func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {

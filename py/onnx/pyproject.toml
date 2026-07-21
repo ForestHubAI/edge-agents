@@ -22,9 +22,9 @@ dev = [
 include = ["app*"]
 
 # Regenerate the contract bindings:  cd py/ml-inference && datamodel-codegen
-# (never hand-edit app/api/models.py — edit contract/mlinference.yaml and rerun)
+# (never hand-edit app/api/models.py — edit contract/ml.yaml and rerun)
 [tool.datamodel-codegen]
-input = "../../contract/mlinference.yaml"
+input = "../../contract/ml.yaml"
 input-file-type = "openapi"
 output = "app/api/models.py"
 output-model-type = "pydantic_v2.BaseModel"

@@ -1,10 +1,10 @@
 # py/ — ONNX inference component
 
-Python service `fh-onnx` (`py/ml-inference/`): a generic ONNX inference **model
+Python service `fh-onnx` (`py/onnx/`): a generic ONNX inference **model
 repository** served over HTTP (FastAPI + onnxruntime). The repo-wide rule about the
 `contract/` being the source of truth applies here — see the root `CLAUDE.md`.
-User-facing build/run/API docs live in `py/ml-inference/README.md`; this file and
-`py/ml-inference/docs/` are the contributor map.
+User-facing build/run/API docs live in `py/onnx/README.md`; this file and
+`py/onnx/docs/` are the contributor map.
 
 ## Layout
 
@@ -12,10 +12,10 @@ User-facing build/run/API docs live in `py/ml-inference/README.md`; this file an
 app/
   main.py        FastAPI app: loads the repository at startup, serves the endpoints.
   middleware.py  ASGI middleware (request-body size cap, enforced before buffering).
-  config.py      contract paths + boot-config loader (config.json → MLInferenceConfig).
+  config.py      contract paths + boot-config loader (config.json → MLConfig).
   manifest.py    bundle manifest schema (Manifest) + loader (fail-fast validation).
   repository.py  loads the issued bundles at startup → name→LoadedModel registry.
-  api/models.py  GENERATED Pydantic models from ../../contract/mlinference.yaml.
+  api/models.py  GENERATED Pydantic models from ../../contract/ml.yaml.
                  Never hand-edit; regenerate instead.
   handlers/
     base.py      Handler interface (load / preprocess / postprocess).
@@ -34,11 +34,11 @@ its boot config issues it, from the mounted workspace, into a `name → LoadedMo
 registry; a request selects one by name. One container hosts many models behind one
 ONNX Runtime — not one container per model.
 
-The boot config (`config.json` → `MLInferenceConfig`) is **authoritative**: exactly the
+The boot config (`config.json` → `MLConfig`) is **authoritative**: exactly the
 bundles it declares are loaded. A declared bundle that is missing or broken aborts
 startup; an undeclared sub-folder in the workspace is ignored, never loaded implicitly.
 
-Two pipelines (full write-ups in [docs/architecture.md](ml-inference/docs/architecture.md)):
+Two pipelines (full write-ups in [docs/architecture.md](onnx/docs/architecture.md)):
 
 - **Startup (fail-fast):** `main.lifespan` → `load_boot_config` → `load_repository` →
   per declared bundle: `load_manifest` → open ONNX session → `resolve_handler` →
@@ -48,14 +48,14 @@ Two pipelines (full write-ups in [docs/architecture.md](ml-inference/docs/archit
   `handler.preprocess` → `session.run` → `handler.postprocess` → `InferResult`.
 
 `main.py` is model-agnostic; all model-specific logic lives in a handler. See
-[docs/handlers.md](ml-inference/docs/handlers.md) to add one,
-[docs/bundles.md](ml-inference/docs/bundles.md) to add a model.
+[docs/handlers.md](onnx/docs/handlers.md) to add one,
+[docs/bundles.md](onnx/docs/bundles.md) to add a model.
 
 ## Conventions
 
 - **Contract is source of truth.** `app/api/models.py` is generated from
-  `contract/mlinference.yaml`; never hand-edit. Regenerate with
-  `cd py/ml-inference && datamodel-codegen` (config in `pyproject.toml`,
+  `contract/ml.yaml`; never hand-edit. Regenerate with
+  `cd py/onnx && datamodel-codegen` (config in `pyproject.toml`,
   `[tool.datamodel-codegen]`). Output is black/isort-formatted and timestamp-free so
   the CI drift guard diffs cleanly.
 - **Docstrings:** module docstring everywhere; docstrings on the public surface and
@@ -69,7 +69,7 @@ Two pipelines (full write-ups in [docs/architecture.md](ml-inference/docs/archit
 
 ## Build / test / generate
 
-Run from inside `py/ml-inference/`:
+Run from inside `py/onnx/`:
 
 ```
 pip install -r requirements.txt        # runtime stack
@@ -84,7 +84,7 @@ The image is built locally and never published (`pull_policy: never`).
 
 ## Gotchas
 
-- **Run pytest from `py/ml-inference/`**, not the repo root — `pythonpath = ["."]` in
+- **Run pytest from `py/onnx/`**, not the repo root — `pythonpath = ["."]` in
   `pyproject.toml` puts `app` on the import path only when pytest's rootdir is this
   directory.
 - **Importing `app.handlers` registers the built-ins.** Its `__init__` imports `yolo`

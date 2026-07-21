@@ -109,13 +109,13 @@ def _detections(anchors, ctx=CTX, params=None):
 
     handler = YoloHandler()
     handler._labels = LABELS
-    return handler.postprocess([output], ctx, params or {})
+    return handler.postprocess([output], ctx, params or {}).detections
 
 
 def test_below_threshold_is_dropped():
     # max class score 0.1 < default confThreshold 0.25 -> no detection
     dets = _detections([(320, 240, 100, 120, [0.1, 0.05, 0.05])])
-    assert dets["detections"] == []
+    assert dets == []
 
 
 def test_nms_collapses_overlapping_boxes():
@@ -125,10 +125,10 @@ def test_nms_collapses_overlapping_boxes():
             (320, 240, 100, 120, [0.9, 0.1, 0.05]),  # person, conf 0.9
             (323, 242, 100, 120, [0.8, 0.1, 0.05]),  # person, overlaps -> dropped
         ]
-    )["detections"]
+    )
     assert len(dets) == 1
-    assert dets[0]["label"] == "person"
-    assert abs(dets[0]["score"] - 0.9) < 1e-5  # the 0.9 box survived, not the 0.8
+    assert dets[0].label == "person"
+    assert abs(dets[0].score - 0.9) < 1e-5  # the 0.9 box survived, not the 0.8
 
 
 def test_overlapping_different_classes_are_both_kept():
@@ -139,26 +139,27 @@ def test_overlapping_different_classes_are_both_kept():
             (320, 240, 100, 120, [0.9, 0.1, 0.05]),  # person
             (322, 241, 100, 120, [0.05, 0.1, 0.9]),  # car, overlaps the person box
         ]
-    )["detections"]
-    assert sorted(d["label"] for d in dets) == ["car", "person"]
+    )
+    assert sorted(d.label for d in dets) == ["car", "person"]
 
 
 def test_class_id_maps_to_label():
     # argmax over class scores is index 2 -> "car"
-    dets = _detections([(120, 300, 40, 60, [0.05, 0.1, 0.85])])["detections"]
+    dets = _detections([(120, 300, 40, 60, [0.05, 0.1, 0.85])])
     assert len(dets) == 1
-    assert dets[0]["label"] == "car"
+    assert dets[0].label == "car"
 
 
 def test_box_is_back_projected_to_original_pixels():
     # person box centered at (320,240) size 100x120 in the 640 letterbox.
     # top-left (270,180) -> undo pad(0,160) and scale 0.5 -> (540, 40, 200, 240).
-    dets = _detections([(320, 240, 100, 120, [0.9, 0.1, 0.05])])["detections"]
-    box = dets[0]["box"]
-    assert abs(box["x"] - 540) < 1
-    assert abs(box["y"] - 40) < 1
-    assert abs(box["w"] - 200) < 1
-    assert abs(box["h"] - 240) < 1
+    dets = _detections([(320, 240, 100, 120, [0.9, 0.1, 0.05])])
+    box = dets[0].box
+    # top-left (540, 40), size 200x240 -> corners (540, 40)-(740, 280)
+    assert abs(box.xmin - 540) < 1
+    assert abs(box.ymin - 40) < 1
+    assert abs(box.xmax - 740) < 1
+    assert abs(box.ymax - 280) < 1
 
 
 def test_full_scene_keeps_distinct_objects():
@@ -171,5 +172,5 @@ def test_full_scene_keeps_distinct_objects():
             (500, 400, 50, 50, [0.1, 0.1, 0.05]),  # low conf -> threshold drop
             (120, 300, 40, 60, [0.05, 0.1, 0.85]),  # car
         ]
-    )["detections"]
-    assert sorted(d["label"] for d in dets) == ["car", "person"]
+    )
+    assert sorted(d.label for d in dets) == ["car", "person"]

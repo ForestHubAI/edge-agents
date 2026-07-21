@@ -91,7 +91,7 @@ export function workflowBindingRequirements(workflow: Workflow): Record<string, 
 
   // Every declared model needs a source binding, but of a different kind by family:
   // an LLMModel binds a model source ("declaredLlm"); an MLModel is served by an
-  // ml-inference component ("ml"). Mirrors the backend's workflowModelIDs
+  // onnx component ("ml"). Mirrors the backend's workflowModelIDs
   // split — both sides must agree on which kind each declared model gets.
   for (const model of Object.values(workflow.models)) {
     switch (model.type) {

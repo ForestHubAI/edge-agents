@@ -17,23 +17,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// stubInferClient is a fake engine.MLInferenceClient that records its input and
+// stubInferClient is a fake engine.MLClient that records its input and
 // returns a canned result/error.
 type stubInferClient struct {
 	gotTensors map[string]any
 	gotBinary  []byte
 	result     map[string]any
+	task       string
 	err        error
 }
 
-func (s *stubInferClient) InferTensors(_ context.Context, tensors map[string]any) (map[string]any, error) {
-	s.gotTensors = tensors
-	return s.result, s.err
+func (s *stubInferClient) infer() (engine.InferenceResult, error) {
+	task := s.task
+	if task == "" {
+		task = "tensor"
+	}
+	return engine.InferenceResult{Task: task, Payload: s.result}, s.err
 }
 
-func (s *stubInferClient) InferBinary(_ context.Context, data []byte) (map[string]any, error) {
+func (s *stubInferClient) InferTensors(_ context.Context, tensors map[string]any) (engine.InferenceResult, error) {
+	s.gotTensors = tensors
+	return s.infer()
+}
+
+func (s *stubInferClient) InferBinary(_ context.Context, data []byte) (engine.InferenceResult, error) {
 	s.gotBinary = data
-	return s.result, s.err
+	return s.infer()
 }
 
 // inputRef is the reference every test wires as the ML input: a declared

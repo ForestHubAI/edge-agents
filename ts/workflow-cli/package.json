@@ -23,7 +23,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "generate": "openapi-typescript ../../contract/deployment.yaml -o cli/deploy/api/deployment.ts && openapi-typescript ../../contract/engine.yaml -o cli/deploy/api/engine.ts && openapi-typescript ../../contract/camera.yaml -o cli/deploy/api/camera.ts && openapi-typescript ../../contract/mlinference.yaml -o cli/deploy/api/mlinference.ts",
+    "generate": "openapi-typescript ../../contract/deployment.yaml -o cli/deploy/api/deployment.ts && openapi-typescript ../../contract/engine.yaml -o cli/deploy/api/engine.ts && openapi-typescript ../../contract/camera.yaml -o cli/deploy/api/camera.ts && openapi-typescript ../../contract/ml.yaml -o cli/deploy/api/ml.ts",
     "build": "vite build",
     "build:cli": "node ./scripts/build-cli.mjs",
     "build:all": "npm run build && npm run build:cli",

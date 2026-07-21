@@ -42,12 +42,12 @@ const (
 const (
 	// Engine is the workflow-runtime component's identity.
 	Engine = "engine"
-	// Llama is the on-device model-server component's identity.
-	Llama = "llama-server"
+	// Llama is the on-device LLM component's identity (llama.cpp / llama-swap).
+	Llama = "llama"
 	// Camera is the camera-capture component's identity.
 	Camera = "camera"
-	// MLInference is the on-device ML inference component's identity.
-	MLInference = "ml-inference"
+	// Onnx is the on-device ML component's identity (image fh-onnx).
+	Onnx = "onnx"
 )
 
 // The fixed internal port each serving component's image listens on, baked into its
@@ -55,12 +55,12 @@ const (
 // network; off-device the operator supplies the whole URL and publishes their own host
 // port, so this is only the container-side of that mapping.
 const (
-	// LlamaPort is the llama-server component's listen port (llama-swap's endpoint).
+	// LlamaPort is the llama component's listen port (llama-swap's endpoint).
 	LlamaPort = 8080
 	// CameraPort is the camera-capture component's listen port.
 	CameraPort = 8081
-	// MLInferencePort is the ML inference component's listen port.
-	MLInferencePort = 8082
+	// OnnxPort is the ML component's listen port.
+	OnnxPort = 8082
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to

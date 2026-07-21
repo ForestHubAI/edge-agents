@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from ..api.models import Box, Detection, DetectionResult, Task
 from .base import Feed, Handler
 from .registry import register_builtin
 
@@ -62,6 +63,8 @@ class _LetterboxCtx:
 @register_builtin("yolo")
 class YoloHandler(Handler):
     """Object-detection pre/post-processing for YOLO-family ONNX models."""
+
+    task = Task.object_detection
 
     def load(self, session: InferenceSession, manifest: Manifest, bundle_dir: Path) -> None:
         self._input_name = session.get_inputs()[0].name
@@ -139,7 +142,7 @@ class YoloHandler(Handler):
         outputs: list[np.ndarray],
         context: Any,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> DetectionResult:
         conf_th = float(params.get("confThreshold", DEFAULT_CONF_THRESHOLD))
         nms_th = float(params.get("nmsThreshold", DEFAULT_NMS_THRESHOLD))
 
@@ -157,7 +160,7 @@ class YoloHandler(Handler):
         keep = confs >= conf_th
         boxes_cxcywh, confs, class_ids = boxes_cxcywh[keep], confs[keep], class_ids[keep]
         if len(boxes_cxcywh) == 0:
-            return {"detections": []}
+            return DetectionResult(task="object-detection", detections=[])
 
         # center (cx, cy, w, h) -> top-left (x, y, w, h), still in letterbox coords
         top_left = boxes_cxcywh[:, :2] - boxes_cxcywh[:, 2:] / 2
@@ -170,20 +173,24 @@ class YoloHandler(Handler):
         nms_boxes[:, :2] += offset
         idxs = cv2.dnn.NMSBoxes(nms_boxes.tolist(), confs.tolist(), conf_th, nms_th)
         if len(idxs) == 0:
-            return {"detections": []}
+            return DetectionResult(task="object-detection", detections=[])
 
-        detections = []
-        for i in np.asarray(idxs).flatten():
-            detections.append(
-                {
-                    "label": self._label(int(class_ids[i])),
-                    "score": float(confs[i]),
-                    "box": self._project_box(boxes_xywh[i], context),
-                }
+        # Ordered by descending score, as the contract's DetectionResult requires.
+        kept = sorted(np.asarray(idxs).flatten(), key=lambda i: float(confs[i]), reverse=True)
+        detections = [
+            Detection(
+                label=self._label(int(class_ids[i])),
+                score=float(confs[i]),
+                classId=int(class_ids[i]),
+                box=self._project_box(boxes_xywh[i], context),
             )
-        return {"detections": detections}
+            for i in kept
+        ]
+        return DetectionResult(task="object-detection", detections=detections)
 
-    def _project_box(self, box_xywh: np.ndarray, ctx: _LetterboxCtx) -> dict[str, float]:
+    def _project_box(self, box_xywh: np.ndarray, ctx: _LetterboxCtx) -> Box:
+        """Project a letterboxed (x, y, w, h) box back to original-image corner
+        coordinates, which is the form the contract's Box carries."""
         x, y, w, h = (float(v) for v in box_xywh)
         # undo the letterbox: remove padding, then rescale to original pixels
         ox = (x - ctx.pad_x) / ctx.scale
@@ -192,7 +199,12 @@ class YoloHandler(Handler):
         # clip to the image bounds
         ox, oy = max(0.0, min(ox, ctx.orig_w)), max(0.0, min(oy, ctx.orig_h))
         ow, oh = min(ow, ctx.orig_w - ox), min(oh, ctx.orig_h - oy)
-        return {"x": round(ox, 2), "y": round(oy, 2), "w": round(ow, 2), "h": round(oh, 2)}
+        return Box(
+            xmin=round(ox, 2),
+            ymin=round(oy, 2),
+            xmax=round(ox + ow, 2),
+            ymax=round(oy + oh, 2),
+        )
 
     def _label(self, class_id: int) -> str:
         if 0 <= class_id < len(self._labels):

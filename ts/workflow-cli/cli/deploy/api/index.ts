@@ -10,7 +10,7 @@
 // here (npm run generate) rather than in the headless core lib, which owns only the
 // workflow wire (@foresthubai/workflow-core/api).
 //
-// GENERATED siblings (deployment.ts / engine.ts / camera.ts / mlinference.ts) —
+// GENERATED siblings (deployment.ts / engine.ts / camera.ts / ml.ts) —
 // never hand-edit; regenerate from contract/*.yaml with `npm run generate`.
 
 // Deployment-spec api layer, from contract/deployment.yaml. Its
@@ -34,9 +34,9 @@ export type EngineSchemas = engineComponents["schemas"];
 import type { components as cameraComponents } from "./camera";
 export type CameraSchemas = cameraComponents["schemas"];
 
-// ML inference component wire + boot-config api layer, from contract/mlinference.yaml.
-// The deploy renderer PRODUCES the component's boot config (MLInferenceConfig) — the
-// authoritative set of models it must load; the Python component consumes it — one
+// ML component wire + boot-config api layer, from contract/ml.yaml. The deploy
+// renderer PRODUCES the component's boot config (MLConfig) — the authoritative set
+// of models it must load; the Python component (image fh-onnx) consumes it — one
 // generated shape across that seam.
-import type { components as mlInferenceComponents } from "./mlinference";
-export type MLInferenceSchemas = mlInferenceComponents["schemas"];
+import type { components as mlComponents } from "./ml";
+export type MLSchemas = mlComponents["schemas"];

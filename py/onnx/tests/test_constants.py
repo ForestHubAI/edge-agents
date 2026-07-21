@@ -36,9 +36,9 @@ def test_bad_config_exit_matches() -> None:
 
 def test_listen_port_matches_contract() -> None:
     # The image binds the contracted component port; the on-device resolver dials
-    # http://ml-inference:<port>. The port lives only in the Dockerfile ENTRYPOINT
+    # http://onnx:<port>. The port lives only in the Dockerfile ENTRYPOINT
     # (uvicorn --port), so assert that literal against the contract.
-    port = _CONTRACT["components"]["mlInference"]["port"]
+    port = _CONTRACT["components"]["onnx"]["port"]
     dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
     assert f'"--port", "{port}"' in dockerfile
     assert f"EXPOSE {port}" in dockerfile

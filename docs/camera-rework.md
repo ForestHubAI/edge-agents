@@ -259,7 +259,7 @@ surfaces at first capture. Worth fixing; needs a different seam.
 
 ### The category got a name
 
-Every other component — ml-inference, llama-server, grafana — is independently
+Every other component — onnx, llama, grafana — is independently
 deployable, and that is how the repo frames the word. Camera isn't: engine-private
 lifecycle, derived config, constant address, never operator-selected. Written down in the
 root `CLAUDE.md` and `components/README.md` as a **driver component**, by **criterion**

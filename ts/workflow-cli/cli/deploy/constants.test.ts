@@ -12,11 +12,11 @@ import {
   COMPONENT_WORKSPACE_PATH,
   ENGINE_COMPONENT_NAME,
   CAMERA_COMPONENT_NAME,
-  ML_COMPONENT_NAME,
+  ONNX_COMPONENT_NAME,
   LLAMA_COMPONENT_NAME,
   LLAMA_COMPONENT_PORT,
   CAMERA_COMPONENT_PORT,
-  ML_COMPONENT_PORT,
+  ONNX_COMPONENT_PORT,
 } from "@foresthubai/workflow-core/deploy";
 
 // Drift guard: the workflow-core path + identity constants must equal
@@ -29,7 +29,7 @@ const contract = JSON.parse(readFileSync(join(here, "..", "..", "..", "..", "con
   components: {
     engine: { name: string };
     camera: { name: string; port: number };
-    mlInference: { name: string; port: number };
+    onnx: { name: string; port: number };
     llama: { name: string; port: number };
   };
 };
@@ -50,19 +50,19 @@ describe("component-constants contract", () => {
   it("camera identity matches the contract", () => {
     expect(CAMERA_COMPONENT_NAME).toBe(contract.components.camera.name);
   });
-  it("ml-inference identity matches the contract", () => {
-    expect(ML_COMPONENT_NAME).toBe(contract.components.mlInference.name);
+  it("onnx identity matches the contract", () => {
+    expect(ONNX_COMPONENT_NAME).toBe(contract.components.onnx.name);
   });
-  it("llama-server identity matches the contract", () => {
+  it("llama identity matches the contract", () => {
     expect(LLAMA_COMPONENT_NAME).toBe(contract.components.llama.name);
   });
-  it("llama-server port matches the contract", () => {
+  it("llama port matches the contract", () => {
     expect(LLAMA_COMPONENT_PORT).toBe(contract.components.llama.port);
   });
   it("camera port matches the contract", () => {
     expect(CAMERA_COMPONENT_PORT).toBe(contract.components.camera.port);
   });
-  it("ml-inference port matches the contract", () => {
-    expect(ML_COMPONENT_PORT).toBe(contract.components.mlInference.port);
+  it("onnx port matches the contract", () => {
+    expect(ONNX_COMPONENT_PORT).toBe(contract.components.onnx.port);
   });
 });

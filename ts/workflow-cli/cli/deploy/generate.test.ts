@@ -36,25 +36,25 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
   };
 }
 
-// The shared on-device llama-server component: image + the models list as a config
+// The shared on-device llama component: image + the models list as a config
 // blob (config.json), weights in the workspace mount.
 function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    name: "llama-server",
+    name: "llama",
     image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
     config: { models: [{ id: "gemma-3", file: "gemma.gguf", args: ["--ctx-size", "4096"] }] },
-    volumes: ["./workspaces/llama-server:/var/lib/foresthub/workspace:ro"],
+    volumes: ["./workspaces/llama:/var/lib/foresthub/workspace:ro"],
     ...overrides,
   };
 }
 
-// The shared inference component (ml-inference): self-built, pull:never.
+// The shared ML component (onnx): self-built, pull:never.
 function onnxComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
-    name: "ml-inference",
-    image: "ml-inference:latest",
+    name: "onnx",
+    image: "onnx:latest",
     pull: "never",
-    volumes: ["./workspaces/ml-inference:/var/lib/foresthub/workspace:ro"],
+    volumes: ["./workspaces/onnx:/var/lib/foresthub/workspace:ro"],
     ...overrides,
   };
 }
@@ -75,7 +75,18 @@ function specOf(components: DeployComponent[] = [engineComponent()]): Spec {
 }
 
 function cfgOf(p: Partial<DeployConfig> = {}): DeployConfig {
-  return { llmKeys: {}, outputDir: "out", force: false, logLevel: "info", hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {}, ...p };
+  return {
+    llmKeys: {},
+    outputDir: "out",
+    force: false,
+    logLevel: "info",
+    hardware: {},
+    mqtt: {},
+    llmModels: {},
+    mlModels: {},
+    cameras: {},
+    ...p,
+  };
 }
 
 describe("slugify", () => {
@@ -182,10 +193,10 @@ describe("composeYaml", () => {
 
   it("an on-device model adds the shared llama component with no start-ordering", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
-    expect(yaml).toContain("llama-server:");
+    expect(yaml).toContain("llama:");
     expect(yaml).toContain("image: ghcr.io/ggml-org/llama.cpp:server-b8589");
     // The models list rides in the mounted config.json, not a compose command.
-    expect(yaml).toContain("./llama-server-config.json:/etc/foresthub/config.json:ro");
+    expect(yaml).toContain("./llama-config.json:/etc/foresthub/config.json:ro");
     // Dropped: the engine connects at runtime with retry, so no health gate.
     expect(yaml).not.toContain("depends_on:");
     expect(yaml).not.toContain("healthcheck:");
@@ -195,7 +206,7 @@ describe("composeYaml", () => {
 
   it("mounts the llama models list as a config file, not a compose command", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
-    expect(yaml).toContain("./llama-server-config.json:/etc/foresthub/config.json:ro");
+    expect(yaml).toContain("./llama-config.json:/etc/foresthub/config.json:ro");
     expect(yaml).toContain("com.foresthub.config-hash:");
     expect(yaml).not.toContain("command:");
   });
@@ -282,9 +293,13 @@ describe("readme", () => {
   });
 
   it("an on-device model adds the on-device note with the model file", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(
+      specOf([engineComponent(), llamaComponent()]),
+      cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
+      false,
+    );
     expect(md).toContain("## On-device models");
-    expect(md).toContain("- `./workspaces/llama-server/gemma.gguf`");
+    expect(md).toContain("- `./workspaces/llama/gemma.gguf`");
     expect(md).not.toContain("## Network models");
   });
 
@@ -307,7 +322,11 @@ describe("readme", () => {
   });
 
   it("a device model adds the model scp transfer and inspects all containers on run", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }), false);
+    const md = readme(
+      specOf([engineComponent(), llamaComponent()]),
+      cfgOf({ llmModels: { "gemma-3": { location: "device", modelFile: "gemma.gguf" } } }),
+      false,
+    );
     expect(md).toContain("scp -r workspaces/");
     expect(md).toContain("docker compose ps");
   });
@@ -322,7 +341,7 @@ describe("readme", () => {
   it("a device ml model adds the shared inference component note", () => {
     const md = readme(specOf(), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
     expect(md).toContain("## On-device ML models");
-    expect(md).toContain("ml-inference");
+    expect(md).toContain("onnx");
   });
 
   it("a network ml model adds only the network note", () => {
@@ -344,11 +363,15 @@ describe("readme", () => {
   });
 
   it("documents building, saving and loading a self-built ML component image", () => {
-    const md = readme(specOf([engineComponent(), onnxComponent()]), cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }), false);
-    expect(md).toContain("docker build -t ml-inference:latest py/ml-inference");
-    expect(md).toContain("docker save ml-inference:latest");
-    expect(md).toContain("docker load -i ml-inference.tar");
-    expect(md).toContain("scp engine.tar ml-inference.tar");
+    const md = readme(
+      specOf([engineComponent(), onnxComponent()]),
+      cfgOf({ mlModels: { yolo: { location: "device", model: "yolov8n" } } }),
+      false,
+    );
+    expect(md).toContain("docker build -t onnx:latest py/onnx");
+    expect(md).toContain("docker save onnx:latest");
+    expect(md).toContain("docker load -i onnx.tar");
+    expect(md).toContain("scp engine.tar onnx.tar");
   });
 
   it("documents building and loading a self-built camera component image", () => {
@@ -362,9 +385,13 @@ describe("readme", () => {
   });
 
   it("adds no component build step when nothing is self-built (network ML model, llama)", () => {
-    const md = readme(specOf([engineComponent(), llamaComponent()]), cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }), false);
-    expect(md).not.toContain("docker build -t ml-inference");
-    expect(md).not.toContain("docker load -i ml-inference.tar");
+    const md = readme(
+      specOf([engineComponent(), llamaComponent()]),
+      cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }),
+      false,
+    );
+    expect(md).not.toContain("docker build -t onnx");
+    expect(md).not.toContain("docker load -i onnx.tar");
   });
 });
 

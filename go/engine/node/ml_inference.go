@@ -29,11 +29,11 @@ type MLInference struct {
 	engine.LinearNode
 	input   workflowapi.Reference
 	binding workflowapi.OutputBinding
-	client  engine.MLInferenceClient
+	client  engine.MLClient
 }
 
 // NewMLInference builds an MLInference node bound to one model's inference client.
-func NewMLInference(id string, input workflowapi.Reference, binding workflowapi.OutputBinding, client engine.MLInferenceClient) *MLInference {
+func NewMLInference(id string, input workflowapi.Reference, binding workflowapi.OutputBinding, client engine.MLClient) *MLInference {
 	return &MLInference{
 		LinearNode: engine.NewLinearNode(id),
 		input:      input,
@@ -58,7 +58,7 @@ func (n *MLInference) Execute(ctx context.Context, scope *engine.Scope) (string,
 	// The input variable's runtime type selects how it reaches the model. String
 	// carries a JSON tensors object; image carries an encoded frame sent as an
 	// opaque blob. Further types dispatch to their handler as they are added.
-	var result map[string]any
+	var result engine.InferenceResult
 	switch v.Type {
 	case workflowapi.String:
 		result, err = n.inferTensors(ctx, v.AsString())
@@ -71,7 +71,9 @@ func (n *MLInference) Execute(ctx context.Context, scope *engine.Scope) (string,
 		return "", fmt.Errorf("ml_inference %s: %w", n.ID(), err)
 	}
 
-	out, err := json.Marshal(result)
+	// The whole task-shaped payload is emitted, `task` field included, so a
+	// downstream expression can branch on it without a second lookup.
+	out, err := json.Marshal(result.Payload)
 	if err != nil {
 		return "", fmt.Errorf("ml_inference %s: encoding result: %w", n.ID(), err)
 	}
@@ -83,23 +85,23 @@ func (n *MLInference) Execute(ctx context.Context, scope *engine.Scope) (string,
 
 // inferTensors parses a JSON tensors object from the input and runs it through
 // the inference client.
-func (n *MLInference) inferTensors(ctx context.Context, raw string) (map[string]any, error) {
+func (n *MLInference) inferTensors(ctx context.Context, raw string) (engine.InferenceResult, error) {
 	var tensors map[string]any
 	if err := json.Unmarshal([]byte(raw), &tensors); err != nil {
-		return nil, fmt.Errorf("input is not a JSON tensors object: %w", err)
+		return engine.InferenceResult{}, fmt.Errorf("input is not a JSON tensors object: %w", err)
 	}
 	return n.client.InferTensors(ctx, tensors)
 }
 
 // inferImage reads the raw frame bytes from the input and runs them through the
 // inference client as an opaque binary blob.
-func (n *MLInference) inferImage(ctx context.Context, v expr.Value) (map[string]any, error) {
+func (n *MLInference) inferImage(ctx context.Context, v expr.Value) (engine.InferenceResult, error) {
 	data, err := v.AsImage()
 	if err != nil {
-		return nil, err
+		return engine.InferenceResult{}, err
 	}
 	if len(data) == 0 {
-		return nil, fmt.Errorf("image input is empty")
+		return engine.InferenceResult{}, fmt.Errorf("image input is empty")
 	}
 	return n.client.InferBinary(ctx, data)
 }

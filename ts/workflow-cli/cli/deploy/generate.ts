@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import type { DeployConfig } from "./types";
 import type { DeploymentSchemas, CameraSchemas, EngineSchemas } from "./api";
-import { llamaComponentServiceName, mlComponentServiceName, cameraComponentServiceName } from "./spec";
+import { llamaComponentServiceName, onnxComponentServiceName, cameraComponentServiceName } from "./spec";
 import type { ComponentSecrets } from "./spec";
 import { COMPONENT_CONFIG_PATH, COMPONENT_SECRETS_PATH, ENGINE_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
 
@@ -48,7 +48,12 @@ function serviceBlock(c: DeployComponent, secretDoc?: ComponentSecrets): string 
 
   // pull_policy comes straight from the component; "missing" (Docker's default)
   // pulls a registry image if absent, the right default for any stock image.
-  const lines: string[] = [`  ${c.name}:`, `    image: ${c.image}`, `    pull_policy: ${c.pull ?? "missing"}`, "    restart: unless-stopped"];
+  const lines: string[] = [
+    `  ${c.name}:`,
+    `    image: ${c.image}`,
+    `    pull_policy: ${c.pull ?? "missing"}`,
+    "    restart: unless-stopped",
+  ];
 
   // Content hashes of the bind-mounted config blob and secret doc, stamped as
   // labels so the compose service definition changes when either file changes.
@@ -128,7 +133,9 @@ export function composeYaml(spec: DeploymentSpec, secretDocs: Record<string, Com
   const services = spec.components.map((c) => serviceBlock(c, secretDocs[c.name])).join("\n\n");
 
   // Top-level named volumes, deduped across every component's mounts.
-  const named = [...new Set(spec.components.flatMap((c) => (c.volumes ?? []).map(namedVolumeSource).filter((s): s is string => s !== null)))];
+  const named = [
+    ...new Set(spec.components.flatMap((c) => (c.volumes ?? []).map(namedVolumeSource).filter((s): s is string => s !== null))),
+  ];
   const volumesBlock = named.length > 0 ? `\nvolumes:\n${named.map((n) => `  ${n}:`).join("\n")}\n` : "";
 
   return `# Edge Agents engine — minimal standalone Compose deployment.
@@ -173,17 +180,15 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
 
   const engine = spec.components.find((c) => c.name === "engine");
   const hasHardware = (engine?.devices?.length ?? 0) > 0 || Boolean(engine?.privileged);
-  // All on-device models share ONE llama-server; their GGUFs live together in that
-  // component's workspace dir (./workspaces/llama-server/) — the host bind mount the
+  // All on-device models share ONE llama server; their GGUFs live together in that
+  // component's workspace dir (./workspaces/llama/) — the host bind mount the
   // llama container reads.
   const llamaDir = `./workspaces/${llamaComponentServiceName()}`;
-  const deviceModels = Object.values(cfg.llmModels).flatMap((b) =>
-    b.location === "device" ? [{ dir: llamaDir, file: b.modelFile }] : [],
-  );
+  const deviceModels = Object.values(cfg.llmModels).flatMap((b) => (b.location === "device" ? [{ dir: llamaDir, file: b.modelFile }] : []));
   const hasNetworkModel = Object.values(cfg.llmModels).some((b) => b.location === "network");
   // On-device ML models all share ONE inference component; each model's bundle
   // lives in its own sub-folder of that component's repository dir.
-  const mlRepoDir = `./workspaces/${mlComponentServiceName()}`;
+  const mlRepoDir = `./workspaces/${onnxComponentServiceName()}`;
   const mlDeviceModels = Object.values(cfg.mlModels).flatMap((b) => (b.location === "device" ? [b.model] : []));
   const hasNetworkMLModel = Object.values(cfg.mlModels).some((b) => b.location === "network");
   const hasMqtt = Object.keys(cfg.mqtt).length > 0;
@@ -199,7 +204,7 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   // Any on-device component (llama, inference, capture) ships its workspace data out
   // of the main scp line and means the engine reaches it over the network at runtime.
   const hasDeviceComponent = deviceModels.length > 0 || mlDeviceModels.length > 0 || deviceCameras.length > 0;
-  // Self-built component images (ml-inference, camera) are pull_policy:never: unlike
+  // Self-built component images (onnx, camera) are pull_policy:never: unlike
   // llama (pulled from a registry), they must be built and docker-loaded on the
   // controller too, or `docker compose up` fails with "image not found".
   const componentTar = (image: string) => `${image.split(":")[0]}.tar`;
@@ -209,8 +214,8 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   const engineTar = componentTar(engineImage);
   const selfBuiltComponents: { image: string; build: string }[] = [];
   if (mlDeviceModels.length > 0) {
-    const c = spec.components.find((x) => x.name === mlComponentServiceName());
-    if (c) selfBuiltComponents.push({ image: c.image, build: `docker build -t ${c.image} py/ml-inference` });
+    const c = spec.components.find((x) => x.name === onnxComponentServiceName());
+    if (c) selfBuiltComponents.push({ image: c.image, build: `docker build -t ${c.image} py/onnx` });
   }
   if (deviceCameras.length > 0) {
     const c = spec.components.find((x) => x.name === cameraComponentServiceName());
@@ -251,7 +256,7 @@ and is reachable from the controller.`);
   if (deviceModels.length > 0) {
     notes.push(`## On-device models
 
-This bundle runs one shared llama-server container (\`${llamaComponentServiceName()}\`, llama-swap)
+This bundle runs one shared llama container (\`${llamaComponentServiceName()}\`, llama-swap)
 fronting all your on-device models; the engine reaches it over the compose network by service name
 and selects a model by id per request. Each GGUF must sit in the shared workspace dir below
 (read-only mounted into the container). They are too large for the main \`scp\` line, so step 3
@@ -261,14 +266,14 @@ ${deviceModels.map((m) => `- \`${m.dir}/${m.file}\``).join("\n")}`);
   if (mlDeviceModels.length > 0) {
     notes.push(`## On-device ML models
 
-This bundle runs one shared inference component (\`${mlComponentServiceName()}\`) that loads a
+This bundle runs one shared inference component (\`${onnxComponentServiceName()}\`) that loads a
 repository of ML models; the engine reaches it over the compose network by service name.
 Drop each model's \`model.onnx\` + \`manifest.yaml\` into its own sub-folder of the shared
 repository dir below (read-only mounted into the component), then transfer the workspaces
 tree in step 3:
 ${mlDeviceModels.map((name) => `- \`${mlRepoDir}/${name}/\``).join("\n")}
 
-Which models load is fixed by \`${mlComponentServiceName()}-config.json\` (already generated, mounted
+Which models load is fixed by \`${onnxComponentServiceName()}-config.json\` (already generated, mounted
 read-only at \`${COMPONENT_CONFIG_PATH}\`) — exactly the folders listed above. The component
 fails to start if one of them is missing, and ignores any extra folder you stage, so add a
 model by binding it in the workflow and re-rendering, not by copying it in.
@@ -312,7 +317,7 @@ node instead (see above).`);
   if (hasNetworkModel) {
     notes.push(`## Network models
 
-A network model points at an inference endpoint **you run yourself** (llama-server, vLLM,
+A network model points at an inference endpoint **you run yourself** (llama, vLLM,
 Ollama, ...) on another machine. This bundle does not start that server for you.`);
   }
   if (hasNetworkMLModel) {
@@ -440,7 +445,7 @@ Each container's durable data is a plain host directory in this bundle,
 \`./workspaces/<container>/\`, mounted at \`/var/lib/foresthub/workspace\`:
 
 - \`./workspaces/engine/\` — the engine's memory files, mounted **read-write** (the engine writes here).
-- \`./workspaces/llama-server/\` — your on-device models' GGUF weights, mounted **read-only** (see above).
+- \`./workspaces/llama/\` — your on-device models' GGUF weights, mounted **read-only** (see above).
 
 These are ordinary files: back them up by copying the folder, inspect them directly.
 They persist across restarts and redeploys **as long as you keep this bundle directory

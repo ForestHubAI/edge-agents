@@ -170,15 +170,15 @@ in-container-path : mode`:
 <bundle-dir>/
 ├─ docker-compose.yml         mounts everything below
 ├─ <name>-config.json         per component with a config blob → ro at /etc/foresthub/config.json
-│                               (engine; llama-server when a device LLM; a custom component that declares one)
+│                               (engine; llama when a device LLM; a custom component that declares one)
 ├─ engine-secrets.json        resource credentials, when any → ro at /etc/foresthub/secrets.json   (0600)
 ├─ engine.env  <name>.env     operator env scalars, compose env_file (not mounted)                  (0600)
 ├─ deployment-spec.json       the resolved record; not mounted
 ├─ README.md                  operator guide
 └─ workspaces/<container>/    per-container durable state
    ├─ engine/                 engine memory              → rw at /var/lib/foresthub/workspace
-   ├─ llama-server/ <*.gguf>  operator-staged GGUF weights → ro at /var/lib/foresthub/workspace
-   └─ ml-inference/<model>/   operator-staged ONNX bundle, one sub-folder per model → ro at same
+   ├─ llama/ <*.gguf>         operator-staged GGUF weights → ro at /var/lib/foresthub/workspace
+   └─ onnx/<model>/           operator-staged ONNX bundle, one sub-folder per model → ro at same
 ```
 
 The split follows config-vs-workspace ([`component-contract.md`](./component-contract.md)):

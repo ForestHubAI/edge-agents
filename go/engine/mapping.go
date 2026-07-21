@@ -13,8 +13,8 @@ import (
 // ExternalResourcesToDomain maps the wire ExternalResources (a keyed union of
 // boot config) onto the engine domain type at the api→domain boundary, routing
 // each arm by its discriminator: MQTT connections into MQTTs, LLM provider
-// instances (local / backend / self-hosted) into Providers, ML inference
-// endpoints into MLInference. Unknown arms are skipped. Cameras are not an
+// instances (local / backend / self-hosted) into Providers, ML component
+// endpoints into ML. Unknown arms are skipped. Cameras are not an
 // external resource — they are device-owned and arrive in the DeviceManifest.
 //
 // The wire configs are secret-free (secrets are never stored in the deployment
@@ -29,7 +29,7 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets componen
 	out := &ExternalResources{
 		MQTTs:       make(map[string]MQTTConfig),
 		Providers:   make(map[string]LLMProviderConfig),
-		MLInference: make(map[string]MLInferenceConfig),
+		ML: make(map[string]MLConfig),
 	}
 	for id, rc := range *in {
 		disc, err := rc.Discriminator()
@@ -70,12 +70,12 @@ func ExternalResourcesToDomain(in *engineapi.ExternalResources, secrets componen
 				URL:      pointer.Val(c.Url),
 				APIKey:   secrets[id],
 			}
-		case string(engineapi.MlInference):
-			c, err := rc.AsMLInferenceConfig()
+		case string(engineapi.Ml):
+			c, err := rc.AsMLConfig()
 			if err != nil {
 				continue
 			}
-			out.MLInference[id] = MLInferenceConfig{URL: c.Url}
+			out.ML[id] = MLConfig{URL: c.Url}
 		}
 	}
 	return out

@@ -102,4 +102,4 @@ components:
           description: "Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default."
         startPeriod:
           type: string
-          description: 'Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component''s worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".'
+          description: 'Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component''s worst-case warmup, e.g. a llama server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s".'

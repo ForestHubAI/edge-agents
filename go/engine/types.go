@@ -134,22 +134,21 @@ type CameraSource struct {
 // non-device external resources, keyed by the platform resource id the
 // ResourceMapping points at. The engine builds transports from MQTTs, LLM
 // providers from Providers (the connection for each declared custom/self-hosted
-// model), and inference clients from MLInference (the component endpoint each
-// declared ML model is served from). Cameras are NOT here: a camera is
-// device-owned hardware, so it lives in the DeviceManifest and resolves through
-// the driver registry like a gpiochip.
+// model), and inference clients from ML (the component endpoint each declared ML
+// model is served from). Cameras are NOT here: a camera is device-owned hardware,
+// so it lives in the DeviceManifest and resolves through the driver registry like
+// a gpiochip.
 type ExternalResources struct {
-	MQTTs       map[string]MQTTConfig
-	Providers   map[string]LLMProviderConfig
-	MLInference map[string]MLInferenceConfig
+	MQTTs     map[string]MQTTConfig
+	Providers map[string]LLMProviderConfig
+	ML        map[string]MLConfig
 }
 
-// MLInferenceConfig is the resolved connection to an ML inference component the
-// engine doesn't ship. The declared workflow model supplies the id; this supplies
-// how to reach the component. The name the component selects on is the binding's
-// Model sub-address (ResourceAddress.Model), sent per request, so many models may
-// share one endpoint.
-type MLInferenceConfig struct {
+// MLConfig is the resolved connection to an ML component the engine doesn't ship.
+// The declared workflow model supplies the id; this supplies how to reach the
+// component. The name the component selects on is the binding's Model sub-address
+// (ResourceAddress.Model), sent per request, so many models may share one endpoint.
+type MLConfig struct {
 	URL string
 }
 

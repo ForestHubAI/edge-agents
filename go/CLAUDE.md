@@ -11,7 +11,7 @@ cmd/engine/   engine binary: lean main — loads config, wires deps, runs a
 cmd/camera/   fh-camera binary: lean main — loads config, wires deps, runs the
               HTTP server built from camera/. Only config.go + main.go.
 api/          oapi-codegen output from ../contract/*.yaml (engineapi, workflow,
-              llmapi, debugapi, mlinferenceapi, cameraapi). GENERATED — never
+              llmapi, debugapi, mlapi, cameraapi). GENERATED — never
               hand-edit; regen instead.
 component/    the component contract every binary boots against: fixed
               in-container paths, canonical names/ports, exit-code policy,

@@ -1,6 +1,6 @@
 ---
 name: workflow-deploy
-description: Turn a finished Edge Agents *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama-server components + any operator-authored custom components) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
+description: Turn a finished Edge Agents *.workflow.json into a runnable, standalone deployment bundle — the docker-compose package (engine + config + any llama components + any operator-authored custom components) an operator builds and runs on an edge/IoT controller. Drives the fh-workflow CLI's headless deploy, reading the workflow to learn which hardware pins, MQTT brokers, models, and keys it needs, asking the operator to fill or confirm each value, and writing the bundle while keeping secrets as placeholders so nothing sensitive ever lands in the chat. Use this whenever the user wants to deploy, bundle, package, or ship a workflow to a device or controller — e.g. "deploy this flow to my Raspberry Pi", "make a deployment bundle for the edge", "bundle workflow.json so I can run it on the controller", "ship my agent to the device", "put this workflow on the controller" — even when they don't say the word "bundle", and as the natural next step after generating a workflow. Not for building or editing the workflow graph itself (that is workflow-generate, or fh-workflow open) and not for cloud deployment.
 ---
 
 # workflow-deploy
@@ -9,7 +9,7 @@ Take a validated `*.workflow.json` and produce a **standalone deployment bundle*
 build and run on an edge controller: `docker-compose.yml`, the engine's boot config
 (`engine-config.json` — workflow + device manifest + mappings + external resources, all in one blob),
 a filled-in `engine.env`, a `deployment-spec.json` record, a `README.md`, and — depending on what the
-workflow uses — one `llama-server` component per on-device model, plus any operator-authored custom
+workflow uses — one `llama` component per on-device model, plus any operator-authored custom
 components.
 
 The bundle is always **standalone**: the engine boots straight from `engine-config.json` and runs on
@@ -70,7 +70,7 @@ the conversation.** Concretely:
 - **Never read secrets from the environment** to "be helpful" — no `cat`-ing `.env`-like files, no
   `printenv`. The operator's shell secrets are not yours to pick up.
 - **Never `cat` or print `engine.env` or any custom component's `<name>.env`** (the bundle's `chmod
-  600` files). Inspect them by `ls -l` / mode only, never content.
+600` files). Inspect them by `ls -l` / mode only, never content.
 - The `--values` file you assemble may still be sensitive — write it `chmod 600`, never echo it, and
   remove it after the deploy.
 
@@ -251,7 +251,7 @@ message and resolve it, then run again:
 
 Cap at ~5 iterations. If gaps remain, report them honestly rather than claiming success — never
 finish on a red exit. **Remove the values file on the way out either way** — `rm -f "$VALUES"` after
-a successful deploy *and* when you give up — so the throwaway never lingers. (It's a single
+a successful deploy _and_ when you give up — so the throwaway never lingers. (It's a single
 `mktemp` path, quoted, no wildcard, so this only ever deletes that one temp file.)
 
 ## Step 5: Report
@@ -286,7 +286,7 @@ Give the operator:
 - **Standalone only.** This bundle has no control plane — the engine runs the one workflow it was
   built with.
 - **device vs network models are different things.** `device` self-hosts a `.gguf` as a
-  `llama-server` component in the bundle; `network` points at an endpoint the operator already runs.
+  `llama` component in the bundle; `network` points at an endpoint the operator already runs.
   Ask which; don't assume.
 - **Don't build or transfer.** The skill ends at a written bundle; building the image and copying it
   to the controller are the operator's steps, documented in the README.

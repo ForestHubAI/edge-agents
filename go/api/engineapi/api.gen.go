@@ -33,15 +33,15 @@ func (e LLMProviderConfigType) Valid() bool {
 	}
 }
 
-// Defines values for MLInferenceConfigType.
+// Defines values for MLConfigType.
 const (
-	MlInference MLInferenceConfigType = "ml-inference"
+	Ml MLConfigType = "ml"
 )
 
-// Valid indicates whether the value is a known member of the MLInferenceConfigType enum.
-func (e MLInferenceConfigType) Valid() bool {
+// Valid indicates whether the value is a known member of the MLConfigType enum.
+func (e MLConfigType) Valid() bool {
 	switch e {
-	case MlInference:
+	case Ml:
 		return true
 	default:
 		return false
@@ -127,16 +127,16 @@ type LLMProviderConfig struct {
 // LLMProviderConfigType defines model for LLMProviderConfig.Type.
 type LLMProviderConfigType string
 
-// MLInferenceConfig Resolved connection to an ML inference component the engine doesn't ship: a separate service reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
-type MLInferenceConfig struct {
-	Type MLInferenceConfigType `json:"type"`
+// MLConfig Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
+type MLConfig struct {
+	Type MLConfigType `json:"type"`
 
-	// Url Base URL of the inference component (http:// or https://).
+	// Url Base URL of the ML component (http:// or https://).
 	Url string `json:"url"`
 }
 
-// MLInferenceConfigType defines model for MLInferenceConfig.Type.
-type MLInferenceConfigType string
+// MLConfigType defines model for MLConfig.Type.
+type MLConfigType string
 
 // MQTTConfig Resolved connection metadata for an MQTT broker.
 type MQTTConfig struct {
@@ -197,7 +197,7 @@ type ResourceAddress struct {
 	// Index Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
 	Index *int `json:"index,omitempty"`
 
-	// Model Model name a shared inference endpoint (self-hosted LLM / ml-inference component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
+	// Model Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 	Model *string `json:"model,omitempty"`
 
 	// Ref Shared platform resource id this binds to.
@@ -268,22 +268,22 @@ func (t *ExternalResourceConfig) MergeLLMProviderConfig(v LLMProviderConfig) err
 	return err
 }
 
-// AsMLInferenceConfig returns the union data inside the ExternalResourceConfig as a MLInferenceConfig
-func (t ExternalResourceConfig) AsMLInferenceConfig() (MLInferenceConfig, error) {
-	var body MLInferenceConfig
+// AsMLConfig returns the union data inside the ExternalResourceConfig as a MLConfig
+func (t ExternalResourceConfig) AsMLConfig() (MLConfig, error) {
+	var body MLConfig
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromMLInferenceConfig overwrites any union data inside the ExternalResourceConfig as the provided MLInferenceConfig
-func (t *ExternalResourceConfig) FromMLInferenceConfig(v MLInferenceConfig) error {
+// FromMLConfig overwrites any union data inside the ExternalResourceConfig as the provided MLConfig
+func (t *ExternalResourceConfig) FromMLConfig(v MLConfig) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeMLInferenceConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MLInferenceConfig
-func (t *ExternalResourceConfig) MergeMLInferenceConfig(v MLInferenceConfig) error {
+// MergeMLConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MLConfig
+func (t *ExternalResourceConfig) MergeMLConfig(v MLConfig) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -312,8 +312,8 @@ func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
 		return t.AsLLMProviderConfig()
 	case "localLlm":
 		return t.AsLLMProviderConfig()
-	case "ml-inference":
-		return t.AsMLInferenceConfig()
+	case "ml":
+		return t.AsMLConfig()
 	case "mqtt":
 		return t.AsMQTTConfig()
 	case "selfhostedLlm":

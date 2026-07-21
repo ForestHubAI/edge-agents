@@ -36,7 +36,7 @@ export interface MqttBinding {
 }
 
 // One custom LLM model's runtime location. `device` = served by the shared
-// llama-server component on this controller (llama-swap fronts every on-device model,
+// llama component on this controller (llama-swap fronts every on-device model,
 // the engine selecting one by id per request); `network` = an inference endpoint the
 // operator runs elsewhere. The endpoint serves the model under its workflow id — no
 // upstream-name aliasing yet.

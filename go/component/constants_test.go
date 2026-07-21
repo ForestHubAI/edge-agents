@@ -36,10 +36,10 @@ type contractConstants struct {
 			Name string `json:"name"`
 			Port int    `json:"port"`
 		} `json:"camera"`
-		MLInference struct {
+		Onnx struct {
 			Name string `json:"name"`
 			Port int    `json:"port"`
-		} `json:"mlInference"`
+		} `json:"onnx"`
 	} `json:"components"`
 }
 
@@ -67,10 +67,10 @@ func TestConstantsMatchContract(t *testing.T) {
 		{"Engine", Engine, c.Components.Engine.Name},
 		{"Llama", Llama, c.Components.Llama.Name},
 		{"Camera", Camera, c.Components.Camera.Name},
-		{"MLInference", MLInference, c.Components.MLInference.Name},
+		{"Onnx", Onnx, c.Components.Onnx.Name},
 		{"LlamaPort", LlamaPort, c.Components.Llama.Port},
 		{"CameraPort", CameraPort, c.Components.Camera.Port},
-		{"MLInferencePort", MLInferencePort, c.Components.MLInference.Port},
+		{"OnnxPort", OnnxPort, c.Components.Onnx.Port},
 	}
 	for _, tc := range cases {
 		if tc.got != tc.want {

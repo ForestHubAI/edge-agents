@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 // Package selfhosted implements the SelfHosted LLM provider for routing chat
-// requests to operator-run inference servers (llama-server, vLLM, Ollama, etc.)
+// requests to operator-run inference servers (llama, vLLM, Ollama, etc.)
 // via the OpenAI-compatible Chat Completions API.
 package selfhosted
 
@@ -88,8 +88,8 @@ type ToolCall struct {
 }
 
 // FunctionCall represents the function invocation within a tool call.
-// Arguments is json.RawMessage because llama-server may return it as either
-// a JSON string (OpenAI-compliant) or a JSON object (llama-server bug #20198).
+// Arguments is json.RawMessage because llama server may return it as either
+// a JSON string (OpenAI-compliant) or a JSON object (llama server bug #20198).
 type FunctionCall struct {
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`

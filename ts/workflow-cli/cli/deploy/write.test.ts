@@ -144,7 +144,7 @@ describe("writeOutput", () => {
     const out = path.join(base, "bundle");
     const cfg = cfgOf(out, { mlModels: { yolo: { location: "device", model: "yolov8n" } } });
     await writeOutput(specOf(), {}, cfg, reqOf());
-    expect((await fs.stat(path.join(out, "workspaces", "ml-inference", "yolov8n"))).isDirectory()).toBe(true);
+    expect((await fs.stat(path.join(out, "workspaces", "onnx", "yolov8n"))).isDirectory()).toBe(true);
     await fs.rm(base, { recursive: true, force: true });
   });
 

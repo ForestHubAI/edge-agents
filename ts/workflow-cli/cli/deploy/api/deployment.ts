@@ -6,69 +6,69 @@
 export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** @description The resolved set of components to run on one device for one deployment, plus its identity. Every decision is frozen at packaging time. */
-        DeploymentSpec: {
-            /** @description Spec format version. Bumped when the spec shape changes incompatibly. */
-            schemaVersion: number;
-            /** @description Stable identifier for this deployment, used as the rollback/history key. */
-            id: string;
-            /**
-             * Format: date-time
-             * @description When this spec was produced, stamped by the producer.
-             */
-            createdAt?: string;
-            /** @description The components to run for this deployment, each a fully resolved container. Unordered — components declare no dependencies on one another. */
-            components: components["schemas"]["DeployComponent"][];
-        };
-        /** @description One resolved container to run as part of a deployment. Generic by design: carries only runtime-neutral container knobs, never a component-typed config schema. */
-        DeployComponent: {
-            /** @description Unique component name within the deployment. */
-            name: string;
-            /** @description OCI image reference, frozen at packaging time. OSS: a locally-built convention tag, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:...". */
-            image: string;
-            /**
-             * @description Image pull policy. Omit to default to "missing" (pull only if absent locally); "never" for a locally-built image in no registry; "always" re-pulls on every start.
-             * @enum {string}
-             */
-            pull?: "always" | "missing" | "never";
-            /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/path/x.gguf", "--ctx-size", "4096"]. Omit to use the image's default command. */
-            command?: string[];
-            /** @description Structured config for the component, frozen at packaging time. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets. */
-            config?: {
-                [key: string]: unknown;
-            };
-            /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace". Empty when the component is stateless and mounts nothing beyond its config files. */
-            volumes?: string[];
-            /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". Empty when the component binds no cdev hardware. */
-            devices?: string[];
-            /** @description Host port publishings in compose short form, e.g. "1883:1883". Empty when the component is reached only over the internal container network (the common case: components address each other by name, no host exposure needed). */
-            ports?: string[];
-            /** @description Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none. */
-            privileged?: boolean;
-            /** @description Container user as "UID[:GID]", e.g. "0:0" for root. Set when a nonroot image must reach root-owned resources. Omit to use the image's default user. */
-            user?: string;
-            healthcheck?: components["schemas"]["HealthCheck"];
-        };
-        /** @description In-container readiness/liveness probe. Present only when the image ships a probe tool; omit otherwise. */
-        HealthCheck: {
-            /** @description The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely. */
-            test: string[];
-            /** @description How often to run the probe once the container is up, as a compose/Go duration, e.g. "30s". Omit to use the renderer default. */
-            interval?: string;
-            /** @description How long one probe may run before it counts as a failure, e.g. "10s". Omit to use the renderer default. */
-            timeout?: string;
-            /** @description Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default. */
-            retries?: number;
-            /** @description Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama-server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s". */
-            startPeriod?: string;
-        };
+  schemas: {
+    /** @description The resolved set of components to run on one device for one deployment, plus its identity. Every decision is frozen at packaging time. */
+    DeploymentSpec: {
+      /** @description Spec format version. Bumped when the spec shape changes incompatibly. */
+      schemaVersion: number;
+      /** @description Stable identifier for this deployment, used as the rollback/history key. */
+      id: string;
+      /**
+       * Format: date-time
+       * @description When this spec was produced, stamped by the producer.
+       */
+      createdAt?: string;
+      /** @description The components to run for this deployment, each a fully resolved container. Unordered — components declare no dependencies on one another. */
+      components: components["schemas"]["DeployComponent"][];
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** @description One resolved container to run as part of a deployment. Generic by design: carries only runtime-neutral container knobs, never a component-typed config schema. */
+    DeployComponent: {
+      /** @description Unique component name within the deployment. */
+      name: string;
+      /** @description OCI image reference, frozen at packaging time. OSS: a locally-built convention tag, e.g. "foresthub/engine:local". Paid: a registry-qualified, digest-pinned ref, e.g. "ghcr.io/foresthubai/engine:1.2.0@sha256:...". */
+      image: string;
+      /**
+       * @description Image pull policy. Omit to default to "missing" (pull only if absent locally); "never" for a locally-built image in no registry; "always" re-pulls on every start.
+       * @enum {string}
+       */
+      pull?: "always" | "missing" | "never";
+      /** @description Overrides the image's default command/entrypoint arguments, in exec form — one token per element, e.g. ["--model", "/path/x.gguf", "--ctx-size", "4096"]. Omit to use the image's default command. */
+      command?: string[];
+      /** @description Structured config for the component, frozen at packaging time. Omit for a component configured only by its image defaults and its device-local env. Never contains secrets. */
+      config?: {
+        [key: string]: unknown;
+      };
+      /** @description Persistent or host volume mounts in compose short form, e.g. "./workspaces/engine:/var/lib/foresthub/workspace". Empty when the component is stateless and mounts nothing beyond its config files. */
+      volumes?: string[];
+      /** @description Resolved host device nodes to pass into the container, e.g. "/dev/gpiochip0", "/dev/ttyUSB0". Empty when the component binds no cdev hardware. */
+      devices?: string[];
+      /** @description Host port publishings in compose short form, e.g. "1883:1883". Empty when the component is reached only over the internal container network (the common case: components address each other by name, no host exposure needed). */
+      ports?: string[];
+      /** @description Run the container privileged. Required for hardware with no single device node to grant (ADC/DAC/PWM use sysfs paths like /sys/class/pwm, /sys/bus/iio). False when the component uses only cdev hardware (use devices) or none. */
+      privileged?: boolean;
+      /** @description Container user as "UID[:GID]", e.g. "0:0" for root. Set when a nonroot image must reach root-owned resources. Omit to use the image's default user. */
+      user?: string;
+      healthcheck?: components["schemas"]["HealthCheck"];
+    };
+    /** @description In-container readiness/liveness probe. Present only when the image ships a probe tool; omit otherwise. */
+    HealthCheck: {
+      /** @description The probe command in compose exec form. The first token is the probe kind: "CMD" runs the remaining tokens as an argv, "CMD-SHELL" runs the single following string in a shell, "NONE" disables a healthcheck the image baked in. Point it at a tool present in the image, e.g. ["CMD", "curl", "-f", "http://localhost:8080/health"]. A component reachable only by liveness (no readiness endpoint) probes a cheaper signal; one with no in-image probe at all omits the enclosing healthcheck entirely. */
+      test: string[];
+      /** @description How often to run the probe once the container is up, as a compose/Go duration, e.g. "30s". Omit to use the renderer default. */
+      interval?: string;
+      /** @description How long one probe may run before it counts as a failure, e.g. "10s". Omit to use the renderer default. */
+      timeout?: string;
+      /** @description Consecutive probe failures before the container is marked unhealthy. Omit to use the renderer default. */
+      retries?: number;
+      /** @description Grace window after container start during which probe failures neither count against retries nor mark the container unhealthy, sized to the component's worst-case warmup, e.g. a llama server loading a multi-GB model. A container still not healthy when this elapses is the universal failure backstop. e.g. "40s". */
+      startPeriod?: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export type operations = Record<string, never>;

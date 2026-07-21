@@ -87,7 +87,9 @@ async function promptHardware(
           const uint = isUint(v);
           if (uint !== true) return uint;
           const holder = claimed.get(hardwareAddressKey(ch.family, dev, Number(v.trim())));
-          return holder ? `${hardwareAddressLabel(ch.family, dev, Number(v.trim()))} is already used by "${holder}" — pick a free one` : true;
+          return holder
+            ? `${hardwareAddressLabel(ch.family, dev, Number(v.trim()))} is already used by "${holder}" — pick a free one`
+            : true;
         },
       });
       binding.index = Number(idx.trim());
@@ -104,10 +106,7 @@ async function promptHardware(
 
 // Per MQTT channel: broker URL + optional creds. Offers to reuse a broker
 // already configured this run (same URL -> builder dedups onto one resource).
-async function promptMqtt(
-  channels: BoundOf<"mqtt">[],
-  seed: Record<string, MqttBinding>,
-): Promise<Record<string, MqttBinding>> {
+async function promptMqtt(channels: BoundOf<"mqtt">[], seed: Record<string, MqttBinding>): Promise<Record<string, MqttBinding>> {
   const result: Record<string, MqttBinding> = { ...seed };
   for (const ch of channels) {
     if (result[ch.id]) continue;
@@ -144,7 +143,7 @@ async function promptMqtt(
 }
 
 // Per custom LLM model: first where it runs, then the values that location needs.
-// device -> a llama-server component this bundle generates (a model filename);
+// device -> a llama component this bundle generates (a model filename);
 // network -> an endpoint the operator runs elsewhere (its URL + optional key).
 async function promptLLMModels(
   models: BoundOf<"declaredLlm">[],
@@ -156,14 +155,14 @@ async function promptLLMModels(
     const location = await select<"device" | "network">({
       message: `${m.label}: where does this model run?`,
       choices: [
-        { value: "device", name: "on this device (served by the shared llama-server)" },
+        { value: "device", name: "on this device (served by the shared llama server)" },
         { value: "network", name: "on another machine on the network (call its endpoint URL)" },
       ],
     });
 
     if (location === "device") {
       const modelFile = await input({
-        message: `${m.label}: model filename, dropped in the llama-server workspace dir (e.g. model.gguf)`,
+        message: `${m.label}: model filename, dropped in the llama workspace dir (e.g. model.gguf)`,
         validate: (v) => ggufNameError(v) ?? true,
       });
       const ctxSize = await input({ message: `${m.label}: context window in tokens`, default: "4096", validate: isUint });
@@ -176,7 +175,7 @@ async function promptLLMModels(
     }
 
     const url = await input({
-      message: `${m.label}: inference endpoint URL (a server you run — llama-server/vLLM/Ollama)`,
+      message: `${m.label}: inference endpoint URL (a server you run — llama/vLLM/Ollama)`,
       default: "http://localhost:8080",
       validate: (v) => v.trim().length > 0 || "endpoint URL is required",
     });
@@ -193,10 +192,7 @@ async function promptLLMModels(
 // name is the model's sub-folder in the repository the operator fills); network
 // -> an endpoint the operator runs elsewhere (the name must match what that
 // component calls the model; its URL, no credential).
-async function promptMLModels(
-  models: BoundOf<"ml">[],
-  seed: Record<string, MLModelBinding>,
-): Promise<Record<string, MLModelBinding>> {
+async function promptMLModels(models: BoundOf<"ml">[], seed: Record<string, MLModelBinding>): Promise<Record<string, MLModelBinding>> {
   const result: Record<string, MLModelBinding> = { ...seed };
   for (const m of models) {
     if (result[m.id]) continue;
@@ -235,10 +231,7 @@ async function promptMLModels(
 // v4l2 on boards that expose a preconfigured node and libcamera on boards that
 // don't. It picks the capture recipe, which the driver component owns, so nothing
 // here asks for a pipeline (except `raw`, the escape hatch).
-async function promptCameras(
-  channels: BoundOf<"hardware">[],
-  seed: Record<string, CameraBinding>,
-): Promise<Record<string, CameraBinding>> {
+async function promptCameras(channels: BoundOf<"hardware">[], seed: Record<string, CameraBinding>): Promise<Record<string, CameraBinding>> {
   const result: Record<string, CameraBinding> = { ...seed };
   for (const ch of channels) {
     if (result[ch.id]) continue;
@@ -361,7 +354,11 @@ async function promptCameras(
           .filter((s) => s.length > 0);
       }
       const binding: Extract<CameraBinding, { kind: "v4l2" | "libcamera" | "raw" }> =
-        kind === "v4l2" ? { kind, device } : kind === "libcamera" ? { kind, ...(cameraName ? { cameraName } : {}) } : { kind: "raw", pipeline };
+        kind === "v4l2"
+          ? { kind, device }
+          : kind === "libcamera"
+            ? { kind, ...(cameraName ? { cameraName } : {}) }
+            : { kind: "raw", pipeline };
       if (warmup > 0) binding.warmupFrames = warmup;
       if (setup.length > 0) binding.setup = setup;
       if (devices.length > 0) binding.devices = devices;
@@ -436,9 +433,16 @@ export async function promptMissing(
   // +1: the custom-components section is always offered (a yes/no gate), so it
   // always occupies a slot in the denominator, before Output.
   const total =
-    [askKeys, hwTodo.length > 0, mqttTodo.length > 0, llmModelsTodo.length > 0, mlModelsTodo.length > 0, camerasTodo.length > 0, askWeb, askOut].filter(
-      Boolean,
-    ).length + 1;
+    [
+      askKeys,
+      hwTodo.length > 0,
+      mqttTodo.length > 0,
+      llmModelsTodo.length > 0,
+      mlModelsTodo.length > 0,
+      camerasTodo.length > 0,
+      askWeb,
+      askOut,
+    ].filter(Boolean).length + 1;
   let step = 0;
   // A blank line + a numbered heading before each section that asks something.
   // The "— N to configure" tail shows only when a section covers more than one.

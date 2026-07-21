@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ForestHubAI/edge-agents/go/api/mlinferenceapi"
+	"github.com/ForestHubAI/edge-agents/go/api/mlapi"
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/util/pointer"
@@ -34,7 +34,7 @@ func TestBuildDeployML_ResolvesMLModel(t *testing.T) {
 	name := "yolov8n"
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
 	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1", Model: &name}}
-	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
+	ext := &engine.ExternalResources{ML: map[string]engine.MLConfig{
 		"onnx-1": {URL: "http://onnx:9000"},
 	}}
 
@@ -53,7 +53,7 @@ func TestBuildDeployML_UnsetModelFails(t *testing.T) {
 	// missing one is a malformed mapping, not a silent default.
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
 	dm := engine.ResourceMapping{"yolo": {Ref: "onnx-1"}}
-	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
+	ext := &engine.ExternalResources{ML: map[string]engine.MLConfig{
 		"onnx-1": {URL: "http://onnx:9000"},
 	}}
 
@@ -82,7 +82,7 @@ func TestBuildDeployML_UnboundFails(t *testing.T) {
 func TestBuildDeployML_BoundButNoConfigFails(t *testing.T) {
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
 	dm := engine.ResourceMapping{"yolo": {Ref: "missing"}}
-	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{}}
+	ext := &engine.ExternalResources{ML: map[string]engine.MLConfig{}}
 
 	_, err := buildDeployML(wf, dm, ext)
 	require.Error(t, err)
@@ -99,7 +99,7 @@ func TestBuildDeployML_MultipleModelsShareURL(t *testing.T) {
 		"yolo":   {Ref: "onnx", Model: pointer.Ptr("yolov8n")},
 		"resnet": {Ref: "onnx", Model: pointer.Ptr("resnet50")},
 	}
-	ext := &engine.ExternalResources{MLInference: map[string]engine.MLInferenceConfig{
+	ext := &engine.ExternalResources{ML: map[string]engine.MLConfig{
 		"onnx": {URL: "http://onnx:9000"},
 	}}
 
@@ -135,18 +135,22 @@ func jsonResp(status int, body string) *http.Response {
 
 func mlEndpointWith(t *testing.T, doer *fakeDoer) *mlEndpoint {
 	t.Helper()
-	client, err := mlinferenceapi.NewClientWithResponses("http://onnx:9000", mlinferenceapi.WithHTTPClient(doer))
+	client, err := mlapi.NewClientWithResponses("http://onnx:9000", mlapi.WithHTTPClient(doer))
 	require.NoError(t, err)
 	return &mlEndpoint{client: client, modelName: "yolo"}
 }
 
 func TestMLEndpoint_Infer_Success(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"ok":true}}`)}
+	doer := &fakeDoer{resp: jsonResp(200, `{"model":"clf","result":{"task":"image-classification","predictions":[{"label":"cat","score":0.9}]}}`)}
 	ep := mlEndpointWith(t, doer)
 
 	result, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"ok": true}, result)
+	// The generated union is mapped onto the domain result: task is lifted out and
+	// the whole task-shaped payload is carried through.
+	assert.Equal(t, "image-classification", result.Task)
+	assert.Equal(t, "image-classification", result.Payload["task"])
+	assert.Len(t, result.Payload["predictions"], 1)
 
 	// The request was a multipart body carrying the model selector and tensors.
 	assert.Contains(t, doer.gotContentType, "multipart/form-data")
@@ -157,12 +161,13 @@ func TestMLEndpoint_Infer_Success(t *testing.T) {
 }
 
 func TestMLEndpoint_InferBinary_Success(t *testing.T) {
-	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"ok":true}}`)}
+	doer := &fakeDoer{resp: jsonResp(200, `{"model":"yolo","result":{"task":"object-detection","detections":[]}}`)}
 	ep := mlEndpointWith(t, doer)
 
 	result, err := ep.InferBinary(context.Background(), []byte{0xFF, 0xD8, 0xFF})
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{"ok": true}, result)
+	assert.Equal(t, "object-detection", result.Task)
+	assert.Equal(t, []any{}, result.Payload["detections"])
 
 	// The request was a multipart body carrying the model selector and the blob
 	// as a file part named "binary".
@@ -172,6 +177,18 @@ func TestMLEndpoint_InferBinary_Success(t *testing.T) {
 	assert.Contains(t, doer.gotBody, `name="binary"`)
 	assert.Contains(t, doer.gotBody, `filename="frame"`)
 	assert.Contains(t, doer.gotBody, "application/octet-stream")
+}
+
+func TestMLEndpoint_Infer_UnknownTask(t *testing.T) {
+	// A task this engine's contract does not know means the component is newer than
+	// the engine; mapping rejects it rather than passing a payload a task-keyed
+	// caller would silently mis-read.
+	doer := &fakeDoer{resp: jsonResp(200, `{"model":"seg","result":{"task":"image-segmentation","masks":[]}}`)}
+	ep := mlEndpointWith(t, doer)
+
+	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown task")
 }
 
 func TestMLEndpoint_Infer_NotFound(t *testing.T) {
