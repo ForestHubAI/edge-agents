@@ -29,11 +29,11 @@ func cameraChannel(t *testing.T, id string) workflowapi.Channel {
 // one makes no network call, so this needs no server.
 func cameraDrivers(t *testing.T, names ...string) *resource.Registry {
 	t.Helper()
-	m := engine.DeviceManifest{Cameras: map[string]engine.CameraSource{}}
+	res := engine.Resources{Cameras: map[string]engine.CameraSource{}}
 	for _, n := range names {
-		m.Cameras[n] = engine.CameraSource{Kind: engine.CameraV4L2}
+		res.Cameras[n] = engine.CameraSource{Kind: engine.CameraV4L2}
 	}
-	drvs, err := resource.NewRegistry(&m, nil)
+	drvs, err := resource.NewRegistry(&res)
 	require.NoError(t, err)
 	return drvs
 }

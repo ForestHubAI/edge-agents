@@ -34,8 +34,8 @@ type Builder struct {
 }
 
 // Build constructs a Runner for the given workflow, resource mapping, and
-// external resources (may be nil).
-func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) (*engine.Runner, error) {
+// resource bundle (may be nil).
+func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine.ResourceMapping, res *engine.Resources) (*engine.Runner, error) {
 	// Refresh the memory before assembling nodes so agent nodes see the latest declared files.
 	if b.Memory != nil {
 		declared, err := declaredMemoryFiles(wf)
@@ -49,7 +49,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 	// Compose the LLM client from externalResources: catalog providers
 	// plus any custom-model self-hosted endpoints. The client is scoped to this
 	// Runner and GC'd on shutdown.
-	providers, err := buildProviders(wf, rm, ext, b.Backend)
+	providers, err := buildProviders(wf, rm, res, b.Backend)
 	if err != nil {
 		return nil, fmt.Errorf("resolving llm providers: %w", err)
 	}
@@ -64,7 +64,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 	// TODO: maybe group resolves into sub function
 
 	// Build channels first as they orchestrate hardware resources
-	chs, err := buildChannels(wf.Channels, b.Resources, rm, ext)
+	chs, err := buildChannels(wf.Channels, b.Resources, rm, res)
 	if err != nil {
 		return nil, fmt.Errorf("channels: %w", err)
 	}
@@ -76,7 +76,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 	}
 
 	// Resolve declared ML models to their bound inference endpoints
-	mlEndpoints, err := buildDeployML(wf, rm, ext)
+	mlBindings, err := buildDeployML(wf, rm, b.Resources)
 	if err != nil {
 		return nil, fmt.Errorf("ml inference: %w", err)
 	}
@@ -94,7 +94,7 @@ func (b *Builder) Build(ctx context.Context, wf *workflowapi.Workflow, rm engine
 		functions[fi.Id] = &engine.Function{Info: fi}
 	}
 
-	bc := &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlEndpoints, llm: llmClient, memory: b.Memory, retriever: b.Retriever, webSearch: b.WebSearch}
+	bc := &buildContext{ctx: ctx, rm: rm, channels: chs, collections: collections, functions: functions, mainScope: ms, ml: mlBindings, llm: llmClient, memory: b.Memory, retriever: b.Retriever, webSearch: b.WebSearch}
 
 	// Build each function body in its own builder.
 	functionGraphs := make([]*graph, 0, len(wf.Functions))
@@ -223,7 +223,7 @@ type buildContext struct {
 	collections map[string]string           // resolved VectorDatabase id → collection id; Retriever nodes look up their collection here
 	functions   map[string]*engine.Function // assembly-time registry; FunctionCall nodes resolve their target through this
 	mainScope   *engine.Scope
-	ml          map[string]engine.MLClient // resolved ML model id → inference client; MLInference nodes look up their client here
+	ml          map[string]mlBinding // resolved ML model id → (client, model name); MLInference nodes look up their binding here
 	// clients for building nodes that rely on external services
 	llm       engine.LlmClient
 	memory    *memory.Manager

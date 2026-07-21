@@ -265,14 +265,14 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.Model == "" {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "model"}
 			}
-			ep, ok := g.ml[nd.Arguments.Model]
+			b, ok := g.ml[nd.Arguments.Model]
 			if !ok {
 				return fmt.Errorf("node %s: ml model %q is not declared or not bound", nd.Id, nd.Arguments.Model)
 			}
 			if nd.Arguments.Input.VarId == "" {
 				return &engine.MissingFieldError{NodeID: nd.Id, Field: "input"}
 			}
-			n := node.NewMLInference(nd.Id, nd.Arguments.Input, nd.Arguments.Output, ep)
+			n := node.NewMLInference(nd.Id, nd.Arguments.Input, nd.Arguments.Output, b.client, b.model)
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 

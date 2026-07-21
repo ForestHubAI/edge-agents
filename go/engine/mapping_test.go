@@ -15,36 +15,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
-	var mqtt engineapi.ExternalResourceConfig
-	require.NoError(t, mqtt.FromMQTTConfig(engineapi.MQTTConfig{
-		Type:      engineapi.Mqtt,
-		BrokerURL: "tcp://broker:1883",
-		ClientID:  pointer.Ptr("client-1"),
-	}))
-	var selfHosted engineapi.ExternalResourceConfig
-	require.NoError(t, selfHosted.FromLLMConfig(engineapi.LLMConfig{
-		Type: engineapi.SelfhostedLlm,
-		Url:  pointer.Ptr("http://llm:8000"),
-	}))
-	var local engineapi.ExternalResourceConfig
-	require.NoError(t, local.FromLLMConfig(engineapi.LLMConfig{
-		Type:     engineapi.LocalLlm,
-		Provider: pointer.Ptr("Anthropic"),
-	}))
-	var ml engineapi.ExternalResourceConfig
-	require.NoError(t, ml.FromMLConfig(engineapi.MLConfig{
-		Type: engineapi.Ml,
-		Url:  "http://onnx:8000",
-	}))
-	in := engineapi.ExternalResources{"mqtt-1": mqtt, "llm-1": selfHosted, "llm-2": local, "ml-1": ml}
+func TestResourcesToDomain_CopiesFamiliesAndMergesSecrets(t *testing.T) {
+	in := engineapi.Resources{
+		MqttBrokers: &map[string]engineapi.MQTTBroker{
+			"mqtt-1": {Type: engineapi.Mqtt, BrokerURL: "tcp://broker:1883", ClientID: pointer.Ptr("client-1")},
+		},
+		LlmProviders: &map[string]engineapi.LLMProvider{
+			"llm-1": {Type: engineapi.SelfhostedLlm, Url: pointer.Ptr("http://llm:8000")},
+			"llm-2": {Type: engineapi.DirectLlm, Provider: pointer.Ptr("Anthropic")},
+		},
+		MlProviders: &map[string]engineapi.MLProvider{
+			"ml-1": {Type: engineapi.Ml, Url: "http://onnx:8000"},
+		},
+		Gpios: &map[string]engineapi.GPIOConfig{
+			"chip0": {Type: engineapi.Gpio, Chip: "/dev/gpiochip0"},
+		},
+	}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
 	secrets := component.Secrets{
 		"mqtt-1": "brokerpw",
 		"llm-1":  "bearer",
 		"llm-2":  "sk-ant",
 	}
-	out := ExternalResourcesToDomain(&in, secrets)
+	out := ResourcesToDomain(&in, secrets)
 
 	require.NotNil(t, out)
 	require.Len(t, out.MQTTs, 1)
@@ -57,33 +50,34 @@ func TestExternalResourcesToDomain_RoutesArmsAndMergesSecrets(t *testing.T) {
 	assert.Equal(t, LLMSelfHosted, out.Providers["llm-1"].Kind)
 	assert.Equal(t, "http://llm:8000", out.Providers["llm-1"].URL)
 	assert.Equal(t, "bearer", out.Providers["llm-1"].APIKey)
-	// Local: adapter id + key, no url.
-	assert.Equal(t, LLMLocal, out.Providers["llm-2"].Kind)
+	// Direct: adapter id + key, no url.
+	assert.Equal(t, LLMDirect, out.Providers["llm-2"].Kind)
 	assert.Equal(t, "Anthropic", out.Providers["llm-2"].Provider)
 	assert.Equal(t, "sk-ant", out.Providers["llm-2"].APIKey)
 
-	// Credential-free component arms route by discriminator too.
+	// Credential-free families copy straight through.
 	require.Len(t, out.ML, 1)
 	assert.Equal(t, "http://onnx:8000", out.ML["ml-1"].URL)
+	require.Len(t, out.GPIOs, 1)
+	assert.Equal(t, "/dev/gpiochip0", out.GPIOs["chip0"].Chip)
 }
 
-func TestExternalResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
-	var mqtt engineapi.ExternalResourceConfig
-	require.NoError(t, mqtt.FromMQTTConfig(engineapi.MQTTConfig{
-		Type:      engineapi.Mqtt,
-		BrokerURL: "tcp://broker:1883",
-	}))
-	in := engineapi.ExternalResources{"mqtt-1": mqtt}
-	out := ExternalResourcesToDomain(&in, nil)
+func TestResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
+	in := engineapi.Resources{
+		MqttBrokers: &map[string]engineapi.MQTTBroker{
+			"mqtt-1": {Type: engineapi.Mqtt, BrokerURL: "tcp://broker:1883"},
+		},
+	}
+	out := ResourcesToDomain(&in, nil)
 	require.NotNil(t, out)
 	assert.Empty(t, out.MQTTs["mqtt-1"].Password)
 }
 
-func TestExternalResourcesToDomain_Nil(t *testing.T) {
-	assert.Nil(t, ExternalResourcesToDomain(nil, nil))
+func TestResourcesToDomain_Nil(t *testing.T) {
+	assert.Nil(t, ResourcesToDomain(nil, nil))
 }
 
-func TestDeviceManifestToDomain_CamerasCollapseToKind(t *testing.T) {
+func TestResourcesToDomain_CamerasCollapseToKind(t *testing.T) {
 	// The engine keeps only the discriminator: it reaches every camera the same
 	// way, and the capture details belong to the driver component.
 	var v4l2 cameraapi.CameraSource
@@ -91,16 +85,16 @@ func TestDeviceManifestToDomain_CamerasCollapseToKind(t *testing.T) {
 	var rtsp cameraapi.CameraSource
 	require.NoError(t, rtsp.FromRtspSource(cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1"}))
 
-	in := engineapi.DeviceManifest{Cameras: &map[string]cameraapi.CameraSource{"cam0": v4l2, "gate": rtsp}}
-	out := DeviceManifestToDomain(&in)
+	in := engineapi.Resources{Cameras: &map[string]cameraapi.CameraSource{"cam0": v4l2, "gate": rtsp}}
+	out := ResourcesToDomain(&in, nil)
 
 	require.Len(t, out.Cameras, 2)
 	assert.Equal(t, CameraSource{Kind: CameraV4L2}, out.Cameras["cam0"])
 	assert.Equal(t, CameraSource{Kind: CameraRTSP}, out.Cameras["gate"])
 }
 
-func TestDeviceManifestToDomain_NoCameras(t *testing.T) {
+func TestResourcesToDomain_NoCameras(t *testing.T) {
 	// A device with no cameras is the common case, not an error.
-	out := DeviceManifestToDomain(&engineapi.DeviceManifest{})
+	out := ResourcesToDomain(&engineapi.Resources{}, nil)
 	assert.Empty(t, out.Cameras)
 }

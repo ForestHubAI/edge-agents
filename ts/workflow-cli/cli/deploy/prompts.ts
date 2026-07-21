@@ -459,7 +459,7 @@ export async function promptMissing(
   // LLM keys: one prompt per catalog provider the workflow's Agents actually
   // reference (from the derived requirements) — not a blanket pick-from-all. A
   // custom-only workflow references no catalog provider and skips this. Every key
-  // runs that provider locally (`localLlm`); there is no backend option in OSS.
+  // reaches that provider directly (`directLlm`); there is no backend option in OSS.
   const llmKeys: Record<string, string> = { ...(partial.llmKeys ?? {}) };
   if (askKeys) {
     section("LLM provider keys", req.catalogProviders.length);

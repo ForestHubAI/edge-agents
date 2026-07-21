@@ -32,14 +32,14 @@ import (
 //
 // backendClient may be nil (no backend configured); a backendLlm instance then
 // is a config error. An unbound or unconfigured declared model is a config error.
-func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
-	if ext == nil {
-		ext = &engine.ExternalResources{}
+func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, res *engine.Resources, backendClient *backend.Client) ([]llmproxy.Provider, error) {
+	if res == nil {
+		res = &engine.Resources{}
 	}
 	var providers []llmproxy.Provider
 
 	// Self-hosted: declared models grouped onto their bound endpoints.
-	endpoints, err := selfHostedEndpoints(wf, rm, ext)
+	endpoints, err := selfHostedEndpoints(wf, rm, res)
 	if err != nil {
 		return nil, err
 	}
@@ -49,20 +49,20 @@ func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *en
 		providers = append(providers, selfhosted.NewProvider(selfhosted.Config{Endpoints: endpoints}))
 	}
 
-	// Catalog providers (self-hosted handled above). Local instances feed one
+	// Catalog providers (self-hosted handled above). Direct instances feed one
 	// ProviderConfig the registry builds; backend instances become stand-ins.
-	var localCfg llmcfg.ProviderConfig
-	haveLocal := false
-	for ref, cfg := range ext.Providers {
+	var directCfg llmcfg.ProviderConfig
+	haveDirect := false
+	for ref, cfg := range res.Providers {
 		id := llmproxy.ProviderID(cfg.Provider)
 		switch cfg.Kind {
 		case engine.LLMSelfHosted:
 			// Handled via selfHostedEndpoints.
-		case engine.LLMLocal:
-			if err := localCfg.SetAPIKey(id, cfg.APIKey); err != nil {
+		case engine.LLMDirect:
+			if err := directCfg.SetAPIKey(id, cfg.APIKey); err != nil {
 				return nil, fmt.Errorf("provider %q: %w", ref, err)
 			}
-			haveLocal = true
+			haveDirect = true
 		case engine.LLMBackend:
 			if backendClient == nil {
 				return nil, fmt.Errorf("provider %q: backend routing requested but no backend is configured", ref)
@@ -78,8 +78,8 @@ func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *en
 			return nil, fmt.Errorf("provider %q: unknown provider kind %q", ref, cfg.Kind)
 		}
 	}
-	if haveLocal {
-		providers = append(providers, llmcfg.Build(localCfg)...)
+	if haveDirect {
+		providers = append(providers, llmcfg.Build(directCfg)...)
 	}
 
 	if len(providers) == 0 {
@@ -94,7 +94,7 @@ func buildProviders(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *en
 // also holds ML models (served by an inference component, resolved separately in
 // buildDeployML); those are skipped here by discriminator. A declared model bound
 // to a non-self-hosted provider is a config error.
-func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) ([]selfhosted.ModelEndpoint, error) {
+func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, res *engine.Resources) ([]selfhosted.ModelEndpoint, error) {
 	endpoints := make([]selfhosted.ModelEndpoint, 0, len(wf.Models))
 	claimed := make(map[string]string) // server model id → workflow model id that registered it
 	for _, mu := range wf.Models {
@@ -113,7 +113,7 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, ex
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("model %q: declared but not bound by the resource mapping", m.Id)
 		}
-		cfg, ok := ext.Providers[b.Ref]
+		cfg, ok := res.Providers[b.Ref]
 		if !ok {
 			return nil, fmt.Errorf("model %q: bound to %q but no provider config in externalResources", m.Id, b.Ref)
 		}

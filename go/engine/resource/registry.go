@@ -39,13 +39,16 @@ type Registry struct {
 	serials map[string]SerialDriver
 	cameras map[string]CameraDriver
 	mqtts   map[string]MQTTConnection
+	mls     map[string]MLClient
 }
 
-// NewRegistry opens every resource the engine owns: device families from the
-// manifest, network families from ext (nil = none). On any failure, resources
-// opened so far are closed before returning, so callers never see a
-// partially-initialised Registry.
-func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Registry, error) {
+// NewRegistry opens every resource the engine owns from the one Resources bundle
+// (nil = none): the device families (GPIOs..Cameras) and the network families
+// (MQTTs, ML). LLM providers are not opened here — they are composed in
+// build/llm.go into the single llmproxy client. On any failure, resources opened
+// so far are closed before returning, so callers never see a partially-initialised
+// Registry.
+func NewRegistry(res *engine.Resources) (*Registry, error) {
 	r := &Registry{
 		gpios:   make(map[string]GPIODriver),
 		adcs:    make(map[string]ADCDriver),
@@ -54,8 +57,12 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		serials: make(map[string]SerialDriver),
 		cameras: make(map[string]CameraDriver),
 		mqtts:   make(map[string]MQTTConnection),
+		mls:     make(map[string]MLClient),
 	}
-	for id, cfg := range m.GPIOs {
+	if res == nil {
+		return r, nil
+	}
+	for id, cfg := range res.GPIOs {
 		d, err := OpenGPIO(cfg.Chip)
 		if err != nil {
 			r.CloseAll()
@@ -63,7 +70,7 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.gpios[id] = d
 	}
-	for id, cfg := range m.ADCs {
+	for id, cfg := range res.ADCs {
 		d, err := OpenADC(cfg.Device)
 		if err != nil {
 			r.CloseAll()
@@ -71,7 +78,7 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.adcs[id] = d
 	}
-	for id, cfg := range m.DACs {
+	for id, cfg := range res.DACs {
 		d, err := OpenDAC(cfg.Device)
 		if err != nil {
 			r.CloseAll()
@@ -79,7 +86,7 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.dacs[id] = d
 	}
-	for id, cfg := range m.Serials {
+	for id, cfg := range res.Serials {
 		d, err := OpenSerial(cfg.Port, cfg.Baud)
 		if err != nil {
 			r.CloseAll()
@@ -87,7 +94,7 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.serials[id] = d
 	}
-	for id, cfg := range m.PWMs {
+	for id, cfg := range res.PWMs {
 		d, err := OpenPWM(cfg.Chip)
 		if err != nil {
 			r.CloseAll()
@@ -95,9 +102,7 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.pwms[id] = d
 	}
-	for id := range m.Cameras {
-		// The manifest key is the name the component selects on, so the driver
-		// needs nothing else from cfg — the component owns the capture details.
+	for id := range res.Cameras {
 		d, err := OpenCamera(cameraComponentURL(), id)
 		if err != nil {
 			r.CloseAll()
@@ -105,17 +110,23 @@ func NewRegistry(m *engine.DeviceManifest, ext *engine.ExternalResources) (*Regi
 		}
 		r.cameras[id] = d
 	}
-	if ext != nil {
-		for id, cfg := range ext.MQTTs {
-			t, err := OpenMQTT(cfg.BrokerURL, cfg.ClientID, cfg.Username, cfg.Password, cfg.Will)
-			if err != nil {
-				r.CloseAll()
-				// A broker unreachable at boot may come back (often co-deployed and
-				// still starting); mark retryable so main lets the orchestrator retry.
-				return nil, transient(fmt.Errorf("mqtt %q: %w", id, err))
-			}
-			r.mqtts[id] = t
+	for id, cfg := range res.MQTTs {
+		t, err := OpenMQTT(cfg.BrokerURL, cfg.ClientID, cfg.Username, cfg.Password, cfg.Will)
+		if err != nil {
+			r.CloseAll()
+			// A broker unreachable at boot may come back (often co-deployed and
+			// still starting); mark retryable so main lets the orchestrator retry.
+			return nil, transient(fmt.Errorf("mqtt %q: %w", id, err))
 		}
+		r.mqtts[id] = t
+	}
+	for id, cfg := range res.ML {
+		c, err := OpenML(cfg.URL)
+		if err != nil {
+			r.CloseAll()
+			return nil, fmt.Errorf("ml %q: %w", id, err)
+		}
+		r.mls[id] = c
 	}
 	return r, nil
 }
@@ -130,6 +141,7 @@ func (r *Registry) PWM(id string) (PWMDriver, error)       { return lookup(r.pwm
 func (r *Registry) Serial(id string) (SerialDriver, error) { return lookup(r.serials, "serial", id) }
 func (r *Registry) Camera(id string) (CameraDriver, error) { return lookup(r.cameras, "camera", id) }
 func (r *Registry) MQTT(id string) (MQTTConnection, error) { return lookup(r.mqtts, "mqtt", id) }
+func (r *Registry) ML(id string) (MLClient, error)         { return lookup(r.mls, "ml", id) }
 
 // CloseAll shuts down every resource. Returns the first error encountered;
 // keeps going on failures so no handle leaks.
@@ -142,6 +154,7 @@ func (r *Registry) CloseAll() error {
 	closeFamily(r.serials, "serial", &firstErr)
 	closeFamily(r.cameras, "camera", &firstErr)
 	closeFamily(r.mqtts, "mqtt", &firstErr)
+	closeFamily(r.mls, "ml", &firstErr)
 	return firstErr
 }
 

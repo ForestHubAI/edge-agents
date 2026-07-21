@@ -42,7 +42,7 @@ import { hardwareBindings, cameraBindings, mqttBindings, llmBindings, mlBindings
 
 // The providers the wizard can take a key for come from the model catalog (the
 // snapshot of the engine's llmproxy). Provider ids are the llmproxy ProviderID
-// (capitalized, e.g. "Anthropic") — they flow into `localLlm.provider`.
+// (capitalized, e.g. "Anthropic") — they flow into `directLlm.provider`.
 export { PROVIDER_IDS, providerFlag, providerFromFlag } from "../../src/catalog";
 
 export const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
@@ -162,7 +162,7 @@ export function unknownIds(req: DeployRequirements, p: Partial<DeployConfig>): s
 // secrets (provider keys, web search) that never enter the spec.
 const deployConfigSchema = z.strictObject({
   // provider id (catalog / llmproxy ProviderID) -> API key. Each becomes a
-  // `localLlm` provider whose key rides in secrets.json (never the spec, never .env).
+  // `directLlm` provider whose key rides in secrets.json (never the spec, never .env).
   llmKeys: z.record(z.string(), z.string()),
   outputDir: z.string(),
   force: z.boolean(),

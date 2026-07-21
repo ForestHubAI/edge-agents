@@ -67,24 +67,29 @@ type Event struct {
 type ResourceMapping map[string]ResourceAddress
 
 // ResourceAddress is how one workflow resource binds to the environment. Ref is
-// the shared platform resource it points at (driver instance id in DeviceManifest,
-// or external resource id in ExternalResources). The optional sub-address fields
-// selects one served unit within that resource and is kind-specific.
+// the shared platform resource it points at (a key in Resources). The optional
+// sub-address fields select one served unit within that resource and are
+// kind-specific.
 type ResourceAddress struct {
 	Ref   string  `json:"ref"`
 	Index *int    `json:"index,omitempty"`
 	Model *string `json:"model,omitempty"`
 }
 
-// DeviceManifest is the hardware the engine opens drivers for, keyed by
-// driver instance ID. JSON tags match the fh-backend wire shape.
-type DeviceManifest struct {
-	GPIOs   map[string]GPIOConfig   `json:"gpios,omitempty"`
-	ADCs    map[string]ADCConfig    `json:"adcs,omitempty"`
-	DACs    map[string]DACConfig    `json:"dacs,omitempty"`
-	Serials map[string]SerialConfig `json:"serials,omitempty"`
-	PWMs    map[string]PWMConfig    `json:"pwms,omitempty"`
-	Cameras map[string]CameraSource `json:"cameras,omitempty"`
+// Resources is the frozen set of platform resources the engine materializes 1:1
+// into live code at boot, keyed by platform resource id (ref). It unifies
+// device-owned driver configs (GPIOs..Cameras) and environment-supplied endpoint
+// configs (MQTTs/Providers/ML) into one bundle.
+type Resources struct {
+	GPIOs     map[string]GPIOConfig
+	ADCs      map[string]ADCConfig
+	DACs      map[string]DACConfig
+	Serials   map[string]SerialConfig
+	PWMs      map[string]PWMConfig
+	Cameras   map[string]CameraSource
+	MQTTs     map[string]MQTTBroker
+	Providers map[string]LLMProvider
+	ML        map[string]MLProvider
 }
 
 type GPIOConfig struct {
@@ -130,25 +135,11 @@ type CameraSource struct {
 	Kind CameraKind
 }
 
-// ExternalResources holds the resolved, boot-delivered configs for a workflow's
-// non-device external resources, keyed by the platform resource id the
-// ResourceMapping points at. The engine builds transports from MQTTs, LLM
-// providers from Providers (the connection for each declared custom/self-hosted
-// model), and inference clients from ML (the component endpoint each declared ML
-// model is served from). Cameras are NOT here: a camera is device-owned hardware,
-// so it lives in the DeviceManifest and resolves through the driver registry like
-// a gpiochip.
-type ExternalResources struct {
-	MQTTs     map[string]MQTTConfig
-	Providers map[string]LLMConfig
-	ML        map[string]MLConfig
-}
-
-// MLConfig is the resolved connection to an ML component the engine doesn't ship.
+// MLProvider is the resolved connection to an ML component the engine doesn't ship.
 // The declared workflow model supplies the id; this supplies how to reach the
 // component. The name the component selects on is the binding's Model sub-address
 // (ResourceAddress.Model), sent per request, so many models may share one endpoint.
-type MLConfig struct {
+type MLProvider struct {
 	URL string
 }
 
@@ -157,8 +148,9 @@ type MLConfig struct {
 type LLMProviderKind string
 
 const (
-	// LLMLocal: a built-in catalog adapter (Provider) authenticated with APIKey.
-	LLMLocal LLMProviderKind = "localLlm"
+	// LLMDirect: a built-in catalog adapter (Provider) reached straight at the
+	// provider, authenticated with APIKey.
+	LLMDirect LLMProviderKind = "directLlm"
 	// LLMBackend: the catalog adapter (Provider) proxied through the backend, no key.
 	LLMBackend LLMProviderKind = "backendLlm"
 	// LLMSelfHosted: a self-hosted endpoint (URL, optional APIKey bearer) the
@@ -166,18 +158,18 @@ const (
 	LLMSelfHosted LLMProviderKind = "selfhostedLlm"
 )
 
-// LLMConfig is one resolved provider instance the engine registers into
+// LLMProvider is one resolved provider instance the engine registers into
 // its llmproxy. Kind selects the transport; the other fields are kind-specific:
-// localLlm/backendLlm carry Provider (the catalog adapter id); localLlm and
+// directLlm/backendLlm carry Provider (the catalog adapter id); directLlm and
 // selfhostedLlm carry APIKey; selfhostedLlm carries URL.
-type LLMConfig struct {
+type LLMProvider struct {
 	Kind     LLMProviderKind
 	Provider string
 	URL      string
 	APIKey   string
 }
 
-type MQTTConfig struct {
+type MQTTBroker struct {
 	BrokerURL       string    `json:"brokerUrl"`
 	ClientID        string    `json:"clientId,omitempty"`
 	Username        string    `json:"username,omitempty"`

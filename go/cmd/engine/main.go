@@ -49,17 +49,16 @@ func main() {
 		component.BootFail(errors.New("engine config has no workflow"), "validating engine config")
 	}
 
-	// Open every resource main owns for the engine's lifetime as one registry:
-	// device families from the manifest, MQTT from the external resources
-	// (credentials resolved from the mounted secret store first). Injected into
-	// the builder, borrowed by the workflow's channels, closed by main at shutdown.
-	manifest := engine.DeviceManifestToDomain(cfg.Manifest)
+	// Open every resource main owns for the engine's lifetime as one registry,
+	// from the single frozen Resources bundle (device drivers + MQTT/ML endpoints;
+	// credentials resolved from the mounted secret store first). Injected into the
+	// builder, borrowed by the workflow's channels, closed by main at shutdown.
 	secrets, err := component.ReadSecrets()
 	if err != nil {
 		component.BootFail(err, "loading engine secrets")
 	}
-	ext := engine.ExternalResourcesToDomain(cfg.ExternalResources, secrets)
-	resources, err := resource.NewRegistry(&manifest, ext)
+	res := engine.ResourcesToDomain(cfg.Resources, secrets)
+	resources, err := resource.NewRegistry(res)
 	if err != nil {
 		if resource.IsTransient(err) {
 			// A peer not up yet (e.g. a co-deployed broker still starting) may
@@ -127,7 +126,7 @@ func main() {
 
 	// Build the runner.
 	rm := engine.ResourceMappingToDomain(cfg.Mapping)
-	runner, err := builder.Build(ctx, &cfg.Workflow, rm, ext)
+	runner, err := builder.Build(ctx, &cfg.Workflow, rm, res)
 	if err != nil {
 		component.BootFail(err, "building workflow runner")
 	}

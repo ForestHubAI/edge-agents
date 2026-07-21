@@ -20,6 +20,7 @@ import (
 // stubInferClient is a fake engine.MLClient that records its input and
 // returns a canned result/error.
 type stubInferClient struct {
+	gotModel   string
 	gotTensors map[string]any
 	gotBinary  []byte
 	result     map[string]any
@@ -35,12 +36,14 @@ func (s *stubInferClient) infer() (engine.InferenceResult, error) {
 	return engine.InferenceResult{Task: task, Payload: s.result}, s.err
 }
 
-func (s *stubInferClient) InferTensors(_ context.Context, tensors map[string]any) (engine.InferenceResult, error) {
+func (s *stubInferClient) TensorInference(_ context.Context, model string, tensors map[string]any) (engine.InferenceResult, error) {
+	s.gotModel = model
 	s.gotTensors = tensors
 	return s.infer()
 }
 
-func (s *stubInferClient) InferBinary(_ context.Context, data []byte) (engine.InferenceResult, error) {
+func (s *stubInferClient) BinaryInference(_ context.Context, model string, data []byte) (engine.InferenceResult, error) {
+	s.gotModel = model
 	s.gotBinary = data
 	return s.infer()
 }
@@ -68,7 +71,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.String, expr.StringVal(`{"x":1}`))
 
 		client := &stubInferClient{result: map[string]any{"ok": true}}
-		n := NewMLInference("ml1", inputRef(), emit, client)
+		n := NewMLInference("ml1", inputRef(), emit, client, "yolov8n")
 
 		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
@@ -91,7 +94,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.Image, expr.ImageVal(frame))
 
 		client := &stubInferClient{result: map[string]any{"ok": true}}
-		n := NewMLInference("mlImg", inputRef(), emit, client)
+		n := NewMLInference("mlImg", inputRef(), emit, client, "yolov8n")
 
 		next, err := n.Execute(context.Background(), s)
 		require.NoError(t, err)
@@ -112,7 +115,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.Image, expr.ImageVal(nil))
 
 		client := &stubInferClient{result: map[string]any{"ok": true}}
-		n := NewMLInference("mlEmpty", inputRef(), emit, client)
+		n := NewMLInference("mlEmpty", inputRef(), emit, client, "yolov8n")
 
 		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
@@ -124,7 +127,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.String, expr.StringVal(`{"x":1}`))
 
 		client := &stubInferClient{err: errors.New("component returned 404: no model")}
-		n := NewMLInference("mlErr", inputRef(), emit, client)
+		n := NewMLInference("mlErr", inputRef(), emit, client, "yolov8n")
 
 		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
@@ -136,7 +139,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.Int, expr.IntVal(42))
 
 		client := &stubInferClient{result: map[string]any{}}
-		n := NewMLInference("mlType", inputRef(), emit, client)
+		n := NewMLInference("mlType", inputRef(), emit, client, "yolov8n")
 
 		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
@@ -148,7 +151,7 @@ func TestMLInference_Execute(t *testing.T) {
 		s := scopeWithInput(t, workflowapi.String, expr.StringVal("not json"))
 
 		client := &stubInferClient{result: map[string]any{}}
-		n := NewMLInference("mlJSON", inputRef(), emit, client)
+		n := NewMLInference("mlJSON", inputRef(), emit, client, "yolov8n")
 
 		_, err := n.Execute(context.Background(), s)
 		require.Error(t, err)
@@ -160,12 +163,12 @@ func TestMLInference_Execute(t *testing.T) {
 
 func TestMLInference_Outputs(t *testing.T) {
 	t.Run("emit binding materializes the string result slot", func(t *testing.T) {
-		n := NewMLInference("ml1", inputRef(), workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}, &stubInferClient{})
+		n := NewMLInference("ml1", inputRef(), workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeEmit}, &stubInferClient{}, "yolov8n")
 		assert.Equal(t, map[string]workflowapi.DataType{mlInferenceOutID: workflowapi.String}, n.Outputs())
 	})
 
 	t.Run("assign binding materializes no slot", func(t *testing.T) {
-		n := NewMLInference("ml1", inputRef(), workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeAssign}, &stubInferClient{})
+		n := NewMLInference("ml1", inputRef(), workflowapi.OutputBinding{Active: true, Mode: workflowapi.OutputBindingModeAssign}, &stubInferClient{}, "yolov8n")
 		assert.Empty(t, n.Outputs())
 	})
 }

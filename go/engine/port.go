@@ -41,12 +41,14 @@ type Retriever interface {
 	QueryRAG(ctx context.Context, params RAGQueryParams) ([]RAGQueryResult, error)
 }
 
-// MLClient is the external service for ML model inference. Both methods hit the
-// same component endpoint; they differ only in how the input is encoded — named
-// numeric tensors, or an opaque binary blob (e.g. an encoded image).
+// MLClient is the external service for ML model inference: one client per ML
+// component (its MLProvider connection), serving every model the component hosts.
+// `model` selects which loaded model runs, per request. The two methods hit the
+// same component; they differ only in how the input is encoded — named numeric
+// tensors, or an opaque binary blob (e.g. an encoded image).
 type MLClient interface {
-	InferTensors(ctx context.Context, tensors map[string]any) (InferenceResult, error)
-	InferBinary(ctx context.Context, data []byte) (InferenceResult, error)
+	TensorInference(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error)
+	BinaryInference(ctx context.Context, model string, data []byte) (InferenceResult, error)
 }
 
 // InferenceResult is one model's task-shaped output. Task names the shape Payload

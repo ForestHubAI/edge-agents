@@ -63,7 +63,7 @@ export function ragBindings(req: DeployRequirements): BoundOf<"rag">[] {
 
 // One catalog provider a workflow's Agent nodes pull models from (resolved against
 // the static catalog, not workflow.models). Each becomes one ExternalResources entry
-// whose routing — local key vs backend — is a deploy input.
+// whose routing — direct key vs backend — is a deploy input.
 export interface CatalogProvider {
   id: string;
 }

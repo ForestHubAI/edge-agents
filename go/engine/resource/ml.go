@@ -21,51 +21,59 @@ import (
 // unreachable or wedged rather than blocking the runner indefinitely.
 const mlClientTimeout = 120 * time.Second
 
-// mlClient is the HTTP adapter for one declared ML model: it implements
-// engine.MLClient over the generated component client, binding the model name so
-// callers pass only the input. Unlike the Registry families it is not opened at
-// boot and holds no connection — one component fronts a repository of models,
-// reached per request, so many mlClients may share a url and differ only by name.
-type mlClient struct {
-	client    *mlapi.ClientWithResponses
-	modelName string
+// MLClient is the registry-held inference client for one ML component (1:1 with
+// its MLProvider connection). It is the engine.MLClient port plus the Resource
+// lifecycle: one client serves every model the component hosts, the model chosen
+// per request, so many workflow models share one client.
+type MLClient interface {
+	Resource
+	engine.MLClient
 }
 
-var _ engine.MLClient = (*mlClient)(nil)
+// mlClient implements MLClient over the generated component client. It holds no
+// per-model state and no connection — the component is reached per request.
+type mlClient struct {
+	client *mlapi.ClientWithResponses
+}
 
-// OpenML builds an inference client for one model served at the component url.
-// No network call is made: the component is reached per request and may still be
-// starting when the engine boots. The model name is what the component selects on
-// (one component serves many models).
-func OpenML(url, modelName string) (engine.MLClient, error) {
+var _ MLClient = (*mlClient)(nil)
+
+// OpenML builds the inference client for one ML component at url. No network call
+// is made: the component is reached per request and may still be starting when
+// the engine boots.
+func OpenML(url string) (MLClient, error) {
 	client, err := mlapi.NewClientWithResponses(url, mlapi.WithHTTPClient(&http.Client{Timeout: mlClientTimeout}))
 	if err != nil {
 		return nil, fmt.Errorf("building inference client: %w", err)
 	}
-	return &mlClient{client: client, modelName: modelName}, nil
+	return &mlClient{client: client}, nil
 }
 
-// InferTensors posts already-numeric named tensors to the model's /infer/tensors
+// Close releases nothing: the client owns no connection, only an idle HTTP
+// client, and the component's lifetime is the container's.
+func (e *mlClient) Close() error { return nil }
+
+// TensorInference posts already-numeric named tensors to the model's /infer/tensors
 // endpoint as a JSON body and returns the model's task-shaped result. The engine
 // is a conduit for the tensors object the workflow produced — it forwards the JSON
 // as-is and lets the component validate the shape (a mismatch is a 422).
-func (e *mlClient) InferTensors(ctx context.Context, tensors map[string]any) (engine.InferenceResult, error) {
+func (e *mlClient) TensorInference(ctx context.Context, model string, tensors map[string]any) (engine.InferenceResult, error) {
 	body, err := json.Marshal(tensors)
 	if err != nil {
 		return engine.InferenceResult{}, fmt.Errorf("encoding tensors: %w", err)
 	}
-	resp, err := e.client.InferTensorsWithBodyWithResponse(ctx, e.modelName, "application/json", bytes.NewReader(body))
+	resp, err := e.client.InferTensorsWithBodyWithResponse(ctx, model, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return engine.InferenceResult{}, fmt.Errorf("calling component: %w", err)
 	}
 	return mapInferResponse(resp.StatusCode(), resp.Status(), resp.Body, resp.JSON200)
 }
 
-// InferBinary posts an opaque encoded blob (e.g. an image) to the model's
+// BinaryInference posts an opaque encoded blob (e.g. an image) to the model's
 // /infer/binary endpoint as the raw request body and returns the model's
 // task-shaped result.
-func (e *mlClient) InferBinary(ctx context.Context, data []byte) (engine.InferenceResult, error) {
-	resp, err := e.client.InferBinaryWithBodyWithResponse(ctx, e.modelName, "application/octet-stream", bytes.NewReader(data))
+func (e *mlClient) BinaryInference(ctx context.Context, model string, data []byte) (engine.InferenceResult, error) {
+	resp, err := e.client.InferBinaryWithBodyWithResponse(ctx, model, "application/octet-stream", bytes.NewReader(data))
 	if err != nil {
 		return engine.InferenceResult{}, fmt.Errorf("calling component: %w", err)
 	}

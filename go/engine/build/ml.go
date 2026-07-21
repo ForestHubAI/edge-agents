@@ -12,14 +12,22 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/engine/resource"
 )
 
-// buildDeployML resolves a workflow's declared ML models into per-model inference
-// clients. wf.Models also holds LLM models (resolved separately in
-// selfHostedEndpoints); those are skipped here by discriminator. An unbound or
-// unconfigured ML model is a deploy error. Many models may resolve to the same
-// component url — expected, since one component serves a repository of models and
-// the model name is sent per request.
-func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *engine.ExternalResources) (map[string]engine.MLClient, error) {
-	endpoints := make(map[string]engine.MLClient)
+// mlBinding pairs the shared component client (one per MLProvider, held in the
+// registry) with the model name this workflow model resolves to on that
+// component. The node holds both and sends the name per request.
+type mlBinding struct {
+	client engine.MLClient
+	model  string
+}
+
+// buildDeployML resolves a workflow's declared ML models into per-model bindings.
+// wf.Models also holds LLM models (resolved separately in selfHostedEndpoints);
+// those are skipped here by discriminator. An unbound model, an unregistered ref
+// (no MLProvider in the deploy externalResources), or a missing model sub-address
+// is a deploy error. Many models may resolve to the same client — expected, since
+// one component serves a repository of models, selected per request.
+func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, resources *resource.Registry) (map[string]mlBinding, error) {
+	bindings := make(map[string]mlBinding)
 	for _, mu := range wf.Models {
 		disc, err := mu.Discriminator()
 		if err != nil {
@@ -36,23 +44,18 @@ func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, ext *eng
 		if !ok || b.Ref == "" {
 			return nil, fmt.Errorf("model %q: declared but not bound by the deployment mapping", m.Id)
 		}
-		var cfg engine.MLConfig
-		if ext != nil {
-			cfg, ok = ext.ML[b.Ref]
-		}
-		if !ok {
-			return nil, fmt.Errorf("model %q: bound to %q but no ml inference config in deploy externalResources", m.Id, b.Ref)
+		// One client per component, looked up by the binding's ref; a ref with no
+		// MLProvider in externalResources is unregistered here.
+		client, err := resources.ML(b.Ref)
+		if err != nil {
+			return nil, fmt.Errorf("model %q: %w", m.Id, err)
 		}
 		// The component selects on the address's model sub-address, which the
 		// mapping must supply (one component fronts a repository of models).
 		if b.Model == nil || *b.Model == "" {
 			return nil, fmt.Errorf("model %q: mapped to %q but the address carries no model name for the component to select on", m.Id, b.Ref)
 		}
-		ep, err := resource.OpenML(cfg.URL, *b.Model)
-		if err != nil {
-			return nil, fmt.Errorf("model %q: %w", m.Id, err)
-		}
-		endpoints[m.Id] = ep
+		bindings[m.Id] = mlBinding{client: client, model: *b.Model}
 	}
-	return endpoints, nil
+	return bindings, nil
 }

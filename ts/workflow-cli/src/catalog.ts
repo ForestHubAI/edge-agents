@@ -7,7 +7,7 @@
 // Kept here because the OSS deploy CLI is headless/offline and has no running
 // llmproxy to query, yet must resolve referenced model ids to their provider to
 // derive which API keys a workflow needs. `provider` values are the llmproxy
-// ProviderID (capitalized) — they flow verbatim into `localLlm.provider`, so the
+// ProviderID (capitalized) — they flow verbatim into `directLlm.provider`, so the
 // engine matches them against its adapter ids.
 //
 // KEEP IN SYNC with the Go `AvailableModels` vars. Drift is caught at deploy by

@@ -422,8 +422,8 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
   // and throws on a gap — turn that into a clean exit rather than a stack trace.
   let built;
   try {
-    // OSS path: every catalog provider runs locally with the operator's key. The
-    // key rides in secrets.json (resolver → resourceSecrets), never .env. Backend
+    // OSS path: every catalog provider is reached directly with the operator's key.
+    // The key rides in secrets.json (resolver → resourceSecrets), never .env. Backend
     // routing (backendLlm) is a paid-path concern and is never emitted here.
     const inputs: DeploymentInputs = {
       hardware: cfg.hardware,
@@ -431,7 +431,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
       llmModels: cfg.llmModels,
       mlModels: cfg.mlModels,
       cameras: cfg.cameras,
-      providers: Object.fromEntries(Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "local" as const, apiKey }])),
+      providers: Object.fromEntries(Object.entries(cfg.llmKeys).map(([id, apiKey]) => [id, { routing: "direct" as const, apiKey }])),
     };
     built = buildDeploymentSpec(
       domain,

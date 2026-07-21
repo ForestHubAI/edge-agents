@@ -81,11 +81,11 @@ export type CameraBinding =
   | { kind: "raw"; pipeline: string; warmupFrames?: number; setup?: string[]; devices?: string[] }
   | { kind: "debug" };
 
-// One catalog provider's routing, keyed by provider id. `local` = the engine's
-// built-in adapter serves it with a deploy-delivered API key (pulled into
-// secrets.json, keyed by the resolved resource ref); `backend` = the engine
-// proxies this provider through the backend and holds no key.
-export type ProviderBinding = { routing: "local"; apiKey?: string } | { routing: "backend" };
+// One catalog provider's routing, keyed by provider id. `direct` = the engine's
+// built-in adapter reaches the provider straight, with a deploy-delivered API key
+// (pulled into secrets.json, keyed by the resolved resource ref); `backend` = the
+// engine proxies this provider through the backend and holds no key.
+export type ProviderBinding = { routing: "direct"; apiKey?: string } | { routing: "backend" };
 
 // The complete set of bindings a deploy supplies, keyed by workflow logical id
 // (channel id / model id / provider id). Empty for any resource kind the

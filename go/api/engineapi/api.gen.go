@@ -4,27 +4,68 @@
 package engineapi
 
 import (
-	"encoding/json"
-	"errors"
-
 	externalRef0 "github.com/ForestHubAI/edge-agents/go/api/cameraapi"
 	externalRef1 "github.com/ForestHubAI/edge-agents/go/api/workflowapi"
-	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for LLMConfigType.
+// Defines values for ADCConfigType.
 const (
-	BackendLlm    LLMConfigType = "backendLlm"
-	LocalLlm      LLMConfigType = "localLlm"
-	SelfhostedLlm LLMConfigType = "selfhostedLlm"
+	Adc ADCConfigType = "adc"
 )
 
-// Valid indicates whether the value is a known member of the LLMConfigType enum.
-func (e LLMConfigType) Valid() bool {
+// Valid indicates whether the value is a known member of the ADCConfigType enum.
+func (e ADCConfigType) Valid() bool {
+	switch e {
+	case Adc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DACConfigType.
+const (
+	Dac DACConfigType = "dac"
+)
+
+// Valid indicates whether the value is a known member of the DACConfigType enum.
+func (e DACConfigType) Valid() bool {
+	switch e {
+	case Dac:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GPIOConfigType.
+const (
+	Gpio GPIOConfigType = "gpio"
+)
+
+// Valid indicates whether the value is a known member of the GPIOConfigType enum.
+func (e GPIOConfigType) Valid() bool {
+	switch e {
+	case Gpio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LLMProviderType.
+const (
+	BackendLlm    LLMProviderType = "backendLlm"
+	DirectLlm     LLMProviderType = "directLlm"
+	SelfhostedLlm LLMProviderType = "selfhostedLlm"
+)
+
+// Valid indicates whether the value is a known member of the LLMProviderType enum.
+func (e LLMProviderType) Valid() bool {
 	switch e {
 	case BackendLlm:
 		return true
-	case LocalLlm:
+	case DirectLlm:
 		return true
 	case SelfhostedLlm:
 		return true
@@ -33,13 +74,13 @@ func (e LLMConfigType) Valid() bool {
 	}
 }
 
-// Defines values for MLConfigType.
+// Defines values for MLProviderType.
 const (
-	Ml MLConfigType = "ml"
+	Ml MLProviderType = "ml"
 )
 
-// Valid indicates whether the value is a known member of the MLConfigType enum.
-func (e MLConfigType) Valid() bool {
+// Valid indicates whether the value is a known member of the MLProviderType enum.
+func (e MLProviderType) Valid() bool {
 	switch e {
 	case Ml:
 		return true
@@ -48,15 +89,45 @@ func (e MLConfigType) Valid() bool {
 	}
 }
 
-// Defines values for MQTTConfigType.
+// Defines values for MQTTBrokerType.
 const (
-	Mqtt MQTTConfigType = "mqtt"
+	Mqtt MQTTBrokerType = "mqtt"
 )
 
-// Valid indicates whether the value is a known member of the MQTTConfigType enum.
-func (e MQTTConfigType) Valid() bool {
+// Valid indicates whether the value is a known member of the MQTTBrokerType enum.
+func (e MQTTBrokerType) Valid() bool {
 	switch e {
 	case Mqtt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PWMConfigType.
+const (
+	Pwm PWMConfigType = "pwm"
+)
+
+// Valid indicates whether the value is a known member of the PWMConfigType enum.
+func (e PWMConfigType) Valid() bool {
+	switch e {
+	case Pwm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SerialConfigType.
+const (
+	Serial SerialConfigType = "serial"
+)
+
+// Valid indicates whether the value is a known member of the SerialConfigType enum.
+func (e SerialConfigType) Valid() bool {
+	switch e {
+	case Serial:
 		return true
 	default:
 		return false
@@ -66,80 +137,71 @@ func (e MQTTConfigType) Valid() bool {
 // ADCConfig defines model for ADCConfig.
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
-	Device string `json:"device"`
+	Device string        `json:"device"`
+	Type   ADCConfigType `json:"type"`
 }
+
+// ADCConfigType defines model for ADCConfig.Type.
+type ADCConfigType string
 
 // DACConfig defines model for DACConfig.
 type DACConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
-	Device string `json:"device"`
+	Device string        `json:"device"`
+	Type   DACConfigType `json:"type"`
 }
 
-// DeviceManifest Hardware resources available on the device, keyed by driver instance ID.
-type DeviceManifest struct {
-	Adcs    *map[string]ADCConfig                 `json:"adcs,omitempty"`
-	Cameras *map[string]externalRef0.CameraSource `json:"cameras,omitempty"`
-	Dacs    *map[string]DACConfig                 `json:"dacs,omitempty"`
-	Gpios   *map[string]GPIOConfig                `json:"gpios,omitempty"`
-	Pwms    *map[string]PWMConfig                 `json:"pwms,omitempty"`
-	Serials *map[string]SerialConfig              `json:"serials,omitempty"`
-}
+// DACConfigType defines model for DACConfig.Type.
+type DACConfigType string
 
 // EngineConfig The engine's complete boot input, loaded once at startup.
 type EngineConfig struct {
-	// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id.
-	ExternalResources *ExternalResources `json:"externalResources,omitempty"`
-
-	// Manifest Hardware resources available on the device, keyed by driver instance ID.
-	Manifest *DeviceManifest `json:"manifest,omitempty"`
-
 	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 	Mapping *ResourceMapping `json:"mapping,omitempty"`
+
+	// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by platform resource id (`ref`). One flat pool over both device-owned drivers (gpio/adc/dac/pwm/serial/camera) and environment-supplied endpoints (mqtt/llm/ml) — the engine opens exactly what is listed here, and the ResourceMapping binds workflow ids to these refs. The upstream renderer authors this as the used subset (only refs the mapping reaches), so it is not a device inventory; the full device inventory lives with the backend.
+	Resources *Resources `json:"resources,omitempty"`
 
 	// Workflow The deployment format of a workflow project.
 	Workflow externalRef1.Workflow `json:"workflow"`
 }
 
-// ExternalResourceConfig Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf.
-type ExternalResourceConfig struct {
-	union json.RawMessage
-}
-
-// ExternalResources Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id.
-type ExternalResources map[string]ExternalResourceConfig
-
 // GPIOConfig defines model for GPIOConfig.
 type GPIOConfig struct {
 	// Chip cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0"
-	Chip string `json:"chip"`
+	Chip string         `json:"chip"`
+	Type GPIOConfigType `json:"type"`
 }
 
-// LLMConfig One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. localLlm: a built-in catalog adapter authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (localLlm xor backendLlm) — no catch-all, no shadowing.
-type LLMConfig struct {
-	// Provider localLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai).
-	Provider *string       `json:"provider,omitempty"`
-	Type     LLMConfigType `json:"type"`
+// GPIOConfigType defines model for GPIOConfig.Type.
+type GPIOConfigType string
+
+// LLMProvider One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. directLlm: a built-in catalog adapter reached straight at the provider, authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (directLlm xor backendLlm) — no catch-all, no shadowing.
+type LLMProvider struct {
+	// Provider directLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai).
+	Provider *string         `json:"provider,omitempty"`
+	Type     LLMProviderType `json:"type"`
 
 	// Url selfhostedLlm only — base URL of the inference endpoint (http:// or https://).
 	Url *string `json:"url,omitempty"`
 }
 
-// LLMConfigType defines model for LLMConfig.Type.
-type LLMConfigType string
+// LLMProviderType defines model for LLMProvider.Type.
+type LLMProviderType string
 
-// MLConfig Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
-type MLConfig struct {
-	Type MLConfigType `json:"type"`
+// MLProvider Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
+type MLProvider struct {
+	Type MLProviderType `json:"type"`
 
 	// Url Base URL of the ML component (http:// or https://).
 	Url string `json:"url"`
 }
 
-// MLConfigType defines model for MLConfig.Type.
-type MLConfigType string
+// MLProviderType defines model for MLProvider.Type.
+type MLProviderType string
 
-// MQTTConfig Resolved connection metadata for an MQTT broker.
-type MQTTConfig struct {
+// MQTTBroker Resolved connection metadata for an MQTT broker.
+type MQTTBroker struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
 
@@ -148,13 +210,13 @@ type MQTTConfig struct {
 
 	// SubscribePrefix Topic prefix for workflow-level subscribe filters ({networkId}/+/).
 	SubscribePrefix *string        `json:"subscribePrefix,omitempty"`
-	Type            MQTTConfigType `json:"type"`
+	Type            MQTTBrokerType `json:"type"`
 	Username        *string        `json:"username,omitempty"`
 	Will            *MQTTWill      `json:"will,omitempty"`
 }
 
-// MQTTConfigType defines model for MQTTConfig.Type.
-type MQTTConfigType string
+// MQTTBrokerType defines model for MQTTBroker.Type.
+type MQTTBrokerType string
 
 // MQTTWill defines model for MQTTWill.
 type MQTTWill struct {
@@ -169,8 +231,12 @@ type MQTTWill struct {
 // PWMConfig defines model for PWMConfig.
 type PWMConfig struct {
 	// Chip sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
-	Chip string `json:"chip"`
+	Chip string        `json:"chip"`
+	Type PWMConfigType `json:"type"`
 }
+
+// PWMConfigType defines model for PWMConfig.Type.
+type PWMConfigType string
 
 // RagQueryRequest defines model for RagQueryRequest.
 type RagQueryRequest struct {
@@ -200,12 +266,25 @@ type ResourceAddress struct {
 	// Model Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 	Model *string `json:"model,omitempty"`
 
-	// Ref Shared platform resource id this binds to.
+	// Ref Shared platform resource id this binds to (a key in Resources).
 	Ref string `json:"ref"`
 }
 
 // ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 type ResourceMapping map[string]ResourceAddress
+
+// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by platform resource id (`ref`). One flat pool over both device-owned drivers (gpio/adc/dac/pwm/serial/camera) and environment-supplied endpoints (mqtt/llm/ml) — the engine opens exactly what is listed here, and the ResourceMapping binds workflow ids to these refs. The upstream renderer authors this as the used subset (only refs the mapping reaches), so it is not a device inventory; the full device inventory lives with the backend.
+type Resources struct {
+	Adcs         *map[string]ADCConfig                 `json:"adcs,omitempty"`
+	Cameras      *map[string]externalRef0.CameraSource `json:"cameras,omitempty"`
+	Dacs         *map[string]DACConfig                 `json:"dacs,omitempty"`
+	Gpios        *map[string]GPIOConfig                `json:"gpios,omitempty"`
+	LlmProviders *map[string]LLMProvider               `json:"llmProviders,omitempty"`
+	MlProviders  *map[string]MLProvider                `json:"mlProviders,omitempty"`
+	MqttBrokers  *map[string]MQTTBroker                `json:"mqttBrokers,omitempty"`
+	Pwms         *map[string]PWMConfig                 `json:"pwms,omitempty"`
+	Serials      *map[string]SerialConfig              `json:"serials,omitempty"`
+}
 
 // SerialConfig defines model for SerialConfig.
 type SerialConfig struct {
@@ -213,122 +292,9 @@ type SerialConfig struct {
 	Baud *int `json:"baud,omitempty"`
 
 	// Device Serial device path, e.g. "/dev/ttyUSB0" or "COM3"
-	Device string `json:"device"`
+	Device string           `json:"device"`
+	Type   SerialConfigType `json:"type"`
 }
 
-// AsMQTTConfig returns the union data inside the ExternalResourceConfig as a MQTTConfig
-func (t ExternalResourceConfig) AsMQTTConfig() (MQTTConfig, error) {
-	var body MQTTConfig
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMQTTConfig overwrites any union data inside the ExternalResourceConfig as the provided MQTTConfig
-func (t *ExternalResourceConfig) FromMQTTConfig(v MQTTConfig) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMQTTConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MQTTConfig
-func (t *ExternalResourceConfig) MergeMQTTConfig(v MQTTConfig) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsLLMConfig returns the union data inside the ExternalResourceConfig as a LLMConfig
-func (t ExternalResourceConfig) AsLLMConfig() (LLMConfig, error) {
-	var body LLMConfig
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromLLMConfig overwrites any union data inside the ExternalResourceConfig as the provided LLMConfig
-func (t *ExternalResourceConfig) FromLLMConfig(v LLMConfig) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeLLMConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided LLMConfig
-func (t *ExternalResourceConfig) MergeLLMConfig(v LLMConfig) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsMLConfig returns the union data inside the ExternalResourceConfig as a MLConfig
-func (t ExternalResourceConfig) AsMLConfig() (MLConfig, error) {
-	var body MLConfig
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromMLConfig overwrites any union data inside the ExternalResourceConfig as the provided MLConfig
-func (t *ExternalResourceConfig) FromMLConfig(v MLConfig) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeMLConfig performs a merge with any union data inside the ExternalResourceConfig, using the provided MLConfig
-func (t *ExternalResourceConfig) MergeMLConfig(v MLConfig) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ExternalResourceConfig) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"type"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t ExternalResourceConfig) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "backendLlm":
-		return t.AsLLMConfig()
-	case "localLlm":
-		return t.AsLLMConfig()
-	case "ml":
-		return t.AsMLConfig()
-	case "mqtt":
-		return t.AsMQTTConfig()
-	case "selfhostedLlm":
-		return t.AsLLMConfig()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t ExternalResourceConfig) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *ExternalResourceConfig) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
+// SerialConfigType defines model for SerialConfig.Type.
+type SerialConfigType string

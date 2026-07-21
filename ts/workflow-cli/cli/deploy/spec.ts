@@ -415,8 +415,8 @@ export function assertDeployable(req: DeployRequirements, inputs: DeploymentInpu
   }
   for (const p of req.catalogProviders) {
     const b = inputs.providers?.[p.id];
-    if (!b) missing.push(`provider "${p.id}": routing (local or backend)`);
-    else if (b.routing === "local" && !b.apiKey) missing.push(`provider "${p.id}": API key`);
+    if (!b) missing.push(`provider "${p.id}": routing (direct or backend)`);
+    else if (b.routing === "direct" && !b.apiKey) missing.push(`provider "${p.id}": API key`);
   }
   // A referenced catalog model absent from the catalog can't be routed — the
   // engine would have no provider for it. Refuse rather than emit a dead spec.
@@ -592,8 +592,8 @@ export function buildDeploymentSpec(
 
   // Catalog providers: one provider instance per referenced provider — NO mapping.
   // The engine registers all of these into its single llmproxy, which routes each
-  // catalog model by id. Each provider is served by exactly one instance (local
-  // xor backend), so there's no overlap and no catch-all. `localLlm` carries the
+  // catalog model by id. Each provider is served by exactly one instance (direct
+  // xor backend), so there's no overlap and no catch-all. `directLlm` carries the
   // adapter id + a deploy-delivered key (secret by ref); `backendLlm` carries the
   // adapter id and no key — its models are proxied to the backend. Unresolved refs
   // are already rejected by assertDeployable.
@@ -601,8 +601,8 @@ export function buildDeploymentSpec(
     const b = inputs.providers?.[p.id];
     if (!b) throw new Error(`unbound catalog provider ${p.id}`); // unreachable after assertDeployable
     const ref = refs.alloc(`provider:${p.id}`, `provider-${p.id}`);
-    if (b.routing === "local") {
-      externalResources[ref] = { type: "localLlm", provider: p.id };
+    if (b.routing === "direct") {
+      externalResources[ref] = { type: "directLlm", provider: p.id };
       if (b.apiKey) resourceSecrets[ref] = b.apiKey;
     } else {
       externalResources[ref] = { type: "backendLlm", provider: p.id };

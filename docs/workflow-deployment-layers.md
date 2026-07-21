@@ -287,12 +287,12 @@ The network/service environment the device does not own.
 | ------------- | ----------------------------------------------------------------------- | --------------- |
 | `MQTTs`       | `{brokerUrl, clientId?, publishPrefix, subscribePrefix, will?}`         | `mqtt`          |
 | `Providers`   | `{url, bearer?}` — an endpoint the llmproxy doesn't ship                | `selfhostedLlm` |
-| `Providers`   | `{provider}` — a built-in catalog provider served with an API key       | `localLlm`      |
+| `Providers`   | `{provider}` — a built-in catalog provider reached directly with an API key | `directLlm`  |
 | `Providers`   | `{provider}` — the same catalog provider proxied to the backend, no key | `backendLlm`    |
 | `MLInference` | `{url}`                                                                 | `onnx`  |
 
 `ExternalResourceConfig` is a tagged union discriminated by `type`; new external-resource
-kinds extend that `oneOf`. Only `selfhostedLlm` carries a `url`; only `localLlm` /
+kinds extend that `oneOf`. Only `selfhostedLlm` carries a `url`; only `directLlm` /
 `backendLlm` carry a `provider`. A catalog provider's served models are its built-in
 `AvailableModels`, so they are not listed here.
 
@@ -398,7 +398,7 @@ all nodes are built, applying each channel's accumulated requirements to its dri
 | declared model not bound by the mapping               | `selfHostedEndpoints`         |
 | declared model bound to a `ref` with no config        | `selfHostedEndpoints`         |
 | declared model bound to a non-self-hosted provider    | `selfHostedEndpoints`         |
-| unknown catalog provider id (`localLlm`/`backendLlm`) | `buildProviders`              |
+| unknown catalog provider id (`directLlm`/`backendLlm`) | `buildProviders`             |
 | `backendLlm` provider but no backend configured       | `buildProviders`              |
 | ML model unbound / `ref` has no ml config   | `buildDeployML` (`ml.go`)     |
 | agent node references an unservable model             | `validateModelsResolvable`    |
@@ -436,7 +436,7 @@ device/environment.
    not know the `ref`; see "Enforcing uniqueness" under the join.
 
    Catalog providers aren't _bound_ — instead offer a per-provider **routing choice**:
-   serve it with a local API key (`localLlm`) or route it to the backend (`backendLlm`).
+   reach it directly with an API key (`directLlm`) or route it to the backend (`backendLlm`).
 
 3. **Collect configs for newly-referenced resources (Layer 2).** Any `ref` the user picks
    that isn't device-owned needs an `ExternalResources` entry, per the Layer 2 table.

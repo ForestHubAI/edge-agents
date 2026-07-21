@@ -1118,8 +1118,8 @@ func (_m *MockMLClient) EXPECT() *MockMLClient_Expecter {
 }
 
 // InferBinary provides a mock function for the type MockMLClient
-func (_mock *MockMLClient) InferBinary(ctx context.Context, data []byte) (InferenceResult, error) {
-	ret := _mock.Called(ctx, data)
+func (_mock *MockMLClient) InferBinary(ctx context.Context, model string, data []byte) (InferenceResult, error) {
+	ret := _mock.Called(ctx, model, data)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InferBinary")
@@ -1127,16 +1127,16 @@ func (_mock *MockMLClient) InferBinary(ctx context.Context, data []byte) (Infere
 
 	var r0 InferenceResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte) (InferenceResult, error)); ok {
-		return returnFunc(ctx, data)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte) (InferenceResult, error)); ok {
+		return returnFunc(ctx, model, data)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte) InferenceResult); ok {
-		r0 = returnFunc(ctx, data)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, []byte) InferenceResult); ok {
+		r0 = returnFunc(ctx, model, data)
 	} else {
 		r0 = ret.Get(0).(InferenceResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
-		r1 = returnFunc(ctx, data)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, []byte) error); ok {
+		r1 = returnFunc(ctx, model, data)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1150,24 +1150,30 @@ type MockMLClient_InferBinary_Call struct {
 
 // InferBinary is a helper method to define mock.On call
 //   - ctx context.Context
+//   - model string
 //   - data []byte
-func (_e *MockMLClient_Expecter) InferBinary(ctx interface{}, data interface{}) *MockMLClient_InferBinary_Call {
-	return &MockMLClient_InferBinary_Call{Call: _e.mock.On("InferBinary", ctx, data)}
+func (_e *MockMLClient_Expecter) InferBinary(ctx interface{}, model interface{}, data interface{}) *MockMLClient_InferBinary_Call {
+	return &MockMLClient_InferBinary_Call{Call: _e.mock.On("InferBinary", ctx, model, data)}
 }
 
-func (_c *MockMLClient_InferBinary_Call) Run(run func(ctx context.Context, data []byte)) *MockMLClient_InferBinary_Call {
+func (_c *MockMLClient_InferBinary_Call) Run(run func(ctx context.Context, model string, data []byte)) *MockMLClient_InferBinary_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 []byte
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].([]byte)
+			arg1 = args[1].(string)
+		}
+		var arg2 []byte
+		if args[2] != nil {
+			arg2 = args[2].([]byte)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -1178,14 +1184,14 @@ func (_c *MockMLClient_InferBinary_Call) Return(inferenceResult InferenceResult,
 	return _c
 }
 
-func (_c *MockMLClient_InferBinary_Call) RunAndReturn(run func(ctx context.Context, data []byte) (InferenceResult, error)) *MockMLClient_InferBinary_Call {
+func (_c *MockMLClient_InferBinary_Call) RunAndReturn(run func(ctx context.Context, model string, data []byte) (InferenceResult, error)) *MockMLClient_InferBinary_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // InferTensors provides a mock function for the type MockMLClient
-func (_mock *MockMLClient) InferTensors(ctx context.Context, tensors map[string]any) (InferenceResult, error) {
-	ret := _mock.Called(ctx, tensors)
+func (_mock *MockMLClient) InferTensors(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error) {
+	ret := _mock.Called(ctx, model, tensors)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InferTensors")
@@ -1193,16 +1199,16 @@ func (_mock *MockMLClient) InferTensors(ctx context.Context, tensors map[string]
 
 	var r0 InferenceResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]any) (InferenceResult, error)); ok {
-		return returnFunc(ctx, tensors)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, map[string]any) (InferenceResult, error)); ok {
+		return returnFunc(ctx, model, tensors)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, map[string]any) InferenceResult); ok {
-		r0 = returnFunc(ctx, tensors)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, map[string]any) InferenceResult); ok {
+		r0 = returnFunc(ctx, model, tensors)
 	} else {
 		r0 = ret.Get(0).(InferenceResult)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, map[string]any) error); ok {
-		r1 = returnFunc(ctx, tensors)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, map[string]any) error); ok {
+		r1 = returnFunc(ctx, model, tensors)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1216,24 +1222,30 @@ type MockMLClient_InferTensors_Call struct {
 
 // InferTensors is a helper method to define mock.On call
 //   - ctx context.Context
+//   - model string
 //   - tensors map[string]any
-func (_e *MockMLClient_Expecter) InferTensors(ctx interface{}, tensors interface{}) *MockMLClient_InferTensors_Call {
-	return &MockMLClient_InferTensors_Call{Call: _e.mock.On("InferTensors", ctx, tensors)}
+func (_e *MockMLClient_Expecter) InferTensors(ctx interface{}, model interface{}, tensors interface{}) *MockMLClient_InferTensors_Call {
+	return &MockMLClient_InferTensors_Call{Call: _e.mock.On("InferTensors", ctx, model, tensors)}
 }
 
-func (_c *MockMLClient_InferTensors_Call) Run(run func(ctx context.Context, tensors map[string]any)) *MockMLClient_InferTensors_Call {
+func (_c *MockMLClient_InferTensors_Call) Run(run func(ctx context.Context, model string, tensors map[string]any)) *MockMLClient_InferTensors_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 map[string]any
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(map[string]any)
+			arg1 = args[1].(string)
+		}
+		var arg2 map[string]any
+		if args[2] != nil {
+			arg2 = args[2].(map[string]any)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -1244,7 +1256,7 @@ func (_c *MockMLClient_InferTensors_Call) Return(inferenceResult InferenceResult
 	return _c
 }
 
-func (_c *MockMLClient_InferTensors_Call) RunAndReturn(run func(ctx context.Context, tensors map[string]any) (InferenceResult, error)) *MockMLClient_InferTensors_Call {
+func (_c *MockMLClient_InferTensors_Call) RunAndReturn(run func(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error)) *MockMLClient_InferTensors_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -4,7 +4,47 @@
  */
 
 export interface paths {
-    "/infer": {
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the loaded models.
+         * @description Every model the repository loaded at startup — the names valid as the `model` in an inference path, each with its handler, task, and optional version.
+         */
+        get: operations["listModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{model}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe one loaded model.
+         * @description Metadata for the path-named model — its handler, task, and optional version. The task advertises the result shape an inference will return, so a caller can check it without running one.
+         */
+        get: operations["modelMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{model}/infer/binary": {
         parameters: {
             query?: never;
             header?: never;
@@ -14,10 +54,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Run inference on one loaded model, selected by name.
-         * @description Selects the loaded model named by `model`, feeds it the supplied input, and returns the handler-produced result. The handler decides how to read the input (binary blob, numeric tensors, or both). An unknown `model` yields 404; an input the handler cannot process yields 422.
+         * Run inference from an opaque encoded input (e.g. an image).
+         * @description Feeds the raw request body to the path-named model as an opaque encoded artifact — an image or any blob the model's handler decodes itself. The body is the artifact and nothing else: the model is in the path, so no envelope and no per-request options. An unknown model yields 404; a body the handler cannot decode yields 422; a body over the size limit yields 413.
          */
-        post: operations["infer"];
+        post: operations["inferBinary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models/{model}/infer/tensors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run inference from named numeric tensors.
+         * @description Feeds already-numeric named tensors to the path-named model — for models whose input the caller prepares directly, with no decoding on the component side. An unknown model yields 404; tensors the handler cannot use yield 422.
+         */
+        post: operations["inferTensors"];
         delete?: never;
         options?: never;
         head?: never;
@@ -64,33 +124,13 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/metadata": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the loaded models.
-         * @description Describes every model the repository loaded at startup — the names valid as the /infer `model` selector, plus each one's handler and optional version.
-         */
-        get: operations["metadata"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @description The ML component's boot config: the models this component is issued. Authoritative — the component loads exactly these bundles from its workspace repository, so a declared bundle that is missing or unloadable is a permanent boot failure and an undeclared sub-folder is ignored. A projection of the deployment's device-located ML models, not an authored artifact: the renderer writes it, the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. Says WHICH models load and what the deployment overrides — never how a model is driven, which stays in the bundle's own manifest.yaml beside the weights. */
         MLConfig: {
-            /** @description Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the /infer `model` selector. */
+            /** @description Models to load, keyed by model id — the bundle sub-folder name in the workspace repository, and the `model` in an inference path. */
             models: {
                 [key: string]: components["schemas"]["MLModelConfig"];
             };
@@ -102,37 +142,29 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description A generic inference request. `model` picks which loaded model runs. `binary` carries an opaque binary input (e.g. an encoded image); `tensors` carries named numeric tensors (nested arrays) for non-vision models. Supply whichever the selected model's handler expects — one, the other, or both. */
-        InferRequest: {
-            /** @description Name (id) of the loaded model to run — must match a loaded bundle (a sub-folder of the models repository). See /metadata for valid names. */
-            model: string;
-            /**
-             * Format: binary
-             * @description Opaque binary input (e.g. an encoded image). Read and decoded by the model's handler.
-             */
-            binary?: string;
-            /** @description Named numeric tensors as nested arrays, for models whose input is not a binary blob. The handler maps these onto the model's input feeds. */
-            tensors?: {
-                [key: string]: unknown;
-            };
-            /** @description Free-form per-request overrides (e.g. detection thresholds). Merged over the manifest's params by the handler. */
-            params?: {
-                [key: string]: unknown;
-            };
-        };
-        /** @description A generic inference result. `result` is task-shaped: the model's task decides which variant comes back, so a consumer that knows the task knows the shape. */
-        InferResult: {
-            /** @description Name of the model that produced this result. */
-            model: string;
-            result: components["schemas"]["InferenceResult"];
-        };
         /**
          * @description What a model does, and therefore the shape of its result. The unit of normalization across implementations: two object-detection models return the same shape whatever their architecture. `tensor` is the general escape — raw model outputs, for a model whose task this contract does not model.
          * @enum {string}
          */
         Task: "object-detection" | "image-classification" | "tensor";
+        /** @description One typed tensor in the KServe/OIP v2 representation: an explicit `datatype` and `shape` over a flat, row-major `data` array. Self-describing — a consumer reconstructs the array with no out-of-band shape knowledge — and used for both raw model inputs and raw model outputs. */
+        Tensor: {
+            /**
+             * @description Element type, in KServe/OIP spelling (FP32, INT64, UINT8, BOOL, BYTES, ...).
+             * @enum {string}
+             */
+            datatype: "BOOL" | "UINT8" | "UINT16" | "UINT32" | "UINT64" | "INT8" | "INT16" | "INT32" | "INT64" | "FP16" | "FP32" | "FP64" | "BYTES";
+            /** @description Tensor dimensions, outermost first. */
+            shape: number[];
+            /** @description Elements flattened row-major (C order); length equals the product of `shape`. Numbers for the numeric datatypes. */
+            data: unknown[];
+        };
+        /** @description Named input tensors keyed by the model's input feed names — one `Tensor` per model input. Already-numeric input the caller prepared, mapped straight onto the ONNX inputs with no decoding on the component side. */
+        TensorInput: {
+            [key: string]: components["schemas"]["Tensor"];
+        };
         /** @description A task-shaped inference result. Discriminated by `task`, which always equals the producing model's advertised task, so a consumer can decode without knowing the model. */
-        InferenceResult: components["schemas"]["DetectionResult"] | components["schemas"]["ClassificationResult"] | components["schemas"]["TensorResult"];
+        InferResult: components["schemas"]["DetectionResult"] | components["schemas"]["ClassificationResult"] | components["schemas"]["TensorResult"];
         /** @description Objects located in the input image. Already filtered and de-duplicated by the model's decoder — a consumer renders or counts these, it does not post-process them further. */
         DetectionResult: {
             /**
@@ -186,9 +218,9 @@ export interface components {
              * @enum {string}
              */
             task: "tensor";
-            /** @description Output tensors as nested arrays, keyed by the model's output names. */
+            /** @description Output tensors keyed by the model's output names, one `Tensor` each. */
             tensors: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["Tensor"];
             };
         };
         /** @description The set of models the component currently has loaded. */
@@ -198,7 +230,7 @@ export interface components {
         };
         /** @description Descriptive metadata for one loaded model. */
         ModelMetadata: {
-            /** @description Name (id) of the model — the value to pass as the /infer `model` selector. */
+            /** @description Name (id) of the model — the value to use as the `model` in an inference path. */
             name: string;
             /** @description Handler driving the model: `builtin:<name>` or `file:handler.py`. */
             handler: string;
@@ -217,72 +249,150 @@ export interface components {
             message: string;
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Inference result. */
+        Inference: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["InferResult"];
+            };
+        };
+        /** @description No model with the requested name is loaded. */
+        UnknownModel: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The request body exceeds the component's size limit. */
+        TooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The input could not be processed by the selected model's handler. */
+        Unprocessable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description The handler failed unexpectedly while running inference. */
+        HandlerError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        /** @description Name (id) of the loaded model — a loaded bundle (a sub-folder of the models repository). See GET /models for valid names. */
+        Model: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    infer: {
+    listModels: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["InferRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Inference result. */
+            /** @description The repository's loaded models. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InferResult"];
+                    "application/json": components["schemas"]["RepositoryMetadata"];
                 };
             };
-            /** @description No model with the requested name is loaded. */
-            404: {
+        };
+    };
+    modelMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Name (id) of the loaded model — a loaded bundle (a sub-folder of the models repository). See GET /models for valid names. */
+                model: components["parameters"]["Model"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The model's metadata. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["ModelMetadata"];
                 };
             };
-            /** @description The request body exceeds the component's size limit. */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
+            404: components["responses"]["UnknownModel"];
+        };
+    };
+    inferBinary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Name (id) of the loaded model — a loaded bundle (a sub-folder of the models repository). See GET /models for valid names. */
+                model: components["parameters"]["Model"];
             };
-            /** @description The input could not be processed by the selected model's handler. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
             };
-            /** @description The handler failed unexpectedly while running inference. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
+        };
+        responses: {
+            200: components["responses"]["Inference"];
+            404: components["responses"]["UnknownModel"];
+            413: components["responses"]["TooLarge"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["HandlerError"];
+        };
+    };
+    inferTensors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Name (id) of the loaded model — a loaded bundle (a sub-folder of the models repository). See GET /models for valid names. */
+                model: components["parameters"]["Model"];
             };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TensorInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["Inference"];
+            404: components["responses"]["UnknownModel"];
+            422: components["responses"]["Unprocessable"];
+            500: components["responses"]["HandlerError"];
         };
     };
     healthz: {
@@ -330,26 +440,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    metadata: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The repository's loaded models. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RepositoryMetadata"];
                 };
             };
         };

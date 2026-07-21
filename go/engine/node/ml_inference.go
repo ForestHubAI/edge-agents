@@ -30,15 +30,18 @@ type MLInference struct {
 	input   workflowapi.Reference
 	binding workflowapi.OutputBinding
 	client  engine.MLClient
+	model   string
 }
 
-// NewMLInference builds an MLInference node bound to one model's inference client.
-func NewMLInference(id string, input workflowapi.Reference, binding workflowapi.OutputBinding, client engine.MLClient) *MLInference {
+// NewMLInference builds an MLInference node. The client is shared across every
+// model on one component; model names which one this node runs, sent per request.
+func NewMLInference(id string, input workflowapi.Reference, binding workflowapi.OutputBinding, client engine.MLClient, model string) *MLInference {
 	return &MLInference{
 		LinearNode: engine.NewLinearNode(id),
 		input:      input,
 		binding:    binding,
 		client:     client,
+		model:      model,
 	}
 }
 
@@ -90,7 +93,7 @@ func (n *MLInference) inferTensors(ctx context.Context, raw string) (engine.Infe
 	if err := json.Unmarshal([]byte(raw), &tensors); err != nil {
 		return engine.InferenceResult{}, fmt.Errorf("input is not a JSON tensors object: %w", err)
 	}
-	return n.client.InferTensors(ctx, tensors)
+	return n.client.TensorInference(ctx, n.model, tensors)
 }
 
 // inferImage reads the raw frame bytes from the input and runs them through the
@@ -103,5 +106,5 @@ func (n *MLInference) inferImage(ctx context.Context, v expr.Value) (engine.Infe
 	if len(data) == 0 {
 		return engine.InferenceResult{}, fmt.Errorf("image input is empty")
 	}
-	return n.client.InferBinary(ctx, data)
+	return n.client.BinaryInference(ctx, n.model, data)
 }

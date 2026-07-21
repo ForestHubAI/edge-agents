@@ -47,14 +47,14 @@ func mlClientWith(t *testing.T, doer *fakeDoer) *mlClient {
 	t.Helper()
 	client, err := mlapi.NewClientWithResponses("http://onnx:9000", mlapi.WithHTTPClient(doer))
 	require.NoError(t, err)
-	return &mlClient{client: client, modelName: "yolo"}
+	return &mlClient{client: client}
 }
 
 func TestMLClient_InferTensors_Success(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(200, `{"task":"image-classification","predictions":[{"label":"cat","score":0.9}]}`)}
 	ep := mlClientWith(t, doer)
 
-	result, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
+	result, err := ep.TensorInference(context.Background(), "yolo", map[string]any{"x": float64(1)})
 	require.NoError(t, err)
 	// The generated union is mapped onto the domain result: task is lifted out and
 	// the whole task-shaped payload is carried through.
@@ -73,7 +73,7 @@ func TestMLClient_InferBinary_Success(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(200, `{"task":"object-detection","detections":[]}`)}
 	ep := mlClientWith(t, doer)
 
-	result, err := ep.InferBinary(context.Background(), []byte{0xFF, 0xD8, 0xFF})
+	result, err := ep.BinaryInference(context.Background(), "yolo", []byte{0xFF, 0xD8, 0xFF})
 	require.NoError(t, err)
 	assert.Equal(t, "object-detection", result.Task)
 	assert.Equal(t, []any{}, result.Payload["detections"])
@@ -91,7 +91,7 @@ func TestMLClient_UnknownTask(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(200, `{"task":"image-segmentation","masks":[]}`)}
 	ep := mlClientWith(t, doer)
 
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
+	_, err := ep.TensorInference(context.Background(), "yolo", map[string]any{"x": float64(1)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown task")
 }
@@ -100,7 +100,7 @@ func TestMLClient_NotFound(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(404, `{"message":"no model named yolo is loaded"}`)}
 	ep := mlClientWith(t, doer)
 
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
+	_, err := ep.TensorInference(context.Background(), "yolo", map[string]any{"x": float64(1)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "404")
 	assert.Contains(t, err.Error(), "no model named yolo is loaded")
@@ -110,7 +110,7 @@ func TestMLClient_Unprocessable(t *testing.T) {
 	doer := &fakeDoer{resp: jsonResp(422, `{"message":"input could not be processed"}`)}
 	ep := mlClientWith(t, doer)
 
-	_, err := ep.InferTensors(context.Background(), map[string]any{"x": float64(1)})
+	_, err := ep.TensorInference(context.Background(), "yolo", map[string]any{"x": float64(1)})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "422")
 	assert.Contains(t, err.Error(), "input could not be processed")

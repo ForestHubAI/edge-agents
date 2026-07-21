@@ -35,13 +35,12 @@ type channels struct {
 
 // buildChannels pre-builds a channel for every declaration in the workflow.
 // The workflow itself is mapping-free; every channel's address comes from the
-// flat resource mapping dm (channel id → platform resource id). Every channel
+// flat resource mapping rm (channel id → platform resource id). Every channel
 // resolves that id through the one resource registry: hardware families keyed by
-// their manifest id, MQTT by its external resource id (plus ext for the channel's
-// prefixes). Hard-fails when a channel has no mapping entry, or an MQTT channel
-// references a config externalResources doesn't carry — silent degradation hides
-// config bugs.
-func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Registry, rm engine.ResourceMapping, ext *engine.ExternalResources) (*channels, error) {
+// their ref, MQTT by its ref (plus res for the channel's prefixes). Hard-fails
+// when a channel has no mapping entry, or an MQTT channel references a config the
+// resource bundle doesn't carry — silent degradation hides config bugs.
+func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Registry, rm engine.ResourceMapping, res *engine.Resources) (*channels, error) {
 	ch := &channels{
 		gpioInputs:  make(map[string]*channel.GPIOInput),
 		gpioOutputs: make(map[string]*channel.GPIOOutput),
@@ -172,12 +171,12 @@ func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Regist
 			if err != nil {
 				return nil, err
 			}
-			if ext == nil {
-				return nil, fmt.Errorf("channel %s: workflow references MQTT but no external resources provided", c.Id)
+			if res == nil {
+				return nil, fmt.Errorf("channel %s: workflow references MQTT but no resources provided", c.Id)
 			}
-			cfg, ok := ext.MQTTs[addr.Ref]
+			cfg, ok := res.MQTTs[addr.Ref]
 			if !ok {
-				return nil, fmt.Errorf("channel %s: external resource %q not in externalResources", c.Id, addr.Ref)
+				return nil, fmt.Errorf("channel %s: mqtt resource %q not in resources", c.Id, addr.Ref)
 			}
 			if resources == nil {
 				return nil, fmt.Errorf("channel %s: no resource registry", c.Id)

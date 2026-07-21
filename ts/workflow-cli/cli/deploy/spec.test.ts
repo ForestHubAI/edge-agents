@@ -340,23 +340,23 @@ describe("buildDeploymentSpec catalog providers", () => {
     models: {},
   };
 
-  it("emits one localLlm instance per provider (deduped), no model mapping, pulls the key out", () => {
+  it("emits one directLlm instance per provider (deduped), no model mapping, pulls the key out", () => {
     const inputs: DeploymentInputs = {
       hardware: {},
       mqtt: {},
       llmModels: {},
       mlModels: {},
       cameras: {},
-      providers: { anthropic: { routing: "local", apiKey: "sk-x" } },
+      providers: { anthropic: { routing: "direct", apiKey: "sk-x" } },
     };
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const config = engineConfigOf(spec);
     const ext = config.externalResources!;
     // Two Agents, same provider → a single provider instance.
-    const entries = Object.entries(ext).filter(([, r]) => r.type === "localLlm");
+    const entries = Object.entries(ext).filter(([, r]) => r.type === "directLlm");
     expect(entries).toHaveLength(1);
     const [ref, cfg] = entries[0]!;
-    expect(cfg).toEqual({ type: "localLlm", provider: "anthropic" });
+    expect(cfg).toEqual({ type: "directLlm", provider: "anthropic" });
     // Catalog models are routed by llmproxy, not mapped — no mapping entries.
     expect(config.mapping?.["claude-opus-4-7"]).toBeUndefined();
     expect(config.mapping?.["claude-haiku-4-7"]).toBeUndefined();
@@ -379,7 +379,7 @@ describe("buildDeploymentSpec catalog providers", () => {
     expect(Object.keys(componentSecrets[ENGINE_COMPONENT_NAME] ?? {})).toHaveLength(0);
   });
 
-  it("rejects an unbound provider and a local provider missing its key", () => {
+  it("rejects an unbound provider and a direct provider missing its key", () => {
     expect(() => buildDeploymentSpec(wf, { hardware: {}, mqtt: {}, llmModels: {}, mlModels: {}, cameras: {} }, meta, [], catalog)).toThrow(
       /provider "anthropic": routing/,
     );
@@ -389,7 +389,7 @@ describe("buildDeploymentSpec catalog providers", () => {
       llmModels: {},
       mlModels: {},
       cameras: {},
-      providers: { anthropic: { routing: "local" } },
+      providers: { anthropic: { routing: "direct" } },
     };
     expect(() => buildDeploymentSpec(wf, noKey, meta, [], catalog)).toThrow(/provider "anthropic": API key/);
   });
