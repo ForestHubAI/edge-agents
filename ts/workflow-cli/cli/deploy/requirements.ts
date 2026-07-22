@@ -62,7 +62,7 @@ export function ragBindings(req: DeployRequirements): BoundOf<"rag">[] {
 }
 
 // One catalog provider a workflow's Agent nodes pull models from (resolved against
-// the static catalog, not workflow.models). Each becomes one ExternalResources entry
+// the static catalog, not workflow.models). Each becomes one Resources.llmProviders entry
 // whose routing — direct key vs backend — is a deploy input.
 export interface CatalogProvider {
   id: string;
@@ -86,7 +86,7 @@ export interface DeployRequirements {
   // provider set is unknown.
   hasProviderModel: boolean;
   // Distinct catalog providers the referenced models resolve to, via the supplied
-  // catalog. Each becomes one ExternalResources provider instance (local or backend —
+  // catalog. Each becomes one Resources.llmProviders instance (local or backend —
   // a deploy input). Empty when no catalog is passed — the map is then unknown.
   catalogProviders: CatalogProvider[];
   // Referenced catalog model ids absent from the supplied catalog — a dangling ref

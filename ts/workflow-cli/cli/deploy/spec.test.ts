@@ -164,9 +164,9 @@ describe("buildDeploymentSpec", () => {
     expect(engineConfigOf(spec).workflow.schemaVersion).toBeGreaterThanOrEqual(1);
   });
 
-  it("splits the device manifest by family and maps every resource", () => {
+  it("splits the resources by family and maps every resource", () => {
     const config = engineConfigOf(buildDeploymentSpec(fullWorkflow(), fullInputs, meta).spec);
-    const m = config.manifest!;
+    const m = config.resources!;
     expect(Object.keys(m.gpios ?? {})).toHaveLength(1);
     expect(Object.keys(m.serials ?? {})).toHaveLength(1);
     expect(Object.keys(m.adcs ?? {})).toHaveLength(1);
@@ -197,8 +197,8 @@ describe("buildDeploymentSpec", () => {
     });
     expect(llama.command).toBeUndefined();
     // The external-resource provider URL must point at the shared component service.
-    const ext = engineConfigOf(spec).externalResources!;
-    const provider = Object.values(ext).find((r) => r.type === "selfhostedLlm");
+    const llm = engineConfigOf(spec).resources!.llmProviders!;
+    const provider = Object.values(llm).find((r) => r.type === "selfhostedLlm");
     expect(provider).toMatchObject({ url: `http://${llamaComponentServiceName()}:8080` });
   });
 
@@ -233,8 +233,8 @@ describe("buildDeploymentSpec", () => {
     });
     // ONE provider for both models, not one per model: the ref identifies the endpoint
     // and the model sub-address picks the model within it.
-    const ext = engineConfigOf(spec).externalResources!;
-    const providers = Object.entries(ext).filter(([, r]) => r.type === "selfhostedLlm");
+    const llm = engineConfigOf(spec).resources!.llmProviders!;
+    const providers = Object.entries(llm).filter(([, r]) => r.type === "selfhostedLlm");
     expect(providers).toHaveLength(1);
     const [ref, provider] = providers[0]!;
     expect(provider).toMatchObject({ url: `http://${llamaComponentServiceName()}:8080` });
@@ -278,8 +278,8 @@ describe("buildDeploymentSpec", () => {
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
     // The provider config in the spec is secret-free; the apiKey is pulled out.
-    const ext = engineConfigOf(spec).externalResources!;
-    const [ref, provider] = Object.entries(ext).find(([, r]) => r.type === "selfhostedLlm")!;
+    const llm = engineConfigOf(spec).resources!.llmProviders!;
+    const [ref, provider] = Object.entries(llm).find(([, r]) => r.type === "selfhostedLlm")!;
     expect(provider).toEqual({ type: "selfhostedLlm", url: "https://infer.example/v1" });
     expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[ref]).toEqual("k");
   });
@@ -306,7 +306,7 @@ describe("buildDeploymentSpec", () => {
     const config = engineConfigOf(spec);
     // One endpoint → one provider entry, both models mapped at the same ref,
     // each carrying its served model name (the workflow id, no alias input yet).
-    const entries = Object.entries(config.externalResources!).filter(([, r]) => r.type === "selfhostedLlm");
+    const entries = Object.entries(config.resources!.llmProviders!).filter(([, r]) => r.type === "selfhostedLlm");
     expect(entries).toHaveLength(1);
     const ref = entries[0]![0];
     expect(config.mapping!.a).toEqual({ ref, model: "a" });
@@ -315,9 +315,9 @@ describe("buildDeploymentSpec", () => {
 
   it("pulls MQTT/endpoint secrets out of the spec, keyed by resource ref", () => {
     const { spec, componentSecrets } = buildDeploymentSpec(fullWorkflow(), fullInputs, meta);
-    const ext = engineConfigOf(spec).externalResources!;
+    const brokers = engineConfigOf(spec).resources!.mqttBrokers!;
     // The stored connection carries metadata but never the password.
-    const [mqttRef, mqttConn] = Object.entries(ext).find(([, r]) => r.type === "mqtt")!;
+    const [mqttRef, mqttConn] = Object.entries(brokers)[0]!;
     expect(mqttConn).not.toHaveProperty("password");
     expect(mqttConn).toMatchObject({ username: "u" });
     expect(componentSecrets[ENGINE_COMPONENT_NAME]?.[mqttRef]).toEqual("p");
@@ -351,9 +351,9 @@ describe("buildDeploymentSpec catalog providers", () => {
     };
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
     const config = engineConfigOf(spec);
-    const ext = config.externalResources!;
+    const llm = config.resources!.llmProviders!;
     // Two Agents, same provider → a single provider instance.
-    const entries = Object.entries(ext).filter(([, r]) => r.type === "directLlm");
+    const entries = Object.entries(llm).filter(([, r]) => r.type === "directLlm");
     expect(entries).toHaveLength(1);
     const [ref, cfg] = entries[0]!;
     expect(cfg).toEqual({ type: "directLlm", provider: "anthropic" });
@@ -374,8 +374,8 @@ describe("buildDeploymentSpec catalog providers", () => {
       providers: { anthropic: { routing: "backend" } },
     };
     const { spec, componentSecrets } = buildDeploymentSpec(wf, inputs, meta, [], catalog);
-    const ext = engineConfigOf(spec).externalResources!;
-    expect(Object.values(ext)).toContainEqual({ type: "backendLlm", provider: "anthropic" });
+    const llm = engineConfigOf(spec).resources!.llmProviders!;
+    expect(Object.values(llm)).toContainEqual({ type: "backendLlm", provider: "anthropic" });
     expect(Object.keys(componentSecrets[ENGINE_COMPONENT_NAME] ?? {})).toHaveLength(0);
   });
 
@@ -491,8 +491,8 @@ describe("buildDeploymentSpec ML inference component", () => {
 
     // ONE endpoint entry for both models, not one per model: the ref identifies the
     // component and each model is picked by its sub-address within it.
-    const ext = engineConfigOf(spec).externalResources!;
-    const mlEntries = Object.entries(ext).filter(([, r]) => r.type === "ml");
+    const mlProviders = engineConfigOf(spec).resources!.mlProviders!;
+    const mlEntries = Object.entries(mlProviders).filter(([, r]) => r.type === "ml");
     expect(mlEntries).toHaveLength(1);
     const [ref, conn] = mlEntries[0]!;
     expect(conn).toEqual({ type: "ml", url: `http://${onnxComponentServiceName()}:8082` });
@@ -546,7 +546,7 @@ describe("buildDeploymentSpec ML inference component", () => {
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
     const cfg = engineConfigOf(spec);
-    const mlRes = Object.values(cfg.externalResources!).find((r) => r.type === "ml");
+    const mlRes = Object.values(cfg.resources!.mlProviders!).find((r) => r.type === "ml");
     // The endpoint config carries no model — the selector rides on the binding.
     expect(mlRes).toEqual({ type: "ml", url: "http://onnx.remote:8000" });
     expect(cfg.mapping!.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
@@ -568,7 +568,7 @@ describe("buildDeploymentSpec capture component", () => {
     mlModels: {},
     cameras,
   });
-  const manifestCameras = (spec: Spec) => engineConfigOf(spec).manifest?.cameras ?? {};
+  const manifestCameras = (spec: Spec) => engineConfigOf(spec).resources?.cameras ?? {};
 
   it("declares each camera in the device manifest, never as an external resource", () => {
     const inputs = camInputs({
@@ -577,13 +577,16 @@ describe("buildDeploymentSpec capture component", () => {
     });
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "rear"]), inputs, meta);
 
-    // A camera is device-owned hardware: it lives in the manifest, and nothing
-    // in externalResources points at the driver component.
+    // A camera is device-owned hardware: it lives in resources.cameras, and no
+    // non-device external resource points at the driver component.
     expect(manifestCameras(spec)).toEqual({
       video0: { kind: "v4l2", device: "/dev/video0" },
       video1: { kind: "v4l2", device: "/dev/video1" },
     });
-    expect(engineConfigOf(spec).externalResources ?? {}).toEqual({});
+    const res = engineConfigOf(spec).resources ?? {};
+    expect(res.mqttBrokers ?? {}).toEqual({});
+    expect(res.llmProviders ?? {}).toEqual({});
+    expect(res.mlProviders ?? {}).toEqual({});
 
     // Each channel maps to its manifest key — never to its own logical id.
     expect(engineConfigOf(spec).mapping).toEqual({ front: { ref: "video0" }, rear: { ref: "video1" } });

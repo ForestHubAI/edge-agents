@@ -85,7 +85,7 @@ const mlModelBindingSchema = z.discriminatedUnion("location", [
   z.strictObject({ location: z.literal("network"), url: z.string(), model: z.string() }),
 ]);
 
-// A camera is device-owned hardware: it becomes a DeviceManifest entry, not an
+// A camera is device-owned hardware: it becomes a Resources.cameras entry, not an
 // endpoint, so it has no `location` — nothing points at a driver component. The
 // kind is the access path (see CameraBinding in inputs.ts), and it picks the
 // capture recipe the component owns.

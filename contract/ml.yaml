@@ -180,7 +180,7 @@ components:
         params:
           x-go-type-skip-optional-pointer: true
           type: object
-          description: "Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, these, then a request's params."
+          description: "Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, then these."
           additionalProperties: true
 
     Task:

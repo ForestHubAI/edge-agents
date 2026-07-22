@@ -465,7 +465,7 @@ export function buildDeploymentSpec(
   const refs = new RefAllocator();
   const resourceSecrets: ComponentSecrets = {};
 
-  // DeviceManifest is split per family; accumulate each separately, attach only
+  // Resources is split per family; accumulate each separately, attach only
   // the non-empty ones (all slots optional).
   const gpios: Record<string, EngineSchemas["GPIOConfig"]> = {};
   const adcs: Record<string, EngineSchemas["ADCConfig"]> = {};
@@ -479,7 +479,10 @@ export function buildDeploymentSpec(
   // camera's credential, because it never builds the capture pipeline.
   const cameraSecrets: ComponentSecrets = {};
 
-  const externalResources: EngineSchemas["ExternalResources"] = {};
+  // The non-device external resources, each in its own typed slot of Resources.
+  const mqttBrokers: Record<string, EngineSchemas["MQTTBroker"]> = {};
+  const llmProviders: Record<string, EngineSchemas["LLMProvider"]> = {};
+  const mlProviders: Record<string, EngineSchemas["MLProvider"]> = {};
   const mapping: EngineSchemas["ResourceMapping"] = {};
 
   // Container-level hardware access, resolved once: cdev nodes (GPIO, UART) map
@@ -498,23 +501,25 @@ export function buildDeploymentSpec(
 
     switch (ch.family) {
       case "gpio":
-        gpios[ref] = { chip: dev };
+        gpios[ref] = { type: "gpio", chip: dev };
         cdev.add(dev);
         break;
       case "serial":
-        serials[ref] = b.baud ? { device: dev, baud: b.baud } : { device: dev };
+        serials[ref] = b.baud
+          ? { type: "serial", device: dev, baud: b.baud }
+          : { type: "serial", device: dev };
         cdev.add(dev);
         break;
       case "pwm":
-        pwms[ref] = { chip: dev };
+        pwms[ref] = { type: "pwm", chip: dev };
         privileged = true;
         break;
       case "adc":
-        adcs[ref] = { device: dev };
+        adcs[ref] = { type: "adc", device: dev };
         privileged = true;
         break;
       case "dac":
-        dacs[ref] = { device: dev };
+        dacs[ref] = { type: "dac", device: dev };
         privileged = true;
         break;
       default:
@@ -530,13 +535,13 @@ export function buildDeploymentSpec(
   for (const ch of mqttBindings(req)) {
     const b = inputs.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
-    const conn: EngineSchemas["MQTTConfig"] = { type: "mqtt", brokerUrl: b.brokerUrl };
+    const conn: EngineSchemas["MQTTBroker"] = { type: "mqtt", brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
     // The password is a secret — kept out of conn (and thus the spec). It still
     // participates in the dedup key, so two channels differing only by password
     // don't collapse onto one ref (and one shared secret).
     const ref = refs.alloc(`mqtt:${JSON.stringify(conn)}:${b.password ?? ""}`, `mqtt-${urlHost(b.brokerUrl)}`);
-    externalResources[ref] = conn;
+    mqttBrokers[ref] = conn;
     mapping[ch.id] = { ref };
     if (b.password) resourceSecrets[ref] = b.password;
   }
@@ -562,7 +567,7 @@ export function buildDeploymentSpec(
     const apiKey = b.location === "device" ? undefined : b.apiKey;
     const hint = b.location === "device" ? llamaComponentServiceName() : `provider-${urlHost(b.url)}`;
     const ref = refs.alloc(`selfhosted:${url}:${apiKey ?? ""}`, hint);
-    externalResources[ref] = { type: "selfhostedLlm", url };
+    llmProviders[ref] = { type: "selfhostedLlm", url };
     // The endpoint fronts the model under the workflow id (llama-swap's config.json
     // id on device; the operator's endpoint over the network — no alias input yet),
     // so the binding's model sub-address is the workflow id.
@@ -602,10 +607,10 @@ export function buildDeploymentSpec(
     if (!b) throw new Error(`unbound catalog provider ${p.id}`); // unreachable after assertDeployable
     const ref = refs.alloc(`provider:${p.id}`, `provider-${p.id}`);
     if (b.routing === "direct") {
-      externalResources[ref] = { type: "directLlm", provider: p.id };
+      llmProviders[ref] = { type: "directLlm", provider: p.id };
       if (b.apiKey) resourceSecrets[ref] = b.apiKey;
     } else {
-      externalResources[ref] = { type: "backendLlm", provider: p.id };
+      llmProviders[ref] = { type: "backendLlm", provider: p.id };
     }
   }
 
@@ -630,7 +635,7 @@ export function buildDeploymentSpec(
     const url = b.location === "device" ? `http://${onnxComponentServiceName()}:${ONNX_COMPONENT_PORT}` : b.url;
     const hint = b.location === "device" ? onnxComponentServiceName() : `ml-${urlHost(b.url)}`;
     const ref = refs.alloc(`ml:${url}`, hint);
-    externalResources[ref] = { type: "ml", url };
+    mlProviders[ref] = { type: "ml", url };
     mapping[m.id] = { ref, model: b.model };
     // No collision is possible here: bindingConflictErrors below rejects two workflow
     // models bound to the same (ref, model), so each bundle is claimed exactly once.
@@ -655,7 +660,7 @@ export function buildDeploymentSpec(
     });
   }
 
-  // Cameras: device-owned hardware, so each becomes a DeviceManifest entry the
+  // Cameras: device-owned hardware, so each becomes a Resources.cameras entry the
   // engine resolves through its driver registry — never an external resource, and
   // no url anywhere, since the driver component's address is a constant. One
   // component is issued for the whole set and selects a camera by its manifest key
@@ -722,21 +727,26 @@ export function buildDeploymentSpec(
     throw new Error(`invalid deploy config:\n  - ${conflicts.join("\n  - ")}`);
   }
 
-  const manifest: EngineSchemas["DeviceManifest"] = {};
-  if (Object.keys(gpios).length) manifest.gpios = gpios;
-  if (Object.keys(adcs).length) manifest.adcs = adcs;
-  if (Object.keys(dacs).length) manifest.dacs = dacs;
-  if (Object.keys(pwms).length) manifest.pwms = pwms;
-  if (Object.keys(serials).length) manifest.serials = serials;
-  if (Object.keys(cameras).length) manifest.cameras = cameras;
+  // The frozen set of platform resources the engine materializes at boot: device
+  // hardware and non-device externals share one map, split per family. Each slot
+  // attaches only when non-empty (all optional).
+  const resources: EngineSchemas["Resources"] = {};
+  if (Object.keys(gpios).length) resources.gpios = gpios;
+  if (Object.keys(adcs).length) resources.adcs = adcs;
+  if (Object.keys(dacs).length) resources.dacs = dacs;
+  if (Object.keys(pwms).length) resources.pwms = pwms;
+  if (Object.keys(serials).length) resources.serials = serials;
+  if (Object.keys(cameras).length) resources.cameras = cameras;
+  if (Object.keys(mqttBrokers).length) resources.mqttBrokers = mqttBrokers;
+  if (Object.keys(llmProviders).length) resources.llmProviders = llmProviders;
+  if (Object.keys(mlProviders).length) resources.mlProviders = mlProviders;
 
   // The engine's boot input. workflow is serialized (and thereby pruned) from
   // the domain. The optional sections attach only when non-empty — an absent
   // section is correct, not a gap, and matches what the engine skips.
   const config: EngineConfig = { workflow: serialize(workflow) };
   if (Object.keys(mapping).length) config.mapping = mapping;
-  if (Object.keys(externalResources).length) config.externalResources = externalResources;
-  if (Object.keys(manifest).length) config.manifest = manifest;
+  if (Object.keys(resources).length) config.resources = resources;
 
   // The engine component. The config blob is mounted at the fixed convention path
   // (component.ConfigFile) the engine image reads.

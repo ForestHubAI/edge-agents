@@ -17,7 +17,7 @@
 // engine env, injected at render time, never frozen into a versioned spec.
 // Deployment-scoped resource creds (broker password, custom-endpoint bearer,
 // catalog providerKey API key) DO live here: they resolve into
-// EngineConfig.externalResources' refs and their secret values are pulled out
+// EngineConfig.resources' refs and their secret values are pulled out
 // into secrets.json — never into the versioned spec itself.
 
 // One hardware channel's physical address. `index` = sub-address (addressable
@@ -56,7 +56,7 @@ export type MLModelBinding =
   | { location: "network"; url: string; model: string };
 
 // One camera the device owns, declared by HOW it is reached — not by where it
-// runs. A camera is device-owned hardware, so this becomes a DeviceManifest entry
+// runs. A camera is device-owned hardware, so this becomes a Resources.cameras entry
 // (EngineSchemas["CameraSource"]) and resolves through the engine's driver
 // registry like a gpiochip; the driver component that reads it is issued by the
 // engine and never pointed at.

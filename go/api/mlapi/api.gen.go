@@ -214,7 +214,7 @@ type MLConfig struct {
 
 // MLModelConfig Deployment-level settings for one issued model. The bundle itself — weights, handler binding, default params — is staged in the workspace and self-described by its manifest.yaml; only what the deployment decides appears here. Empty is valid and usual: it declares the model must load, nothing more.
 type MLModelConfig struct {
-	// Params Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, these, then a request's params.
+	// Params Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, then these.
 	Params map[string]interface{} `json:"params,omitempty"`
 }
 

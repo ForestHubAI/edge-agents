@@ -40,7 +40,7 @@ export interface ModelInfo {
   label: string;
   capabilities: ModelCapability[];
   // Catalog provider that serves this model (e.g. "anthropic"). The deploy
-  // resolver reads it to emit one ExternalResources provider entry per distinct
+  // resolver reads it to emit one Resources.llmProviders entry per distinct
   // provider a workflow's Agent nodes reference. Mirrors llmproxy ModelInfo.provider.
   provider: string;
 }

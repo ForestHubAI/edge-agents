@@ -159,7 +159,7 @@ type EngineConfig struct {
 	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 	Mapping *ResourceMapping `json:"mapping,omitempty"`
 
-	// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by platform resource id (`ref`). One flat pool over both device-owned drivers (gpio/adc/dac/pwm/serial/camera) and environment-supplied endpoints (mqtt/llm/ml) — the engine opens exactly what is listed here, and the ResourceMapping binds workflow ids to these refs. The upstream renderer authors this as the used subset (only refs the mapping reaches), so it is not a device inventory; the full device inventory lives with the backend.
+	// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps.
 	Resources *Resources `json:"resources,omitempty"`
 
 	// Workflow The deployment format of a workflow project.
@@ -273,7 +273,7 @@ type ResourceAddress struct {
 // ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 type ResourceMapping map[string]ResourceAddress
 
-// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by platform resource id (`ref`). One flat pool over both device-owned drivers (gpio/adc/dac/pwm/serial/camera) and environment-supplied endpoints (mqtt/llm/ml) — the engine opens exactly what is listed here, and the ResourceMapping binds workflow ids to these refs. The upstream renderer authors this as the used subset (only refs the mapping reaches), so it is not a device inventory; the full device inventory lives with the backend.
+// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps.
 type Resources struct {
 	Adcs         *map[string]ADCConfig                 `json:"adcs,omitempty"`
 	Cameras      *map[string]externalRef0.CameraSource `json:"cameras,omitempty"`

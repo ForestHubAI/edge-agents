@@ -108,9 +108,9 @@ func (e V4L2SourceKind) Valid() bool {
 	}
 }
 
-// CameraConfig The camera component's boot config: the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape.
+// CameraConfig The camera component's boot config: the cameras this component is issued. A projection of the device's camera resources, not an authored artifact — the renderer writes the subset of Resources.cameras the deployment's bound channels use, keyed by the same resource key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape.
 type CameraConfig struct {
-	// Cameras Cameras keyed by their device-manifest key — the /capture `name` selector.
+	// Cameras Cameras keyed by their resource key — the /capture `name` selector.
 	Cameras map[string]CameraSource `json:"cameras"`
 }
 
@@ -123,7 +123,7 @@ type CameraMetadata struct {
 // CameraSetup Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design.
 type CameraSetup = []string
 
-// CameraSource One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key.
+// CameraSource One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key.
 type CameraSource struct {
 	union json.RawMessage
 }
@@ -144,7 +144,7 @@ type DeviceMetadata struct {
 	// Description Optional human-readable device description.
 	Description string `json:"description,omitempty"`
 
-	// Name Device-manifest key of the camera — the /capture name selector.
+	// Name Resource key of the camera — the /capture name selector.
 	Name string `json:"name"`
 }
 
@@ -160,7 +160,7 @@ type Health struct {
 	Status string `json:"status"`
 }
 
-// HttpSource A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key.
+// HttpSource A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's resource key.
 type HttpSource struct {
 	Kind HttpSourceKind `json:"kind"`
 
@@ -193,7 +193,7 @@ type LibcameraSource struct {
 // LibcameraSourceKind defines model for LibcameraSource.Kind.
 type LibcameraSourceKind string
 
-// RawSource Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits.
+// RawSource Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits.
 type RawSource struct {
 	Kind RawSourceKind `json:"kind"`
 
@@ -210,7 +210,7 @@ type RawSource struct {
 // RawSourceKind defines model for RawSource.Kind.
 type RawSourceKind string
 
-// RtspSource An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key.
+// RtspSource An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's resource key.
 type RtspSource struct {
 	Kind RtspSourceKind `json:"kind"`
 
@@ -245,7 +245,7 @@ type V4L2SourceKind string
 
 // CaptureParams defines parameters for Capture.
 type CaptureParams struct {
-	// Name Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
+	// Name Resource key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
 	Name string `form:"name" json:"name"`
 
 	// Width Optional width hint in pixels; ignored by sources that lack it.

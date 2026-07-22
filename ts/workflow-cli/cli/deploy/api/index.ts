@@ -22,9 +22,8 @@ import type { components as deploymentComponents } from "./deployment";
 export type DeploymentSchemas = deploymentComponents["schemas"];
 
 // Engine wire/config api layer, from contract/engine.yaml. The deploy resolver
-// PRODUCES an EngineConfig (workflow + mapping + external resources + device
-// manifest) and freezes it into a DeployComponent's opaque config, so it types
-// that construction against these.
+// PRODUCES an EngineConfig (workflow + mapping + resources) and freezes it into a
+// DeployComponent's opaque config, so it types that construction against these.
 import type { components as engineComponents } from "./engine";
 export type EngineSchemas = engineComponents["schemas"];
 

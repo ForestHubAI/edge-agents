@@ -1117,12 +1117,12 @@ func (_m *MockMLClient) EXPECT() *MockMLClient_Expecter {
 	return &MockMLClient_Expecter{mock: &_m.Mock}
 }
 
-// InferBinary provides a mock function for the type MockMLClient
-func (_mock *MockMLClient) InferBinary(ctx context.Context, model string, data []byte) (InferenceResult, error) {
+// BinaryInference provides a mock function for the type MockMLClient
+func (_mock *MockMLClient) BinaryInference(ctx context.Context, model string, data []byte) (InferenceResult, error) {
 	ret := _mock.Called(ctx, model, data)
 
 	if len(ret) == 0 {
-		panic("no return value specified for InferBinary")
+		panic("no return value specified for BinaryInference")
 	}
 
 	var r0 InferenceResult
@@ -1143,20 +1143,20 @@ func (_mock *MockMLClient) InferBinary(ctx context.Context, model string, data [
 	return r0, r1
 }
 
-// MockMLClient_InferBinary_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InferBinary'
-type MockMLClient_InferBinary_Call struct {
+// MockMLClient_BinaryInference_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BinaryInference'
+type MockMLClient_BinaryInference_Call struct {
 	*mock.Call
 }
 
-// InferBinary is a helper method to define mock.On call
+// BinaryInference is a helper method to define mock.On call
 //   - ctx context.Context
 //   - model string
 //   - data []byte
-func (_e *MockMLClient_Expecter) InferBinary(ctx interface{}, model interface{}, data interface{}) *MockMLClient_InferBinary_Call {
-	return &MockMLClient_InferBinary_Call{Call: _e.mock.On("InferBinary", ctx, model, data)}
+func (_e *MockMLClient_Expecter) BinaryInference(ctx interface{}, model interface{}, data interface{}) *MockMLClient_BinaryInference_Call {
+	return &MockMLClient_BinaryInference_Call{Call: _e.mock.On("BinaryInference", ctx, model, data)}
 }
 
-func (_c *MockMLClient_InferBinary_Call) Run(run func(ctx context.Context, model string, data []byte)) *MockMLClient_InferBinary_Call {
+func (_c *MockMLClient_BinaryInference_Call) Run(run func(ctx context.Context, model string, data []byte)) *MockMLClient_BinaryInference_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1179,22 +1179,22 @@ func (_c *MockMLClient_InferBinary_Call) Run(run func(ctx context.Context, model
 	return _c
 }
 
-func (_c *MockMLClient_InferBinary_Call) Return(inferenceResult InferenceResult, err error) *MockMLClient_InferBinary_Call {
+func (_c *MockMLClient_BinaryInference_Call) Return(inferenceResult InferenceResult, err error) *MockMLClient_BinaryInference_Call {
 	_c.Call.Return(inferenceResult, err)
 	return _c
 }
 
-func (_c *MockMLClient_InferBinary_Call) RunAndReturn(run func(ctx context.Context, model string, data []byte) (InferenceResult, error)) *MockMLClient_InferBinary_Call {
+func (_c *MockMLClient_BinaryInference_Call) RunAndReturn(run func(ctx context.Context, model string, data []byte) (InferenceResult, error)) *MockMLClient_BinaryInference_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// InferTensors provides a mock function for the type MockMLClient
-func (_mock *MockMLClient) InferTensors(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error) {
+// TensorInference provides a mock function for the type MockMLClient
+func (_mock *MockMLClient) TensorInference(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error) {
 	ret := _mock.Called(ctx, model, tensors)
 
 	if len(ret) == 0 {
-		panic("no return value specified for InferTensors")
+		panic("no return value specified for TensorInference")
 	}
 
 	var r0 InferenceResult
@@ -1215,20 +1215,20 @@ func (_mock *MockMLClient) InferTensors(ctx context.Context, model string, tenso
 	return r0, r1
 }
 
-// MockMLClient_InferTensors_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InferTensors'
-type MockMLClient_InferTensors_Call struct {
+// MockMLClient_TensorInference_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TensorInference'
+type MockMLClient_TensorInference_Call struct {
 	*mock.Call
 }
 
-// InferTensors is a helper method to define mock.On call
+// TensorInference is a helper method to define mock.On call
 //   - ctx context.Context
 //   - model string
 //   - tensors map[string]any
-func (_e *MockMLClient_Expecter) InferTensors(ctx interface{}, model interface{}, tensors interface{}) *MockMLClient_InferTensors_Call {
-	return &MockMLClient_InferTensors_Call{Call: _e.mock.On("InferTensors", ctx, model, tensors)}
+func (_e *MockMLClient_Expecter) TensorInference(ctx interface{}, model interface{}, tensors interface{}) *MockMLClient_TensorInference_Call {
+	return &MockMLClient_TensorInference_Call{Call: _e.mock.On("TensorInference", ctx, model, tensors)}
 }
 
-func (_c *MockMLClient_InferTensors_Call) Run(run func(ctx context.Context, model string, tensors map[string]any)) *MockMLClient_InferTensors_Call {
+func (_c *MockMLClient_TensorInference_Call) Run(run func(ctx context.Context, model string, tensors map[string]any)) *MockMLClient_TensorInference_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1251,113 +1251,12 @@ func (_c *MockMLClient_InferTensors_Call) Run(run func(ctx context.Context, mode
 	return _c
 }
 
-func (_c *MockMLClient_InferTensors_Call) Return(inferenceResult InferenceResult, err error) *MockMLClient_InferTensors_Call {
+func (_c *MockMLClient_TensorInference_Call) Return(inferenceResult InferenceResult, err error) *MockMLClient_TensorInference_Call {
 	_c.Call.Return(inferenceResult, err)
 	return _c
 }
 
-func (_c *MockMLClient_InferTensors_Call) RunAndReturn(run func(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error)) *MockMLClient_InferTensors_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// NewMockCaptureClient creates a new instance of MockCaptureClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
-// The first argument is typically a *testing.T value.
-func NewMockCaptureClient(t interface {
-	mock.TestingT
-	Cleanup(func())
-}) *MockCaptureClient {
-	mock := &MockCaptureClient{}
-	mock.Mock.Test(t)
-
-	t.Cleanup(func() { mock.AssertExpectations(t) })
-
-	return mock
-}
-
-// MockCaptureClient is an autogenerated mock type for the CaptureClient type
-type MockCaptureClient struct {
-	mock.Mock
-}
-
-type MockCaptureClient_Expecter struct {
-	mock *mock.Mock
-}
-
-func (_m *MockCaptureClient) EXPECT() *MockCaptureClient_Expecter {
-	return &MockCaptureClient_Expecter{mock: &_m.Mock}
-}
-
-// Capture provides a mock function for the type MockCaptureClient
-func (_mock *MockCaptureClient) Capture(ctx context.Context, width int, height int) ([]byte, error) {
-	ret := _mock.Called(ctx, width, height)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Capture")
-	}
-
-	var r0 []byte
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) ([]byte, error)); ok {
-		return returnFunc(ctx, width, height)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) []byte); ok {
-		r0 = returnFunc(ctx, width, height)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]byte)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
-		r1 = returnFunc(ctx, width, height)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockCaptureClient_Capture_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Capture'
-type MockCaptureClient_Capture_Call struct {
-	*mock.Call
-}
-
-// Capture is a helper method to define mock.On call
-//   - ctx context.Context
-//   - width int
-//   - height int
-func (_e *MockCaptureClient_Expecter) Capture(ctx interface{}, width interface{}, height interface{}) *MockCaptureClient_Capture_Call {
-	return &MockCaptureClient_Capture_Call{Call: _e.mock.On("Capture", ctx, width, height)}
-}
-
-func (_c *MockCaptureClient_Capture_Call) Run(run func(ctx context.Context, width int, height int)) *MockCaptureClient_Capture_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 int
-		if args[1] != nil {
-			arg1 = args[1].(int)
-		}
-		var arg2 int
-		if args[2] != nil {
-			arg2 = args[2].(int)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockCaptureClient_Capture_Call) Return(bytes []byte, err error) *MockCaptureClient_Capture_Call {
-	_c.Call.Return(bytes, err)
-	return _c
-}
-
-func (_c *MockCaptureClient_Capture_Call) RunAndReturn(run func(ctx context.Context, width int, height int) ([]byte, error)) *MockCaptureClient_Capture_Call {
+func (_c *MockMLClient_TensorInference_Call) RunAndReturn(run func(ctx context.Context, model string, tensors map[string]any) (InferenceResult, error)) *MockMLClient_TensorInference_Call {
 	_c.Call.Return(run)
 	return _c
 }

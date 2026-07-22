@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * List the configured cameras.
-         * @description Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since the manifest already tells it which exist and the renderer derived this component's config from it.
+         * @description Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since its resources already tell it which exist and the renderer derived this component's config from them.
          */
         get: operations["metadata"];
         put?: never;
@@ -88,14 +88,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description The camera component's boot config: the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. */
+        /** @description The camera component's boot config: the cameras this component is issued. A projection of the device's camera resources, not an authored artifact — the renderer writes the subset of Resources.cameras the deployment's bound channels use, keyed by the same resource key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape. */
         CameraConfig: {
-            /** @description Cameras keyed by their device-manifest key — the /capture `name` selector. */
+            /** @description Cameras keyed by their resource key — the /capture `name` selector. */
             cameras: {
                 [key: string]: components["schemas"]["CameraSource"];
             };
         };
-        /** @description One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key. */
+        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key. */
         CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
         /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
         V4L2Source: {
@@ -121,7 +121,7 @@ export interface components {
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
             setup?: components["schemas"]["CameraSetup"];
         };
-        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key. */
+        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's resource key. */
         RtspSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -134,7 +134,7 @@ export interface components {
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key. */
+        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's resource key. */
         HttpSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -147,7 +147,7 @@ export interface components {
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits. */
+        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits. */
         RawSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -178,7 +178,7 @@ export interface components {
         };
         /** @description Descriptive metadata for one configured camera. */
         DeviceMetadata: {
-            /** @description Device-manifest key of the camera — the /capture name selector. */
+            /** @description Resource key of the camera — the /capture name selector. */
             name: string;
             /** @description Optional human-readable device description. */
             description?: string;
@@ -205,7 +205,7 @@ export interface operations {
     capture: {
         parameters: {
             query: {
-                /** @description Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id. */
+                /** @description Resource key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id. */
                 name: string;
                 /** @description Optional width hint in pixels; ignored by sources that lack it. */
                 width?: number;

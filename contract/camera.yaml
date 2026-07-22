@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: ForestHub Camera Component Contract
   version: 0.1.0
-  description: "Engine<->camera component wire. PRIVATE: the camera component is a driver component, not a standalone service — the engine is its sole issuer and sole caller, its config is derived from the device manifest, and its address is a constant. Nothing in ExternalResources may point at it and no operator supplies its url. One container owns the cameras it is issued, each /capture request naming which to read by its device-manifest key. Source of truth for the engine's generated client and the component's generated server."
+  description: "Engine<->camera component wire. PRIVATE: the camera component is a driver component, not a standalone service — the engine is its sole issuer and sole caller, its config is derived from the device's camera resources (Resources.cameras), and its address is a constant. No resource entry may point at it and no operator supplies its url. One container owns the cameras it is issued, each /capture request naming which to read by its resource key. Source of truth for the engine's generated client and the component's generated server."
 
 paths:
   /capture:
@@ -17,7 +17,7 @@ paths:
         - name: name
           in: query
           required: true
-          description: Device-manifest key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
+          description: Resource key of the camera to read — the same key the engine's ResourceMapping binds a CAMERA channel to, never the workflow's logical channel id.
           schema:
             type: string
         - name: width
@@ -91,7 +91,7 @@ paths:
     get:
       operationId: metadata
       summary: List the configured cameras.
-      description: "Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since the manifest already tells it which exist and the renderer derived this component's config from it."
+      description: "Names every configured camera — the valid /capture name selectors. Diagnostic only: the engine does not discover cameras through this, since its resources already tell it which exist and the renderer derived this component's config from them."
       responses:
         "200":
           description: The component's configured cameras.
@@ -104,17 +104,17 @@ components:
   schemas:
     CameraConfig:
       type: object
-      description: "The camera component's boot config: the cameras this component is issued. A projection of the device manifest, not an authored artifact — the renderer writes the subset of DeviceManifest.cameras the deployment's bound channels use, keyed by the same manifest key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape."
+      description: "The camera component's boot config: the cameras this component is issued. A projection of the device's camera resources, not an authored artifact — the renderer writes the subset of Resources.cameras the deployment's bound channels use, keyed by the same resource key; the component reads it at boot from the contracted config path. A cross-language seam. Not on the HTTP wire; carried here so the renderer (producer) and component (consumer) share one generated shape."
       required: [cameras]
       properties:
         cameras:
           type: object
-          description: "Cameras keyed by their device-manifest key — the /capture `name` selector."
+          description: "Cameras keyed by their resource key — the /capture `name` selector."
           additionalProperties:
             $ref: "#/components/schemas/CameraSource"
 
     CameraSource:
-      description: "One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key."
+      description: "One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key."
       oneOf:
         - $ref: "#/components/schemas/V4L2Source"
         - $ref: "#/components/schemas/LibcameraSource"
@@ -168,7 +168,7 @@ components:
 
     RtspSource:
       type: object
-      description: An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key.
+      description: An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's resource key.
       required: [kind, url]
       properties:
         kind:
@@ -187,7 +187,7 @@ components:
 
     HttpSource:
       type: object
-      description: A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key.
+      description: A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's resource key.
       required: [kind, url]
       properties:
         kind:
@@ -206,7 +206,7 @@ components:
 
     RawSource:
       type: object
-      description: "Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits."
+      description: "Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits."
       required: [kind, pipeline]
       properties:
         kind:
@@ -261,7 +261,7 @@ components:
       properties:
         name:
           type: string
-          description: Device-manifest key of the camera — the /capture name selector.
+          description: Resource key of the camera — the /capture name selector.
         description:
           x-go-type-skip-optional-pointer: true
           type: string

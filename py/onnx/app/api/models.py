@@ -16,7 +16,7 @@ class MLModelConfig(BaseModel):
 
     params: dict[str, Any] | None = None
     """
-    Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, these, then a request's params.
+    Deployment overrides merged over the bundle manifest's params. Precedence, lowest to highest: manifest params, then these.
     """
 
 

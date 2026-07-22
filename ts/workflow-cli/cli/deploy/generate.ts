@@ -389,7 +389,7 @@ run one engine instance on an edge controller, **standalone** — the engine boo
 the workflow from \`engine-config.json\` and runs it autonomously:
 
 - \`docker-compose.yml\` — deployment template
-- \`engine-config.json\` — the engine's single boot config (workflow + bindings + device manifest)
+- \`engine-config.json\` — the engine's single boot config (workflow + mapping + resources)
 - \`deployment-spec.json\` — the full resolved deployment spec (deployment record)
 - \`engine.env\` — operator configuration loaded into the engine (already filled in, \`chmod 600\` it)
 ${hasSecrets ? "- `engine-secrets.json` — resource credentials, mounted read-only at `/etc/foresthub/secrets.json` (already filled in, `chmod 600` it)\n" : ""}- \`${engineTar}\` — image tarball (you build this in step 1 below)

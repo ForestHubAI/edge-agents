@@ -11,8 +11,7 @@ export interface components {
         EngineConfig: {
             workflow: components["schemas"]["Workflow"];
             mapping?: components["schemas"]["ResourceMapping"];
-            externalResources?: components["schemas"]["ExternalResources"];
-            manifest?: components["schemas"]["DeviceManifest"];
+            resources?: components["schemas"]["Resources"];
         };
         /** @description Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id. */
         ResourceMapping: {
@@ -20,66 +19,15 @@ export interface components {
         };
         /** @description Where one workflow resource resolves to: the shared platform resource `ref` it maps to, plus an optional sub-address selecting one served unit within it. */
         ResourceAddress: {
-            /** @description Shared platform resource id this binds to. */
+            /** @description Shared platform resource id this binds to (a key in Resources). */
             ref: string;
             /** @description Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only. */
             index?: number;
             /** @description Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings. */
             model?: string;
         };
-        /** @description Deploy-time configs for a workflow's non-device external resources (MQTT transports, custom-model providers, ...), keyed by platform resource id. */
-        ExternalResources: {
-            [key: string]: components["schemas"]["ExternalResourceConfig"];
-        };
-        /** @description Tagged union of deploy-time external-resource configs, discriminated by runtime kind (not by ownership — locality like on-device vs cloud lives inside an arm). New kinds extend this oneOf. */
-        ExternalResourceConfig: components["schemas"]["MQTTBroker"] | components["schemas"]["LLMProvider"] | components["schemas"]["MLProvider"];
-        /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. directLlm: a built-in catalog adapter reached straight at the provider, authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (directLlm xor backendLlm) — no catch-all, no shadowing. */
-        LLMProvider: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "directLlm" | "backendLlm" | "selfhostedLlm";
-            /** @description directLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai). */
-            provider?: string;
-            /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
-            url?: string;
-        };
-        /** @description Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
-        MLProvider: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "ml";
-            /** @description Base URL of the ML component (http:// or https://). */
-            url: string;
-        };
-        /** @description Resolved connection metadata for an MQTT broker. */
-        MQTTBroker: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "mqtt";
-            brokerUrl: string;
-            clientId?: string;
-            username?: string;
-            /** @description Topic prefix for workflow-level publish topics ({networkId}/{agentId}/). */
-            publishPrefix?: string;
-            /** @description Topic prefix for workflow-level subscribe filters ({networkId}/+/). */
-            subscribePrefix?: string;
-            will?: components["schemas"]["MQTTWill"];
-        };
-        MQTTWill: {
-            topic: string;
-            payload: string;
-            /** @description MQTT QoS (0, 1, or 2). */
-            qos: number;
-            retain: boolean;
-        };
-        /** @description Hardware resources available on the device, keyed by driver instance ID. */
-        DeviceManifest: {
+        /** @description The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. */
+        Resources: {
             gpios?: {
                 [key: string]: components["schemas"]["GPIOConfig"];
             };
@@ -98,28 +46,83 @@ export interface components {
             cameras?: {
                 [key: string]: components["schemas"]["CameraSource"];
             };
+            mqttBrokers?: {
+                [key: string]: components["schemas"]["MQTTBroker"];
+            };
+            llmProviders?: {
+                [key: string]: components["schemas"]["LLMProvider"];
+            };
+            mlProviders?: {
+                [key: string]: components["schemas"]["MLProvider"];
+            };
         };
         GPIOConfig: {
+            /** @enum {string} */
+            type: "gpio";
             /** @description cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0" */
             chip: string;
         };
         ADCConfig: {
+            /** @enum {string} */
+            type: "adc";
             /** @description sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0" */
             device: string;
         };
         DACConfig: {
+            /** @enum {string} */
+            type: "dac";
             /** @description sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1" */
             device: string;
         };
         SerialConfig: {
+            /** @enum {string} */
+            type: "serial";
             /** @description Serial device path, e.g. "/dev/ttyUSB0" or "COM3" */
             device: string;
             /** @description Baud rate; falls back to 115200 when zero */
             baud?: number;
         };
         PWMConfig: {
+            /** @enum {string} */
+            type: "pwm";
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
+        };
+        /** @description Resolved connection metadata for an MQTT broker. */
+        MQTTBroker: {
+            /** @enum {string} */
+            type: "mqtt";
+            brokerUrl: string;
+            clientId?: string;
+            username?: string;
+            /** @description Topic prefix for workflow-level publish topics ({networkId}/{agentId}/). */
+            publishPrefix?: string;
+            /** @description Topic prefix for workflow-level subscribe filters ({networkId}/+/). */
+            subscribePrefix?: string;
+            will?: components["schemas"]["MQTTWill"];
+        };
+        MQTTWill: {
+            topic: string;
+            payload: string;
+            /** @description MQTT QoS (0, 1, or 2). */
+            qos: number;
+            retain: boolean;
+        };
+        /** @description One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. directLlm: a built-in catalog adapter reached straight at the provider, authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (directLlm xor backendLlm) — no catch-all, no shadowing. */
+        LLMProvider: {
+            /** @enum {string} */
+            type: "directLlm" | "backendLlm" | "selfhostedLlm";
+            /** @description directLlm / backendLlm only — the built-in catalog adapter this instance serves (e.g. anthropic, openai). */
+            provider?: string;
+            /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
+            url?: string;
+        };
+        /** @description Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
+        MLProvider: {
+            /** @enum {string} */
+            type: "ml";
+            /** @description Base URL of the ML component (http:// or https://). */
+            url: string;
         };
         RagQueryRequest: {
             /** @description Collection to query */
@@ -829,7 +832,7 @@ export interface components {
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
             setup?: components["schemas"]["CameraSetup"];
         };
-        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's manifest key. */
+        /** @description An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's resource key. */
         RtspSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -842,7 +845,7 @@ export interface components {
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's manifest key. */
+        /** @description A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's resource key. */
         HttpSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -855,7 +858,7 @@ export interface components {
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the manifest to a specific driver implementation — prefer a typed kind whenever one fits. */
+        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits. */
         RawSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -875,7 +878,7 @@ export interface components {
              */
             kind: "debug";
         };
-        /** @description One camera the device owns, addressed by its manifest key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's manifest key. */
+        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key. */
         CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
     };
     responses: never;
