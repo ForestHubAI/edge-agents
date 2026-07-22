@@ -15,20 +15,23 @@ arrows**:
             ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │ LAYER 2 — Resolved configs                       (where, keyed by ref)│
-│   DeviceManifest      ◄── device-owned facts                          │
-│   ExternalResources   ◄── environment-supplied facts                  │
+│   Resources — one frozen bag, keyed by ref, grouped by family:        │
+│     device-owned (gpios..cameras) + environment-supplied              │
+│     (mqttBrokers / llmProviders / mlProviders)                        │
 └───────────────────────────────────────────────────────────────────────┘
-            │  engine registries : ref ─► live object
+            │  resource.Registry (+ llmproxy.Client) : ref ─► live object
             ▼
 ┌───────────────────────────────────────────────────────────────────────┐
 │ LAYER 3 — Code implementations                    (how, opened once)  │
-│   driver.Registry / transport.Registry / llmproxy.Client / endpoints  │
+│   resource.Registry  (every driver + MQTT + ML client, one bag)       │
+│   llmproxy.Client    (the LLM providers, one flat model namespace)    │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
 1. **ResourceMapping** binds each _logical id_ to a _platform resource id_ (`ref`), plus
    an optional sub-address.
-2. **Engine registries** turn each `ref` (and its Layer 2 config) into a live code object.
+2. **The engine** turns each `ref` (and its Layer 2 config) into a live code object: the
+   one `resource.Registry` for drivers/MQTT/ML, the `llmproxy.Client` for LLM providers.
 
 `ref` is a **sharing identity**: many requirements may point at one `ref`, and the engine
 opens that resource exactly once and shares the handle. What tells those requirements
@@ -45,7 +48,7 @@ Packaging is a Layer 3 detail.
 
 Sub-resource config **cannot** live in Layer 2, and this is structural, not a convention:
 Layer 2 has one entry per `ref`, while the sub-resource is chosen by the mapping, which
-Layer 2 cannot see. `manifest.gpios[ref] = {chip}` has no slot for line 17's bias and
+Layer 2 cannot see. `resources.gpios[ref] = {chip}` has no slot for line 17's bias and
 cannot have one. So it lives in something keyed by **channel id** instead.
 
 | Config of          | Home                       | Keyed by   | Examples                                       |
@@ -58,19 +61,11 @@ deployment fact**, and nothing else. Which line a sensor is wired to, or what an
 calls a model, is a fact about _this deployment_ → the address (the mapping). A topic name
 is the workflow's intent → the channel.
 
-This has **no bearing on cardinality**: `(ref, topic)` discriminates exactly as
-`(ref, index)` does. Where the discriminator lives and how many ids share a `ref` are
-independent questions.
-
-Anything else a channel might carry is a **node argument** — by definition, not by
-preference. Config is decided at build and fixed for the channel's life, shared by every
-node bound to it. A fact that isn't config can vary from one invocation to the next, and a
-channel field cannot express that.
-
-Capture size is the worked example. Nothing configures `640×480` — no setup applies it and
-no endpoint bears its name; the next capture may ask for something else. So it belongs on
-`CameraCapture`, which is what makes `CAMERA` 1:1: with the sizes gone it has no
-discriminator, and two sizes from one camera is two capture nodes on one channel.
+Anything else a channel might carry is a **node argument**, not config: config is fixed at
+build for the channel's life, while a node argument varies per invocation. Capture size is
+the example — nothing configures `640×480`, and the next capture may ask for something else,
+so it lives on `CameraCapture`. That is what makes `CAMERA` 1:1: with no size to discriminate
+on, two sizes from one camera is two capture nodes on one channel.
 
 ---
 
@@ -81,24 +76,24 @@ Three binding-free requirement lists (`contract/workflow.yaml`), each keyed by a
 
 ### `Channels[]` — hardware and transport needs
 
-| Channel type | Logical config (workflow-owned) |    Sub-address    | Pool                             |
+| Channel type | Logical config (workflow-owned) |    Sub-address    | Pool (`Resources.*`)             |
 | ------------ | ------------------------------- | :---------------: | -------------------------------- |
-| `GPIOIN`     | `bias`, `debounceMs`            |  `index` (line)   | DeviceManifest                   |
-| `GPIOOUT`    | —                               |  `index` (line)   | DeviceManifest                   |
-| `ADC`        | —                               | `index` (channel) | DeviceManifest                   |
-| `DAC`        | —                               | `index` (channel) | DeviceManifest                   |
-| `PWM`        | `frequency`                     | `index` (channel) | DeviceManifest                   |
-| `UART`       | —                               |         —         | DeviceManifest                   |
-| `CAMERA`     | —                               |         —         | DeviceManifest                   |
-| `MQTT`       | `topic`                         |         —         | ExternalResources                |
+| `GPIOIN`     | `bias`, `debounceMs`            |  `index` (line)   | `gpios` (device)                 |
+| `GPIOOUT`    | —                               |  `index` (line)   | `gpios` (device)                 |
+| `ADC`        | —                               | `index` (channel) | `adcs` (device)                  |
+| `DAC`        | —                               | `index` (channel) | `dacs` (device)                  |
+| `PWM`        | `frequency`                     | `index` (channel) | `pwms` (device)                  |
+| `UART`       | —                               |         —         | `serials` (device)               |
+| `CAMERA`     | —                               |         —         | `cameras` (device)               |
+| `MQTT`       | `topic`                         |         —         | `mqttBrokers` (environment)      |
 | `LOG`        | `level`, `tag?`                 |         —         | — (implicit: the ambient logger) |
 
 ### `Models[]` — declared models
 
-| Model type | Logical config          |       Sub-address       | Pool                          |
-| ---------- | ----------------------- | :---------------------: | ----------------------------- |
-| `LLMModel` | `label`, `capabilities` | `model` (upstream name) | ExternalResources.Providers   |
-| `MLModel`  | `label`                 |  `model` (served name)  | ExternalResources.MLInference |
+| Model type | Logical config          |       Sub-address       | Pool (`Resources.*`) |
+| ---------- | ----------------------- | :---------------------: | -------------------- |
+| `LLMModel` | `label`, `capabilities` | `model` (upstream name) | `llmProviders`       |
+| `MLModel`  | `label`                 |  `model` (served name)  | `mlProviders`        |
 
 Listed only because they need an environment-supplied endpoint. **Catalog models** —
 built-in ids referenced from agent nodes — are _not_ declared here and get no mapping
@@ -114,11 +109,9 @@ entry; see the join below.
 `MemoryFile` is device-storage-only and unmapped: `memory.Manager` owns it under the
 workspace mount. See `docs/engine-ports.md`.
 
-The split across all three lists is deliberate: `frequency`, `bias`, `topic` and
-`capabilities` describe _the workflow's intent_ and travel with it everywhere. The
-physical pin, the broker URL, the inference endpoint are _environment facts_, supplied
-separately. A `CAMERA` carries nothing at all: it takes no sub-address, and capture size
-configures nothing, so it is a `CameraCapture` argument.
+The split across all three lists is deliberate: `frequency`, `bias`, `topic`, `capabilities`
+describe _the workflow's intent_ and travel with it; the physical pin, broker URL, and
+inference endpoint are _environment facts_ supplied separately.
 
 ---
 
@@ -140,18 +133,18 @@ type ResourceAddress struct {
 
 ### How it maps
 
-| Layer 1 requirement         | Pool (Layer 2)                   | Discriminator     | Lives in         | ids : ref | Unique by      |
+| Layer 1 requirement         | Pool (`Resources.*`)             | Discriminator     | Lives in         | ids : ref | Unique by      |
 | --------------------------- | -------------------------------- | ----------------- | ---------------- | :-------: | -------------- |
-| `GPIOIN` / `GPIOOUT`        | `DeviceManifest.gpios`           | `index` (line)    | mapping          |  **N:1**  | `(ref, index)` |
-| `ADC`                       | `DeviceManifest.adcs`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
-| `DAC`                       | `DeviceManifest.dacs`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
-| `PWM`                       | `DeviceManifest.pwms`            | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
-| `UART`                      | `DeviceManifest.serials`         | —                 | —                |  **1:1**  | `ref`          |
-| `CAMERA`                    | `DeviceManifest.cameras`         | —                 | —                |  **1:1**  | `ref`          |
-| `MQTT`                      | `ExternalResources.MQTTs`        | `topic`           | workflow         |  **N:1**  | `(ref, topic)` |
+| `GPIOIN` / `GPIOOUT`        | `gpios`                          | `index` (line)    | mapping          |  **N:1**  | `(ref, index)` |
+| `ADC`                       | `adcs`                           | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `DAC`                       | `dacs`                           | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `PWM`                       | `pwms`                           | `index` (channel) | mapping          |  **N:1**  | `(ref, index)` |
+| `UART`                      | `serials`                        | —                 | —                |  **1:1**  | `ref`          |
+| `CAMERA`                    | `cameras`                        | —                 | —                |  **1:1**  | `ref`          |
+| `MQTT`                      | `mqttBrokers`                    | `topic`           | workflow         |  **N:1**  | `(ref, topic)` |
 | `LOG`                       | — (implicit: the ambient logger) | `level`, `tag`    | workflow         |     —     | —              |
-| catalog/declared `LLMModel` | `ExternalResources.Providers`    | `model`           | mapping / static |  **N:1**  | `model`        |
-| declared `MLModel`          | `ExternalResources.MLInference`  | `model`           | mapping          |  **N:1**  | `(ref, model)` |
+| catalog/declared `LLMModel` | `llmProviders`                   | `model`           | mapping / static |  **N:1**  | `model`        |
+| declared `MLModel`          | `mlProviders`                    | `model`           | mapping          |  **N:1**  | `(ref, model)` |
 | `VectorDatabase`            | — (`ref` _is_ the collection id) | —                 | —                |  **1:1**  | `ref`          |
 
 ### The rule
@@ -183,88 +176,59 @@ expression is one requirement with several subscriber nodes, which is what
 `channel.Broadcaster` is for: `UART`, `GPIOIN` and `MQTT` each claim their resource once
 and fan out to every node that listens.
 
-### Where the discriminator lives
+### Uniqueness — where the discriminator lives, and who enforces it
 
-The channel or the address, decided by logical vs. deployment fact — see "The model"
-above, and note it has **no bearing on cardinality**. `bias` and `frequency` are
-sub-resource config that identifies nothing: they configure an address already owned, so
-they sit on the channel without discriminating.
+Which side holds the discriminator — channel or address — follows the logical-vs-deployment-fact
+rule above and has **no bearing on cardinality**: `(ref, topic)` discriminates exactly as
+`(ref, index)` does. `bias` and `frequency` sit on the channel but discriminate nothing — they
+configure an address already owned. The one correctness corollary: a workflow-fact discriminator
+must **not** be pushed into the Layer 2 config, or two requirements differing only by discriminator
+resolve to two refs — two configs, two opens of one device.
 
-The corollary matters for correctness: a workflow-fact discriminator must **not** be
-pushed down into the Layer 2 config. Two requirements differing only by discriminator must
-still resolve to one `ref` — otherwise they become two refs, two configs, and two opens of
-one device.
+Enforcement is split by _who authored the mapping_:
 
-Enforcement is split by _who authored the mapping_: the deploy resolver checks the
-mapping it built; the engine defends the invariant the mapping stands for.
+- **The resolver checks it at deploy.** `uniquenessKey` + `bindingConflicts` (`workflow-core`'s
+  `deploy` module) are the canonical table: `uniquenessKey` maps a filled requirement to the string
+  identifying the resource it claims, and two ids sharing a key are one claim declared twice. The OSS
+  CLI and the backend run the same function over their own binding shapes. It cannot live in the
+  builder — `(ref, discriminator)` is not complete until the `ref` is bound (two `MQTT` channels on
+  topic `alarm` are legal until they land on one broker), so uniqueness is a property of the binding,
+  not the workflow.
+- **The engine re-defends it at the point of claim.** It keeps no Go twin of `bindingConflicts`; a
+  second `(ref, discriminator)` pass would duplicate the resolver and still miss the real hazard.
+  Instead each exclusive driver rejects a second claimant at `Setup` (`gpio_linux.go` on an
+  already-configured line, `resource/mqtt.go` on a re-subscribed filter, and so on), so a mapping the
+  resolver did not author — hand-edited or third-party — still fails the build (`boot.Fail`) rather
+  than silently overwriting.
 
-**The resolver owns the uniqueness check.** The rule is executable and canonical:
-`uniquenessKey` + `bindingConflicts` (`workflow-core`'s `deploy` module) are the one table
-every deploy path agrees on. `uniquenessKey` maps a filled `Requirement` to the string
-identifying the resource it claims; two ids sharing a key are the same claim declared
-twice. Both resolvers run it off the shared function — the OSS CLI (`spec.ts`) and the
-backend, each supplying its own binding shape.
+Two hazards need more than `(ref, discriminator)` and are enforced separately:
 
-The flow is **derive → fill → check**. `workflowBindingRequirements` derives a
-`Requirement` per id carrying only workflow facts (`family`, `topic`); the consumer fills
-the deployment holes (`ref`, `index`, served `model`) from its own binding representation;
-then `bindingConflicts` groups by key. Order matters: completeness runs **first** — a
-required field still `null` makes `uniquenessKey` throw, never silently skip, so an
-unfilled requirement can't masquerade as "no conflict."
-
-**No uniqueness constraint can live in the workflow builder**, because `(ref, discriminator)`
-is not complete until the `ref` is bound: two `MQTT` channels on topic `alarm` are legal
-until they land on one broker; two cameras until they land on one device. Uniqueness is a
-property of the **binding**, not the workflow. It lives in `workflow-core` — but as a pure
-function over `(workflow-derived requirement, binding)`, not in the builder's editor state,
-so there is no contradiction.
-
-**The engine does not re-run this check.** It has no Go twin of `bindingConflicts`: a
-second `(ref, discriminator)` pass would duplicate the resolver and still not see the real
-hazard (content-addressed refs, a physical device path). Instead the engine defends the
-invariant _at the point of claim_ — a driver or transport that already holds an exclusive
-resource **rejects a second claimant with an error at `Setup`** rather than silently
-overwriting. That catches a mapping the resolver did not author (hand-edited, third-party)
-where it actually matters, regardless of how the duplicate arose, and needs no knowledge of
-the uniqueness table. (This is the reason `checkEndpointUniqueness`, the old MQTT-only
-pre-check, was removed.)
-
-Each exclusive claim enforces this itself: `serial_impl.go`'s `WatchRead` errors if a line
-callback is already installed; `gpio_linux.go`'s `claimLine` errors if the line is already
-configured (rather than tearing down the prior request); `pwm_linux.go`'s `Configure`
-errors if the channel is already configured (rather than overwriting its period);
-`transport/mqtt.go`'s `Subscribe` tracks claimed filters and errors on a second
-subscription of one filter (paho would overwrite the route). Each surfaces at `Setup`, so a
-duplicate that slipped past the resolver fails the build (`boot.Fail`) instead of going
-quiet.
-
-**Two constraints sit outside this split:**
-
-- **LLM global namespace.** `LLMModel` is unique by served `model` across _all_ providers,
-  not per-`ref` (see "The rule" — Layer 3 drops the ref). `uniquenessKey` emits the `llm:`
-  key for both `declaredLlm` and `catalogLlm` so a self-hosted name shadowing a catalog id
-  is caught at deploy; the engine enforces the same at boot, where `llmproxy.NewClient`
-  rejects a model id served by two providers — its provider map is the "point of claim" for
-  models, so this is the same driver-side discipline, not a re-run of the table.
-- **Camera device injectivity.** `uniquenessKey` catches two ids on one camera _ref_. Its
-  other hazard — two _refs_ on one physical `/dev/video0`, which content-addressed refs can
-  manufacture (two bindings differing only in `warmupFrames` hash to two refs) — needs the
-  device path, not the ref, so it is a check over the assembled `DeviceManifest.cameras`
-  (`v4l2` → `device`, `libcamera` → `cameraName`; network kinds have none), not part of
-  this function.
+- **LLM global namespace** — a served model name must be unique across _all_ providers, not
+  per-`ref` (see "The rule"); the engine's point of claim is `llmproxy.NewClient`, which rejects a
+  model id served by two providers.
+- **Camera device injectivity** — two _refs_ on one physical `/dev/video0` (content-addressed refs
+  can manufacture it) needs the device path, not the ref, so it is a check over the assembled
+  `Resources.cameras`, outside `uniquenessKey`.
 
 ---
 
-## Layer 2 — the two config sources
+## Layer 2 — the one resource bag
 
-Both arrive together in the single `EngineConfig` read at boot. They are separate
-artifacts because of **different ownership, not different lifecycles**.
+There is a **single `Resources` bag**, carried in the `EngineConfig` read at boot
+(`contract/engine.yaml` → `engine.Resources`). It holds every platform resource keyed by
+`ref`, grouped into per-family maps, and it materializes **1:1** into the Layer-3 registry
+— one entry, one opened resource. There is no longer a separate `DeviceManifest` and
+`ExternalResources`; the old split was **ownership, not lifecycle**, and ownership is now
+just which family a `ref` lives in.
 
-### DeviceManifest — device-owned
+Both groups arrive together and open together. The distinction that remains is _who
+authors the fact_: the device-owned families are ground truth Ranger fills from what the
+box has; the environment-supplied families are authored per deployment.
 
-The hardware physically present on this device. A fact about the box: Ranger fills it
-from what it knows the device has, and a different workflow on the same device sees the
-same manifest.
+### Device-owned families — `gpios`, `adcs`, `dacs`, `pwms`, `serials`, `cameras`
+
+The hardware physically present on this device. A fact about the box: a different workflow
+on the same device sees the same entries.
 
 | Family    | `ref` ─► config                                | Addressable parts  |
 | --------- | ---------------------------------------------- | ------------------ |
@@ -279,22 +243,23 @@ same manifest.
 camera _instances_ but does not define what a kind means. The engine's domain type keeps
 only the discriminator — it reaches every camera identically. See `camera-rework.md`.
 
-### ExternalResources — environment-supplied
+### Environment-supplied families — `mqttBrokers`, `llmProviders`, `mlProviders`
 
 The network/service environment the device does not own.
 
-| Pool          | `ref` ─► config                                                         | `type`          |
-| ------------- | ----------------------------------------------------------------------- | --------------- |
-| `MQTTs`       | `{brokerUrl, clientId?, publishPrefix, subscribePrefix, will?}`         | `mqtt`          |
-| `Providers`   | `{url, bearer?}` — an endpoint the llmproxy doesn't ship                | `selfhostedLlm` |
-| `Providers`   | `{provider}` — a built-in catalog provider reached directly with an API key | `directLlm`  |
-| `Providers`   | `{provider}` — the same catalog provider proxied to the backend, no key | `backendLlm`    |
-| `MLInference` | `{url}`                                                                 | `onnx`  |
+| Family         | `ref` ─► config                                                             | `type`          |
+| -------------- | --------------------------------------------------------------------------- | --------------- |
+| `mqttBrokers`  | `{brokerUrl, clientId?, username?, publishPrefix, subscribePrefix, will?}`  | `mqtt`          |
+| `llmProviders` | `{url}` — a self-hosted endpoint the llmproxy doesn't ship                  | `selfhostedLlm` |
+| `llmProviders` | `{provider}` — a built-in catalog provider reached directly with an API key | `directLlm`     |
+| `llmProviders` | `{provider}` — the same catalog provider proxied to the backend, no key     | `backendLlm`    |
+| `mlProviders`  | `{url}` — an ML component reached over HTTP                                 | `ml`            |
 
-`ExternalResourceConfig` is a tagged union discriminated by `type`; new external-resource
-kinds extend that `oneOf`. Only `selfhostedLlm` carries a `url`; only `directLlm` /
-`backendLlm` carry a `provider`. A catalog provider's served models are its built-in
-`AvailableModels`, so they are not listed here.
+Each family's value is a tagged union discriminated by `type`. Only `selfhostedLlm` carries
+a `url`; only `directLlm` / `backendLlm` carry a `provider`. A catalog provider's served
+models are its built-in `AvailableModels`, so they are not listed here. Credentials
+(`llmProviders` API key / bearer, `mqttBrokers` password) never appear in the config — see
+Secrets below.
 
 ### Secrets
 
@@ -310,23 +275,34 @@ empty rather than failing: an anonymous broker is valid.
 
 ---
 
-## Layer 3 — the registries that produce code
+## Layer 3 — where code gets produced
 
-Each pool has a registry mapping `ref` → a live implementation, and **all are built once
-at boot**. `cmd/engine/main.go` owns the driver and transport registries for the process
-lifetime and injects them into `build.Builder`; `Builder.Build` composes the rest. Both
-`Registry` types follow the same discipline: open everything up front, and on partial
-failure close what was opened, so callers never see a half-built registry.
+There are exactly **two holders**, both built once at boot:
 
-| Layer 2 pool                    | Registry             | `ref` ─► live object                                                                     | Opened                            |
-| ------------------------------- | -------------------- | ---------------------------------------------------------------------------------------- | --------------------------------- |
-| `DeviceManifest.*`              | `driver.Registry`    | `GPIODriver` / `ADCDriver` / `DACDriver` / `PWMDriver` / `SerialDriver` / `CameraDriver` | one per manifest entry, in `main` |
-| `ExternalResources.MQTTs`       | `transport.Registry` | `MQTTTransport` (paho conn)                                                              | one per entry, in `main`          |
-| `ExternalResources.Providers`   | `llmproxy.Client`    | `Provider`                                                                               | one per entry, in `build/llm.go`  |
-| `ExternalResources.MLInference` | — (`build/ml.go`)    | `mlEndpoint`                                                                             | one per declared model            |
+- **`resource.Registry`** — the one bag for _every_ opened resource: drivers **and** the
+  MQTT connections **and** the ML component clients. `cmd/engine/main.go` opens it from the
+  `Resources` bundle (`resource.NewRegistry`), owns it for the process lifetime, and
+  injects it into `build.Builder`.
+- **`llmproxy.Client`** — the LLM providers, composed separately in `build/llm.go` from
+  `Resources.llmProviders`, because chat resolves across **one flat model namespace over
+  every provider**, not per-`ref` (see "The rule").
 
-`driver.Registry` is **typed per family**, so a miswired manifest (a GPIO id looked up as
-an ADC) fails at registration, not first use:
+The registry opens everything up front and, on partial failure, closes what it opened, so
+callers never see a half-built registry.
+
+| `Resources.*` family                                       | Holder              | `ref` ─► live object                                                                     | Opened                           |
+| ---------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------- | -------------------------------- |
+| `gpios` / `adcs` / `dacs` / `pwms` / `serials` / `cameras` | `resource.Registry` | `GPIODriver` / `ADCDriver` / `DACDriver` / `PWMDriver` / `SerialDriver` / `CameraDriver` | one per entry, in `main`         |
+| `mqttBrokers`                                              | `resource.Registry` | `MQTTConnection` (paho conn)                                                             | one per entry, in `main`         |
+| `mlProviders`                                              | `resource.Registry` | `MLClient` (HTTP to the component)                                                       | one per entry, in `main`         |
+| `llmProviders`                                             | `llmproxy.Client`   | `Provider`                                                                               | one per entry, in `build/llm.go` |
+
+The **ML client is one per component `ref`, not one per model**: a single `MLClient` fronts
+a repository of models, and each `MLModel` binding selects one by name per request
+(`build/ml.go` resolves bindings against `registry.ML(ref)`; it opens nothing).
+
+`resource.Registry` is **typed per family**, so a miswired binding (a GPIO id looked up as
+an ADC) fails at lookup, not first use:
 
 ```go
 func (r *Registry) GPIO(id string)   (GPIODriver, error)
@@ -335,20 +311,23 @@ func (r *Registry) DAC(id string)    (DACDriver, error)
 func (r *Registry) PWM(id string)    (PWMDriver, error)
 func (r *Registry) Serial(id string) (SerialDriver, error)
 func (r *Registry) Camera(id string) (CameraDriver, error)
+func (r *Registry) MQTT(id string)   (MQTTConnection, error)
+func (r *Registry) ML(id string)     (MLClient, error)
 ```
 
-A driver's transport is its own business: some open a device node, some speak HTTP to a
-co-deployed component. That difference is invisible above this layer — callers see a
-driver like any other. Registration therefore does not imply reachability.
+A resource's transport is its own business: some open a device node, some speak HTTP to a
+co-deployed component (camera, ML). That difference is invisible above this layer — callers
+see a driver/client like any other. Registration therefore does not imply reachability.
 
-An unreachable broker at boot is a **retryable** boot failure (`boot.Retry`) so the
-orchestrator can restart. `main` closes both registries (`CloseAll`) when the runner
-exits.
+An unreachable broker at boot is a **retryable** boot failure (`boot.Retry`, tagged via
+`resource.IsTransient`) so the orchestrator can restart; hardware opens are never transient
+(a missing device is a permanent config error). `main` closes the registry (`CloseAll`)
+when the runner exits.
 
 There is **no implicit backend fallback** in `llmproxy.Client` — its providers are
-exactly what `ExternalResources.Providers` declares. The provider for a chat call is
-resolved implicitly from the **model id**, matched against each provider's
-`AvailableModels`; there is no client-level default.
+exactly what `Resources.llmProviders` declares. The provider for a chat call is resolved
+implicitly from the **model id**, matched against each provider's `AvailableModels`; there
+is no client-level default.
 
 ---
 
@@ -361,24 +340,26 @@ declared channel, by type:
 GPIOIN "door_sensor"                                    ← addressable
   ├─ addressFor(rm, "door_sensor")   → ResourceAddress{ref:"gpiochip0", index:17}
   ├─ indexFor(b, "door_sensor")      → 17                     (nil index = error)
-  ├─ drivers.GPIO("gpiochip0")       → GPIODriver             (not registered = error)
+  ├─ resources.GPIO("gpiochip0")     → GPIODriver             (not registered = error)
   └─ &channel.GPIOInput{Driver, Line:17, Bias, DebounceMs}    ← workflow-owned config
 
 CAMERA "front_door"                                     ← no discriminator, no config
   ├─ addressFor(rm, "front_door")    → ResourceAddress{ref:"video0"}
-  ├─ drivers.Camera("video0")        → CameraDriver           (not registered = error)
+  ├─ resources.Camera("video0")      → CameraDriver           (not registered = error)
   └─ &channel.Camera{Driver}                                  ← size is a node argument
 
-MQTT "alarm"                                            ← external pool
+MQTT "alarm"                                            ← environment family
   ├─ addressFor(rm, "alarm")         → ResourceAddress{ref:"site-broker"}
-  ├─ ext.MQTTs["site-broker"]        → MQTTConfig              (missing = error)
-  ├─ transports.MQTT("site-broker")  → MQTTTransport
+  ├─ res.MQTTs["site-broker"]        → MQTTBroker              (missing = error; prefixes)
+  ├─ resources.MQTT("site-broker")   → MQTTConnection
   └─ &channel.MQTT{Transport, Topic, PublishPrefix, SubscribePrefix}
 ```
 
-Same three moves every time: resolve the address, resolve the `ref` against its pool,
-attach the workflow-owned config. `buildCollections` and `buildDeployML` resolve declared
-`VectorDatabase`s and `MLModel`s through the same `addressFor`.
+Same three moves every time: resolve the address, resolve the `ref` against `resources`
+(the one registry), attach the workflow-owned config. MQTT reads its prefixes from the
+`res.MQTTs` config _and_ its connection from the registry, both keyed by the same `ref`.
+`buildCollections` and `buildDeployML` resolve declared `VectorDatabase`s and `MLModel`s
+through the same `addressFor`.
 
 Nodes look up their linked channel in the per-build typed `channels` registry by logical
 id and hold the pointer; every node referencing the same id shares one instance, so
@@ -387,22 +368,22 @@ all nodes are built, applying each channel's accumulated requirements to its dri
 
 ### Validation (boot-time, fail-fast)
 
-| Failure                                               | Where                         |
-| ----------------------------------------------------- | ----------------------------- |
-| channel id has no mapping entry / empty `ref`         | `addressFor` (`channel.go`)   |
-| addressable channel has nil `index`                   | `indexFor` (`channel.go`)     |
-| one model id served by two providers                  | `llmproxy.NewClient`          |
-| MQTT channel with an empty `topic`                    | `channel.MQTT.Setup`          |
-| hardware `ref` not in driver registry                 | `drivers.GPIO/ADC/Camera/...` |
-| MQTT `ref` not in `ext.MQTTs`                         | `buildChannels` MQTT arm      |
-| declared model not bound by the mapping               | `selfHostedEndpoints`         |
-| declared model bound to a `ref` with no config        | `selfHostedEndpoints`         |
-| declared model bound to a non-self-hosted provider    | `selfHostedEndpoints`         |
-| unknown catalog provider id (`directLlm`/`backendLlm`) | `buildProviders`             |
-| `backendLlm` provider but no backend configured       | `buildProviders`              |
-| ML model unbound / `ref` has no ml config   | `buildDeployML` (`ml.go`)     |
-| agent node references an unservable model             | `validateModelsResolvable`    |
-| `VectorDatabase` id has no mapping entry              | `buildCollections`            |
+| Failure                                                | Where                           |
+| ------------------------------------------------------ | ------------------------------- |
+| channel id has no mapping entry / empty `ref`          | `addressFor` (`channel.go`)     |
+| addressable channel has nil `index`                    | `indexFor` (`channel.go`)       |
+| one model id served by two providers                   | `llmproxy.NewClient`            |
+| MQTT channel with an empty `topic`                     | `channel.MQTT.Setup`            |
+| hardware `ref` not in registry                         | `resources.GPIO/ADC/Camera/...` |
+| MQTT `ref` not in `res.MQTTs`                          | `buildChannels` MQTT arm        |
+| declared model not bound by the mapping                | `selfHostedEndpoints`           |
+| declared model bound to a `ref` with no config         | `selfHostedEndpoints`           |
+| declared model bound to a non-self-hosted provider     | `selfHostedEndpoints`           |
+| unknown catalog provider id (`directLlm`/`backendLlm`) | `buildProviders`                |
+| `backendLlm` provider but no backend configured        | `buildProviders`                |
+| ML model unbound / `ref` not in registry               | `buildDeployML` (`ml.go`)       |
+| agent node references an unservable model              | `validateModelsResolvable`      |
+| `VectorDatabase` id has no mapping entry               | `buildCollections`              |
 
 Every one exits the engine at boot (`boot.Fail`), so Ranger sees a failed container
 rather than a workflow that silently misbehaves.
@@ -412,8 +393,8 @@ rather than a workflow that silently misbehaves.
 ## Designing a deploy wizard
 
 The three layers map almost directly onto wizard stages. The wizard's job is to produce a
-complete **`ResourceMapping` + `ExternalResources`** for a given workflow against a given
-device/environment.
+complete **`ResourceMapping` + the environment-supplied half of `Resources`** for a given
+workflow against a given device/environment.
 
 1. **Read the requirements (Layer 1).** Parse `Channels[]`, `Models[]`, and declared
    `VectorDatabase`s, **plus the catalog model ids referenced by agent nodes** (walk the
@@ -422,10 +403,11 @@ device/environment.
    _provider_ the referenced models resolve to.
 
 2. **Offer bindings from the right pool (the join).** Candidate `ref`s come from the
-   type-specific pool named in the mapping table above: device-owned requirements draw
-   from the `DeviceManifest` families (read-only ground truth — the operator picks what
-   the device has rather than typing a path); environment-supplied ones draw from
-   existing/new external definitions.
+   type-specific family named in the mapping table above: device-owned requirements draw
+   from the device families of `Resources` (`gpios`..`cameras` — read-only ground truth,
+   the operator picks what the device has rather than typing a path); environment-supplied
+   ones draw from existing/new entries in the `mqttBrokers` / `llmProviders` / `mlProviders`
+   families.
 
    Collect the `index` / `model` sub-address only where the mapping carries one.
    **Surface sharing explicitly**: many requirements may pick the same `ref`, and that is
@@ -433,27 +415,28 @@ device/environment.
 
    Then **enforce uniqueness over `(ref, discriminator)`** — including the workflow-fact
    discriminators (`topic`, `level`/`tag`), which the builder cannot check because it does
-   not know the `ref`; see "Enforcing uniqueness" under the join.
+   not know the `ref`; see "Uniqueness" under the join.
 
    Catalog providers aren't _bound_ — instead offer a per-provider **routing choice**:
    reach it directly with an API key (`directLlm`) or route it to the backend (`backendLlm`).
 
 3. **Collect configs for newly-referenced resources (Layer 2).** Any `ref` the user picks
-   that isn't device-owned needs an `ExternalResources` entry, per the Layer 2 table.
-   Device-owned refs need nothing — their config is already in the device manifest.
-   Secrets go to the mounted secret document keyed by `ref` (per component — each gets
-   only its own), never into the config.
+   that isn't device-owned needs an entry in the matching environment family of `Resources`,
+   per the Layer 2 table. Device-owned refs need nothing — their config is already in the
+   device families. Secrets go to the mounted secret document keyed by `ref` (per component —
+   each gets only its own), never into the config.
 
 4. **Validate before submit.** Re-run the boot-time checks client-side so the user fixes
    gaps in the wizard, not via a failed container. The "Validation" table is the
    authoritative checklist.
 
 5. **Emit the config.** The output is exactly the binding half of an `EngineConfig`:
-   `{ mapping, externalResources }`, joined with the workflow and device manifest and
-   shipped to the device (and the secret document out-of-band).
+   `{ mapping, resources }`, where `resources` merges the read-only device families with the
+   environment families the wizard authored; shipped to the device with the workflow (and
+   the secret document out-of-band).
 
 **Design implication:** the wizard only ever authors **Layer 2 facts and the join**. It
-treats the `DeviceManifest` as read-only ground truth (what hardware exists) and the
-workflow as a read-only requirement list (what's needed); everything it writes is the
-binding between them plus the environment-supplied external configs. Layer 3 is entirely
-the engine's concern at boot — the wizard never touches it.
+treats the device families of `Resources` as read-only ground truth (what hardware exists)
+and the workflow as a read-only requirement list (what's needed); everything it writes is
+the binding between them plus the environment-supplied families. Layer 3 is entirely the
+engine's concern at boot — the wizard never touches it.
