@@ -193,7 +193,7 @@ func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Regist
 			}
 		case workflowapi.LOGChannel:
 			// No addressFor: a log channel resolves to the ambient engine logger,
-			// not a device driver or external resource, so the mapping carries no
+			// not a device driver or network resource, so the mapping carries no
 			// entry for it. Level is contract-constrained to a known enum; parse
 			// defensively and hard-fail rather than silently logging at the wrong
 			// severity.
@@ -212,7 +212,7 @@ func buildChannels(apiChannels []workflowapi.Channel, resources *resource.Regist
 // addressFor resolves a channel's address from the resource mapping. The workflow
 // no longer carries it, so a missing entry is a config misconfiguration, not
 // silent degradation. The ref resolves against the device driver registry
-// (hardware) or external resources (MQTT) at the call site, by channel type.
+// (hardware) or network resources (MQTT) at the call site, by channel type.
 func addressFor(rm engine.ResourceMapping, channelID string) (engine.ResourceAddress, error) {
 	if rm == nil {
 		return engine.ResourceAddress{}, fmt.Errorf("channel %s: no resource mapping provided", channelID)

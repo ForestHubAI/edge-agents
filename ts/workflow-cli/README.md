@@ -72,10 +72,12 @@ second path.
 
 Generates a self-contained, **standalone** deployment bundle for an edge controller —
 a directory the engine boots from directly, with no backend and no account. It always
-holds `workflow.json`, `docker-compose.yml`, `.env` (operator config, written `0600`),
-and a `README.md` with the build/transfer/run steps. Workflows that declare hardware,
-MQTT, or custom models additionally get `device_manifest.json`, `external_resources.json`
-(`0600`), and `deployment_mapping.json`.
+holds `engine-config.json` (the engine's single boot config — `workflow` + `mapping` +
+`resources`, all in one blob), `docker-compose.yml`, `engine.env` (operator config,
+written `0600`), a `deployment-spec.json` record, and a `README.md` with the
+build/transfer/run steps. Workflows whose resources need credentials additionally get
+`engine-secrets.json` (`0600`, the resolved resource-credential doc); hardware, MQTT, and
+custom/self-hosted models are all folded into `engine-config.json`, not separate files.
 
 Missing values are filled in **interactively** at a terminal. Without a terminal (a
 Claude Code skill, CI), supply them through `--values <file.json>` — a partial deploy

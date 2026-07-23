@@ -86,7 +86,7 @@ func TestBuildDeployML_UnboundFails(t *testing.T) {
 }
 
 func TestBuildDeployML_BoundButUnregisteredFails(t *testing.T) {
-	// Bound to a ref with no MLProvider in externalResources: the registry never
+	// Bound to a ref with no MLProvider in resources.mlProviders: the registry never
 	// opened a client for it, so the lookup fails.
 	wf := &workflowapi.Workflow{Models: []workflowapi.Model{mlModel(t, "yolo")}}
 	dm := engine.ResourceMapping{"yolo": {Ref: "missing"}}

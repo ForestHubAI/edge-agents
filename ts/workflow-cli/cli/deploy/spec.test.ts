@@ -196,7 +196,7 @@ describe("buildDeploymentSpec", () => {
       volumes: [`./workspaces/${llamaComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
     });
     expect(llama.command).toBeUndefined();
-    // The external-resource provider URL must point at the shared component service.
+    // The network-resource provider URL must point at the shared component service.
     const llm = engineConfigOf(spec).resources!.llmProviders!;
     const provider = Object.values(llm).find((r) => r.type === "selfhostedLlm");
     expect(provider).toMatchObject({ url: `http://${llamaComponentServiceName()}:8080` });
@@ -570,7 +570,7 @@ describe("buildDeploymentSpec capture component", () => {
   });
   const manifestCameras = (spec: Spec) => engineConfigOf(spec).resources?.cameras ?? {};
 
-  it("declares each camera in the device manifest, never as an external resource", () => {
+  it("declares each camera in the device manifest, never as a network resource", () => {
     const inputs = camInputs({
       front: { kind: "v4l2", device: "/dev/video0" },
       rear: { kind: "v4l2", device: "/dev/video1" },
@@ -578,7 +578,7 @@ describe("buildDeploymentSpec capture component", () => {
     const { spec } = buildDeploymentSpec(cameraWorkflow(["front", "rear"]), inputs, meta);
 
     // A camera is device-owned hardware: it lives in resources.cameras, and no
-    // non-device external resource points at the driver component.
+    // non-device network resource points at the driver component.
     expect(manifestCameras(spec)).toEqual({
       video0: { kind: "v4l2", device: "/dev/video0" },
       video1: { kind: "v4l2", device: "/dev/video1" },

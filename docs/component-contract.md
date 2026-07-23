@@ -168,7 +168,7 @@ boot failure — exit `ExitConfigError` (below), not a retry.
 Dynamic, id-keyed credentials (MQTT passwords, network-model keys) that must **not**
 live in the versioned deployment spec. They are resolved fresh on each deploy and
 delivered here as a flat `map<id, string>`, mounted read-only exactly like `config.json`.
-Absent when no external resource needs a secret. Fixed-name scalar secrets (provider
+Absent when no network resource needs a secret. Fixed-name scalar secrets (provider
 API keys, the engine secret) arrive as **environment variables** instead, not in this
 file — see [`deployment-pipeline.md`](./deployment-pipeline.md) for the split.
 

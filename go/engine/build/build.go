@@ -3,8 +3,8 @@
 // For commercial licensing, contact root@foresthub.ai
 
 // Package build holds the engine's workflow-graph builder, which assembles a Runner from a workflow spec,
-// resource mapping, and external resources. It resolves the workflow's requirements against the injected
-// resource registry and clients to reach device and external resources.
+// resource mapping, and resources bundle. It resolves the workflow's requirements against the injected
+// resource registry and clients to reach device and network resources.
 package build
 
 import (
@@ -23,7 +23,7 @@ import (
 
 // Builder holds the engine-scoped dependencies needed to construct a Runner.
 // Backend (optional; nil = standalone) is the client every backend-routed LLM
-// provider forwards to; Build resolves the boot externalResources into the
+// provider forwards to; Build resolves the boot resources into the
 // llmproxy client scoped to the Runner.
 type Builder struct {
 	Resources *resource.Registry
@@ -143,7 +143,7 @@ func (b *Builder) resolve(ctx context.Context, wf *workflowapi.Workflow, rm engi
 			return nil, fmt.Errorf("reconciling memory: %w", err)
 		}
 	}
-	// Compose the LLM client from externalResources: catalog providers
+	// Compose the LLM client from resources.llmProviders: catalog providers
 	// plus any custom-model self-hosted endpoints. The client is scoped to this
 	// Runner and GC'd on shutdown.
 	providers, err := buildProviders(wf, rm, res, b.Backend)

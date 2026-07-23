@@ -479,7 +479,7 @@ export function buildDeploymentSpec(
   // camera's credential, because it never builds the capture pipeline.
   const cameraSecrets: ComponentSecrets = {};
 
-  // The non-device external resources, each in its own typed slot of Resources.
+  // The non-device network resources, each in its own typed slot of Resources.
   const mqttBrokers: Record<string, EngineSchemas["MQTTBroker"]> = {};
   const llmProviders: Record<string, EngineSchemas["LLMProvider"]> = {};
   const mlProviders: Record<string, EngineSchemas["MLProvider"]> = {};
@@ -661,7 +661,7 @@ export function buildDeploymentSpec(
   }
 
   // Cameras: device-owned hardware, so each becomes a Resources.cameras entry the
-  // engine resolves through its driver registry — never an external resource, and
+  // engine resolves through its driver registry — never a network resource, and
   // no url anywhere, since the driver component's address is a constant. One
   // component is issued for the whole set and selects a camera by its manifest key
   // per request.

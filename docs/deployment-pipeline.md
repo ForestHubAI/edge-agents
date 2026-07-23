@@ -51,7 +51,7 @@ INPUTS: workflow graph + device manifest + account resources
 │ does:   KNOWS engine & llama → ANALYZES the workflow's               │
 │         requirements and derives their DeployComponents: the         │
 │         config blob + every field IMPLIED by it — devices /          │
-│         privileged / user (from hardware), externalResources +       │
+│         privileged / user (from hardware), resources +               │
 │         mapping (from mqtt/models), and the SECRET SET the graph     │
 │         needs. llama: ONE shared component, config.json models       │
 │         MERGES user-authored custom DeployComponents verbatim        │
@@ -131,7 +131,7 @@ workflow uses) and from it computes the rest of the component's fields — the o
 
 - `devices` / `privileged` / `user` — from the hardware the graph binds against the
   device manifest,
-- `externalResources` + `mapping` (inside the engine's config) — from the MQTT and
+- `resources` + `mapping` (inside the engine's config) — from the MQTT and
   custom-model bindings,
 - the **secret set** — which resource ids need a credential (drives the out-of-band
   secret doc; no field in the spec).

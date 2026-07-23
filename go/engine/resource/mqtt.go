@@ -19,7 +19,7 @@ import (
 const mqttOpTimeout = 10 * time.Second
 
 // MQTTConnection multiplexes one TCP connection across many topics. A network
-// resource, opened from the external resources.
+// resource, opened from the resources bundle.
 type MQTTConnection interface {
 	Resource
 	// Publish sends payload to topic.

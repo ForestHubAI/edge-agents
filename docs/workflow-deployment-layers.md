@@ -212,16 +212,13 @@ Two hazards need more than `(ref, discriminator)` and are enforced separately:
 
 ---
 
-## Layer 2 — the one resource bag
+## Layer 2
 
 There is a **single `Resources` bag**, carried in the `EngineConfig` read at boot
 (`contract/engine.yaml` → `engine.Resources`). It holds every platform resource keyed by
 `ref`, grouped into per-family maps, and it materializes **1:1** into the Layer-3 registry
-— one entry, one opened resource. There is no longer a separate `DeviceManifest` and
-`ExternalResources`; the old split was **ownership, not lifecycle**, and ownership is now
-just which family a `ref` lives in.
-
-Both groups arrive together and open together. The distinction that remains is _who
+— one entry, one opened resource. Both local resources from devices `DeviceManifest` and
+environment facts are collected here. The distinction that remains is _who
 authors the fact_: the device-owned families are ground truth Ranger fills from what the
 box has; the environment-supplied families are authored per deployment.
 

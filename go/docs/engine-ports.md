@@ -15,7 +15,7 @@ There are three sources of implementation:
   ports that's a real local implementation; for others it's "the port is
   nil and the engine does without."
 - **Deploy-resolved component clients** — the ML inference port is filled from the
-  deploy's `ExternalResources` (a component URL), resolved in the build layer
+  deploy's `Resources` (a component URL), resolved in the build layer
   (`engine/build`), not `main.go`. It is backend-independent: the component is a
   separate container reached by URL, the same with or without a backend.
 - **Drivers** — the capture port is filled from the `DeviceManifest` through
@@ -25,7 +25,7 @@ There are three sources of implementation:
 
 `cmd/engine/main.go` decides which adapter fills the backend-or-standalone
 seams (LLM, RAG); the component-backed seams are wired by the build layer from
-`ExternalResources`.
+`Resources`.
 
 ## The matrix
 
@@ -33,7 +33,7 @@ seams (LLM, RAG); the component-backed seams are wired by the build layer from
 | ------------------- | ----------------------------- | ------------------------------------------------- | ------------------------------------------------ | -------------------------------- |
 | `LlmClient`         | `Chat`                        | Required for agent nodes                          | Local providers via `llmproxy` (direct API keys) | Backend-routed provider fallback |
 | `Retriever`         | `QueryRAG`                    | Required **only if** a retrieval node is deployed | **nil** → build rejects any Retriever node       | Forwards to `/rag/query`         |
-| `MLClient` | `InferTensors`, `InferBinary` | Required **only if** an ML node is deployed | Deploy-resolved component client from `ExternalResources` (backend-independent) | — same (not backend-routed)  |
+| `MLClient` | `InferTensors`, `InferBinary` | Required **only if** an ML node is deployed | Deploy-resolved component client from `Resources` (backend-independent) | — same (not backend-routed)  |
 | `CaptureClient`     | `Capture`                     | Required **only if** a camera capture node is deployed | `channel.Camera` over a `driver.CameraDriver`, resolved from the `DeviceManifest` (backend-independent) | — same (not backend-routed)  |
 
 Three capabilities deliberately are **not** ports:
@@ -87,7 +87,7 @@ adapter is `build.mlEndpoint`, a generated `mlapi` client bound to one
 model name.
 
 - **Resolution:** `build/ml.go` resolves each declared ML model against the
-  deploy's `ExternalResources` (`onnx` arm → component URL). Many models
+  deploy's `Resources` (`mlProviders` → component URL). Many models
   may share one component — the model name is sent per request.
 - **Missing:** an `MLInference` node whose model is unbound or unconfigured
   **fails the build**. Backend-independent — the component is its own container.

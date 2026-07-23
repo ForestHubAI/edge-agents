@@ -28,7 +28,7 @@ const (
 	// SecretsFile is the resolved resource-credential document, mounted read-only
 	// from the host deploy dir like ConfigFile. Dynamic, id-keyed credentials —
 	// never in the deployment spec, resolved fresh at pull and delivered here
-	// instead of via env. Absent when no external resource needs a secret.
+	// instead of via env. Absent when no network resource needs a secret.
 	SecretsFile = "/etc/foresthub/secrets.json"
 	// Workspace is the durable, device-authoritative working dir (memory, model
 	// files, broker state), persisted across deployments.

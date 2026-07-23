@@ -23,7 +23,7 @@ type mlBinding struct {
 // buildDeployML resolves a workflow's declared ML models into per-model bindings.
 // wf.Models also holds LLM models (resolved separately in selfHostedEndpoints);
 // those are skipped here by discriminator. An unbound model, an unregistered ref
-// (no MLProvider in the deploy externalResources), or a missing model sub-address
+// (no MLProvider in the deploy resources), or a missing model sub-address
 // is a deploy error. Many models may resolve to the same client — expected, since
 // one component serves a repository of models, selected per request.
 func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, resources *resource.Registry) (map[string]mlBinding, error) {
@@ -45,7 +45,7 @@ func buildDeployML(wf *workflowapi.Workflow, rm engine.ResourceMapping, resource
 			return nil, fmt.Errorf("model %q: declared but not bound by the deployment mapping", m.Id)
 		}
 		// One client per component, looked up by the binding's ref; a ref with no
-		// MLProvider in externalResources is unregistered here.
+		// MLProvider in resources.mlProviders is unregistered here.
 		client, err := resources.ML(b.Ref)
 		if err != nil {
 			return nil, fmt.Errorf("model %q: %w", m.Id, err)

@@ -11,7 +11,7 @@ Always written:
 
 | File                   | Purpose                                                                                                                   | Mode             |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `engine-config.json`   | the engine's single boot config — workflow + device manifest + resource mapping + external resources, all in one blob     | 644              |
+| `engine-config.json`   | the engine's single boot config — `workflow` + `mapping` + `resources` (device families + MQTT / LLM / ML endpoints), all in one blob | 644              |
 | `docker-compose.yml`   | the deployment template (engine + any model components + custom components)                                               | 644              |
 | `engine.env`           | operator config — provider keys, web-search key, log level                                                                | **600 (secret)** |
 | `deployment-spec.json` | the full resolved deployment record (secret-free)                                                                         | 644              |
@@ -38,7 +38,7 @@ only the `config` blob it may declare is written out, as `<name>-config.json`. S
 components_ below.
 
 There are **no** separate `workflow.json`, `device_manifest.json`, `deployment_mapping.json`, or
-`external_resources.json` files — those sections are consolidated inside `engine-config.json`. All
+`resources.json` files — those sections are consolidated inside `engine-config.json`. All
 secrets live in `engine.env` (the engine's own provider/web-search keys), in `engine-secrets.json`
 (the resource-credential doc: MQTT passwords / network-model keys, mounted read-only at
 `/etc/foresthub/secrets.json`), and in any custom component's `<name>.env`. **Never `cat` the `600`
@@ -110,5 +110,5 @@ The skill stops after writing the bundle; these steps stay manual. Summarize the
    the engine.
 
 The generated `README.md` carries all of this with the exact, workflow-specific commands and any
-conditional notes (hardware passthrough, external-resource credentials, web-search key). Always
+conditional notes (hardware passthrough, external-service credentials, web-search key). Always
 defer to it.

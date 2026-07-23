@@ -7,7 +7,7 @@ description: Turn a finished Edge Agents *.workflow.json into a runnable, standa
 
 Take a validated `*.workflow.json` and produce a **standalone deployment bundle** the operator can
 build and run on an edge controller: `docker-compose.yml`, the engine's boot config
-(`engine-config.json` — workflow + device manifest + mappings + external resources, all in one blob),
+(`engine-config.json` — `workflow` + `mapping` + `resources`, all in one blob),
 a filled-in `engine.env`, a `deployment-spec.json` record, a `README.md`, and — depending on what the
 workflow uses — one `llama` component per on-device model, plus any operator-authored custom
 components.

@@ -245,7 +245,7 @@ image is nonroot and cannot open root-owned device nodes). GPIO/UART are passed 
 and tighten it to your security policy before deploying.`);
   }
   if (hasExternalService) {
-    notes.push(`## External resources
+    notes.push(`## External services
 
 The broker/endpoint credentials the engine connects with live in the mounted secret
 document \`engine-secrets.json\` (a JSON map of resource id -> secret value, mounted

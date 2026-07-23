@@ -44,11 +44,11 @@ Both run as their own container under the same runtime contract
 
 - **Service components** (onnx, llama, grafana, anything custom) are
   independently deployable. The operator composes them explicitly and supplies their
-  URL; an `ExternalResources` entry points at one. Deployment is explicit composition
-  — nothing auto-spawns.
+  URL; an environment-supplied `Resources` entry (`llmProviders` / `mlProviders`)
+  points at one. Deployment is explicit composition — nothing auto-spawns.
 - **Driver components** (camera) are **engine-private**. The engine is their sole
   issuer and sole caller: their config is derived from the device manifest, their
-  address is a constant, and nothing in `ExternalResources` may point at one. The
+  address is a constant, and nothing in `Resources`' environment-supplied families may point at one. The
   operator never selects or configures them — they select the _hardware_, and the
   component follows.
 

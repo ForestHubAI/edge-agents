@@ -16,7 +16,7 @@ import (
 	"github.com/ForestHubAI/edge-agents/go/llmproxy/provider/selfhosted"
 )
 
-// buildProviders resolves the boot externalResources into the set of llmproxy
+// buildProviders resolves the boot resources into the set of llmproxy
 // providers to register into the engine's single llmproxy client. The client
 // then routes each referenced model by id — there is no pre-routing here.
 //
@@ -24,7 +24,7 @@ import (
 //     selfhostedLlm instance; the models bound to one endpoint share the single
 //     SelfHosted provider (its own id per model, url/key from the instance).
 //   - local / backend: catalog provider instances declared directly in
-//     externalResources (no declared model — catalog models route by id). local
+//     resources.llmProviders (no declared model — catalog models route by id). local
 //     instances are translated into an llmproxy ProviderConfig and constructed by
 //     the registry (llmcfg.Build) — the engine holds no provider-construction
 //     logic of its own; backend instances become stand-ins that forward to the
@@ -115,7 +115,7 @@ func selfHostedEndpoints(wf *workflowapi.Workflow, rm engine.ResourceMapping, re
 		}
 		cfg, ok := res.Providers[b.Ref]
 		if !ok {
-			return nil, fmt.Errorf("model %q: bound to %q but no provider config in externalResources", m.Id, b.Ref)
+			return nil, fmt.Errorf("model %q: bound to %q but no provider config in resources.llmProviders", m.Id, b.Ref)
 		}
 		if cfg.Kind != engine.LLMSelfHosted {
 			return nil, fmt.Errorf("model %q: declared models must bind to a self-hosted provider, got %q", m.Id, cfg.Kind)

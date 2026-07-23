@@ -28,7 +28,7 @@ func IsTransient(err error) bool { return errors.Is(err, errTransient) }
 // Registry owns every opened resource for one Engine, keyed by instance ID.
 // Typed per family so a miswired binding (e.g. a GPIO id looked up as an ADC)
 // fails at registration, not at first runtime use. Device-owned families come
-// from the manifest; network families (MQTT) from the external resources — one
+// from the manifest; network families (MQTT) from the resources bundle — one
 // registry, since both share the Resource lifecycle: open at boot, Close at
 // shutdown.
 type Registry struct {

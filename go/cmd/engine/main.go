@@ -97,7 +97,7 @@ func main() {
 	}
 
 	// Create the builder for the workflow runner. Build resolves the LLM
-	// providers from the boot externalResources, and any backendLlm instance
+	// providers from the boot resources, and any backendLlm instance
 	// forwards through this backend client (nil = standalone).
 	builder := &build.Builder{
 		Resources: resources,

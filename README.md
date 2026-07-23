@@ -167,29 +167,35 @@ npx skills add ForestHubAI/edge-agents --skill workflow-deploy
 
 A workflow is **binding-free**: it declares _what_ it needs — channels (GPIO, MQTT, …)
 and custom models — but not _where_ those live on a given device. You supply the _where_
-through a few small config files mounted into the engine container alongside the
-workflow. See [`go/docs/workflow-deployment-layers.md`](go/docs/workflow-deployment-layers.md) for the file
+in a single boot config mounted into the engine container. See
+[`go/docs/workflow-deployment-layers.md`](go/docs/workflow-deployment-layers.md) for the
 schemas and deploy-time validation rules.
 
-What the engine reads, and when each file is needed:
+The engine reads exactly one file at a fixed path — `/etc/foresthub/config.json`, the
+`EngineConfig` blob — plus an out-of-band secret document. There are no per-file env vars:
 
-| File               | Engine env var                   | When you need it                                                                                               |
-| ------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| workflow JSON      | `ENGINE_CONFIG_FILE`             | always — the graph itself                                                                                      |
-| device manifest    | `ENGINE_DEVICE_MANIFEST_FILE`    | only with hardware channels (GPIO / ADC / DAC / PWM / UART) — maps a logical id to a physical `/dev/…`         |
-| external resources | `ENGINE_EXTERNAL_RESOURCES_FILE` | only with MQTT channels or custom/self-hosted models — broker connections and LLM endpoints                    |
-| deployment mapping | `ENGINE_DEPLOYMENT_MAPPING_FILE` | as soon as any channel **or** custom model exists — binds each logical id to a resource (+ index for hardware) |
+| Mounted file                   | Holds                                                                                                   | When it matters                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `/etc/foresthub/config.json`   | `EngineConfig`: `{ workflow, mapping, resources }` — the graph, the logical-id→resource bindings, and every resolved resource (device families + MQTT / LLM / ML endpoints), all in one blob | always — it is the engine's whole input                                         |
+| `/etc/foresthub/secrets.json`  | resolved credentials keyed by resource id (broker passwords, provider API keys / bearers)               | only when a resource needs a secret; absent otherwise (an anonymous broker is valid) |
+
+Within `config.json`, the parts you actually author per deployment are `mapping` (binds
+each logical id to a resource `ref`, plus a sub-address for hardware/endpoints) and the
+environment-supplied families of `resources` (`mqttBrokers` / `llmProviders` /
+`mlProviders`). The device families of `resources` (`gpios`..`cameras`) are device ground
+truth; the `workflow` is the binding-free graph as authored.
 
 **Rule of thumb:** a workflow with no channels and only built-in catalog models (e.g.
-`claude-haiku-4-5`) needs none of the extra files — just the workflow JSON and the
-provider's API key. Add the mapping the moment a channel or a custom model appears; add
-the device manifest for hardware, external resources for MQTT and self-hosted models.
+`claude-haiku-4-5`) needs almost none of this — a `workflow` and the provider's API key in
+`secrets.json`. A `mapping` entry and a `resources` entry appear the moment a channel or a
+custom/self-hosted model does; hardware adds device families, MQTT and self-hosted models
+add the matching endpoint families.
 
 To assemble this by hand instead of with `fh-workflow deploy`: ship the image with the
 `docker save` / `docker load` flow from [Run the engine](#run-the-engine) and start it
-with `docker run`, mounting the files above with `-v` and pointing the `ENGINE_*` env
-vars at them. The repo ships no static `compose.yaml`; `fh-workflow deploy` generates one
-per workflow, or write your own.
+with `docker run`, mounting the two files above read-only at those exact paths. The repo
+ships no static `compose.yaml`; `fh-workflow deploy` generates one per workflow, or write
+your own.
 
 ## Features
 

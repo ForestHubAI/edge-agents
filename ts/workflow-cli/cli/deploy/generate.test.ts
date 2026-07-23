@@ -275,7 +275,7 @@ describe("readme", () => {
     expect(md).toContain("`engine-config.json`");
     expect(md).toContain("`deployment-spec.json`");
     expect(md).not.toContain("## Hardware access");
-    expect(md).not.toContain("## External resources");
+    expect(md).not.toContain("## External services");
     expect(md).not.toContain("## LLM provider keys");
   });
 
@@ -285,9 +285,9 @@ describe("readme", () => {
     expect(md).toContain("scp engine.tar docker-compose.yml engine-config.json deployment-spec.json engine.env");
   });
 
-  it("mqtt adds the external-resources note, with no host-networking advice", () => {
+  it("mqtt adds the external-services note, with no host-networking advice", () => {
     const md = readme(specOf(), cfgOf({ mqtt: { m: { brokerUrl: "tcp://b:1883" } } }), false);
-    expect(md).toContain("## External resources");
+    expect(md).toContain("## External services");
     expect(md).toContain("chmod 600");
     expect(md).not.toContain("network_mode: host");
   });
