@@ -130,7 +130,7 @@ class YoloHandler(Handler):
     def _letterbox(self, img: np.ndarray) -> tuple[np.ndarray, float, int, int]:
         h, w = img.shape[:2]
         scale = min(self._width / w, self._height / h)
-        nw, nh = int(round(w * scale)), int(round(h * scale))
+        nw, nh = round(w * scale), round(h * scale)
         resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
         canvas = np.full((self._height, self._width, 3), PAD_VALUE, dtype=np.uint8)
         pad_x, pad_y = (self._width - nw) // 2, (self._height - nh) // 2

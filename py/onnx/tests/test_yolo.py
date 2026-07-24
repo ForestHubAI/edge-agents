@@ -73,7 +73,7 @@ def test_undecodable_bytes_raise():
 def test_oversized_image_is_rejected_before_decode(monkeypatch):
     # An image whose header dimensions exceed the pixel cap (a decompression bomb)
     # is rejected before cv2.imdecode allocates. Cap lowered so no real bomb needed.
-    import app.handlers.yolo as yolo
+    from app.handlers import yolo
 
     monkeypatch.setattr(yolo, "MAX_PIXELS", 100)
     with pytest.raises(ValueError, match="pixel count"):
