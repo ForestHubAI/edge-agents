@@ -11,3 +11,4 @@ package api
 //go:generate go tool oapi-codegen -package deployapi		-old-config-style -generate types,skip-prune							-o deployapi/api.gen.go		-import-mapping workflow.yaml:github.com/ForestHubAI/edge-agents/go/api/workflowapi	../../contract/deployment.yaml
 //go:generate go tool oapi-codegen -package mlapi			-old-config-style -generate types,skip-prune,client						-o mlapi/api.gen.go																								../../contract/ml.yaml
 //go:generate go tool oapi-codegen -package cameraapi		-old-config-style -generate types,skip-prune,client,std-http-server		-o cameraapi/api.gen.go																							../../contract/camera.yaml
+//go:generate go tool oapi-codegen -package mqttapi			-old-config-style -generate types,skip-prune							-o mqttapi/api.gen.go																							../../contract/mqtt.yaml

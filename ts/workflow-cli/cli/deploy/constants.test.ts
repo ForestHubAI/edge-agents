@@ -14,9 +14,11 @@ import {
   CAMERA_COMPONENT_NAME,
   ONNX_COMPONENT_NAME,
   LLAMA_COMPONENT_NAME,
+  MOSQUITTO_COMPONENT_NAME,
   LLAMA_COMPONENT_PORT,
   CAMERA_COMPONENT_PORT,
   ONNX_COMPONENT_PORT,
+  MOSQUITTO_COMPONENT_PORT,
 } from "@foresthubai/workflow-core/deploy";
 
 // Drift guard: the workflow-core path + identity constants must equal
@@ -31,6 +33,7 @@ const contract = JSON.parse(readFileSync(join(here, "..", "..", "..", "..", "con
     camera: { name: string; port: number };
     onnx: { name: string; port: number };
     llama: { name: string; port: number };
+    mosquitto: { name: string; port: number };
   };
 };
 
@@ -64,5 +67,11 @@ describe("component-constants contract", () => {
   });
   it("onnx port matches the contract", () => {
     expect(ONNX_COMPONENT_PORT).toBe(contract.components.onnx.port);
+  });
+  it("mosquitto identity matches the contract", () => {
+    expect(MOSQUITTO_COMPONENT_NAME).toBe(contract.components.mosquitto.name);
+  });
+  it("mosquitto port matches the contract", () => {
+    expect(MOSQUITTO_COMPONENT_PORT).toBe(contract.components.mosquitto.port);
   });
 });

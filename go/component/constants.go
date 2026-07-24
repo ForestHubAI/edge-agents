@@ -3,7 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 // Package component holds the cross-component runtime contract: the fixed
-// in-container paths every ForestHub component (engine, broker, …) reads and
+// in-container paths every ForestHub component (engine, mosquitto, …) reads and
 // writes, the exit-code policy, and the canonical component names. See
 // docs/component-contract.md.
 package component
@@ -48,19 +48,23 @@ const (
 	Camera = "camera"
 	// Onnx is the on-device Onnx runtime component's identity.
 	Onnx = "onnx"
+	// Mosquitto is the on-device MQTT broker component's identity.
+	Mosquitto = "mosquitto"
 )
 
 // The fixed internal port each serving component's image listens on, baked into its
-// entrypoint. A same-network peer dials http://<name>:<port> directly over the container
+// entrypoint. A same-network peer dials [protocol]://<name>:<port> directly over the container
 // network; off-device the operator supplies the whole URL and publishes their own host
 // port, so this is only the container-side of that mapping.
 const (
-	// LlamaPort is the llama component's listen port (llama-swap's endpoint).
+	// LlamaPort is the llama component's HTTP listen port (llama-swap's endpoint).
 	LlamaPort = 8080
-	// CameraPort is the camera-capture component's listen port.
+	// CameraPort is the camera-capture component's HTTP listen port.
 	CameraPort = 8081
-	// OnnxPort is the ML component's listen port.
+	// OnnxPort is the ML component's HTTP listen port.
 	OnnxPort = 8082
+	// MosquittoPort is the MQTT broker component's MQTT listen port.
+	MosquittoPort = 1883
 )
 
 // Process exit codes a first-party component uses to tell the orchestrator how to

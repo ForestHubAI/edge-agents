@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 ForestHub.
+
+openapi: 3.0.3
+info:
+  title: ForestHub MQTT Broker Component Contract
+  version: 0.1.0
+  description: "Boot-config contract for the MQTT broker component. Not an HTTP wire: the broker serves MQTT on its component port and has no request/response surface — peers connect as MQTT clients and liveness is a TCP connect. The one contracted shape is config.json (below): a renderer produces it, the component reads it once at boot — a cross-language seam. Impl-neutral — it pins the MQTT broker role, not a specific broker implementation."
+
+# No HTTP paths: the broker serves MQTT, not HTTP. This contract pins only the
+# boot-config shape below.
+paths: {}
+
+components:
+  schemas:
+    MQTTBrokerConfig:
+      type: object
+      description: "The MQTT broker component's boot config, read once at startup. Names the roster: the devices allowed to connect. Authoritative — the broker admits only rostered identities. Per-device credentials are delivered out of band in the component secret file, keyed by the same device id, so this config carries no secret."
+      required: [roster]
+      properties:
+        roster:
+          type: array
+          description: "Device ids permitted to connect to this broker."
+          items:
+            type: string

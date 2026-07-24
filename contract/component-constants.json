@@ -9,6 +9,7 @@
     "engine": { "name": "engine" },
     "llama": { "name": "llama", "port": 8080 },
     "camera": { "name": "camera", "port": 8081 },
-    "onnx": { "name": "onnx", "port": 8082 }
+    "onnx": { "name": "onnx", "port": 8082 },
+    "mosquitto": { "name": "mosquitto", "port": 1883 }
   }
 }

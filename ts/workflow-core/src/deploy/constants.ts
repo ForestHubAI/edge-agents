@@ -27,6 +27,7 @@ export const ENGINE_COMPONENT_NAME = "engine";
 export const LLAMA_COMPONENT_NAME = "llama";
 export const CAMERA_COMPONENT_NAME = "camera";
 export const ONNX_COMPONENT_NAME = "onnx";
+export const MOSQUITTO_COMPONENT_NAME = "mosquitto";
 
 // The fixed internal port each serving component's image listens on, baked into its
 // entrypoint. NOT a host publishing: a same-network peer (the engine, on-device)
@@ -37,3 +38,4 @@ export const ONNX_COMPONENT_NAME = "onnx";
 export const LLAMA_COMPONENT_PORT = 8080;
 export const CAMERA_COMPONENT_PORT = 8081;
 export const ONNX_COMPONENT_PORT = 8082;
+export const MOSQUITTO_COMPONENT_PORT = 1883;

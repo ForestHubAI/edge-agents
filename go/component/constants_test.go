@@ -40,6 +40,10 @@ type contractConstants struct {
 			Name string `json:"name"`
 			Port int    `json:"port"`
 		} `json:"onnx"`
+		Mosquitto struct {
+			Name string `json:"name"`
+			Port int    `json:"port"`
+		} `json:"mosquitto"`
 	} `json:"components"`
 }
 
@@ -68,9 +72,11 @@ func TestConstantsMatchContract(t *testing.T) {
 		{"Llama", Llama, c.Components.Llama.Name},
 		{"Camera", Camera, c.Components.Camera.Name},
 		{"Onnx", Onnx, c.Components.Onnx.Name},
+		{"Mosquitto", Mosquitto, c.Components.Mosquitto.Name},
 		{"LlamaPort", LlamaPort, c.Components.Llama.Port},
 		{"CameraPort", CameraPort, c.Components.Camera.Port},
 		{"OnnxPort", OnnxPort, c.Components.Onnx.Port},
+		{"MosquittoPort", MosquittoPort, c.Components.Mosquitto.Port},
 	}
 	for _, tc := range cases {
 		if tc.got != tc.want {
