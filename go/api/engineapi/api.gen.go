@@ -205,10 +205,10 @@ type MQTTBroker struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
 
-	// PublishPrefix Topic prefix for workflow-level publish topics ({networkId}/{agentId}/).
+	// PublishPrefix Topic prefix the engine prepends to every workflow-level publish topic. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar.
 	PublishPrefix *string `json:"publishPrefix,omitempty"`
 
-	// SubscribePrefix Topic prefix for workflow-level subscribe filters ({networkId}/+/).
+	// SubscribePrefix Topic prefix the engine prepends to every workflow-level subscribe filter. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar.
 	SubscribePrefix *string        `json:"subscribePrefix,omitempty"`
 	Type            MQTTBrokerType `json:"type"`
 	Username        *string        `json:"username,omitempty"`
