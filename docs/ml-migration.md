@@ -1,6 +1,6 @@
 # ML rework
 
-The ML component (service `onnx`, image `fh-onnx`; its wire is the `ml` contract) was the
+The ML component (service `onnx`, image `onnx`; its wire is the `ml` contract) was the
 last component still living by convention. It had no boot config, discovered its models by
 scanning a directory, and returned an opaque `result` blob the engine could not type. None
 of that was wrong the way camera's classification was wrong — it was under-specified, and

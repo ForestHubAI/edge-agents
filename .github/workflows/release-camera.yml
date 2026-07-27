@@ -1,0 +1,139 @@
+name: Release camera image
+
+# Manual-only. Triggering workflow_dispatch requires WRITE access to the repo,
+# so only org members granted write can publish — public users / forkers cannot.
+# Nothing fires on push or tag; you cut an image only when you run this.
+#
+# Unlike the other release workflows, this one builds each architecture on a
+# NATIVE runner and merges the results into one multi-arch index. Dockerfile.camera
+# compiles libcamera from source, and that stage under QEMU emulation costs an
+# order of magnitude more than it does natively. The platform list is therefore
+# fixed by the matrix rather than a workflow input: each target needs a runner
+# label to build on, so the two cannot be chosen independently.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version, no prefix (e.g. 1.2.0). Published as ghcr.io/foresthubai/camera:<version>."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write # to push the image to GHCR
+
+env:
+  IMAGE: ghcr.io/foresthubai/camera
+
+jobs:
+  # Fail before spending two runners on a build that cannot be published.
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate version
+        run: |
+          if [[ ! "${{ inputs.version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must be semver X.Y.Z, got '${{ inputs.version }}'"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse to clobber an already-published version
+        run: |
+          if docker buildx imagetools inspect "${IMAGE}:${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::${IMAGE}:${{ inputs.version }} already exists in the registry"
+            exit 1
+          fi
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3 # no QEMU: every leg is native
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pushed by digest, untagged: the tag is claimed once, by the merge job.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: go
+          file: go/Dockerfile.camera
+          platforms: ${{ matrix.platform }}
+          provenance: true
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ inputs.version }}
+
+      # The digest is the only thing the merge job needs; carry it as a filename.
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Labels live on the per-arch manifests; the index carries the same values
+      # as annotations, which is what GHCR reads to link the package to the repo.
+      - name: Create multi-arch manifest
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${{ inputs.version }}" \
+            --annotation "index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --annotation "index:org.opencontainers.image.revision=${{ github.sha }}" \
+            --annotation "index:org.opencontainers.image.version=${{ inputs.version }}" \
+            $(printf "${IMAGE}@sha256:%s " *)
+
+      - name: Inspect published image
+        run: docker buildx imagetools inspect "${IMAGE}:${{ inputs.version }}"
