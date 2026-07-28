@@ -24,7 +24,7 @@ import { parseArgs } from "node:util";
 import { promptMissing } from "./prompts";
 import { parseDeployComponents, readComponentJson, resolveComponentEnv } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { writeOutput } from "./write";
+import { resolveOutputDir, writeOutput } from "./write";
 import { slugify } from "./generate";
 import {
   PROVIDER_IDS,
@@ -461,7 +461,7 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(1);
   }
 
-  const absOut = path.resolve(process.cwd(), cfg.outputDir);
+  const absOut = resolveOutputDir(cfg.outputDir);
   process.stdout.write(`\n✓ Deployment bundle written to ${absOut}\n`);
   for (const f of files) {
     process.stdout.write(`  - ${path.relative(process.cwd(), f)}\n`);

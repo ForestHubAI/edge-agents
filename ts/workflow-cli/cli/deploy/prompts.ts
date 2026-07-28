@@ -7,9 +7,9 @@
 
 import { confirm, editor, input, password, select } from "@inquirer/prompts";
 import { existsSync, promises as fs } from "node:fs";
-import path from "node:path";
 import { promptCustomComponents } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
+import { resolveOutputDir } from "./write";
 import {
   ggufNameError,
   hardwareAddressKey,
@@ -425,7 +425,7 @@ export async function promptMissing(
   // collides with a non-empty directory and force isn't set (overwrite dialog).
   let askOut = true;
   if (partial.outputDir) {
-    const resolved = path.resolve(process.cwd(), partial.outputDir);
+    const resolved = resolveOutputDir(partial.outputDir);
     const nonEmpty = existsSync(resolved) && (await fs.readdir(resolved)).length > 0;
     askOut = nonEmpty && !(partial.force ?? false);
   }
@@ -502,7 +502,7 @@ export async function promptMissing(
       if (!candidate) {
         candidate = await input({ message: "Output directory", default: outputDirDefault });
       }
-      const resolved = path.resolve(process.cwd(), candidate);
+      const resolved = resolveOutputDir(candidate);
       const exists = existsSync(resolved);
       const nonEmpty = exists && (await fs.readdir(resolved)).length > 0;
       if (!nonEmpty || force) {

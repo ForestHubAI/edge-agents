@@ -6,7 +6,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { writeOutput } from "./write";
+import { resolveOutputDir, writeOutput } from "./write";
 import type { DeployConfig, DeployRequirements } from "./types";
 import type { DeploymentSchemas, EngineSchemas } from "./api";
 
@@ -175,5 +175,19 @@ describe("writeOutput", () => {
     expect(JSON.parse(await fs.readFile(path.join(out, "camera-secrets.json"), "utf-8"))).toEqual({ video0: "hunter2" });
     expect(existsSync(path.join(out, "workspaces", "camera"))).toBe(false);
     await fs.rm(base, { recursive: true, force: true });
+  });
+});
+
+describe("resolveOutputDir", () => {
+  it("expands a leading ~, which no shell did for a prompt or a --values file", () => {
+    expect(resolveOutputDir("~/bundles/x")).toBe(path.join(os.homedir(), "bundles/x"));
+    expect(resolveOutputDir("~")).toBe(os.homedir());
+  });
+
+  it("leaves every other form to path.resolve, including a real directory named ~", () => {
+    expect(resolveOutputDir("/tmp/x")).toBe(path.resolve("/tmp/x"));
+    expect(resolveOutputDir("./x")).toBe(path.resolve(process.cwd(), "x"));
+    expect(resolveOutputDir("./~")).toBe(path.resolve(process.cwd(), "~"));
+    expect(resolveOutputDir("~x")).toBe(path.resolve(process.cwd(), "~x"));
   });
 });
