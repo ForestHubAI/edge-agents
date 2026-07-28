@@ -204,6 +204,16 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
   // Any on-device component (llama, inference, capture) ships its workspace data out
   // of the main scp line and means the engine reaches it over the network at runtime.
   const hasDeviceComponent = deviceModels.length > 0 || mlDeviceModels.length > 0 || deviceCameras.length > 0;
+  // The workspace dirs this bundle actually has — only components that own one are
+  // listed, so an ONNX-only bundle never mentions llama's GGUF dir (and vice versa).
+  // Camera has no workspace: its config rides the generic <name>-config.json.
+  const workspaceLines = [
+    `- \`./workspaces/${ENGINE_COMPONENT_NAME}/\` — the engine's memory files, mounted **read-write** (the engine writes here).`,
+    ...(deviceModels.length > 0 ? [`- \`${llamaDir}/\` — your on-device models' GGUF weights, mounted **read-only** (see above).`] : []),
+    ...(mlDeviceModels.length > 0
+      ? [`- \`${mlRepoDir}/\` — your on-device ML models' bundles, mounted **read-only** (see above).`]
+      : []),
+  ].join("\n");
   // Self-built component images (onnx, camera) are pull_policy:never: unlike
   // llama (pulled from a registry), they must be built and docker-loaded on the
   // controller too, or `docker compose up` fails with "image not found".
@@ -444,8 +454,7 @@ ${runBlock}
 Each container's durable data is a plain host directory in this bundle,
 \`./workspaces/<container>/\`, mounted at \`/var/lib/foresthub/workspace\`:
 
-- \`./workspaces/engine/\` — the engine's memory files, mounted **read-write** (the engine writes here).
-- \`./workspaces/llama/\` — your on-device models' GGUF weights, mounted **read-only** (see above).
+${workspaceLines}
 
 These are ordinary files: back them up by copying the folder, inspect them directly.
 They persist across restarts and redeploys **as long as you keep this bundle directory
