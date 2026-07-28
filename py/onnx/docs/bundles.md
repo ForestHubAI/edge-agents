@@ -123,7 +123,7 @@ yolo export model=yolov8n.pt format=onnx imgsz=640    # nms defaults to False â€
 ```yaml
 services:
   onnx:
-    image: fh-onnx:latest
+    image: onnx:latest
     pull_policy: never                 # built locally; never published
     volumes:
       - ./models:/var/lib/foresthub/workspace:ro

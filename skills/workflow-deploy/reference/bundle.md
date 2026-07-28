@@ -96,15 +96,15 @@ left blank for the operator). The component's image pull behaviour comes from it
 The skill stops after writing the bundle; these steps stay manual. Summarize them and point to
 `README.md` rather than running them:
 
-1. **Build the engine image** — from the `edge-agents` checkout: `docker build -f go/Dockerfile.engine -t fh-engine:latest go`
+1. **Build the engine image** — from the `edge-agents` checkout: `docker build -f go/Dockerfile.engine -t engine:latest go`
    (or a `buildx --platform linux/arm64` cross-build for an ARM controller). The image isn't pulled;
    the operator builds and `docker save`s it.
 2. **Fill the secrets** — replace every `REPLACE_ME_*` placeholder in `engine.env` (and any empty
    values in a custom component's `<name>.env`); keep the `chmod 600` files locked down.
-3. **Transfer** — `docker save fh-engine:latest -o fh-engine.tar`, then `scp` the tar + the bundle
+3. **Transfer** — `docker save engine:latest -o engine.tar`, then `scp` the tar + the bundle
    files to the controller. On-device component data (`.gguf`s, ONNX bundles) goes
    separately as the whole `workspaces/` tree (`scp -r workspaces/`) — the weights are large.
-4. **Run** — on the controller: `docker load -i fh-engine.tar`, then `docker compose up -d`. The
+4. **Run** — on the controller: `docker load -i engine.tar`, then `docker compose up -d`. The
    engine and any component start independently — the engine retries until the component is up — so
    `docker compose ps` / `logs` (no service filter) show every container while things settle, not just
    the engine.

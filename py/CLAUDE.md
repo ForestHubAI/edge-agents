@@ -1,6 +1,6 @@
 # py/ — ONNX inference component
 
-Python service `fh-onnx` (`py/onnx/`): a generic ONNX inference **model
+Python service `onnx` (`py/onnx/`): a generic ONNX inference **model
 repository** served over HTTP (FastAPI + onnxruntime). The repo-wide rule about the
 `contract/` being the source of truth applies here — see the root `CLAUDE.md`.
 User-facing build/run/API docs live in `py/onnx/README.md`; this file and
@@ -78,7 +78,7 @@ pip install -e ".[dev]"                # ruff, pytest, datamodel-code-generator
 datamodel-codegen                       # regen app/api/models.py from the contract
 ruff check .                            # lint
 python -m pytest -q                     # unit tests (no model/Docker needed)
-docker build -t fh-onnx:dev .           # build the image
+docker build -t onnx:dev .           # build the image
 ```
 
 The image is built locally and never published (`pull_policy: never`).
