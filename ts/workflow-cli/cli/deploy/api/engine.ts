@@ -19,14 +19,14 @@ export interface components {
         };
         /** @description Where one workflow resource resolves to: the shared platform resource `ref` it maps to, plus an optional sub-address selecting one served unit within it. */
         ResourceAddress: {
-            /** @description Shared platform resource id this binds to (a key in Resources). */
+            /** @description An opaque, deployment-scoped identity string in Resources this binds to. It is a key, never an address. */
             ref: string;
             /** @description Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only. */
             index?: number;
             /** @description Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings. */
             model?: string;
         };
-        /** @description The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. */
+        /** @description The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. Resource ids are opaque, deployment-scoped strings; they are never addresses and must be unique across families. */
         Resources: {
             gpios?: {
                 [key: string]: components["schemas"]["GPIOConfig"];
@@ -56,48 +56,41 @@ export interface components {
                 [key: string]: components["schemas"]["MLProvider"];
             };
         };
+        /** @description A GPIO chip. Single-shape: the family is the map it sits in (Resources.gpios), so it carries no discriminator. */
         GPIOConfig: {
-            /** @enum {string} */
-            type: "gpio";
             /** @description cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0" */
             chip: string;
         };
+        /** @description An ADC device. Single-shape: the family is the map it sits in (Resources.adcs), so it carries no discriminator. */
         ADCConfig: {
-            /** @enum {string} */
-            type: "adc";
             /** @description sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0" */
             device: string;
         };
+        /** @description A DAC device. Single-shape: the family is the map it sits in (Resources.dacs), so it carries no discriminator. */
         DACConfig: {
-            /** @enum {string} */
-            type: "dac";
             /** @description sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1" */
             device: string;
         };
+        /** @description A serial port. Single-shape: the family is the map it sits in (Resources.serials), so it carries no discriminator. */
         SerialConfig: {
-            /** @enum {string} */
-            type: "serial";
             /** @description Serial device path, e.g. "/dev/ttyUSB0" or "COM3" */
             device: string;
             /** @description Baud rate; falls back to 115200 when zero */
             baud?: number;
         };
+        /** @description A PWM chip. Single-shape: the family is the map it sits in (Resources.pwms), so it carries no discriminator. */
         PWMConfig: {
-            /** @enum {string} */
-            type: "pwm";
             /** @description sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0" */
             chip: string;
         };
-        /** @description Resolved connection metadata for an MQTT broker. */
+        /** @description Resolved connection metadata for an MQTT broker. Single-shape: the family is the map it sits in (Resources.mqttBrokers), so it carries no discriminator — a managed and a BYO broker resolve to the same shape. */
         MQTTBroker: {
-            /** @enum {string} */
-            type: "mqtt";
             brokerUrl: string;
             clientId?: string;
             username?: string;
-            /** @description Topic prefix for workflow-level publish topics ({networkId}/{agentId}/). */
+            /** @description Topic prefix the engine prepends to every workflow-level publish topic. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar. */
             publishPrefix?: string;
-            /** @description Topic prefix for workflow-level subscribe filters ({networkId}/+/). */
+            /** @description Topic prefix the engine prepends to every workflow-level subscribe filter. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar. */
             subscribePrefix?: string;
             will?: components["schemas"]["MQTTWill"];
         };
@@ -117,10 +110,8 @@ export interface components {
             /** @description selfhostedLlm only — base URL of the inference endpoint (http:// or https://). */
             url?: string;
         };
-        /** @description Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. */
+        /** @description Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. Single-shape: the family is the map it sits in (Resources.mlProviders), so it carries no discriminator. */
         MLProvider: {
-            /** @enum {string} */
-            type: "ml";
             /** @description Base URL of the ML component (http:// or https://). */
             url: string;
         };
@@ -808,13 +799,13 @@ export interface components {
         CameraWarmupFrames: number;
         /** @description Shell commands (media-ctl/v4l2-ctl) the driver component replays on every start, for statically configured capture pipelines. Operator-trusted by design. */
         CameraSetup: string[];
-        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
+        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this type: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
         V4L2Source: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "v4l2";
+            type: "v4l2";
             /** @description V4L2 device node, e.g. "/dev/video0". */
             device: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -826,7 +817,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "libcamera";
+            type: "libcamera";
             /** @description Selects one sensor when the platform exposes several; the platform default is used when omitted. */
             cameraName?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -838,7 +829,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "rtsp";
+            type: "rtsp";
             /** @description Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials. */
             url: string;
             /** @description Username for streams that authenticate. Not a secret; the password is. */
@@ -851,20 +842,20 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "http";
+            type: "http";
             /** @description Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials. */
             url: string;
             /** @description Username for endpoints that authenticate. Not a secret; the password is. */
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits. */
+        /** @description Escape hatch for hardware no other type describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one type that couples the resource to a specific driver implementation — prefer a specific type whenever one fits. */
         RawSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "raw";
+            type: "raw";
             /** @description Capture-source fragment, passed to the driver component as-is and interpreted by it. */
             pipeline: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -876,9 +867,9 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "debug";
+            type: "debug";
         };
-        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key. */
+        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each type. Secret-free: a type with credentials reads them from secrets.json under this camera's resource key. */
         CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
     };
     responses: never;

@@ -18,17 +18,17 @@ import (
 func TestResourcesToDomain_CopiesFamiliesAndMergesSecrets(t *testing.T) {
 	in := engineapi.Resources{
 		MqttBrokers: &map[string]engineapi.MQTTBroker{
-			"mqtt-1": {Type: engineapi.Mqtt, BrokerURL: "tcp://broker:1883", ClientID: pointer.Ptr("client-1")},
+			"mqtt-1": {BrokerURL: "tcp://broker:1883", ClientID: pointer.Ptr("client-1")},
 		},
 		LlmProviders: &map[string]engineapi.LLMProvider{
 			"llm-1": {Type: engineapi.SelfhostedLlm, Url: pointer.Ptr("http://llm:8000")},
 			"llm-2": {Type: engineapi.DirectLlm, Provider: pointer.Ptr("Anthropic")},
 		},
 		MlProviders: &map[string]engineapi.MLProvider{
-			"ml-1": {Type: engineapi.Ml, Url: "http://onnx:8000"},
+			"ml-1": {Url: "http://onnx:8000"},
 		},
 		Gpios: &map[string]engineapi.GPIOConfig{
-			"chip0": {Type: engineapi.Gpio, Chip: "/dev/gpiochip0"},
+			"chip0": {Chip: "/dev/gpiochip0"},
 		},
 	}
 	// Secrets arrive out-of-band, keyed by the same resource id, and are merged in.
@@ -65,7 +65,7 @@ func TestResourcesToDomain_CopiesFamiliesAndMergesSecrets(t *testing.T) {
 func TestResourcesToDomain_NoSecretLeavesCredentialEmpty(t *testing.T) {
 	in := engineapi.Resources{
 		MqttBrokers: &map[string]engineapi.MQTTBroker{
-			"mqtt-1": {Type: engineapi.Mqtt, BrokerURL: "tcp://broker:1883"},
+			"mqtt-1": {BrokerURL: "tcp://broker:1883"},
 		},
 	}
 	out := ResourcesToDomain(&in, nil)
@@ -81,9 +81,9 @@ func TestResourcesToDomain_CamerasCollapseToKind(t *testing.T) {
 	// The engine keeps only the discriminator: it reaches every camera the same
 	// way, and the capture details belong to the driver component.
 	var v4l2 cameraapi.CameraSource
-	require.NoError(t, v4l2.FromV4L2Source(cameraapi.V4L2Source{Kind: "v4l2", Device: "/dev/video0"}))
+	require.NoError(t, v4l2.FromV4L2Source(cameraapi.V4L2Source{Type: "v4l2", Device: "/dev/video0"}))
 	var rtsp cameraapi.CameraSource
-	require.NoError(t, rtsp.FromRtspSource(cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1"}))
+	require.NoError(t, rtsp.FromRtspSource(cameraapi.RtspSource{Type: "rtsp", Url: "rtsp://cam/s1"}))
 
 	in := engineapi.Resources{Cameras: &map[string]cameraapi.CameraSource{"cam0": v4l2, "gate": rtsp}}
 	out := ResourcesToDomain(&in, nil)

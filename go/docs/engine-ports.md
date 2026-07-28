@@ -106,8 +106,11 @@ to the camera component at a constant address — is a packaging detail of the a
 invisible to the port. See `workflow-deployment-layers.md`.
 
 - **Resolution:** `buildChannels` resolves each declared `CAMERA` channel's `ref`
-  through `drivers.Camera(ref)`, exactly as GPIO resolves. Many channels may share
-  one camera, each with its own size hints; the manifest key is sent per request.
+  through `drivers.Camera(ref)`, exactly as GPIO resolves. The binding is **1:1**: a
+  camera takes no sub-address, so `ref` alone is its uniqueness key and two channels
+  on one camera are the same claim declared twice — deploy rejects them as a
+  duplicate binding (`workflow-deployment-layers.md`). The manifest key is sent per
+  request; the size is never part of what names a camera.
 - **Missing:** a `CameraCapture` node whose channel is unbound, or bound to a camera
   the manifest doesn't declare, **fails the build** — the same failure shape as a
   miswired gpiochip. Backend-independent.

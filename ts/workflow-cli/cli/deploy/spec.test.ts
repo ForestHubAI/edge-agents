@@ -492,10 +492,10 @@ describe("buildDeploymentSpec ML inference component", () => {
     // ONE endpoint entry for both models, not one per model: the ref identifies the
     // component and each model is picked by its sub-address within it.
     const mlProviders = engineConfigOf(spec).resources!.mlProviders!;
-    const mlEntries = Object.entries(mlProviders).filter(([, r]) => r.type === "ml");
+    const mlEntries = Object.entries(mlProviders);
     expect(mlEntries).toHaveLength(1);
     const [ref, conn] = mlEntries[0]!;
-    expect(conn).toEqual({ type: "ml", url: `http://${onnxComponentServiceName()}:8082` });
+    expect(conn).toEqual({ url: `http://${onnxComponentServiceName()}:8082` });
     // Each model is mapped at that one ref, carrying its component model name.
     const mapping = engineConfigOf(spec).mapping!;
     expect(mapping.detector).toEqual({ ref, model: "yolov8n" });
@@ -546,9 +546,9 @@ describe("buildDeploymentSpec ML inference component", () => {
     const { spec } = buildDeploymentSpec(wf, inputs, meta);
     expect(spec.components).toHaveLength(1); // engine only, no component
     const cfg = engineConfigOf(spec);
-    const mlRes = Object.values(cfg.resources!.mlProviders!).find((r) => r.type === "ml");
+    const mlRes = Object.values(cfg.resources!.mlProviders!)[0];
     // The endpoint config carries no model — the selector rides on the binding.
-    expect(mlRes).toEqual({ type: "ml", url: "http://onnx.remote:8000" });
+    expect(mlRes).toEqual({ url: "http://onnx.remote:8000" });
     expect(cfg.mapping!.detector).toEqual({ ref: expect.any(String), model: "yolov8n" });
   });
 });
@@ -580,8 +580,8 @@ describe("buildDeploymentSpec capture component", () => {
     // A camera is device-owned hardware: it lives in resources.cameras, and no
     // non-device network resource points at the driver component.
     expect(manifestCameras(spec)).toEqual({
-      video0: { kind: "v4l2", device: "/dev/video0" },
-      video1: { kind: "v4l2", device: "/dev/video1" },
+      video0: { type: "v4l2", device: "/dev/video0" },
+      video1: { type: "v4l2", device: "/dev/video1" },
     });
     const res = engineConfigOf(spec).resources ?? {};
     expect(res.mqttBrokers ?? {}).toEqual({});
@@ -607,7 +607,7 @@ describe("buildDeploymentSpec capture component", () => {
       // Its boot config rides as the component's config blob, like every other
       // component's — so the renderer mounts it with no camera-specific code, and
       // there is no workspace mount at all.
-      config: { cameras: { video0: { kind: "v4l2", device: "/dev/video0" }, video1: { kind: "v4l2", device: "/dev/video1" } } },
+      config: { cameras: { video0: { type: "v4l2", device: "/dev/video0" }, video1: { type: "v4l2", device: "/dev/video1" } } },
     });
     expect(components[0].volumes).toBeUndefined();
     expect(components[0].devices?.sort()).toEqual(["/dev/video0", "/dev/video1"]);
@@ -677,7 +677,7 @@ describe("buildDeploymentSpec capture component", () => {
     // An IP camera is still read by the local driver component — it is reached
     // over the network, not deployed over it.
     expect(spec.components.filter((c) => c.name === cameraComponentServiceName())).toHaveLength(1);
-    expect(manifestCameras(spec)).toEqual({ "cam-cam.remote": { kind: "rtsp", url: "rtsp://cam.remote/s1" } });
+    expect(manifestCameras(spec)).toEqual({ "cam-cam.remote": { type: "rtsp", url: "rtsp://cam.remote/s1" } });
   });
 
   it("passes through v4l2 nodes deduped; libcamera grants no device but needs udev", () => {
@@ -707,7 +707,7 @@ describe("buildDeploymentSpec capture component", () => {
     const component = spec.components.find((c) => c.name === cameraComponentServiceName())!;
     expect(component.devices).toEqual(["/dev/video1", "/dev/media2", "/dev/v4l-subdev7"]);
     // devices is render-only — it never reaches the manifest entry.
-    expect(manifestCameras(spec)["video1"]).toEqual({ kind: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] });
+    expect(manifestCameras(spec)["video1"]).toEqual({ type: "v4l2", device: "/dev/video1", setup: ["media-ctl -d /dev/media2 -r"] });
   });
 
   it("rejects an unbound camera", () => {

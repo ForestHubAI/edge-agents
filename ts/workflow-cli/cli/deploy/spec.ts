@@ -133,17 +133,17 @@ function cameraSourceOf(b: CameraBinding): EngineSchemas["CameraSource"] {
   const setup = (b.kind === "v4l2" || b.kind === "libcamera" || b.kind === "raw") && b.setup?.length ? { setup: b.setup } : {};
   switch (b.kind) {
     case "v4l2":
-      return { kind: "v4l2", device: b.device, ...warmup, ...setup };
+      return { type: "v4l2", device: b.device, ...warmup, ...setup };
     case "libcamera":
-      return { kind: "libcamera", ...(b.cameraName ? { cameraName: b.cameraName } : {}), ...warmup, ...setup };
+      return { type: "libcamera", ...(b.cameraName ? { cameraName: b.cameraName } : {}), ...warmup, ...setup };
     case "rtsp":
-      return { kind: "rtsp", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
+      return { type: "rtsp", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
     case "http":
-      return { kind: "http", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
+      return { type: "http", url: b.url, ...(b.user ? { user: b.user } : {}), ...warmup };
     case "raw":
-      return { kind: "raw", pipeline: b.pipeline, ...warmup, ...setup };
+      return { type: "raw", pipeline: b.pipeline, ...warmup, ...setup };
     case "debug":
-      return { kind: "debug" };
+      return { type: "debug" };
   }
 }
 
@@ -501,25 +501,23 @@ export function buildDeploymentSpec(
 
     switch (ch.family) {
       case "gpio":
-        gpios[ref] = { type: "gpio", chip: dev };
+        gpios[ref] = { chip: dev };
         cdev.add(dev);
         break;
       case "serial":
-        serials[ref] = b.baud
-          ? { type: "serial", device: dev, baud: b.baud }
-          : { type: "serial", device: dev };
+        serials[ref] = b.baud ? { device: dev, baud: b.baud } : { device: dev };
         cdev.add(dev);
         break;
       case "pwm":
-        pwms[ref] = { type: "pwm", chip: dev };
+        pwms[ref] = { chip: dev };
         privileged = true;
         break;
       case "adc":
-        adcs[ref] = { type: "adc", device: dev };
+        adcs[ref] = { device: dev };
         privileged = true;
         break;
       case "dac":
-        dacs[ref] = { type: "dac", device: dev };
+        dacs[ref] = { device: dev };
         privileged = true;
         break;
       default:
@@ -535,7 +533,7 @@ export function buildDeploymentSpec(
   for (const ch of mqttBindings(req)) {
     const b = inputs.mqtt[ch.id];
     if (!b) throw new Error(`unbound mqtt channel ${ch.id}`); // unreachable
-    const conn: EngineSchemas["MQTTBroker"] = { type: "mqtt", brokerUrl: b.brokerUrl };
+    const conn: EngineSchemas["MQTTBroker"] = { brokerUrl: b.brokerUrl };
     if (b.username) conn.username = b.username;
     // The password is a secret — kept out of conn (and thus the spec). It still
     // participates in the dedup key, so two channels differing only by password
@@ -635,7 +633,7 @@ export function buildDeploymentSpec(
     const url = b.location === "device" ? `http://${onnxComponentServiceName()}:${ONNX_COMPONENT_PORT}` : b.url;
     const hint = b.location === "device" ? onnxComponentServiceName() : `ml-${urlHost(b.url)}`;
     const ref = refs.alloc(`ml:${url}`, hint);
-    mlProviders[ref] = { type: "ml", url };
+    mlProviders[ref] = { url };
     mapping[m.id] = { ref, model: b.model };
     // No collision is possible here: bindingConflictErrors below rejects two workflow
     // models bound to the same (ref, model), so each bundle is claimed exactly once.

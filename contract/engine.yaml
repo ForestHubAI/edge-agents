@@ -35,7 +35,7 @@ components:
       properties:
         ref:
           type: string
-          description: Shared platform resource id this binds to (a key in Resources).
+          description: An opaque, deployment-scoped identity string in Resources this binds to. It is a key, never an address.
         index:
           type: integer
           description: Per-channel physical sub-address within a driver (GPIO line / ADC-PWM-DAC channel). Driver resources only.
@@ -45,7 +45,7 @@ components:
 
     Resources:
       type: object
-      description: "The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps."
+      description: "The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. Resource ids are opaque, deployment-scoped strings; they are never addresses and must be unique across families."
       properties:
         gpios:
           type: object
@@ -86,11 +86,9 @@ components:
 
     GPIOConfig:
       type: object
-      required: [type, chip]
+      description: "A GPIO chip. Single-shape: the family is the map it sits in (Resources.gpios), so it carries no discriminator."
+      required: [chip]
       properties:
-        type:
-          type: string
-          enum: [gpio]
         chip:
           type: string
           minLength: 1
@@ -98,11 +96,9 @@ components:
 
     ADCConfig:
       type: object
-      required: [type, device]
+      description: "An ADC device. Single-shape: the family is the map it sits in (Resources.adcs), so it carries no discriminator."
+      required: [device]
       properties:
-        type:
-          type: string
-          enum: [adc]
         device:
           type: string
           minLength: 1
@@ -110,11 +106,9 @@ components:
 
     DACConfig:
       type: object
-      required: [type, device]
+      description: "A DAC device. Single-shape: the family is the map it sits in (Resources.dacs), so it carries no discriminator."
+      required: [device]
       properties:
-        type:
-          type: string
-          enum: [dac]
         device:
           type: string
           minLength: 1
@@ -122,11 +116,9 @@ components:
 
     SerialConfig:
       type: object
-      required: [type, device]
+      description: "A serial port. Single-shape: the family is the map it sits in (Resources.serials), so it carries no discriminator."
+      required: [device]
       properties:
-        type:
-          type: string
-          enum: [serial]
         device:
           type: string
           minLength: 1
@@ -137,11 +129,9 @@ components:
 
     PWMConfig:
       type: object
-      required: [type, chip]
+      description: "A PWM chip. Single-shape: the family is the map it sits in (Resources.pwms), so it carries no discriminator."
+      required: [chip]
       properties:
-        type:
-          type: string
-          enum: [pwm]
         chip:
           type: string
           minLength: 1
@@ -149,12 +139,9 @@ components:
 
     MQTTBroker:
       type: object
-      description: "Resolved connection metadata for an MQTT broker."
-      required: [type, brokerUrl]
+      description: "Resolved connection metadata for an MQTT broker. Single-shape: the family is the map it sits in (Resources.mqttBrokers), so it carries no discriminator — a managed and a BYO broker resolve to the same shape."
+      required: [brokerUrl]
       properties:
-        type:
-          type: string
-          enum: [mqtt]
         brokerUrl:
           type: string
           x-go-name: BrokerURL
@@ -205,12 +192,9 @@ components:
 
     MLProvider:
       type: object
-      description: "Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential."
-      required: [type, url]
+      description: "Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. Single-shape: the family is the map it sits in (Resources.mlProviders), so it carries no discriminator."
+      required: [url]
       properties:
-        type:
-          type: string
-          enum: [ml]
         url:
           type: string
           description: Base URL of the ML component (http:// or https://).

@@ -95,15 +95,15 @@ export interface components {
                 [key: string]: components["schemas"]["CameraSource"];
             };
         };
-        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key. */
+        /** @description One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each type. Secret-free: a type with credentials reads them from secrets.json under this camera's resource key. */
         CameraSource: components["schemas"]["V4L2Source"] | components["schemas"]["LibcameraSource"] | components["schemas"]["RtspSource"] | components["schemas"]["HttpSource"] | components["schemas"]["RawSource"] | components["schemas"]["DebugSource"];
-        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
+        /** @description A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this type: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't. */
         V4L2Source: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "v4l2";
+            type: "v4l2";
             /** @description V4L2 device node, e.g. "/dev/video0". */
             device: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -115,7 +115,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "libcamera";
+            type: "libcamera";
             /** @description Selects one sensor when the platform exposes several; the platform default is used when omitted. */
             cameraName?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -127,7 +127,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "rtsp";
+            type: "rtsp";
             /** @description Stream URL, e.g. "rtsp://cam.local:554/stream1". Carries no credentials. */
             url: string;
             /** @description Username for streams that authenticate. Not a secret; the password is. */
@@ -140,20 +140,20 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "http";
+            type: "http";
             /** @description Stream or snapshot URL, e.g. "http://cam.local/video.mjpg". Carries no credentials. */
             url: string;
             /** @description Username for endpoints that authenticate. Not a secret; the password is. */
             user?: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
         };
-        /** @description Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits. */
+        /** @description Escape hatch for hardware no other type describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one type that couples the resource to a specific driver implementation — prefer a specific type whenever one fits. */
         RawSource: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "raw";
+            type: "raw";
             /** @description Capture-source fragment, passed to the driver component as-is and interpreted by it. */
             pipeline: string;
             warmupFrames?: components["schemas"]["CameraWarmupFrames"];
@@ -165,7 +165,7 @@ export interface components {
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
              */
-            kind: "debug";
+            type: "debug";
         };
         /** @description Leading frames to discard so a sensor's auto-exposure can settle before the returned one. Default 0. */
         CameraWarmupFrames: number;

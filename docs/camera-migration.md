@@ -81,7 +81,7 @@ The wizard also finally has a pool to offer. It used to say camera candidates co
 *"existing/new capture-component endpoints"*, i.e. the operator typed `/dev/video0` into
 a form, even though Ranger provisioned the box and knew what cameras it had.
 
-**Why no remote cameras.** An IP camera is a `kind: rtsp` entry in the manifest of the
+**Why no remote cameras.** An IP camera is a `type: rtsp` entry in the manifest of the
 box that reaches it — reached over the network, not deployed over it. A camera attached
 to a *different* box is not a camera problem: remote GPIO is exactly as conceivable and
 exactly as unsupported, because the engine's model is one engine, one box, that box's
@@ -92,8 +92,8 @@ move, because both arms are an HTTP client either way.
 
 ### Config declares intent; the component owns the recipe
 
-`CameraSource` is a union discriminated by `kind` — `v4l2`, `libcamera`, `rtsp`, `http`,
-`raw`, `debug` — carrying only *which camera, reached how*. The recipe per kind lives in
+`CameraSource` is a union discriminated by `type` — `v4l2`, `libcamera`, `rtsp`, `http`,
+`raw`, `debug` — carrying only *which camera, reached how*. The recipe per type lives in
 `camera/source_gstreamer.go` (`sourceArgs`). This is what makes the classification
 *correct* rather than merely tidier: without it the manifest would contain GStreamer
 syntax and shell scripts, and "device-owned" would be a lie.
@@ -197,7 +197,7 @@ it was never given. That is an improvement independent of camera.
 
 The mechanism was left exactly as it was, because it is tighter than it looks: wire
 configs are secret-free, `secrets.json` is keyed by the **resource's own ref**, and the
-`type`/`kind` is what says a credential may exist. **No `secretRef` was added** —
+the family (and `type`, where it has one) is what says a credential may exist. **No `secretRef` was added** —
 `spec.ts` already encodes the invariant that a credential is part of a resource's
 identity (the password participates in the ref dedup key, so *"same broker, different
 creds is a different resource"*). Indirection would have contradicted a decision already
@@ -336,7 +336,7 @@ or stop claiming it in the contract.
 1. **Capture frequency** — the load-bearing assumption under all of Phase B. If
    sub-minute capture is a real target, B is not optional and the idle-timeout persistent
    pipeline is the design.
-2. **`kind: raw` and `setup`** — both are RCE-by-design, fine while Ranger authors the
+2. **`type: raw` and `setup`** — both are RCE-by-design, fine while Ranger authors the
    manifest. If it ever becomes wizard-editable, they need gating. Now a committed
    constraint rather than an accident.
 3. **Device-scoped secrets** — the transport works (`secrets[ref]`, per component), but

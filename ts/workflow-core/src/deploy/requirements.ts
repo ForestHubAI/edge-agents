@@ -10,7 +10,7 @@ import type { Workflow } from "../workflow";
 
 // The binding kind a requirement must be bound with.
 // These string values are a cross-language seam and must match the
-// backend's deploy.ResourceBinding discriminators.
+// backend's deploy.BindingKind constants.
 export type BindingKind = "hardware" | "mqtt" | "declaredLlm" | "catalogLlm" | "ml" | "rag";
 
 // The physical driver family behind a `hardware` requirement. Sub-discriminates

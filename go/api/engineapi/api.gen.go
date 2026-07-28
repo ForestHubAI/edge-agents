@@ -8,51 +8,6 @@ import (
 	externalRef1 "github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 )
 
-// Defines values for ADCConfigType.
-const (
-	Adc ADCConfigType = "adc"
-)
-
-// Valid indicates whether the value is a known member of the ADCConfigType enum.
-func (e ADCConfigType) Valid() bool {
-	switch e {
-	case Adc:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for DACConfigType.
-const (
-	Dac DACConfigType = "dac"
-)
-
-// Valid indicates whether the value is a known member of the DACConfigType enum.
-func (e DACConfigType) Valid() bool {
-	switch e {
-	case Dac:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GPIOConfigType.
-const (
-	Gpio GPIOConfigType = "gpio"
-)
-
-// Valid indicates whether the value is a known member of the GPIOConfigType enum.
-func (e GPIOConfigType) Valid() bool {
-	switch e {
-	case Gpio:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LLMProviderType.
 const (
 	BackendLlm    LLMProviderType = "backendLlm"
@@ -74,107 +29,35 @@ func (e LLMProviderType) Valid() bool {
 	}
 }
 
-// Defines values for MLProviderType.
-const (
-	Ml MLProviderType = "ml"
-)
-
-// Valid indicates whether the value is a known member of the MLProviderType enum.
-func (e MLProviderType) Valid() bool {
-	switch e {
-	case Ml:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MQTTBrokerType.
-const (
-	Mqtt MQTTBrokerType = "mqtt"
-)
-
-// Valid indicates whether the value is a known member of the MQTTBrokerType enum.
-func (e MQTTBrokerType) Valid() bool {
-	switch e {
-	case Mqtt:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PWMConfigType.
-const (
-	Pwm PWMConfigType = "pwm"
-)
-
-// Valid indicates whether the value is a known member of the PWMConfigType enum.
-func (e PWMConfigType) Valid() bool {
-	switch e {
-	case Pwm:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SerialConfigType.
-const (
-	Serial SerialConfigType = "serial"
-)
-
-// Valid indicates whether the value is a known member of the SerialConfigType enum.
-func (e SerialConfigType) Valid() bool {
-	switch e {
-	case Serial:
-		return true
-	default:
-		return false
-	}
-}
-
-// ADCConfig defines model for ADCConfig.
+// ADCConfig An ADC device. Single-shape: the family is the map it sits in (Resources.adcs), so it carries no discriminator.
 type ADCConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device0"
-	Device string        `json:"device"`
-	Type   ADCConfigType `json:"type"`
+	Device string `json:"device"`
 }
 
-// ADCConfigType defines model for ADCConfig.Type.
-type ADCConfigType string
-
-// DACConfig defines model for DACConfig.
+// DACConfig A DAC device. Single-shape: the family is the map it sits in (Resources.dacs), so it carries no discriminator.
 type DACConfig struct {
 	// Device sysfs path to the IIO device directory, e.g. "/sys/bus/iio/devices/iio:device1"
-	Device string        `json:"device"`
-	Type   DACConfigType `json:"type"`
+	Device string `json:"device"`
 }
-
-// DACConfigType defines model for DACConfig.Type.
-type DACConfigType string
 
 // EngineConfig The engine's complete boot input, loaded once at startup.
 type EngineConfig struct {
 	// Mapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 	Mapping *ResourceMapping `json:"mapping,omitempty"`
 
-	// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps.
+	// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. Resource ids are opaque, deployment-scoped strings; they are never addresses and must be unique across families.
 	Resources *Resources `json:"resources,omitempty"`
 
 	// Workflow The deployment format of a workflow project.
 	Workflow externalRef1.Workflow `json:"workflow"`
 }
 
-// GPIOConfig defines model for GPIOConfig.
+// GPIOConfig A GPIO chip. Single-shape: the family is the map it sits in (Resources.gpios), so it carries no discriminator.
 type GPIOConfig struct {
 	// Chip cdev chip name or path, e.g. "gpiochip0" or "/dev/gpiochip0"
-	Chip string         `json:"chip"`
-	Type GPIOConfigType `json:"type"`
+	Chip string `json:"chip"`
 }
-
-// GPIOConfigType defines model for GPIOConfig.Type.
-type GPIOConfigType string
 
 // LLMProvider One LLM provider instance the engine registers into its single llmproxy; a workflow model reaches it by model id. directLlm: a built-in catalog adapter reached straight at the provider, authenticated with a deploy-delivered API key (secrets.json, keyed by this resource's ref); `provider` names the adapter. backendLlm: that same catalog adapter's models proxied to the backend, no key; `provider` names the adapter. selfhostedLlm: a direct endpoint the llmproxy doesn't ship (`url`; optional bearer via secrets.json by ref), shared by every model bound to it. Each catalog provider is served by exactly one instance (directLlm xor backendLlm) — no catch-all, no shadowing.
 type LLMProvider struct {
@@ -189,18 +72,13 @@ type LLMProvider struct {
 // LLMProviderType defines model for LLMProvider.Type.
 type LLMProviderType string
 
-// MLProvider Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential.
+// MLProvider Resolved connection to an ML component the engine doesn't ship: a separate service (onnx, or an operator's own endpoint) reached by URL that loads a repository of models and serves them over HTTP. The engine names a model on each request; which one is the binding's `model` sub-address (ResourceAddress.model), so many models may share one endpoint. A trusted in-deployment endpoint — no credential. Single-shape: the family is the map it sits in (Resources.mlProviders), so it carries no discriminator.
 type MLProvider struct {
-	Type MLProviderType `json:"type"`
-
 	// Url Base URL of the ML component (http:// or https://).
 	Url string `json:"url"`
 }
 
-// MLProviderType defines model for MLProvider.Type.
-type MLProviderType string
-
-// MQTTBroker Resolved connection metadata for an MQTT broker.
+// MQTTBroker Resolved connection metadata for an MQTT broker. Single-shape: the family is the map it sits in (Resources.mqttBrokers), so it carries no discriminator — a managed and a BYO broker resolve to the same shape.
 type MQTTBroker struct {
 	BrokerURL string  `json:"brokerUrl"`
 	ClientID  *string `json:"clientId,omitempty"`
@@ -209,14 +87,10 @@ type MQTTBroker struct {
 	PublishPrefix *string `json:"publishPrefix,omitempty"`
 
 	// SubscribePrefix Topic prefix the engine prepends to every workflow-level subscribe filter. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar.
-	SubscribePrefix *string        `json:"subscribePrefix,omitempty"`
-	Type            MQTTBrokerType `json:"type"`
-	Username        *string        `json:"username,omitempty"`
-	Will            *MQTTWill      `json:"will,omitempty"`
+	SubscribePrefix *string   `json:"subscribePrefix,omitempty"`
+	Username        *string   `json:"username,omitempty"`
+	Will            *MQTTWill `json:"will,omitempty"`
 }
-
-// MQTTBrokerType defines model for MQTTBroker.Type.
-type MQTTBrokerType string
 
 // MQTTWill defines model for MQTTWill.
 type MQTTWill struct {
@@ -228,15 +102,11 @@ type MQTTWill struct {
 	Topic  string `json:"topic"`
 }
 
-// PWMConfig defines model for PWMConfig.
+// PWMConfig A PWM chip. Single-shape: the family is the map it sits in (Resources.pwms), so it carries no discriminator.
 type PWMConfig struct {
 	// Chip sysfs path to the pwmchip directory, e.g. "/sys/class/pwm/pwmchip0"
-	Chip string        `json:"chip"`
-	Type PWMConfigType `json:"type"`
+	Chip string `json:"chip"`
 }
-
-// PWMConfigType defines model for PWMConfig.Type.
-type PWMConfigType string
 
 // RagQueryRequest defines model for RagQueryRequest.
 type RagQueryRequest struct {
@@ -266,14 +136,14 @@ type ResourceAddress struct {
 	// Model Model name a shared inference endpoint (self-hosted LLM / ML component) selects on for this binding. Required for endpoint bindings — the endpoint fronts several models and picks one by this name; omitted for driver/mqtt bindings.
 	Model *string `json:"model,omitempty"`
 
-	// Ref Shared platform resource id this binds to (a key in Resources).
+	// Ref An opaque, deployment-scoped identity string in Resources this binds to. It is a key, never an address.
 	Ref string `json:"ref"`
 }
 
 // ResourceMapping Binds a binding-free workflow's logical resource ids to concrete platform resources, keyed by workflow resource id.
 type ResourceMapping map[string]ResourceAddress
 
-// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps.
+// Resources The frozen set of platform resources the engine materializes 1:1 into live code at boot, keyed by resource id (`ref`) in the respective maps. Resource ids are opaque, deployment-scoped strings; they are never addresses and must be unique across families.
 type Resources struct {
 	Adcs         *map[string]ADCConfig                 `json:"adcs,omitempty"`
 	Cameras      *map[string]externalRef0.CameraSource `json:"cameras,omitempty"`
@@ -286,15 +156,11 @@ type Resources struct {
 	Serials      *map[string]SerialConfig              `json:"serials,omitempty"`
 }
 
-// SerialConfig defines model for SerialConfig.
+// SerialConfig A serial port. Single-shape: the family is the map it sits in (Resources.serials), so it carries no discriminator.
 type SerialConfig struct {
 	// Baud Baud rate; falls back to 115200 when zero
 	Baud *int `json:"baud,omitempty"`
 
 	// Device Serial device path, e.g. "/dev/ttyUSB0" or "COM3"
-	Device string           `json:"device"`
-	Type   SerialConfigType `json:"type"`
+	Device string `json:"device"`
 }
-
-// SerialConfigType defines model for SerialConfig.Type.
-type SerialConfigType string

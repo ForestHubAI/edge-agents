@@ -35,14 +35,14 @@ func rtspArm(t *testing.T, v cameraapi.RtspSource) cameraapi.CameraSource {
 
 func TestToDomain_RoutesEachKind(t *testing.T) {
 	var lib cameraapi.CameraSource
-	require.NoError(t, lib.FromLibcameraSource(cameraapi.LibcameraSource{Kind: "libcamera", CameraName: "imx477"}))
+	require.NoError(t, lib.FromLibcameraSource(cameraapi.LibcameraSource{Type: "libcamera", CameraName: "imx477"}))
 	var raw cameraapi.CameraSource
-	require.NoError(t, raw.FromRawSource(cameraapi.RawSource{Kind: "raw", Pipeline: "weirdsrc"}))
+	require.NoError(t, raw.FromRawSource(cameraapi.RawSource{Type: "raw", Pipeline: "weirdsrc"}))
 	var dbg cameraapi.CameraSource
-	require.NoError(t, dbg.FromDebugSource(cameraapi.DebugSource{Kind: "debug"}))
+	require.NoError(t, dbg.FromDebugSource(cameraapi.DebugSource{Type: "debug"}))
 
 	cfg, err := ToDomain(wireConfig(t, map[string]cameraapi.CameraSource{
-		"usb": v4l2Arm(t, cameraapi.V4L2Source{Kind: "v4l2", Device: "/dev/video0", WarmupFrames: 3}),
+		"usb": v4l2Arm(t, cameraapi.V4L2Source{Type: "v4l2", Device: "/dev/video0", WarmupFrames: 3}),
 		"pi":  lib,
 		"odd": raw,
 		"dbg": dbg,
@@ -59,7 +59,7 @@ func TestToDomain_MergesSecretByCameraKey(t *testing.T) {
 	// The credential is keyed by the camera's own manifest key — there is no
 	// secretRef to resolve — and never appears in the config blob.
 	cfg, err := ToDomain(wireConfig(t, map[string]cameraapi.CameraSource{
-		"gate": rtspArm(t, cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1", User: "admin"}),
+		"gate": rtspArm(t, cameraapi.RtspSource{Type: "rtsp", Url: "rtsp://cam/s1", User: "admin"}),
 	}), component.Secrets{"gate": "hunter2"})
 	require.NoError(t, err)
 	assert.Equal(t, Camera{Kind: KindRTSP, URL: "rtsp://cam/s1", User: "admin", Password: "hunter2"}, cfg.Cameras["gate"])
@@ -69,7 +69,7 @@ func TestToDomain_MissingSecretIsNotAnError(t *testing.T) {
 	// An anonymous stream is valid, so an absent secret leaves the password empty
 	// rather than failing the boot.
 	cfg, err := ToDomain(wireConfig(t, map[string]cameraapi.CameraSource{
-		"gate": rtspArm(t, cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1"}),
+		"gate": rtspArm(t, cameraapi.RtspSource{Type: "rtsp", Url: "rtsp://cam/s1"}),
 	}), nil)
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Cameras["gate"].Password)
@@ -77,7 +77,7 @@ func TestToDomain_MissingSecretIsNotAnError(t *testing.T) {
 
 func TestToDomain_SecretForOtherCameraIsNotApplied(t *testing.T) {
 	cfg, err := ToDomain(wireConfig(t, map[string]cameraapi.CameraSource{
-		"gate": rtspArm(t, cameraapi.RtspSource{Kind: "rtsp", Url: "rtsp://cam/s1"}),
+		"gate": rtspArm(t, cameraapi.RtspSource{Type: "rtsp", Url: "rtsp://cam/s1"}),
 	}), component.Secrets{"other": "hunter2"})
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Cameras["gate"].Password)

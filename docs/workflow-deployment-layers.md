@@ -37,6 +37,27 @@ arrows**:
 opens that resource exactly once and shares the handle. What tells those requirements
 apart is their **discriminator** — see "The rule" below.
 
+### `ref` is opaque
+
+> A `ref` is an opaque key. **No consumer may parse it or derive configuration from it** —
+> the structural facts (url, chip path, provider id) live only in the Layer 2 config value.
+> A producer whose refs outlive a single render mints each one **once, at resource
+> creation**, and stores it; it never re-derives a ref from config, which changes.
+
+The engine only ever looks a `ref` up (`res.Providers[ref]`, `registry.GPIO(ref)`,
+`res.MQTTs[ref]`), so nothing enforces this and any encoding boots. What the rule buys is
+identity that survives a config edit: a `ref` shaped like its own config (a broker url, an
+endpoint url) re-keys the moment that url changes, orphaning every mapping entry pointing
+at it — and it cannot express the credential-is-identity rule under Secrets below, since
+two resources differing only by credential collapse onto one key.
+
+Opaque does not mean random. How a producer derives a ref is its own business, and a `ref`
+is operator-visible surface — the secret document's keys, the camera component's
+`/capture?name=`, the subject of most boot errors — so keep it readable. The OSS resolver
+content-addresses (`gpiochip0`, `mqtt-b.local`, `provider-openai`) because it regenerates
+mapping and resources together, so a churned ref is invisible; a producer that persists a
+deployment intent across revisions must mint and store instead.
+
 ---
 
 ## How Layer 2 resources get configured
@@ -234,10 +255,14 @@ on the same device sees the same entries.
 | `dacs`    | `{Device: ".../iio:device1"}`                  | channels (`index`) |
 | `pwms`    | `{Chip: "/sys/class/pwm/pwmchip0"}`            | channels (`index`) |
 | `serials` | `{Port: "/dev/ttyUSB0", Baud: 115200}`         | —                  |
-| `cameras` | `CameraSource {Kind: "v4l2" \| "rtsp" \| ...}` | —                  |
+| `cameras` | `CameraSource {type: "v4l2" \| "rtsp" \| ...}` | —                  |
+
+Only `cameras` is a union, and only it carries a `type`: the other five are single-shape,
+so the map a config sits in already names its family and a discriminator would be
+redundant — the same reason `mqttBrokers` and `mlProviders` carry none.
 
 `CameraSource` is owned by `contract/camera.yaml` and `$ref`d here; `engine.yaml` stores
-camera _instances_ but does not define what a kind means. The engine's domain type keeps
+camera _instances_ but does not define what a type means. The engine's domain type keeps
 only the discriminator — it reaches every camera identically. See `camera-rework.md`.
 
 ### Environment-supplied families — `mqttBrokers`, `llmProviders`, `mlProviders`
@@ -246,14 +271,16 @@ The network/service environment the device does not own.
 
 | Family         | `ref` ─► config                                                             | `type`          |
 | -------------- | --------------------------------------------------------------------------- | --------------- |
-| `mqttBrokers`  | `{brokerUrl, clientId?, username?, publishPrefix, subscribePrefix, will?}`  | `mqtt`          |
+| `mqttBrokers`  | `{brokerUrl, clientId?, username?, publishPrefix, subscribePrefix, will?}`  | — (single shape) |
 | `llmProviders` | `{url}` — a self-hosted endpoint the llmproxy doesn't ship                  | `selfhostedLlm` |
 | `llmProviders` | `{provider}` — a built-in catalog provider reached directly with an API key | `directLlm`     |
 | `llmProviders` | `{provider}` — the same catalog provider proxied to the backend, no key     | `backendLlm`    |
-| `mlProviders`  | `{url}` — an ML component reached over HTTP                                 | `ml`            |
+| `mlProviders`  | `{url}` — an ML component reached over HTTP                                 | — (single shape) |
 
-Each family's value is a tagged union discriminated by `type`. Only `selfhostedLlm` carries
-a `url`; only `directLlm` / `backendLlm` carry a `provider`. A catalog provider's served
+`llmProviders` is the one environment family that is a union, discriminated by `type`: only
+`selfhostedLlm` carries a `url`, only `directLlm` / `backendLlm` carry a `provider`. A
+managed and a BYO broker both resolve to the one `MQTTBroker` shape, and every ML endpoint
+to the one `MLProvider` shape, so neither needs a discriminator. A catalog provider's served
 models are its built-in `AvailableModels`, so they are not listed here. Credentials
 (`llmProviders` API key / bearer, `mqttBrokers` password) never appear in the config — see
 Secrets below.
@@ -264,8 +291,8 @@ Secrets below.
 document (`component.SecretsFile`), a JSON map keyed by the same `ref`
 (`component.Secrets`, read by `component.ReadSecrets`).
 
-There is **no `secretRef`**: the ref _is_ the key, and a config's `type`/`kind` is what
-says a credential may exist. A credential is part of a resource's identity — which is why
+There is **no `secretRef`**: the ref _is_ the key, and a config's family (and `type`, where
+it has one) is what says a credential may exist. A credential is part of a resource's identity — which is why
 two otherwise-identical resources with different credentials stay distinct refs. Each
 component receives only the secrets it needs. A missing secret leaves the credential
 empty rather than failing: an anonymous broker is valid.

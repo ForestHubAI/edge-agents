@@ -114,7 +114,7 @@ components:
             $ref: "#/components/schemas/CameraSource"
 
     CameraSource:
-      description: "One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each kind. Secret-free: a kind with credentials reads them from secrets.json under this camera's resource key."
+      description: "One camera the device owns, addressed by its resource key. Device-owned hardware like a gpiochip or a serial port, not an environment-supplied endpoint: the engine reaches it through a driver component it issues privately, so no url is configured here. Declares intent (which camera, reached how), never a capture recipe — the driver component owns the pipeline for each type. Secret-free: a type with credentials reads them from secrets.json under this camera's resource key."
       oneOf:
         - $ref: "#/components/schemas/V4L2Source"
         - $ref: "#/components/schemas/LibcameraSource"
@@ -123,7 +123,7 @@ components:
         - $ref: "#/components/schemas/RawSource"
         - $ref: "#/components/schemas/DebugSource"
       discriminator:
-        propertyName: kind
+        propertyName: type
         mapping:
           v4l2: "#/components/schemas/V4L2Source"
           libcamera: "#/components/schemas/LibcameraSource"
@@ -134,10 +134,10 @@ components:
 
     V4L2Source:
       type: object
-      description: "A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this kind: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't."
-      required: [kind, device]
+      description: "A camera reached through a V4L2 device node — a USB/UVC webcam, or a CSI/ISP sensor whose media graph `setup` configures into a streaming node. The access path, not the sensor's form factor, is what picks this type: a CSI sensor is v4l2 on boards that expose one and libcamera on boards that don't."
+      required: [type, device]
       properties:
-        kind:
+        type:
           type: string
           enum: [v4l2]
         device:
@@ -152,9 +152,9 @@ components:
     LibcameraSource:
       type: object
       description: A camera reached through the platform's libcamera stack, which owns the media graph itself rather than exposing a preconfigured V4L2 node.
-      required: [kind]
+      required: [type]
       properties:
-        kind:
+        type:
           type: string
           enum: [libcamera]
         cameraName:
@@ -169,9 +169,9 @@ components:
     RtspSource:
       type: object
       description: An IP camera served over RTSP. The password, when the stream needs one, is read from secrets.json under this camera's resource key.
-      required: [kind, url]
+      required: [type, url]
       properties:
-        kind:
+        type:
           type: string
           enum: [rtsp]
         url:
@@ -188,9 +188,9 @@ components:
     HttpSource:
       type: object
       description: A camera served over HTTP (MJPEG stream or still endpoint). The password, when the endpoint needs one, is read from secrets.json under this camera's resource key.
-      required: [kind, url]
+      required: [type, url]
       properties:
-        kind:
+        type:
           type: string
           enum: [http]
         url:
@@ -206,10 +206,10 @@ components:
 
     RawSource:
       type: object
-      description: "Escape hatch for hardware no other kind describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one kind that couples the resource to a specific driver implementation — prefer a typed kind whenever one fits."
-      required: [kind, pipeline]
+      description: "Escape hatch for hardware no other type describes: a capture-source fragment the driver component uses verbatim, in its own pipeline vocabulary. Operator-trusted by design, and the one type that couples the resource to a specific driver implementation — prefer a specific type whenever one fits."
+      required: [type, pipeline]
       properties:
-        kind:
+        type:
           type: string
           enum: [raw]
         pipeline:
@@ -224,9 +224,9 @@ components:
     DebugSource:
       type: object
       description: A synthetic camera that needs no hardware and returns a fixed frame. For hostless development and CI.
-      required: [kind]
+      required: [type]
       properties:
-        kind:
+        type:
           type: string
           enum: [debug]
 
