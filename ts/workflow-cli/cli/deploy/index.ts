@@ -24,7 +24,7 @@ import { parseArgs } from "node:util";
 import { promptMissing } from "./prompts";
 import { parseDeployComponents, readComponentJson, resolveComponentEnv } from "./components";
 import type { DeployComponent, LoadedComponent } from "./components";
-import { writeOutput } from "./write";
+import { resolveOutputDir, writeOutput } from "./write";
 import { slugify } from "./generate";
 import {
   PROVIDER_IDS,
@@ -461,12 +461,16 @@ export async function deployCommand(workflowPath: string | undefined, args: stri
     process.exit(1);
   }
 
-  const absOut = path.resolve(process.cwd(), cfg.outputDir);
+  const absOut = resolveOutputDir(cfg.outputDir);
   process.stdout.write(`\n✓ Deployment bundle written to ${absOut}\n`);
   for (const f of files) {
     process.stdout.write(`  - ${path.relative(process.cwd(), f)}\n`);
   }
+  // The engine image is always built; component images (onnx, camera) only when the
+  // workflow bound one. Their build lines live in the README so this stays one line.
+  const componentCount = built.spec.components.filter((c) => c.name !== ENGINE_COMPONENT_NAME).length;
   process.stdout.write(
-    `\nNext: build the image (\`docker build -f go/Dockerfile.engine -t fh-engine:latest go\`), then follow README.md.\n`,
+    `\nNext: build the image${componentCount > 0 ? "s" : ""} (\`docker build -f go/Dockerfile.engine -t ${ENGINE_IMAGE} go\`` +
+      `${componentCount > 0 ? ", plus the component images in README.md step 1" : ""}), then follow README.md.\n`,
   );
 }

@@ -26,7 +26,7 @@ ts/              npm workspace: workflow-core (headless model), workflow-builder
                  (React canvas), workflow-cli (fh-workflow CLI + reference SPA).
                  See ts/CLAUDE.md.
 
-py/              Python service: onnx (image fh-onnx) — generic ONNX inference
+py/              Python service: onnx (image `onnx`) — generic ONNX inference
                  component, FastAPI + onnxruntime, model-repository pattern.
                  Pydantic models codegen from contract/ml.yaml.
                  See py/onnx/README.md.
@@ -107,7 +107,7 @@ plain domain type.
   leak into domain logic — map it first.
 - **A seam type belongs to whoever implements it, not whoever stores it.** The camera
   kinds live in `camera.yaml` and `engine.yaml` `$ref`s them, even though the device
-  manifest is what holds camera _instances_: fh-camera decides what a `v4l2` or
+  manifest is what holds camera _instances_: the camera component decides what a `v4l2` or
   `rtsp` camera means, so the engine imports the camera contract and not the reverse.
   Authority over the data is not ownership of the type.
 

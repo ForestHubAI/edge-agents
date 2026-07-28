@@ -69,26 +69,26 @@ result to the device:
 cd go
 
 # Cross-build for an arm64 edge device (use --platform linux/amd64 for x86 targets)
-docker buildx build -f Dockerfile.engine --platform linux/arm64 -t fh-engine:latest --load .
+docker buildx build -f Dockerfile.engine --platform linux/arm64 -t engine:latest --load .
 
 # Ship to an offline device: save to a tar, copy it across, load it there
-docker save fh-engine:latest -o fh-engine.tar
-#   scp fh-engine.tar device:/tmp/   ← then, on the device:
-docker load -i fh-engine.tar
+docker save engine:latest -o engine.tar
+#   scp engine.tar device:/tmp/   ← then, on the device:
+docker load -i engine.tar
 
 # The engine boots exactly one workflow, read once from ENGINE_CONFIG_FILE.
 # A `fh-workflow deploy` bundle wires this up for you (see "Deploy a workflow").
 docker run --rm \
   -v "$PWD/engine-config.json:/etc/foresthub/engine-config.json:ro" \
   -e ENGINE_CONFIG_FILE=/etc/foresthub/engine-config.json \
-  fh-engine:latest
+  engine:latest
 ```
 
 Building for the same architecture you're already on? A plain
-`docker build -f Dockerfile.engine -t fh-engine:latest .` works too — the Dockerfile cross-compiles via
+`docker build -f Dockerfile.engine -t engine:latest .` works too — the Dockerfile cross-compiles via
 `TARGETARCH`, so QEMU only emulates the trivial copy into the final layer.
 
-The `fh-engine:latest` tag is the one a `fh-workflow deploy` bundle expects (its
+The `engine:latest` tag is the one a `fh-workflow deploy` bundle expects (its
 `docker-compose.yml` loads the image with `pull_policy: never`), so an image built here
 drops straight into a generated bundle.
 
@@ -332,11 +332,11 @@ See [`go/CLAUDE.md`](go/CLAUDE.md) and [`ts/CLAUDE.md`](ts/CLAUDE.md) for deeper
 | Path                                         | What it contains                                                                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`contract/`](contract)                      | OpenAPI 3.0.3 schemas — single source of truth for Go, TS and Python.                                                                      |
-| [`go/`](go)                                  | Engine binary, `fh-camera` capture component, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
+| [`go/`](go)                                  | Engine binary, `camera` capture component, LLM proxy, hardware drivers, MQTT transport. Module `github.com/ForestHubAI/edge-agents/go`. |
 | [`ts/workflow-core`](ts/workflow-core)       | `@foresthubai/workflow-core` — headless workflow model, validation, (de)serialization. No React.                                           |
 | [`ts/workflow-builder`](ts/workflow-builder) | `@foresthubai/workflow-builder` — React canvas component.                                                                                  |
 | [`ts/workflow-cli`](ts/workflow-cli)         | `@foresthubai/workflow-cli` — the `fh-workflow` CLI + the reference SPA it serves.                                                         |
-| [`py/onnx`](py/onnx)                         | `fh-onnx` — generic ONNX inference component (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`.        |
+| [`py/onnx`](py/onnx)                         | `onnx` — generic ONNX inference component (model repository), FastAPI + onnxruntime. Build-yourself image, `pull_policy: never`.        |
 
 ## Releases
 
@@ -388,7 +388,7 @@ Edge Agents uses a **two-tier license model** designed to make the wire format a
 | [`go/`](go) (engine, LLM proxy, drivers)                                           | **AGPL-3.0-only** or **commercial** | Keeps hosted "Edge Agents as a service" offerings honest. For commercial use cases incompatible with AGPL, [book a call](https://calendar.app.google/FZ93vzS5zMBc4Kjs7) or contact **root@foresthub.ai**. |
 | [`ts/workflow-builder`](ts/workflow-builder) (React canvas)                        | **AGPL-3.0-only** or **commercial** | Same dual-license terms as the engine.                                                                                                                                                                    |
 | [`ts/workflow-cli`](ts/workflow-cli) (`@foresthubai/workflow-cli` + reference SPA) | **AGPL-3.0-only** or **commercial** | Bundles the AGPL builder; same dual-license terms.                                                                                                                                                        |
-| [`py/onnx`](py/onnx) (`fh-onnx` inference component)                               | **AGPL-3.0-only** or **commercial** | A service shipped alongside the engine; same dual-license terms.                                                                                                                                          |
+| [`py/onnx`](py/onnx) (`onnx` inference component)                               | **AGPL-3.0-only** or **commercial** | A service shipped alongside the engine; same dual-license terms.                                                                                                                                          |
 
 For the AGPL components, the AGPL network clause applies — providing a modified version over a network requires making the corresponding source available to users of that service.
 

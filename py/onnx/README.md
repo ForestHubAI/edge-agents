@@ -1,4 +1,4 @@
-# fh-onnx
+# onnx
 
 A generic ONNX inference component: one container that runs your ONNX models behind
 a small HTTP API (FastAPI + [ONNX Runtime](https://onnxruntime.ai/)). Built once,
@@ -85,10 +85,10 @@ shape — `{ "datatype", "shape", "data" }` — keyed by the model's input/outpu
 The image is **built locally** — this repo publishes no images:
 
 ```bash
-docker build -t fh-onnx:latest py/onnx
+docker build -t onnx:latest py/onnx
 docker run --rm -p 8000:8082 \
   -v "$PWD/models:/var/lib/foresthub/workspace:ro" \
-  fh-onnx:latest
+  onnx:latest
 ```
 
 In a compose deployment the engine reaches the component over the Docker network;
@@ -97,7 +97,7 @@ because the image is self-built, pin `pull_policy: never`:
 ```yaml
 services:
   onnx:
-    image: fh-onnx:latest
+    image: onnx:latest
     pull_policy: never
     volumes:
       - ./models:/var/lib/foresthub/workspace:ro

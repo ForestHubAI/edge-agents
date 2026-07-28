@@ -7,6 +7,7 @@
 // The spec arrives already validated (buildDeploymentSpec threw on any gap).
 
 import { existsSync, promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { composeYaml, configFileName, envFile, readme, secretsFileName } from "./generate";
 import type { DeployConfig, DeployRequirements } from "./types";
@@ -16,6 +17,15 @@ import type { ComponentSecrets } from "./spec";
 
 type DeploymentSpec = DeploymentSchemas["DeploymentSpec"];
 
+// Resolve the operator's output dir, expanding a leading `~`. A shell expands that
+// before the CLI sees it, but the interactive prompt and a --values file bypass the
+// shell — there `~/bundle` would silently become a dir literally named "~" under the
+// cwd. Only a leading segment expands, so `./~` still addresses a real "~" directory.
+export function resolveOutputDir(dir: string): string {
+  const expanded = dir === "~" || dir.startsWith("~/") ? path.join(os.homedir(), dir.slice(1)) : dir;
+  return path.resolve(process.cwd(), expanded);
+}
+
 export async function writeOutput(
   spec: DeploymentSpec,
   componentSecrets: Record<string, ComponentSecrets>,
@@ -23,7 +33,7 @@ export async function writeOutput(
   req: DeployRequirements,
   componentEnv: Record<string, string> = {},
 ): Promise<string[]> {
-  const dir = path.resolve(process.cwd(), cfg.outputDir);
+  const dir = resolveOutputDir(cfg.outputDir);
 
   if (existsSync(dir)) {
     const contents = await fs.readdir(dir);

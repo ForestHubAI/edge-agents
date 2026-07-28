@@ -5,7 +5,7 @@ openapi: 3.0.3
 info:
   title: ForestHub ML Component Contract
   version: 0.1.0
-  description: "Engine<->ML-component inference wire. The component (image fh-onnx, service onnx) is a model repository — one container loads many model bundles and serves them all; a request selects one by name in the path. Inference splits by input kind: an opaque encoded artifact the component decodes itself (binary), or already-numeric tensors the caller prepared (tensors). The result is task-shaped and generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
+  description: "Engine<->ML-component inference wire. The component (image and service `onnx`) is a model repository — one container loads many model bundles and serves them all; a request selects one by name in the path. Inference splits by input kind: an opaque encoded artifact the component decodes itself (binary), or already-numeric tensors the caller prepared (tensors). The result is task-shaped and generic, so a new model type needs only a handler, not a contract change. Source of truth for the engine's generated client and the component's generated Pydantic models."
 
 paths:
   /models:
