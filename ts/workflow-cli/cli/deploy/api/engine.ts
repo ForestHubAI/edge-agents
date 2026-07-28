@@ -95,9 +95,9 @@ export interface components {
             brokerUrl: string;
             clientId?: string;
             username?: string;
-            /** @description Topic prefix for workflow-level publish topics ({networkId}/{agentId}/). */
+            /** @description Topic prefix the engine prepends to every workflow-level publish topic. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar. */
             publishPrefix?: string;
-            /** @description Topic prefix for workflow-level subscribe filters ({networkId}/+/). */
+            /** @description Topic prefix the engine prepends to every workflow-level subscribe filter. Opaque to the engine and prepended verbatim; the deploy-time resolver owns the grammar. */
             subscribePrefix?: string;
             will?: components["schemas"]["MQTTWill"];
         };
