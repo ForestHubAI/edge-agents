@@ -48,7 +48,7 @@ func ChatRequestToDomain(in *llmapi.ChatRequest) (*ChatRequest, error) {
 	req.Input = inp
 	// Convert tools
 	if len(in.Tools) > 0 {
-		tools, err := toolsToDomain(in.Tools, nil)
+		tools, err := toolsToDomain(in.Tools)
 		if err != nil {
 			return nil, err
 		}
@@ -244,10 +244,8 @@ func InputToDomain(in llmapi.Input) (Input, error) {
 	return coreItems, nil
 }
 
-// toolsToDomain converts API tools to domain tools. If externalMapper is non-nil, it is used
-// to convert external tools (e.g. to wrap them as FunctionTool with a stub handler).
-// If nil, external tools are converted to ExternalToolBase (can not be executed).
-func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool) Tool) ([]Tool, error) {
+// toolsToDomain converts API tools to domain tools. ExternalTools are converted to ExternalToolBase (not executable).
+func toolsToDomain(tools []llmapi.Tool) ([]Tool, error) {
 	result := make([]Tool, len(tools))
 	for i, tool := range tools {
 		val, err := tool.ValueByDiscriminator()
@@ -256,14 +254,10 @@ func toolsToDomain(tools []llmapi.Tool, externalMapper func(llmapi.ExternalTool)
 		}
 		switch t := val.(type) {
 		case llmapi.ExternalTool:
-			if externalMapper != nil {
-				result[i] = externalMapper(t)
-			} else {
-				result[i] = ExternalToolBase{
-					Name:        t.Name,
-					Description: t.Description,
-					Parameters:  t.Parameters,
-				}
+			result[i] = ExternalToolBase{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.Parameters,
 			}
 		case llmapi.WebSearchTool:
 			result[i] = WebSearch{}
