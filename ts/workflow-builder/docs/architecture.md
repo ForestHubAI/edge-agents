@@ -47,7 +47,7 @@ nodes/edges) lives in the Zustand stores, not in component state. See `../CLAUDE
 ## What flows where, by direction
 
 - **WorkflowBuilder → BuilderLayout:** canvas-tab list + tab callbacks, function
-  open/create callbacks, embedder callbacks (`onTestNode`, `onDebugStep`).
+  open/create callbacks, embedder callbacks (`onDebugStep`).
 - **BuilderLayout → CanvasEditor:** `canvasId`, `viewportCenterRef` (passthrough to
   ReactFlow), the graph/selection/pane event handlers, `setSelectionDrag`.
 - **BuilderLayout → RightConfigPanel:** `canvasId`, mutation handlers (bound to the

@@ -61,8 +61,6 @@ export interface WorkflowBuilderProps {
   language?: string;
 
   // ── Embedder-fulfilled actions (builder asks, embedder does) ──
-  /** A node requested embedder-side testing (e.g. Agent "Test" button). */
-  onTestNode?: (nodeId: string) => void;
   /** Step request from the in-builder debug panel — embedder forwards to the engine. */
   onDebugStep?: (nodeId?: string) => void;
 
@@ -117,7 +115,6 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
       initialMode,
       models,
       language,
-      onTestNode,
       onDebugStep,
       onChange,
       onHistoryChange,
@@ -401,7 +398,6 @@ export const WorkflowBuilder = forwardRef<WorkflowBuilderHandle, WorkflowBuilder
               onCanvasTabChange={canvasTabs.setActiveTabId}
               onCanvasTabClose={canvasTabs.closeTab}
               onCanvasTabReorder={canvasTabs.reorderTabs}
-              onTestNode={onTestNode}
               onDebugStep={onDebugStep}
             />
             <Toaster />

@@ -3,6 +3,7 @@
 // For commercial licensing, contact root@foresthub.ai
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Handle, Position } from "@xyflow/react";
 import { Plus } from "lucide-react";
 import type { EdgeType } from "@foresthubai/workflow-core/edge";
@@ -36,6 +37,8 @@ export const PortHandle = ({
   disabled,
   showPlus,
 }: PortHandleProps) => {
+  const { t } = useTranslation();
+
   const getHandleStyle = () => {
     const baseStyle: React.CSSProperties = {
       width: "12px",
@@ -175,7 +178,7 @@ export const PortHandle = ({
       {showPlus && !disabled && nodeId && (
         <button
           type="button"
-          title="Add port"
+          title={t("addPort", "Add port")}
           className={`nodrag absolute flex items-center justify-center w-4 h-4 rounded-full bg-muted-foreground/60 text-card hover:bg-primary hover:scale-110 transition-all cursor-pointer ${getPlusPositionClass()}`}
           onClick={(e) => {
             e.stopPropagation();

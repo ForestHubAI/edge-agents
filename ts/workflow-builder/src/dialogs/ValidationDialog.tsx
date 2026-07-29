@@ -79,21 +79,21 @@ export default function ValidationDialog({
             {/* Project-scoped diagnostics (no canvasId) live in their own buckets. */}
             {validation.channelDiagnostics.length > 0 && (
               <Section
-                label={t("channels")}
+                label={t("channelsTab")}
                 diagnostics={validation.channelDiagnostics}
                 onSelectDiagnostic={onSelectDiagnostic}
               />
             )}
             {validation.memoryDiagnostics.length > 0 && (
               <Section
-                label={t("memoryFiles")}
+                label={t("memoryTab")}
                 diagnostics={validation.memoryDiagnostics}
                 onSelectDiagnostic={onSelectDiagnostic}
               />
             )}
             {validation.modelDiagnostics.length > 0 && (
               <Section
-                label={t("models")}
+                label={t("modelsTab")}
                 diagnostics={validation.modelDiagnostics}
                 onSelectDiagnostic={onSelectDiagnostic}
               />

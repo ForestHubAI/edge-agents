@@ -7,6 +7,7 @@ import { ModelRegistry, type Model } from "@foresthubai/workflow-core/model";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { deleteModel, updateModel } from "../utils/modelOperations";
 import { ResourceConfigPanel } from "./ResourceConfigPanel";
+import { getResourceDescription } from "../utils/translation";
 
 interface ModelConfigPanelProps {
   model: Model;
@@ -25,7 +26,11 @@ export const ModelConfigPanel = ({ model, onClose }: ModelConfigPanelProps) => {
       label={model.label}
       labelTitle={t("modelLabel", "Model label")}
       onLabelChange={(label) => updateModel(model.id, { label })}
-      description={def?.description ?? t("modelCustomDescription", "Custom model mapped to a provider at deploy")}
+      description={
+        def
+          ? getResourceDescription(t, "models", model.type, def)
+          : t("modelCustomDescription", "Custom model mapped to a provider at deploy")
+      }
       belowLabel={
         isEmptyLabel ? (
           <p className="text-xs text-destructive mt-1">{t("modelLabelRequired", "Label is required")}</p>
@@ -36,7 +41,7 @@ export const ModelConfigPanel = ({ model, onClose }: ModelConfigPanelProps) => {
       allArguments={{ ...model.arguments }}
       onParamChange={(paramId, value) => updateModel(model.id, { arguments: { [paramId]: value } })}
       diagnostics={modelDiags}
-      translationPrefix="models"
+      translationPrefix={`models.${model.type}`}
       deleteLabel={t("deleteModel", "Delete model")}
       onDelete={() => deleteModel(model.id)}
       onClose={onClose}

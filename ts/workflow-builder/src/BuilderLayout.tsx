@@ -51,7 +51,6 @@ export interface BuilderLayoutProps {
   onCanvasTabClose: (tabId: string) => void;
   onCanvasTabReorder: (fromIndex: number, toIndex: number) => void;
 
-  onTestNode?: (nodeId: string) => void;
   onDebugStep?: (nodeId?: string) => void;
 }
 
@@ -63,7 +62,6 @@ export const BuilderLayout = ({
   onCanvasTabChange,
   onCanvasTabClose,
   onCanvasTabReorder,
-  onTestNode,
   onDebugStep,
 }: BuilderLayoutProps) => {
   const activeCanvasId = useEditorStore((s) => s.activeCanvasId);
@@ -329,7 +327,6 @@ export const BuilderLayout = ({
           onEdgeUpdate={graph.updateEdge}
           onEdgeDelete={handleDeleteEdge}
           onClearSelection={clearSelection}
-          onTestNode={onTestNode}
           onDebugStep={onDebugStep}
         />
       </div>

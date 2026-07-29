@@ -48,7 +48,6 @@ interface NodeConfigPanelProps {
   onNodeUpdate: (nodeId: string, updates: { arguments?: Record<string, unknown>; label?: string }) => void;
   onNodeDelete: (nodeId: string) => void;
   onClose: () => void;
-  onOpenTest: (nodeId: string) => void;
   getNodeDef: (node: NodeData) => NodeDefinition | undefined;
 }
 
@@ -58,7 +57,6 @@ export const NodeConfigPanel = ({
   onNodeUpdate,
   onNodeDelete,
   onClose,
-  onOpenTest,
   getNodeDef,
 }: NodeConfigPanelProps) => {
   const { t } = useTranslation();
@@ -196,15 +194,6 @@ export const NodeConfigPanel = ({
               onNodeUpdate={onNodeUpdate}
               nodeDiags={nodeDiags}
             />
-          </>
-        )}
-
-        {!readOnly && selectedNode.type === "Agent" && (
-          <>
-            <Separator />
-            <Button variant="outline" className="w-full" onClick={() => onOpenTest(selectedNode.id)}>
-              {t("testAgent")}
-            </Button>
           </>
         )}
 

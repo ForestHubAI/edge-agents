@@ -82,7 +82,7 @@ boundary. **Validation always runs on the domain** via `validateWorkflowState(re
 
 `WorkflowBuilderProps` (host asks, builder does): `initialWorkflow`, `initialMode`,
 `models` (static catalog), `language`, plus embedder-fulfilled actions
-(`onTestNode`, `onDebugStep`) and lifecycle events (`onChange`, `onHistoryChange`,
+(`onDebugStep`) and lifecycle events (`onChange`, `onHistoryChange`,
 `onError`). `WorkflowBuilderHandle` exposes document-level ops: `loadWorkflow`,
 `exportWorkflow`, `clear`, `setMode`/`getMode`, `validate`, `undo`/`redo`,
 `setDebugPhase`. The host owns locale, the file, and its own toolbar; the builder
@@ -98,6 +98,14 @@ appears, add a narrow intent method (e.g. `revealNode`) rather than exposing int
   (`src/i18n`) mounted via its own `I18nextProvider`, with **no** `initReactI18next`
   / `setI18n`. This is deliberate so it never clobbers the host's global i18next, and
   the host needs no provider. Do **not** re-add `.use(initReactI18next)`.
+- **Locale strings: no second person, no domain-term translation.** German (and any
+  future locale) uses infinitive/nominal constructions — `"Node zum Debuggen
+  auswählen."`, not `"Wähle…"` / `"Wählen Sie…"`. This sidesteps the du/Sie choice
+  entirely and keeps hints short in narrow panels. Domain primitives are names, not
+  words: **Node, Channel, Memory, Trigger** stay English in every locale (`"Node
+  löschen"`, `"Channel hinzufügen"`) — never *Knoten*, *Kanal*. `en.json` and
+  `de.json` must stay key-for-key identical, same order; a key in one and not the
+  other is a bug.
 - **Selection has two sources of truth** (ReactFlow `selected` flags + `editorStore.selection`)
   kept in bidirectional sync. The empty-echo guard in `syncSelectionFromRF` is
   load-bearing. Before touching it, read `docs/selection.md`.

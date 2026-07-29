@@ -14,6 +14,7 @@ import {
   CommandItem,
 } from "../components/ui/command";
 import { categoryIcons } from "../utils/categoryConstants";
+import { getNodeDescription } from "../utils/translation";
 
 interface NodePickerDialogProps {
   open: boolean;
@@ -74,7 +75,7 @@ export function NodePickerDialog({ open, onOpenChange, compatibleDefs, onSelect 
                   <div className="flex flex-col min-w-0">
                     <span className="truncate">{def.label}</span>
                     {def.description && (
-                      <span className="text-xs text-muted-foreground truncate">{def.description}</span>
+                      <span className="text-xs text-muted-foreground truncate">{getNodeDescription(t, def)}</span>
                     )}
                   </div>
                 </CommandItem>

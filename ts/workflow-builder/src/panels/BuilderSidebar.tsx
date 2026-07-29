@@ -71,9 +71,9 @@ export const BuilderSidebar = ({
     () => [
       { id: "nodes" as const, icon: Blocks, label: t("nodeLibrary") },
       { id: "variables" as const, icon: Variable, label: t("variables") },
-      { id: "channels" as const, icon: Cpu, label: t("channels") },
-      { id: "memory" as const, icon: Database, label: t("memoryFiles", "Memory") },
-      { id: "models" as const, icon: BrainCircuit, label: t("models", "AI Models") },
+      { id: "channels" as const, icon: Cpu, label: t("channelsTab") },
+      { id: "memory" as const, icon: Database, label: t("memoryTab", "Memory") },
+      { id: "models" as const, icon: BrainCircuit, label: t("modelsTab", "AI Models") },
       { id: "functions" as const, icon: Braces, label: t("functions") },
       { id: "diagnostics" as const, icon: TriangleAlert, label: t("diagnostics") },
     ],

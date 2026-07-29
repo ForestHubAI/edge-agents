@@ -251,7 +251,7 @@ const ParameterEditor = ({
             value={selectedKey}
             options={options}
             isStale={isStale}
-            placeholder="Select variable..."
+            placeholder={t("selectVariable", "Select variable...")}
             onChange={(key) => {
               if (!key) {
                 onChange(undefined);
@@ -355,7 +355,7 @@ const ParameterEditor = ({
         return (
           <Select value={selectValue} onValueChange={(v) => onChange(v === NONE ? undefined : v)}>
             <SelectTrigger>
-              <SelectValue placeholder="Select..." />
+              <SelectValue placeholder={t("selectPlaceholder", "Select...")} />
             </SelectTrigger>
             <SelectContent>
               {parameter.optional && (

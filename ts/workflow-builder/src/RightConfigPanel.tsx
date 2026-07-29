@@ -48,7 +48,6 @@ export interface RightConfigPanelProps {
   onClearSelection: () => void;
 
   // Embedder-fulfilled
-  onTestNode?: (nodeId: string) => void;
   onDebugStep?: (nodeId?: string) => void;
 }
 
@@ -62,7 +61,6 @@ export const RightConfigPanel = ({
   onEdgeUpdate,
   onEdgeDelete,
   onClearSelection,
-  onTestNode,
   onDebugStep,
 }: RightConfigPanelProps) => {
   const selection = useEditorStore((s) => s.selection);
@@ -151,8 +149,6 @@ export const RightConfigPanel = ({
     [getNodeDef],
   );
 
-  const handleTestNode = useCallback((nodeId: string) => onTestNode?.(nodeId), [onTestNode]);
-
   if (selectionDrag) return null;
 
   if (isDebugMode) {
@@ -177,7 +173,6 @@ export const RightConfigPanel = ({
           onNodeUpdate={onNodeUpdate}
           onNodeDelete={onNodeDelete}
           onClose={onClearSelection}
-          onOpenTest={handleTestNode}
           getNodeDef={getNodeDef}
         />
       </Shell>

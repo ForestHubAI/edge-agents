@@ -8,6 +8,7 @@ import { useEditorStore } from "../stores/editorStore";
 import { useDiagnosticsStore } from "../stores/diagnosticsStore";
 import { deleteMemory, updateMemory } from "../utils/memoryOperations";
 import { ResourceConfigPanel } from "./ResourceConfigPanel";
+import { getResourceDescription } from "../utils/translation";
 
 interface MemoryConfigPanelProps {
   memory: Memory;
@@ -43,14 +44,14 @@ export const MemoryConfigPanel = ({ memory, onClose }: MemoryConfigPanelProps) =
       label={memory.label}
       labelTitle={t("memoryLabel", "Memory label")}
       onLabelChange={(label) => updateMemory(memory.id, { label })}
-      description={def?.description ?? ""}
+      description={getResourceDescription(t, "memory", memory.type, def)}
       belowLabel={belowLabel}
       parameters={def?.parameters ?? []}
       getValue={(p) => memory.arguments[p.id]}
       allArguments={{ ...memory.arguments }}
       onParamChange={(paramId, value) => updateMemory(memory.id, { arguments: { [paramId]: value } })}
       diagnostics={memoryDiags}
-      translationPrefix="memory"
+      translationPrefix={`memory.${memory.type}`}
       deleteLabel={t("deleteMemory", "Delete memory")}
       onDelete={() => deleteMemory(memory.id)}
       onClose={onClose}
