@@ -11,10 +11,11 @@
 #     -t ghcr.io/foresthubai/llama:1.0.0 --push .
 # In CI this is done by .github/workflows/release-llama.yml.
 #
-# For reproducible rebuilds of a tag, pin the base by digest (FROM ...@sha256:...) —
-# ':cpu' is a moving tag. Swap the base for ':cuda' / ':vulkan' to match the device's
-# accelerator.
-FROM ghcr.io/mostlygeek/llama-swap:cpu
+# The base is pinned by digest — ':cpu' is a moving tag, and a rebuild must not silently
+# pick up a different llama-swap. This is the multi-arch index (linux/amd64 + linux/arm64),
+# so buildx still resolves per platform. Swap the base for ':cuda' / ':vulkan' to match the
+# device's accelerator, and re-pin its digest.
+FROM ghcr.io/mostlygeek/llama-swap:cpu@sha256:eb82e52f7dbde846ee9e36518b13e10a176c0380d464ee06442e4139e709fead
 
 # jq drives the JSON -> YAML config bridge in the entrypoint. The llama-swap images are
 # Debian-based; adjust this stanza if you retarget the base.
