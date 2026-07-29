@@ -36,12 +36,13 @@ function engineComponent(overrides: Partial<DeployComponent> = {}): DeployCompon
   };
 }
 
-// The shared on-device llama component: image + the models list as a config
-// blob (config.json), weights in the workspace mount.
+// The shared on-device llama component: self-built, pull:never, the models list as a
+// config blob (config.json), weights in the workspace mount.
 function llamaComponent(overrides: Partial<DeployComponent> = {}): DeployComponent {
   return {
     name: "llama",
-    image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
+    image: "llama:latest",
+    pull: "never",
     config: { models: [{ id: "gemma-3", file: "gemma.gguf", args: ["--ctx-size", "4096"] }] },
     volumes: ["./workspaces/llama:/var/lib/foresthub/workspace:ro"],
     ...overrides,
@@ -159,10 +160,11 @@ describe("composeYaml", () => {
     expect(composeYaml(specOf([engineComponent({ image: "engine:0.4.2" })]))).toContain("image: engine:0.4.2");
   });
 
-  it("emits each component's pull policy: the engine's explicit never, default missing otherwise", () => {
-    expect(composeYaml(specOf())).toContain("pull_policy: never"); // engine sets pull: never
-    const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
-    expect(yaml).toContain("pull_policy: missing"); // llama omits pull → default missing
+  it("emits each component's pull policy: the self-built ones' explicit never, default missing otherwise", () => {
+    const custom: DeployComponent = { name: "grafana", image: "grafana/grafana:11.3.0" };
+    const yaml = composeYaml(specOf([engineComponent(), llamaComponent(), custom]));
+    expect(yaml).toContain("pull_policy: never"); // engine and llama set pull: never
+    expect(yaml).toContain("pull_policy: missing"); // the custom component omits pull → default
   });
 
   it("maps a cdev device grant and runs root when the resolver set it", () => {
@@ -194,7 +196,7 @@ describe("composeYaml", () => {
   it("an on-device model adds the shared llama component with no start-ordering", () => {
     const yaml = composeYaml(specOf([engineComponent(), llamaComponent()]));
     expect(yaml).toContain("llama:");
-    expect(yaml).toContain("image: ghcr.io/ggml-org/llama.cpp:server-b8589");
+    expect(yaml).toContain("image: llama:latest");
     // The models list rides in the mounted config.json, not a compose command.
     expect(yaml).toContain("./llama-config.json:/etc/foresthub/config.json:ro");
     // Dropped: the engine connects at runtime with retry, so no health gate.
@@ -374,6 +376,17 @@ describe("readme", () => {
     expect(md).toContain("scp engine.tar onnx.tar");
   });
 
+  it("documents building and loading the self-built llama component image", () => {
+    const md = readme(
+      specOf([engineComponent(), llamaComponent()]),
+      cfgOf({ llmModels: { "local-llm": { location: "device", modelFile: "gemma.gguf" } } }),
+      false,
+    );
+    expect(md).toContain("docker build -t llama:latest components/llama");
+    expect(md).toContain("docker save llama:latest");
+    expect(md).toContain("docker load -i llama.tar");
+  });
+
   it("documents building and loading a self-built camera component image", () => {
     const md = readme(
       specOf([engineComponent(), cameraComponent()]),
@@ -384,14 +397,15 @@ describe("readme", () => {
     expect(md).toContain("docker load -i camera.tar");
   });
 
-  it("adds no component build step when nothing is self-built (network ML model, llama)", () => {
+  it("adds no component build step when every model is on the network", () => {
     const md = readme(
-      specOf([engineComponent(), llamaComponent()]),
+      specOf([engineComponent()]),
       cfgOf({ mlModels: { yolo: { location: "network", url: "http://onnx:8000", model: "yolov8n" } } }),
       false,
     );
     expect(md).not.toContain("docker build -t onnx");
     expect(md).not.toContain("docker load -i onnx.tar");
+    expect(md).not.toContain("docker build -t llama");
   });
 });
 

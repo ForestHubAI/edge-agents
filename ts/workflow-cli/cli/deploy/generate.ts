@@ -214,15 +214,19 @@ export function readme(spec: DeploymentSpec, cfg: DeployConfig, hasProviderModel
       ? [`- \`${mlRepoDir}/\` — your on-device ML models' bundles, mounted **read-only** (see above).`]
       : []),
   ].join("\n");
-  // Self-built component images (onnx, camera) are pull_policy:never: unlike
-  // llama (pulled from a registry), they must be built and docker-loaded on the
-  // controller too, or `docker compose up` fails with "image not found".
+  // Self-built component images are pull_policy:never — like the engine, they must be
+  // built and docker-loaded on the controller too, or `docker compose up` fails with
+  // "image not found". Listed in the order the compose file declares them.
   const componentTar = (image: string) => `${image.split(":")[0]}.tar`;
   // The engine image/tar, read from the spec so the build/save/load instructions
   // track whatever identity the resolver pinned (never a second hardcoded literal).
   const engineImage = spec.components.find((c) => c.name === ENGINE_COMPONENT_NAME)?.image ?? `${ENGINE_COMPONENT_NAME}:latest`;
   const engineTar = componentTar(engineImage);
   const selfBuiltComponents: { image: string; build: string }[] = [];
+  if (deviceModels.length > 0) {
+    const c = spec.components.find((x) => x.name === llamaComponentServiceName());
+    if (c) selfBuiltComponents.push({ image: c.image, build: `docker build -t ${c.image} components/llama` });
+  }
   if (mlDeviceModels.length > 0) {
     const c = spec.components.find((x) => x.name === onnxComponentServiceName());
     if (c) selfBuiltComponents.push({ image: c.image, build: `docker build -t ${c.image} py/onnx` });
@@ -360,8 +364,7 @@ scp -r workspaces/ $CONTROLLER_USER@$CONTROLLER_ADDR:~/fh-engine/
 # ...or download the model files directly into ~/fh-engine/workspaces/<...>/ on the controller.`
     : "";
 
-  // Self-built component images are loaded on the controller alongside the engine
-  // (llama is pulled by compose, so it needs no load).
+  // Self-built component images are loaded on the controller alongside the engine.
   const componentLoadBlock = selfBuiltComponents
     .map((s) => `ssh $CONTROLLER_USER@$CONTROLLER_ADDR 'cd ~/fh-engine && docker load -i ${componentTar(s.image)}'\n`)
     .join("");

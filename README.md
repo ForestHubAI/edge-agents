@@ -215,19 +215,24 @@ The easy way is to mark that model as **on-device** and let `fh-workflow deploy`
 name over the compose network, no host networking, no hand-written compose (see
 [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
 
-To run the inference container by hand instead — pull its server image and point it at a
-`.gguf` model file (e.g. a quantized Gemma):
+That component is built from [`components/llama/`](components/llama), the same way as the
+engine image above. It wraps `llama-swap`, so one container serves several models and
+renders its own server config from the boot config the bundle writes:
 
 ```sh
-docker pull ghcr.io/ggml-org/llama.cpp:server-b8589
+docker build -t llama:latest components/llama
 
-docker run --rm --network host -v "$PWD/models:/models:ro" \
-  ghcr.io/ggml-org/llama.cpp:server-b8589 \
-  --model /models/gemma-3-270m-it-Q4_0.gguf --host 0.0.0.0 --port 8090
+# Ship to an offline device: save to a tar, copy it across, load it there
+docker save llama:latest -o llama.tar
 ```
 
-Start it before the engine, then point the workflow's custom model at this endpoint
-through the deploy files (again, [Deploy a workflow to a device](#deploy-a-workflow-to-a-device)).
+`llama:latest` is the tag a generated bundle expects (`pull_policy: never`). Put the
+`.gguf` weights in the bundle's `workspaces/llama/` directory, and `docker compose up`
+does the rest.
+
+A model marked **on the network** instead points at an inference server you run yourself
+— any OpenAI-compatible endpoint (llama.cpp, vLLM, Ollama). The bundle does not start
+that one for you.
 
 ## Hardware and transports
 

@@ -581,13 +581,13 @@ export function buildDeploymentSpec(
   // One shared llama server for all on-device models (not one per model). Its config.json
   // (the models list) rides as the component config blob, mounted read-only at the
   // standard config path the entrypoint reads; the GGUF weights sit in the component
-  // workspace the operator fills, mounted read-only. No pull override: llama server is a
-  // published image, pulled from its registry (unlike the locally-built engine/ml/camera).
+  // workspace the operator fills, mounted read-only.
   if (llamaModels.length > 0) {
     const service = llamaComponentServiceName();
     llamaComponents.push({
       name: service,
       image: meta.llamaImage,
+      pull: "never", // built locally before deploy, in no registry
       config: { models: llamaModels },
       volumes: [`${workspaceDir(service)}:${COMPONENT_WORKSPACE_PATH}:ro`],
     });

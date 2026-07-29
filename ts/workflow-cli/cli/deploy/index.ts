@@ -46,15 +46,20 @@ import {
 import type { DeployConfig, DeployRequirements, LogLevel, RawFlags } from "./types";
 import { MODEL_CATALOG } from "../../src/catalog";
 import type { DeploymentInputs } from "./inputs";
-import { ENGINE_COMPONENT_NAME, ONNX_COMPONENT_NAME, CAMERA_COMPONENT_NAME } from "@foresthubai/workflow-core/deploy";
+import {
+  ENGINE_COMPONENT_NAME,
+  LLAMA_COMPONENT_NAME,
+  ONNX_COMPONENT_NAME,
+  CAMERA_COMPONENT_NAME,
+} from "@foresthubai/workflow-core/deploy";
 
-// Resolved component images the spec pins. The self-built ones are built locally
-// (image repo = the component's canonical identity → local daemon, renderer's
-// pull_policy never), mirroring the paid path's `ghcr.io/foresthubai/<identity>`; the
-// llama component is a pinned upstream tag. When these images are published to a
-// registry, they gain a registry host and the renderer's pull_policy flips to missing.
+// Resolved component images the spec pins. All of them are built locally (image repo =
+// the component's canonical identity → local daemon, renderer's pull_policy never),
+// mirroring the paid path's `ghcr.io/foresthubai/<identity>`. When these images are
+// published to a registry, they gain a registry host and the renderer's pull_policy
+// flips to missing.
 const ENGINE_IMAGE = `${ENGINE_COMPONENT_NAME}:latest`;
-const LLAMA_IMAGE = "ghcr.io/ggml-org/llama.cpp:server-b8589";
+const LLAMA_IMAGE = `${LLAMA_COMPONENT_NAME}:latest`;
 const ONNX_COMPONENT_IMAGE = `${ONNX_COMPONENT_NAME}:latest`;
 const CAMERA_COMPONENT_IMAGE = `${CAMERA_COMPONENT_NAME}:latest`;
 

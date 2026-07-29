@@ -102,7 +102,7 @@ const fullInputs: DeploymentInputs = {
 const meta = {
   id: "dep-1",
   engineImage: "engine:0.4.2",
-  llamaImage: "ghcr.io/ggml-org/llama.cpp:server-b8589",
+  llamaImage: "llama:latest",
   onnxComponentImage: "onnx:latest",
   cameraComponentImage: "camera:latest",
 };
@@ -190,7 +190,8 @@ describe("buildDeploymentSpec", () => {
     const llama = llamaOf(spec)!;
     expect(llama).toMatchObject({
       name: llamaComponentServiceName(),
-      image: "ghcr.io/ggml-org/llama.cpp:server-b8589",
+      image: "llama:latest",
+      pull: "never", // built locally, in no registry
       // The models list rides as the config blob (config.json); no per-model command.
       config: { models: [{ id: "local-llm", file: "model.gguf", args: ["--ctx-size", "4096"] }] },
       volumes: [`./workspaces/${llamaComponentServiceName()}:/var/lib/foresthub/workspace:ro`],
