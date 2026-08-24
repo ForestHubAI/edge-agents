@@ -14,6 +14,7 @@ export interface MqttPublishNode extends NodeBase {
     channelReference: string;
     dataType: "int" | "float" | "bool" | "string";
     value: Expression;
+    toolDescription?: string;
     qos: "0" | "1" | "2";
     retain: boolean;
   };
@@ -68,6 +69,15 @@ export const MqttPublishNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: (args) => (args as MqttPublishNode["arguments"]).dataType,
       default: { expression: "", references: [], dataType: "string" },
+      activationRules: [{ type: "isControlFlow" }],
+    },
+    {
+      id: "toolDescription",
+      label: "Tool Description",
+      description: "Description shown to the agent when this node is wired as a tool",
+      type: "string",
+      multiline: true,
+      activationRules: [{ type: "isToolInput" }],
     },
     {
       id: "qos",

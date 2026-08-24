@@ -32,11 +32,14 @@ const retrieverOutID = "output"
 // configured query expression against the scope and writes a formatted results
 // string to the bound slot. As a tool, the LLM supplies the query directly and
 // the output binding is bypassed — the tool returns the formatted string.
+//
+// query is nil when the node is wired as a tool: the model supplies it per call
+// instead of the workflow author supplying an expression.
 type Retriever struct {
 	engine.LinearNode
 	collectionID    string
 	topK            int
-	query           workflowapi.Expression
+	query           *workflowapi.Expression
 	binding         workflowapi.OutputBinding
 	toolDescription string
 	retriever       engine.Retriever
@@ -49,7 +52,7 @@ func NewRetriever(
 	id string,
 	collectionID string,
 	topK int,
-	query workflowapi.Expression,
+	query *workflowapi.Expression,
 	binding workflowapi.OutputBinding,
 	toolDescription string,
 	ret engine.Retriever,
@@ -78,7 +81,10 @@ func (r *Retriever) Outputs() map[string]workflowapi.DataType {
 }
 
 func (r *Retriever) Execute(ctx context.Context, scope *engine.Scope) (string, error) {
-	query, err := expr.EvalString(r.query, scope)
+	if r.query == nil {
+		return "", fmt.Errorf("retriever %s: no query expression", r.ID())
+	}
+	query, err := expr.EvalString(*r.query, scope)
 	if err != nil {
 		return "", fmt.Errorf("retriever %s: query: %w", r.ID(), err)
 	}

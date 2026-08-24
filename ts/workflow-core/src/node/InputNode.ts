@@ -45,6 +45,7 @@ export interface WebFetchNode extends NodeBase {
     url: Expression;
     maxChars: number | undefined;
     output: OutputBinding;
+    toolDescription?: string;
   };
 }
 
@@ -138,6 +139,7 @@ export const RetrieverNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: "string",
       default: { expression: "", references: [], dataType: "string" },
+      activationRules: [{ type: "isControlFlow" }],
     },
     {
       id: "toolDescription",
@@ -164,6 +166,7 @@ export const WebFetchNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: "string",
       default: { expression: "", references: [], dataType: "string" },
+      activationRules: [{ type: "isControlFlow" }],
     },
     {
       id: "maxChars",
@@ -171,6 +174,14 @@ export const WebFetchNodeDefinition: NodeDefinition = {
       description: "Maximum characters of extracted text to return",
       type: "int",
       optional: true,
+    },
+    {
+      id: "toolDescription",
+      label: "Tool Description",
+      description: "Description shown to the agent when this node is wired as a tool",
+      type: "string",
+      multiline: true,
+      activationRules: [{ type: "isToolInput" }],
     },
   ],
 };

@@ -12,6 +12,7 @@ export interface WritePinNode extends NodeBase {
     pinReference: string | undefined;
     signalType: "digital" | "analog";
     value: Expression;
+    toolDescription?: string;
   };
 }
 
@@ -20,6 +21,7 @@ export interface SerialWriteNode extends NodeBase {
   arguments: {
     portReference: string | undefined;
     value: Expression; // Expression for the value to write
+    toolDescription?: string;
   };
 }
 
@@ -60,6 +62,15 @@ export const WritePinNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: (args) => ((args as WritePinNode["arguments"]).signalType === "digital" ? "bool" : "int"),
       default: { expression: "", references: [], dataType: "bool" },
+      activationRules: [{ type: "isControlFlow" }],
+    },
+    {
+      id: "toolDescription",
+      label: "Tool Description",
+      description: "Description shown to the agent when this node is wired as a tool",
+      type: "string",
+      multiline: true,
+      activationRules: [{ type: "isToolInput" }],
     },
   ],
 };
@@ -85,6 +96,15 @@ export const SerialWriteNodeDefinition: NodeDefinition = {
       type: "expression",
       expressionType: "string",
       default: { expression: "", references: [], dataType: "string" },
+      activationRules: [{ type: "isControlFlow" }],
+    },
+    {
+      id: "toolDescription",
+      label: "Tool Description",
+      description: "Description shown to the agent when this node is wired as a tool",
+      type: "string",
+      multiline: true,
+      activationRules: [{ type: "isToolInput" }],
     },
   ],
 };

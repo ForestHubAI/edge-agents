@@ -19,6 +19,8 @@ import (
 
 	"github.com/ForestHubAI/edge-agents/go/api/workflowapi"
 
+	"github.com/ForestHubAI/edge-agents/go/llmproxy"
+
 	"github.com/ForestHubAI/edge-agents/go/engine"
 	"github.com/ForestHubAI/edge-agents/go/engine/expr"
 )
@@ -26,6 +28,7 @@ import (
 // Implementation guards
 var _ engine.Executable = (*WebFetch)(nil)
 var _ engine.Emitter = (*WebFetch)(nil)
+var _ engine.ToolProvider = (*WebFetch)(nil)
 
 const webFetchOutID = "output"
 
@@ -62,26 +65,33 @@ func newWebFetchClient() *http.Client {
 	return &http.Client{Timeout: webFetchTimeout, Transport: transport}
 }
 
-// WebFetch fetches an HTTP(S) URL and emits the cleaned page text. Evaluates
-// the configured URL expression against the scope and writes the extracted
-// text to the bound slot. Control-flow only — not exposed as an LLM tool.
+// WebFetch fetches an HTTP(S) URL and emits the cleaned page text. In
+// control-flow mode it evaluates the configured URL expression against the scope
+// and writes the extracted text to the bound slot. As a tool, the LLM supplies
+// the URL directly and the output binding is bypassed — the tool returns the
+// text. maxChars stays author-owned in both modes: it is a context budget, not
+// something the model should widen.
+//
+// url is nil when the node is wired as a tool.
 type WebFetch struct {
 	engine.LinearNode
-	url      workflowapi.Expression
-	maxChars int
-	binding  workflowapi.OutputBinding
+	url             *workflowapi.Expression
+	maxChars        int
+	binding         workflowapi.OutputBinding
+	toolDescription string
 }
 
 // NewWebFetch builds a WebFetch node. maxChars <= 0 falls back to the default cap.
-func NewWebFetch(id string, urlExpr workflowapi.Expression, maxChars int, binding workflowapi.OutputBinding) *WebFetch {
+func NewWebFetch(id string, urlExpr *workflowapi.Expression, maxChars int, binding workflowapi.OutputBinding, toolDescription string) *WebFetch {
 	if maxChars <= 0 {
 		maxChars = webFetchDefaultMaxChars
 	}
 	return &WebFetch{
-		LinearNode: engine.NewLinearNode(id),
-		url:        urlExpr,
-		maxChars:   maxChars,
-		binding:    binding,
+		LinearNode:      engine.NewLinearNode(id),
+		url:             urlExpr,
+		maxChars:        maxChars,
+		binding:         binding,
+		toolDescription: toolDescription,
 	}
 }
 
@@ -93,18 +103,47 @@ func (n *WebFetch) Outputs() map[string]workflowapi.DataType {
 }
 
 func (n *WebFetch) Execute(ctx context.Context, scope *engine.Scope) (string, error) {
-	urlStr, err := expr.EvalString(n.url, scope)
+	if n.url == nil {
+		return "", fmt.Errorf("web_fetch %s: no url expression", n.ID())
+	}
+	urlStr, err := expr.EvalString(*n.url, scope)
 	if err != nil {
 		return "", fmt.Errorf("web_fetch %s: url: %w", n.ID(), err)
 	}
-	text, err := n.fetch(ctx, urlStr, n.maxChars)
+	text, err := n.webFetch(ctx, webFetchArgs{URL: urlStr})
 	if err != nil {
-		return "", fmt.Errorf("web_fetch %s: %w", n.ID(), err)
+		return "", err
 	}
 	if err := engine.ApplyOutput(scope, n.ID(), webFetchOutID, n.binding, expr.StringVal(text)); err != nil {
 		return "", fmt.Errorf("web_fetch %s: applying output: %w", n.ID(), err)
 	}
 	return n.Next(engine.PortCtrl, scope)
+}
+
+// webFetchArgs is the tool-call payload. A URL is always a string, so the
+// schema is derivable from this type.
+type webFetchArgs struct {
+	URL string `json:"url"`
+}
+
+// Tools exposes this node as `web_fetch(url)`. maxChars is not a parameter —
+// the author's cap applies to model-issued fetches too.
+func (n *WebFetch) Tools() ([]llmproxy.FunctionTool, error) {
+	ft, err := llmproxy.NewFunctionTool("web_fetch", n.toolDescription, n.webFetch)
+	if err != nil {
+		return nil, fmt.Errorf("web_fetch %s: %w", n.ID(), err)
+	}
+	return []llmproxy.FunctionTool{ft}, nil
+}
+
+// webFetch is the actual implementation of the tool call, unwrapped from the
+// node execution signature.
+func (n *WebFetch) webFetch(ctx context.Context, args webFetchArgs) (string, error) {
+	text, err := n.fetch(ctx, args.URL, n.maxChars)
+	if err != nil {
+		return "", fmt.Errorf("web_fetch %s: %w", n.ID(), err)
+	}
+	return text, nil
 }
 
 // fetch validates the URL, applies SSRF pre-checks, performs the GET, reads up

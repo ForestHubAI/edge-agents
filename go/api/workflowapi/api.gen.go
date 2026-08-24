@@ -1170,8 +1170,11 @@ type MqttPublishNode struct {
 		Qos MqttPublishNodeArgumentsQos `json:"qos"`
 
 		// Retain Whether the broker should retain the message
-		Retain bool       `json:"retain"`
-		Value  Expression `json:"value"`
+		Retain bool `json:"retain"`
+
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
+		ToolDescription *string     `json:"toolDescription,omitempty"`
+		Value           *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1374,7 +1377,7 @@ type RetrieverNode struct {
 		// MemoryReference Reference to a declared VectorDatabase memory id
 		MemoryReference *string       `json:"memoryReference,omitempty"`
 		Output          OutputBinding `json:"output"`
-		Query           Expression    `json:"query"`
+		Query           *Expression   `json:"query,omitempty"`
 
 		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
 		ToolDescription *string `json:"toolDescription,omitempty"`
@@ -1413,8 +1416,11 @@ type SerialReadNodeType string
 type SerialWriteNode struct {
 	Arguments struct {
 		// PortReference Reference to a UART channel ID (the serial port to write to)
-		PortReference *string    `json:"portReference,omitempty"`
-		Value         Expression `json:"value"`
+		PortReference *string `json:"portReference,omitempty"`
+
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
+		ToolDescription *string     `json:"toolDescription,omitempty"`
+		Value           *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string              `json:"id"`
 	Label    *string             `json:"label,omitempty"`
@@ -1513,7 +1519,10 @@ type WebFetchNode struct {
 		// MaxChars Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
 		MaxChars *int          `json:"maxChars,omitempty"`
 		Output   OutputBinding `json:"output"`
-		Url      Expression    `json:"url"`
+
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
+		ToolDescription *string     `json:"toolDescription,omitempty"`
+		Url             *Expression `json:"url,omitempty"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`
@@ -1561,7 +1570,10 @@ type WritePinNode struct {
 		// PinReference Reference to an IO variable ID
 		PinReference *string    `json:"pinReference,omitempty"`
 		SignalType   SignalType `json:"signalType"`
-		Value        Expression `json:"value"`
+
+		// ToolDescription Description used when this node is exposed as a tool; ignored in exec mode.
+		ToolDescription *string     `json:"toolDescription,omitempty"`
+		Value           *Expression `json:"value,omitempty"`
 	} `json:"arguments"`
 	Id       string           `json:"id"`
 	Label    *string          `json:"label,omitempty"`

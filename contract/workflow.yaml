@@ -586,7 +586,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [query, output]
+          required: [output]
           properties:
             memoryReference:
               type: string
@@ -596,7 +596,7 @@ components:
               description: Number of results to return
             query:
               $ref: "#/components/schemas/Expression"
-              description: Search query expression
+              description: Search query expression; absent when the node is exposed as a tool, where the model supplies it.
             output:
               $ref: "#/components/schemas/OutputBinding"
             toolDescription:
@@ -613,17 +613,20 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [url, output]
+          required: [output]
           properties:
             url:
               $ref: "#/components/schemas/Expression"
-              description: URL expression to fetch (http or https)
+              description: URL expression to fetch (http or https); absent when the node is exposed as a tool, where the model supplies it.
             maxChars:
               type: integer
               description: Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive.
               minimum: 1
             output:
               $ref: "#/components/schemas/OutputBinding"
+            toolDescription:
+              type: string
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     MLInferenceNode:
       type: object
@@ -705,7 +708,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [signalType, value]
+          required: [signalType]
           properties:
             pinReference:
               type: string
@@ -714,6 +717,10 @@ components:
               $ref: "#/components/schemas/SignalType"
             value:
               $ref: "#/components/schemas/Expression"
+              description: Written value; absent when the node is exposed as a tool, where the model supplies it.
+            toolDescription:
+              type: string
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     AgentNode:
       type: object
@@ -798,13 +805,17 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [value]
+          required: []
           properties:
             portReference:
               type: string
               description: Reference to a UART channel ID (the serial port to write to)
             value:
               $ref: "#/components/schemas/Expression"
+              description: Written text; absent when the node is exposed as a tool, where the model supplies it.
+            toolDescription:
+              type: string
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
 
     SetVariableNode:
       type: object
@@ -833,7 +844,7 @@ components:
         position: { $ref: "#/components/schemas/NodePosition" }
         arguments:
           type: object
-          required: [dataType, value, qos, retain]
+          required: [dataType, qos, retain]
           properties:
             channelReference:
               type: string
@@ -842,6 +853,10 @@ components:
               $ref: "#/components/schemas/DataType"
             value:
               $ref: "#/components/schemas/Expression"
+              description: Published value; absent when the node is exposed as a tool, where the model supplies it.
+            toolDescription:
+              type: string
+              description: Description used when this node is exposed as a tool; ignored in exec mode.
             qos:
               type: integer
               enum: [0, 1, 2]

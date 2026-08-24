@@ -188,7 +188,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if err != nil {
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewSerialWrite(nd.Id, nd.Arguments.Value, dst)
+			n := node.NewSerialWrite(nd.Id, nd.Arguments.Value, pointer.Val(nd.Arguments.ToolDescription), dst)
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 
@@ -200,7 +200,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if err != nil {
 				return fmt.Errorf("node %s: %w", nd.Id, err)
 			}
-			n := node.NewMqttPublish(nd.Id, mq, nd.Arguments.DataType, nd.Arguments.Value, byte(nd.Arguments.Qos), nd.Arguments.Retain)
+			n := node.NewMqttPublish(nd.Id, mq, nd.Arguments.DataType, nd.Arguments.Value, pointer.Val(nd.Arguments.ToolDescription), byte(nd.Arguments.Qos), nd.Arguments.Retain)
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 
@@ -257,7 +257,7 @@ func (g *graph) build(apiNodes []workflowapi.Node, edges []workflowapi.Edge) err
 			if nd.Arguments.MaxChars != nil {
 				maxChars = *nd.Arguments.MaxChars
 			}
-			n := node.NewWebFetch(nd.Id, nd.Arguments.Url, maxChars, nd.Arguments.Output)
+			n := node.NewWebFetch(nd.Id, nd.Arguments.Url, maxChars, nd.Arguments.Output, pointer.Val(nd.Arguments.ToolDescription))
 			g.allNodes[nd.Id] = n
 			g.executables[nd.Id] = n
 
@@ -368,6 +368,7 @@ func (g *graph) buildReadPin(nd workflowapi.ReadPinNode) (*node.ReadPin, error) 
 // WritePin variant. Digital → GPIOOUT. Analog → PWM or DAC, picked by
 // whichever channel the pinReference resolves to.
 func (g *graph) buildWritePin(nd workflowapi.WritePinNode) (*node.WritePin, error) {
+	desc := pointer.Val(nd.Arguments.ToolDescription)
 	switch nd.Arguments.SignalType {
 	case workflowapi.Digital:
 		if nd.Arguments.PinReference == nil {
@@ -377,7 +378,7 @@ func (g *graph) buildWritePin(nd workflowapi.WritePinNode) (*node.WritePin, erro
 		if err != nil {
 			return nil, err
 		}
-		return node.NewWritePinDigital(nd.Id, nd.Arguments.Value, v), nil
+		return node.NewWritePinDigital(nd.Id, nd.Arguments.Value, desc, v), nil
 	case workflowapi.Analog:
 		// Analog pin can be either a PWM or DAC channel. Try PWM first; if
 		// the id isn't in the PWM map, fall back to DAC.
@@ -385,13 +386,13 @@ func (g *graph) buildWritePin(nd workflowapi.WritePinNode) (*node.WritePin, erro
 			return nil, &engine.MissingFieldError{NodeID: nd.Id, Field: "pinReference"}
 		}
 		if pwm, err := g.channels.pwm(*nd.Arguments.PinReference); err == nil {
-			return node.NewWritePinPWM(nd.Id, nd.Arguments.Value, pwm), nil
+			return node.NewWritePinPWM(nd.Id, nd.Arguments.Value, desc, pwm), nil
 		}
 		dac, err := g.channels.dac(*nd.Arguments.PinReference)
 		if err != nil {
 			return nil, fmt.Errorf("no PWM or DAC channel %q", *nd.Arguments.PinReference)
 		}
-		return node.NewWritePinDAC(nd.Id, nd.Arguments.Value, dac), nil
+		return node.NewWritePinDAC(nd.Id, nd.Arguments.Value, desc, dac), nil
 	default:
 		return nil, fmt.Errorf("unknown signalType %q", nd.Arguments.SignalType)
 	}

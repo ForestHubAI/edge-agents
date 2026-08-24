@@ -98,6 +98,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           pinReference: draft(data.arguments.pinReference),
           signalType: data.arguments.signalType,
           value: data.arguments.value,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     case "SerialWrite":
@@ -108,6 +109,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
         arguments: {
           portReference: draft(data.arguments.portReference),
           value: data.arguments.value,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     case "Agent": {
@@ -245,6 +247,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           url: data.arguments.url,
           maxChars: data.arguments.maxChars,
           output: data.arguments.output,
+          toolDescription: data.arguments.toolDescription,
         },
       };
     case "MLInference":
@@ -321,6 +324,7 @@ function serializeNodeData(data: NodeData, position: { x: number; y: number }, i
           channelReference: data.arguments.channelReference ?? "",
           dataType: data.arguments.dataType,
           value: data.arguments.value,
+          toolDescription: data.arguments.toolDescription,
           // Unset stays unset — Number(undefined) is NaN, which stringifies to null.
           qos: draft(data.arguments.qos === undefined ? undefined : (Number(data.arguments.qos) as 0 | 1 | 2)),
           retain: data.arguments.retain,
@@ -382,7 +386,8 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         arguments: {
           memoryReference: apiNode.arguments.memoryReference ?? "",
           topK: apiNode.arguments.topK ?? 0,
-          query: apiNode.arguments.query,
+          // `query` is activation-gated (control-flow only) — see the WritePin arm.
+          query: apiNode.arguments.query ?? { expression: "", references: [], dataType: "string" },
           output: apiNode.arguments.output as OutputBinding,
           toolDescription: apiNode.arguments.toolDescription,
         },
@@ -395,7 +400,12 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         arguments: {
           pinReference: apiNode.arguments.pinReference ?? "",
           signalType: apiNode.arguments.signalType,
-          value: apiNode.arguments.value,
+          // `value` is activation-gated (control-flow only), so a tool-wired node
+          // carries none on the wire. Seed the definition's default so the domain
+          // upholds "an expression is always a value object"; it prunes back out
+          // at serialize while the node stays tool-wired.
+          value: apiNode.arguments.value ?? { expression: "", references: [], dataType: "bool" },
+          toolDescription: apiNode.arguments.toolDescription,
         },
       };
     case "SerialWrite":
@@ -405,7 +415,9 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         label: apiNode.label,
         arguments: {
           portReference: apiNode.arguments.portReference ?? "",
-          value: apiNode.arguments.value,
+          // `value` is activation-gated (control-flow only) — see the WritePin arm.
+          value: apiNode.arguments.value ?? { expression: "", references: [], dataType: "string" },
+          toolDescription: apiNode.arguments.toolDescription,
         },
       };
     case "Agent":
@@ -514,9 +526,11 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         type: apiNode.type,
         label: apiNode.label,
         arguments: {
-          url: apiNode.arguments.url,
+          // `url` is activation-gated (control-flow only) — see the WritePin arm.
+          url: apiNode.arguments.url ?? { expression: "", references: [], dataType: "string" },
           maxChars: apiNode.arguments.maxChars,
           output: apiNode.arguments.output as OutputBinding,
+          toolDescription: apiNode.arguments.toolDescription,
         },
       };
     case "MLInference":
@@ -591,7 +605,9 @@ function deserializeNodeData(apiNode: Schemas["Node"], resolveFunctionInfo?: Res
         arguments: {
           channelReference: apiNode.arguments.channelReference ?? "",
           dataType: apiNode.arguments.dataType as "int" | "float" | "bool" | "string",
-          value: apiNode.arguments.value,
+          // `value` is activation-gated (control-flow only) — see the WritePin arm.
+          value: apiNode.arguments.value ?? { expression: "", references: [], dataType: "string" },
+          toolDescription: apiNode.arguments.toolDescription,
           qos: String(apiNode.arguments.qos) as "0" | "1" | "2",
           retain: apiNode.arguments.retain,
         },

@@ -351,8 +351,8 @@ export interface components {
                 memoryReference?: string;
                 /** @description Number of results to return */
                 topK?: number;
-                /** @description Search query expression */
-                query: components["schemas"]["Expression"];
+                /** @description Search query expression; absent when the node is exposed as a tool, where the model supplies it. */
+                query?: components["schemas"]["Expression"];
                 output: components["schemas"]["OutputBinding"];
                 /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
                 toolDescription?: string;
@@ -368,11 +368,13 @@ export interface components {
             label?: string;
             position: components["schemas"]["NodePosition"];
             arguments: {
-                /** @description URL expression to fetch (http or https) */
-                url: components["schemas"]["Expression"];
+                /** @description URL expression to fetch (http or https); absent when the node is exposed as a tool, where the model supplies it. */
+                url?: components["schemas"]["Expression"];
                 /** @description Maximum characters of extracted text to return. Defaults to 50000 when omitted or non-positive. */
                 maxChars?: number;
                 output: components["schemas"]["OutputBinding"];
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
+                toolDescription?: string;
             };
         };
         MLInferenceNode: {
@@ -442,7 +444,10 @@ export interface components {
                 /** @description Reference to an IO variable ID */
                 pinReference?: string;
                 signalType: components["schemas"]["SignalType"];
-                value: components["schemas"]["Expression"];
+                /** @description Written value; absent when the node is exposed as a tool, where the model supplies it. */
+                value?: components["schemas"]["Expression"];
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
+                toolDescription?: string;
             };
         };
         AgentNode: {
@@ -511,7 +516,10 @@ export interface components {
             arguments: {
                 /** @description Reference to a UART channel ID (the serial port to write to) */
                 portReference?: string;
-                value: components["schemas"]["Expression"];
+                /** @description Written text; absent when the node is exposed as a tool, where the model supplies it. */
+                value?: components["schemas"]["Expression"];
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
+                toolDescription?: string;
             };
         };
         SetVariableNode: {
@@ -541,7 +549,10 @@ export interface components {
                 /** @description Reference to an MQTT channel ID (the channel carries the topic; resolved to a broker at deploy time) */
                 channelReference?: string;
                 dataType: components["schemas"]["DataType"];
-                value: components["schemas"]["Expression"];
+                /** @description Published value; absent when the node is exposed as a tool, where the model supplies it. */
+                value?: components["schemas"]["Expression"];
+                /** @description Description used when this node is exposed as a tool; ignored in exec mode. */
+                toolDescription?: string;
                 /**
                  * @description MQTT Quality of Service level
                  * @enum {integer}
